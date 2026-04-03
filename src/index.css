@@ -1,0 +1,21 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:       #0a0e1a;
+  --navy-mid:   #111827;
+  --navy-light: #1e2a3a;
+  --gold:       #c9a84c;
+  --gold-light: #e8c97a;
+  --white:      #f0ede6;
+  --muted:      #8a9bb0;
+  --danger:     #e05c5c;
+  --font-display: 'DM Serif Display', serif;
+  --font-mono:    'DM Mono', monospace;
+}
+
+body {
+  background: var(--navy);
+  color: var(--white);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+}
