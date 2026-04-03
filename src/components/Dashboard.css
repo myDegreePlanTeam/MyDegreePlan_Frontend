@@ -210,3 +210,177 @@
   color: var(--muted);
   font-size: 0.875rem;
 }
+
+/* ── Degree Plan ─────────────────────────────────────────────────── */
+
+.degreeplan-shell {
+  min-height: 100vh;
+  background: var(--navy);
+  display: flex;
+  flex-direction: column;
+}
+
+.degreeplan-header {
+  background: var(--navy-mid);
+  border-bottom: 1px solid var(--navy-light);
+  padding: 1.5rem 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.degreeplan-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.degreeplan-eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 0.25rem;
+}
+
+.degreeplan-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--white);
+  margin-bottom: 0.2rem;
+}
+
+.degreeplan-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.degreeplan-signout {
+  background: transparent;
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.degreeplan-signout:hover {
+  border-color: var(--muted);
+  color: var(--white);
+}
+
+.degreeplan-main {
+  flex: 1;
+  padding: 2rem;
+}
+
+.degreeplan-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Semester card ───────────────────────────────────────────────── */
+
+.semester-card {
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: 12px;
+  overflow: hidden;
+  animation: fadeUp 0.4s ease both;
+}
+
+.semester-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--navy-light);
+}
+
+.semester-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+}
+
+.semester-credits {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.semester-slots {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Slot rows ───────────────────────────────────────────────────── */
+
+.slot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--navy-light);
+  gap: 0.75rem;
+  transition: background 0.15s;
+}
+
+.slot-row:last-child {
+  border-bottom: none;
+}
+
+.slot-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.slot-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.slot-code {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--white);
+  white-space: nowrap;
+}
+
+.slot-name {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slot-credits {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pool-code {
+  color: var(--gold);
+}
+
+.pool-name {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.slot-missing .slot-code {
+  color: var(--danger);
+}

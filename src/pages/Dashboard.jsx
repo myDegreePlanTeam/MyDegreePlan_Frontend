@@ -11,50 +11,78 @@ export default function Dashboard() {
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState(null)
 
-  useEffect(() => {
-    // This function runs once when Dashboard mounts.
-    // It fetches the current user's profile from Supabase.
-    async function loadProfile() {
-      // Step 1: get the currently logged-in user from Supabase auth
-      const { data: { user } } = await supabase.auth.getUser()
+    useEffect(() => {
+    let cancelled = false
 
-      if (!user) {
+    async function loadProfile() {
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
         setError('No authenticated user found.')
         setLoading(false)
         return
-      }
+        }
 
-      // Step 2: fetch their profile row from student_profiles
-      // .eq('user_id', user.id) filters to only THIS user's row
-      // .single() tells Supabase we expect exactly one row back
-      const { data, error } = await supabase
+        let { data, error } = await supabase
         .from('student_profiles')
         .select(`
-          id,
-          concentration_id,
-          start_season,
-          start_year,
-          concentrations (
+            id,
+            concentration_id,
+            start_season,
+            start_year,
+            concentrations (
             id,
             code,
             name,
             total_hours
-          )
+            )
         `)
         .eq('user_id', user.id)
         .single()
 
-      if (error) {
-        setError(error.message)
-      } else {
-        setProfile(data)
-      }
+        // PGRST116 means zero rows found — profile is missing
+        if (error && error.code === 'PGRST116') {
+        const { data: newProfile, error: insertError } = await supabase
+            .from('student_profiles')
+            .insert({ user_id: user.id })
+            .select(`
+            id,
+            concentration_id,
+            start_season,
+            start_year,
+            concentrations (
+                id,
+                code,
+                name,
+                total_hours
+            )
+            `)
+            .single()
 
-      setLoading(false)
+        if (!cancelled) {
+            if (insertError) {
+            setError(insertError.message)
+            } else {
+            setProfile(newProfile)
+            }
+        }
+        } else if (error) {
+        if (!cancelled) setError(error.message)
+        } else {
+        if (!cancelled) setProfile(data)
+        }
+
+        if (!cancelled) setLoading(false)
     }
 
     loadProfile()
-  }, [])
+
+    // Cleanup function — if the component unmounts before the async
+    // work finishes, cancelled = true prevents any state updates
+    // from firing on an unmounted component, which prevents the
+    // duplicate insert from happening on re-render
+    return () => { cancelled = true }
+}, [])
   // The empty [] means this effect runs only once — on mount.
   // If we put [profile] here it would re-run every time profile
   // changes, causing an infinite loop.
