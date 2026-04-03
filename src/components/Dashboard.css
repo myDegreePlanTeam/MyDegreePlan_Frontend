@@ -1,0 +1,212 @@
+/* ── Onboarding ─────────────────────────────────────────────────── */
+
+.onboarding-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--navy);
+}
+
+.onboarding-card {
+  width: 100%;
+  max-width: 640px;
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: 16px;
+  overflow: hidden;
+  animation: fadeUp 0.5s ease both;
+}
+
+.onboarding-header {
+  padding: 2.5rem 2.5rem 2rem;
+  border-bottom: 1px solid var(--navy-light);
+}
+
+.onboarding-eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 0.75rem;
+}
+
+.onboarding-title {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  color: var(--white);
+  margin-bottom: 0.5rem;
+}
+
+.onboarding-sub {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+}
+
+.onboarding-steps {
+  display: flex;
+  gap: 6px;
+}
+
+.onboarding-step {
+  height: 3px;
+  width: 32px;
+  border-radius: 2px;
+  background: var(--navy-light);
+  transition: background 0.3s;
+}
+
+.onboarding-step.active {
+  background: var(--gold);
+}
+
+.onboarding-body {
+  padding: 2rem 2.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.concentration-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.concentration-card {
+  background: var(--navy);
+  border: 1px solid var(--navy-light);
+  border-radius: 10px;
+  padding: 1.25rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.concentration-card:hover {
+  border-color: var(--muted);
+}
+
+.concentration-card.selected {
+  border-color: var(--gold);
+  background: rgba(201, 168, 76, 0.06);
+}
+
+.concentration-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--white);
+}
+
+.concentration-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.season-year-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.onboarding-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.onboarding-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.onboarding-select {
+  background: var(--navy);
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  color: var(--white);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.onboarding-select:focus {
+  border-color: var(--gold);
+}
+
+.onboarding-btn-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.onboarding-btn {
+  flex: 1;
+  padding: 0.85rem 1rem;
+  background: var(--gold);
+  color: var(--navy);
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+  letter-spacing: 0.05em;
+}
+
+.onboarding-btn:hover:not(:disabled) {
+  background: var(--gold-light);
+}
+
+.onboarding-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.onboarding-btn-secondary {
+  padding: 0.85rem 1.5rem;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.onboarding-btn-secondary:hover:not(:disabled) {
+  border-color: var(--muted);
+  color: var(--white);
+}
+
+.onboarding-error {
+  font-size: 0.8rem;
+  color: var(--danger);
+  padding: 0.75rem 1rem;
+  background: rgba(224, 92, 92, 0.08);
+  border: 1px solid rgba(224, 92, 92, 0.2);
+  border-radius: 6px;
+}
+
+.dashboard-loading,
+.dashboard-error {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+}

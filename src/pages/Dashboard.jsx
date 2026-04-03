@@ -1,3 +1,106 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabaseClient'
+import Onboarding from '../components/Onboarding'
+import DegreePlan from '../components/DegreePlan'
+
 export default function Dashboard() {
-  return <div>Dashboard</div>
+  // profile holds the student's row from student_profiles
+  // null  = not loaded yet
+  // false = loaded but something went wrong
+  const [profile, setProfile]         = useState(null)
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState(null)
+
+  useEffect(() => {
+    // This function runs once when Dashboard mounts.
+    // It fetches the current user's profile from Supabase.
+    async function loadProfile() {
+      // Step 1: get the currently logged-in user from Supabase auth
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        setError('No authenticated user found.')
+        setLoading(false)
+        return
+      }
+
+      // Step 2: fetch their profile row from student_profiles
+      // .eq('user_id', user.id) filters to only THIS user's row
+      // .single() tells Supabase we expect exactly one row back
+      const { data, error } = await supabase
+        .from('student_profiles')
+        .select(`
+          id,
+          concentration_id,
+          start_season,
+          start_year,
+          concentrations (
+            id,
+            code,
+            name,
+            total_hours
+          )
+        `)
+        .eq('user_id', user.id)
+        .single()
+
+      if (error) {
+        setError(error.message)
+      } else {
+        setProfile(data)
+      }
+
+      setLoading(false)
+    }
+
+    loadProfile()
+  }, [])
+  // The empty [] means this effect runs only once — on mount.
+  // If we put [profile] here it would re-run every time profile
+  // changes, causing an infinite loop.
+
+  // ── This is called by Onboarding when the student completes setup.
+  // Instead of re-fetching from Supabase, we just update local state
+  // directly with the new values — faster and no extra network call.
+  function handleOnboardingComplete(updatedProfile) {
+    setProfile(updatedProfile)
+  }
+
+  // ── Render logic ──────────────────────────────────────────────────
+  // React renders whatever you return. We use conditional rendering
+  // to show different UI depending on the current state.
+
+  if (loading) {
+    return (
+      <div className="dashboard-loading">
+        <p>Loading your degree plan...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-error">
+        <p>Something went wrong: {error}</p>
+      </div>
+    )
+  }
+
+  // If concentration_id is null the student hasn't completed onboarding.
+  // Show the Onboarding component and pass it a callback to call when done.
+  if (!profile.concentration_id) {
+    return (
+      <Onboarding
+        profileId={profile.id}
+        onComplete={handleOnboardingComplete}
+      />
+    )
+  }
+
+  // Profile is complete — show the full degree plan.
+  return (
+    <DegreePlan
+      profile={profile}
+    />
+  )
 }
