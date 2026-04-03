@@ -1,6 +1,5 @@
 import './Dashboard.css'
 
-// Human-readable labels for all pool codes
 const POOL_LABELS = {
   GEN_ED:             'General Education',
   ENG_LIT:            'English Literature',
@@ -14,13 +13,13 @@ const POOL_LABELS = {
   FREE_ELECTIVE:      'Free Elective',
 }
 
-export default function Semester({ semesterNumber, slots, courseMap }) {
+export default function Semester({ semesterNumber, slots, courseMap, planSlots = {}, onSlotClick }) {
   return (
     <div className="semester-card">
       <div className="semester-header">
         <span className="semester-label">Semester {semesterNumber}</span>
         <span className="semester-credits">
-          {calculateCredits(slots, courseMap)} cr
+          {calculateCredits(slots, courseMap, planSlots)} cr
         </span>
       </div>
       <div className="semester-slots">
@@ -29,6 +28,9 @@ export default function Semester({ semesterNumber, slots, courseMap }) {
             key={slot.id}
             slot={slot}
             course={courseMap[slot.class_code]}
+            selectedCode={planSlots[slot.id]}
+            selectedCourse={planSlots[slot.id] ? courseMap[planSlots[slot.id]] : null}
+            onSlotClick={onSlotClick}
           />
         ))}
       </div>
@@ -36,25 +38,36 @@ export default function Semester({ semesterNumber, slots, courseMap }) {
   )
 }
 
-function SlotRow({ slot, course }) {
-  // Pool slot — show the human-readable pool label
+function SlotRow({ slot, course, selectedCode, selectedCourse, onSlotClick }) {
+  // Pool slot — clickable, shows selection if one exists
   if (slot.is_pool) {
+    const isSelected = !!selectedCode
+
     return (
-      <div className="slot-row slot-pool">
+      <button
+        className={`slot-row slot-pool clickable ${isSelected ? 'slot-filled' : ''}`}
+        onClick={() => onSlotClick(slot)}
+      >
         <div className="slot-info">
           <span className="slot-code pool-code">
-            {POOL_LABELS[slot.class_code] ?? slot.class_code}
+            {isSelected ? selectedCode : (POOL_LABELS[slot.class_code] ?? slot.class_code)}
           </span>
-          <span className="slot-name pool-name">Student choice</span>
+          <span className="slot-name pool-name">
+            {isSelected
+              ? (selectedCourse?.name ?? 'Selected')
+              : 'Click to select'}
+          </span>
         </div>
         <span className="slot-credits">
-          {slot.flex_credits ?? '3'} cr
+          {isSelected
+            ? `${selectedCourse?.credits ?? slot.flex_credits ?? 3} cr`
+            : `${slot.flex_credits ?? 3} cr`}
         </span>
-      </div>
+      </button>
     )
   }
 
-  // Real course slot — show code, name, and credits from courseMap
+  // Required course — not clickable
   if (course) {
     return (
       <div className="slot-row slot-required">
@@ -67,7 +80,6 @@ function SlotRow({ slot, course }) {
     )
   }
 
-  // Fallback — course code exists in slot but wasn't found in courseMap
   return (
     <div className="slot-row slot-missing">
       <div className="slot-info">
@@ -79,9 +91,13 @@ function SlotRow({ slot, course }) {
   )
 }
 
-function calculateCredits(slots, courseMap) {
+function calculateCredits(slots, courseMap, planSlots) {
   return slots.reduce((total, slot) => {
-    if (slot.is_pool) return total + (slot.flex_credits ?? 3)
+    if (slot.is_pool) {
+      const selectedCode = planSlots?.[slot.id]
+      const selectedCourse = selectedCode ? courseMap[selectedCode] : null
+      return total + (selectedCourse?.credits ?? slot.flex_credits ?? 3)
+    }
     const course = courseMap[slot.class_code]
     return total + (course?.credits ?? 0)
   }, 0)

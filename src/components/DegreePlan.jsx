@@ -1,3 +1,4 @@
+import SlotModal from './SlotModal'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Semester from './Semester'
@@ -8,66 +9,66 @@ export default function DegreePlan({ profile }) {
   const [courses, setCourses]   = useState({})
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
+  const [activeSlot, setActiveSlot] = useState(null)
+  const [planSlots, setPlanSlots]   = useState({})
 
   useEffect(() => {
-    async function loadPlan() {
-      // ── Step 1: fetch all requirement slots for this concentration ──
-      // ordered by semester_number then slot_order so they come back
-      // in the correct display sequence
-      const { data: slotData, error: slotError } = await supabase
-        .from('requirement_slots')
-        .select('id, semester_number, slot_order, class_code, is_pool, flex_credits')
-        .eq('concentration_id', profile.concentration_id)
-        .order('semester_number', { ascending: true })
-        .order('slot_order',      { ascending: true })
+  async function loadPlan() {
+    // ── Step 1: fetch requirement slots ───────────────────────────
+    const { data: slotData, error: slotError } = await supabase
+      .from('requirement_slots')
+      .select('id, semester_number, slot_order, class_code, is_pool, flex_credits')
+      .eq('concentration_id', profile.concentration_id)
+      .order('semester_number', { ascending: true })
+      .order('slot_order',      { ascending: true })
 
-      if (slotError) {
-        setError(slotError.message)
-        setLoading(false)
-        return
-      }
-
-      // ── Step 2: collect all real course codes (non-pool slots) ──────
-      // We only need to look up courses for slots that have a real
-      // course code — pool slots like GEN_ED don't have a courses row
-      const realCodes = slotData
-        .filter(s => !s.is_pool)
-        .map(s => s.class_code)
-
-      // Remove duplicates — some courses appear in multiple semesters
-      const uniqueCodes = [...new Set(realCodes)]
-
-      // ── Step 3: fetch those courses in one query ────────────────────
-      // .in() is SQL's WHERE code IN (...) — fetches multiple rows
-      // matching any value in the array
-      const { data: courseData, error: courseError } = await supabase
-        .from('courses')
-        .select('code, name, credits, subject_code')
-        .in('code', uniqueCodes)
-
-      if (courseError) {
-        setError(courseError.message)
-        setLoading(false)
-        return
-      }
-
-      // ── Step 4: convert course array into a lookup object ───────────
-      // Instead of searching through an array every time we need a course,
-      // we build an object keyed by course code for instant lookup:
-      // { 'CSC1300': { code, name, credits, subject_code }, ... }
-      const courseMap = {}
-      for (const course of courseData) {
-        courseMap[course.code] = course
-      }
-
-      setSlots(slotData)
-      setCourses(courseMap)
+    if (slotError) {
+      setError(slotError.message)
       setLoading(false)
+      return
     }
 
-    loadPlan()
-  }, [profile.concentration_id])
-  // We depend on concentration_id — if it ever changes (unlikely but
+    // ── Step 2: collect real course codes from slots ───────────────
+    const realCodes = slotData
+      .filter(s => !s.is_pool)
+      .map(s => s.class_code)
+
+    // ── Step 3: collect all pool course codes from poolResolver ───
+    // We need these in courseMap so the modal can display them
+    const { POOL_COURSES } = await import('../lib/poolResolver')
+    const poolCodes = Object.values(POOL_COURSES)
+      .filter(arr => arr !== null)
+      .flat()
+
+    // Combine and deduplicate all codes we need to fetch
+    const allCodes = [...new Set([...realCodes, ...poolCodes])]
+
+    // ── Step 4: fetch all courses in one query ─────────────────────
+    const { data: courseData, error: courseError } = await supabase
+      .from('courses')
+      .select('code, name, credits, subject_code')
+      .in('code', allCodes)
+
+    if (courseError) {
+      setError(courseError.message)
+      setLoading(false)
+      return
+    }
+
+    // ── Step 5: build courseMap keyed by code ──────────────────────
+    const courseMap = {}
+    for (const course of courseData) {
+      courseMap[course.code] = course
+    }
+
+    setSlots(slotData)
+    setCourses(courseMap)
+    setLoading(false)
+  }
+
+    
+  loadPlan()
+}, [profile.concentration_id])  // We depend on concentration_id — if it ever changes (unlikely but
   // possible if a student switches concentrations later), this
   // re-fetches automatically
 
@@ -87,6 +88,25 @@ export default function DegreePlan({ profile }) {
     .sort((a, b) => a - b)
 
   // ── Render ──────────────────────────────────────────────────────────
+  async function handleSave(slot, course) {
+    const { error } = await supabase
+      .from('student_plan_slots')
+      .upsert({
+        student_id:           profile.id,
+        requirement_slot_id:  slot.id,
+        selected_course_code: course.code,
+        status:               'planned',
+      }, { onConflict: 'student_id, requirement_slot_id' })
+
+    if (!error) {
+      setPlanSlots(prev => ({
+        ...prev,
+        [slot.id]: course.code,
+      }))
+      setActiveSlot(null)
+    }
+  }
+
 
   if (loading) {
     return (
@@ -103,6 +123,8 @@ export default function DegreePlan({ profile }) {
       </div>
     )
   }
+
+  
 
   return (
     <div className="degreeplan-shell">
@@ -130,14 +152,26 @@ export default function DegreePlan({ profile }) {
         <div className="degreeplan-grid">
           {semesterNumbers.map(semNum => (
             <Semester
-              key={semNum}
-              semesterNumber={semNum}
-              slots={semesterMap[semNum]}
-              courseMap={courses}
+                key={semNum}
+                semesterNumber={semNum}
+                slots={semesterMap[semNum]}
+                courseMap={courses}
+                planSlots={planSlots}
+                onSlotClick={setActiveSlot}
             />
           ))}
         </div>
       </main>
+
+      {activeSlot && (
+        <SlotModal
+            slot={activeSlot}
+            courseMap={courses}
+            studentId={profile.id}
+            onSave={handleSave}
+            onClose={() => setActiveSlot(null)}
+        />
+       )}
 
     </div>
   )
