@@ -600,3 +600,47 @@
 .slot-row.slot-filled .slot-code {
   color: var(--gold);
 }
+
+/* ── Modal course status styles ──────────────────────────────────── */
+
+.modal-course-row.status-locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-course-row.status-taken {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.modal-course-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-status-badge {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.modal-status-badge.taken {
+  background: rgba(138, 155, 176, 0.15);
+  color: var(--muted);
+}
+
+.modal-status-badge.locked {
+  background: rgba(224, 92, 92, 0.12);
+  color: var(--danger);
+}
+
+.modal-prereq-hint {
+  font-size: 0.68rem;
+  color: var(--danger);
+  opacity: 0.8;
+  margin-top: 0.1rem;
+}

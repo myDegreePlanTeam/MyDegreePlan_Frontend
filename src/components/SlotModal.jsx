@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { resolvePool } from '../lib/poolResolver'
+import { checkPrereqs } from '../lib/prereqChecker'
 import './Dashboard.css'
 
-export default function SlotModal({ slot, courseMap, studentId, onSave, onClose }) {
+export default function SlotModal({
+  slot,
+  courseMap,
+  planSlots,
+  slots,
+  prereqMap,
+  onSave,
+  onClose
+}) {
   const [courses, setCourses]   = useState([])
   const [search, setSearch]     = useState('')
   const [selected, setSelected] = useState(null)
@@ -10,26 +19,62 @@ export default function SlotModal({ slot, courseMap, studentId, onSave, onClose 
   const [error, setError]       = useState(null)
 
   useEffect(() => {
-    // Resolve the pool to a list of course objects when the modal opens
     const resolved = resolvePool(slot.class_code, courseMap)
     setCourses(resolved ?? [])
   }, [slot.class_code, courseMap])
 
-  // Filter courses by search input — matches code or name case-insensitively
-  const filtered = courses.filter(c =>
-    c.code.toLowerCase().includes(search.toLowerCase()) ||
-    c.name.toLowerCase().includes(search.toLowerCase())
-  )
+  // ── Build the set of satisfied course codes ─────────────────────
+  // This is what we compare prerequisites against.
+  // Includes: all required (non-pool) slots + all student selections.
+  const satisfiedCodes = useMemo(() => {
+    const requiredCodes = slots
+      .filter(s => !s.is_pool)
+      .map(s => s.class_code)
+
+    const selectedCodes = Object.values(planSlots)
+
+    return new Set([...requiredCodes, ...selectedCodes])
+  }, [slots, planSlots])
+
+  // ── Build the set of already-taken course codes ──────────────────
+  // Prevents the same course appearing in multiple pool slots.
+  const takenCodes = useMemo(() => {
+    return new Set(Object.values(planSlots))
+  }, [planSlots])
+
+  // ── Annotate each course with its availability status ───────────
+  const annotatedCourses = useMemo(() => {
+    return courses.map(course => {
+      if (takenCodes.has(course.code)) {
+        return { ...course, status: 'taken' }
+      }
+      const prereqResult = checkPrereqs(course.code, prereqMap, satisfiedCodes)
+      if (!prereqResult.satisfied) {
+        return { ...course, status: 'locked', missing: prereqResult.missing }
+      }
+      return { ...course, status: 'available' }
+    })
+  }, [courses, takenCodes, prereqMap, satisfiedCodes])
+
+  // ── Filter by search, then sort: available first, locked second,
+  //    taken last — so students see their best options immediately
+  const filtered = useMemo(() => {
+    const searched = annotatedCourses.filter(c =>
+      c.code.toLowerCase().includes(search.toLowerCase()) ||
+      c.name.toLowerCase().includes(search.toLowerCase())
+    )
+    const order = { available: 0, locked: 1, taken: 2 }
+    return searched.sort((a, b) => order[a.status] - order[b.status])
+  }, [annotatedCourses, search])
 
   async function handleSave() {
-    if (!selected) return
+    if (!selected || selected.status !== 'available') return
     setSaving(true)
     setError(null)
     await onSave(slot, selected)
     setSaving(false)
   }
 
-  // Close modal when clicking the backdrop behind the card
   function handleBackdropClick(e) {
     if (e.target === e.currentTarget) onClose()
   }
@@ -65,12 +110,26 @@ export default function SlotModal({ slot, courseMap, studentId, onSave, onClose 
             filtered.map(course => (
               <button
                 key={course.code}
-                className={`modal-course-row ${selected?.code === course.code ? 'selected' : ''}`}
-                onClick={() => setSelected(course)}
+                className={`modal-course-row status-${course.status} ${selected?.code === course.code ? 'selected' : ''}`}
+                onClick={() => course.status === 'available' && setSelected(course)}
+                disabled={course.status === 'taken'}
               >
                 <div className="modal-course-info">
-                  <span className="modal-course-code">{course.code}</span>
+                  <div className="modal-course-top">
+                    <span className="modal-course-code">{course.code}</span>
+                    {course.status === 'taken' && (
+                      <span className="modal-status-badge taken">Already selected</span>
+                    )}
+                    {course.status === 'locked' && (
+                      <span className="modal-status-badge locked">Prereqs needed</span>
+                    )}
+                  </div>
                   <span className="modal-course-name">{course.name}</span>
+                  {course.status === 'locked' && course.missing && (
+                    <span className="modal-prereq-hint">
+                      Needs: {course.missing.join(', ')}
+                    </span>
+                  )}
                 </div>
                 <span className="modal-course-credits">{course.credits} cr</span>
               </button>
@@ -87,7 +146,7 @@ export default function SlotModal({ slot, courseMap, studentId, onSave, onClose 
             <button
               className="onboarding-btn"
               onClick={handleSave}
-              disabled={!selected || saving}
+              disabled={!selected || selected.status !== 'available' || saving}
             >
               {saving ? 'Saving...' : 'Select course'}
             </button>
