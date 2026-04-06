@@ -644,3 +644,20 @@
   opacity: 0.8;
   margin-top: 0.1rem;
 }
+
+.modal-autofill-notice {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem;
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.06);
+  border-bottom: 1px solid var(--navy-light);
+}
+
+.modal-section-label {
+  padding: 0.5rem 1.5rem 0.25rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--navy-light);
+}

@@ -1,7 +1,8 @@
-import SlotModal from './SlotModal'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { POOL_COURSES } from '../lib/poolResolver'
 import Semester from './Semester'
+import SlotModal from './SlotModal'
 import './Dashboard.css'
 
 export default function DegreePlan({ profile }) {
@@ -90,10 +91,30 @@ export default function DegreePlan({ profile }) {
         prereqMapBuilt[entry.course_code][entry.group_index].codes.push(entry.required_code)
       }
 
-      // ── Step 7: set all state at once ────────────────────────────
+      // ── Step 7: load saved student selections ────────────────────
+      const slotIds = slotData.map(s => s.id)
+      const { data: savedSlots, error: savedSlotsError } = await supabase
+        .from('student_plan_slots')
+        .select('requirement_slot_id, selected_course_code')
+        .eq('student_id', profile.id)
+        .in('requirement_slot_id', slotIds)
+
+      if (savedSlotsError) {
+        setError(savedSlotsError.message)
+        setLoading(false)
+        return
+      }
+
+      const planSlotsMap = {}
+      for (const row of savedSlots) {
+        planSlotsMap[row.requirement_slot_id] = row.selected_course_code
+      }
+
+      // ── Step 8: set all state at once ────────────────────────────
       setSlots(slotData)
       setCourses(courseMap)
       setPrereqMap(prereqMapBuilt)
+      setPlanSlots(planSlotsMap)
       setLoading(false)
     }
 

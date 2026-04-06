@@ -177,13 +177,90 @@ export const POOL_COURSES = {
 // Returns null for FREE_ELECTIVE — the modal handles that case separately.
 
 export function resolvePool(poolCode, courseMap) {
+  // FREE_ELECTIVE — return null to signal open resolution
+  // (handled separately in SlotModal with suggestions)
+  if (poolCode === 'FREE_ELECTIVE') return null
+
   const codes = POOL_COURSES[poolCode]
+  if (!codes) return []
 
-  // FREE_ELECTIVE has null codes — signal the modal to show open search
-  if (codes === null) return null
-
-  // Filter courseMap to only courses in this pool, preserving pool order
   return codes
     .filter(code => courseMap[code])
     .map(code => courseMap[code])
+}
+
+// ── resolveScience ────────────────────────────────────────────────────────────
+
+const SCIENCE_SEQUENCES = [
+  { courses: ['CHEM1110', 'CHEM1120'], strict: true,  first: 'CHEM1110' },
+  { courses: ['PHYS2010', 'PHYS2020'], strict: true,  first: 'PHYS2010' },
+  { courses: ['PHYS2110', 'PHYS2120'], strict: true,  first: 'PHYS2110' },
+  { courses: ['GEOL1040', 'GEOL1045'], strict: false, first: null       },
+  { courses: ['GEOL1045', 'GEOL1040'], strict: false, first: null       },
+  { courses: ['BIOL1123', 'BIOL1113'], strict: false, first: null       },
+  { courses: ['BIOL2310', 'BIOL1113'], strict: false, first: null       },
+]
+
+export function resolveScience(planSlots, slots, courseMap) {
+  const scienceSlotIds = slots
+    .filter(s => s.is_pool && s.class_code === 'SCIENCE')
+    .map(s => s.id)
+
+  const selectedScienceCodes = scienceSlotIds
+    .map(id => planSlots[id])
+    .filter(Boolean)
+
+  if (selectedScienceCodes.length === 0) return { mode: 'normal' }
+
+  const alreadySelected = selectedScienceCodes[0]
+
+  // BIOL1113 special case — narrow to the two options
+  if (alreadySelected === 'BIOL1113') {
+    return {
+      mode: 'narrow',
+      courses: ['BIOL1123', 'BIOL2310']
+        .filter(code => courseMap[code])
+        .map(code => courseMap[code]),
+    }
+  }
+
+  // Find sequence and auto-fill partner
+  for (const seq of SCIENCE_SEQUENCES) {
+    if (!seq.courses.includes(alreadySelected)) continue
+    const partner = seq.courses.find(c => c !== alreadySelected)
+    if (!partner || !courseMap[partner]) continue
+    return { mode: 'autofill', course: courseMap[partner] }
+  }
+
+  return { mode: 'normal' }
+}
+
+// ── resolveFreeElective ───────────────────────────────────────────────────────
+
+export function resolveFreeElective(courseMap, slots, planSlots) {
+  const planSubjectCodes = new Set()
+
+  slots
+    .filter(s => !s.is_pool)
+    .forEach(s => {
+      const course = courseMap[s.class_code]
+      if (course) planSubjectCodes.add(course.subject_code)
+    })
+
+  Object.values(planSlots).forEach(code => {
+    const course = courseMap[code]
+    if (course) planSubjectCodes.add(course.subject_code)
+  })
+
+  const allCourses = Object.values(courseMap)
+
+  const suggested = allCourses
+    .filter(c => planSubjectCodes.has(c.subject_code))
+    .sort((a, b) => a.code.localeCompare(b.code))
+
+  const other = allCourses
+    .filter(c => !planSubjectCodes.has(c.subject_code))
+    .sort((a, b) => a.code.localeCompare(b.code))
+
+  return { suggested, other }
 }
