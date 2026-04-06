@@ -661,3 +661,111 @@
   color: var(--muted);
   border-bottom: 1px solid var(--navy-light);
 }
+
+/* ── Slot status visuals ─────────────────────────────────────────── */
+
+.slot-row.status-in_progress {
+  border-left: 2px solid #6b9bd2;
+  padding-left: calc(1.25rem - 2px);
+  background: rgba(107, 155, 210, 0.04);
+}
+
+.slot-row.status-completed {
+  border-left: 2px solid #4caf7d;
+  padding-left: calc(1.25rem - 2px);
+  background: rgba(76, 175, 125, 0.04);
+}
+
+/* slot-right holds the status badge + credit count side by side */
+.slot-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* ── Status badge ────────────────────────────────────────────────── */
+
+.status-badge {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.45rem;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.status-badge:hover {
+  opacity: 0.75;
+}
+
+.status-badge-planned {
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.12);
+  border-color: rgba(201, 168, 76, 0.25);
+}
+
+.status-badge-in_progress {
+  color: #6b9bd2;
+  background: rgba(107, 155, 210, 0.12);
+  border-color: rgba(107, 155, 210, 0.25);
+}
+
+.status-badge-completed {
+  color: #4caf7d;
+  background: rgba(76, 175, 125, 0.12);
+  border-color: rgba(76, 175, 125, 0.25);
+}
+
+/* ── Credit progress bar ─────────────────────────────────────────── */
+
+.credit-bar-wrap {
+  margin-top: 0.75rem;
+}
+
+.credit-bar-track {
+  height: 4px;
+  background: var(--navy-light);
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  width: 260px;
+  max-width: 100%;
+}
+
+.credit-bar-completed {
+  background: #4caf7d;
+  transition: width 0.4s ease;
+}
+
+.credit-bar-planned {
+  background: var(--gold);
+  opacity: 0.6;
+  transition: width 0.4s ease;
+}
+
+.credit-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.credit-label-completed {
+  color: #4caf7d;
+}
+
+.credit-label-planned {
+  color: var(--gold);
+  opacity: 0.85;
+}
+
+.credit-label-dot {
+  color: var(--navy-light);
+}

@@ -13,7 +13,28 @@ const POOL_LABELS = {
   FREE_ELECTIVE:      'Free Elective',
 }
 
-export default function Semester({ semesterNumber, slots, courseMap, planSlots = {}, onSlotClick }) {
+// Clicking cycles: planned → in_progress → completed → planned
+const NEXT_STATUS = {
+  planned:     'in_progress',
+  in_progress: 'completed',
+  completed:   'planned',
+}
+
+const STATUS_LABEL = {
+  planned:     'Planned',
+  in_progress: 'In Progress',
+  completed:   'Done',
+}
+
+export default function Semester({
+  semesterNumber,
+  slots,
+  courseMap,
+  planSlots     = {},
+  planStatuses  = {},
+  onSlotClick,
+  onStatusChange,
+}) {
   return (
     <div className="semester-card">
       <div className="semester-header">
@@ -30,7 +51,9 @@ export default function Semester({ semesterNumber, slots, courseMap, planSlots =
             course={courseMap[slot.class_code]}
             selectedCode={planSlots[slot.id]}
             selectedCourse={planSlots[slot.id] ? courseMap[planSlots[slot.id]] : null}
+            status={planStatuses[slot.id]}
             onSlotClick={onSlotClick}
+            onStatusChange={onStatusChange}
           />
         ))}
       </div>
@@ -38,15 +61,25 @@ export default function Semester({ semesterNumber, slots, courseMap, planSlots =
   )
 }
 
-function SlotRow({ slot, course, selectedCode, selectedCourse, onSlotClick }) {
-  // Pool slot — clickable, shows selection if one exists
+// ── SlotRow ───────────────────────────────────────────────────────────────────
+// Pool slots are rendered as a div[role=button] rather than <button> because
+// they contain a StatusBadge <button> — HTML forbids nested interactive buttons
+// and browsers silently break the DOM when you try. A div with role/tabIndex
+// is semantically equivalent for keyboard/screen-reader users.
+
+function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotClick, onStatusChange }) {
+  const effectiveStatus = status ?? 'planned'
+
+  // Pool slot — div[role=button] opens the course-selection modal
   if (slot.is_pool) {
     const isSelected = !!selectedCode
-
     return (
-      <button
-        className={`slot-row slot-pool clickable ${isSelected ? 'slot-filled' : ''}`}
+      <div
+        className={`slot-row slot-pool clickable status-${effectiveStatus} ${isSelected ? 'slot-filled' : ''}`}
         onClick={() => onSlotClick(slot)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => e.key === 'Enter' && onSlotClick(slot)}
       >
         <div className="slot-info">
           <span className="slot-code pool-code">
@@ -58,28 +91,45 @@ function SlotRow({ slot, course, selectedCode, selectedCourse, onSlotClick }) {
               : 'Click to select'}
           </span>
         </div>
-        <span className="slot-credits">
-          {isSelected
-            ? `${selectedCourse?.credits ?? slot.flex_credits ?? 3} cr`
-            : `${slot.flex_credits ?? 3} cr`}
-        </span>
-      </button>
-    )
-  }
-
-  // Required course — not clickable
-  if (course) {
-    return (
-      <div className="slot-row slot-required">
-        <div className="slot-info">
-          <span className="slot-code">{course.code}</span>
-          <span className="slot-name">{course.name}</span>
+        <div className="slot-right">
+          {isSelected && (
+            <StatusBadge
+              slot={slot}
+              status={effectiveStatus}
+              onStatusChange={onStatusChange}
+            />
+          )}
+          <span className="slot-credits">
+            {isSelected
+              ? `${selectedCourse?.credits ?? slot.flex_credits ?? 3} cr`
+              : `${slot.flex_credits ?? 3} cr`}
+          </span>
         </div>
-        <span className="slot-credits">{course.credits} cr</span>
       </div>
     )
   }
 
+  // Required course — always on the plan, always shows status badge
+  if (course) {
+    return (
+      <div className={`slot-row slot-required status-${effectiveStatus}`}>
+        <div className="slot-info">
+          <span className="slot-code">{course.code}</span>
+          <span className="slot-name">{course.name}</span>
+        </div>
+        <div className="slot-right">
+          <StatusBadge
+            slot={slot}
+            status={effectiveStatus}
+            onStatusChange={onStatusChange}
+          />
+          <span className="slot-credits">{course.credits} cr</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback: course data not found
   return (
     <div className="slot-row slot-missing">
       <div className="slot-info">
@@ -91,10 +141,34 @@ function SlotRow({ slot, course, selectedCode, selectedCourse, onSlotClick }) {
   )
 }
 
+// ── StatusBadge ───────────────────────────────────────────────────────────────
+// Clicking cycles to the next status and saves to Supabase.
+// stopPropagation prevents the click from bubbling up to the pool slot's
+// div[role=button] and accidentally opening the course-selection modal.
+
+function StatusBadge({ slot, status, onStatusChange }) {
+  function handleClick(e) {
+    e.stopPropagation()
+    onStatusChange(slot, NEXT_STATUS[status])
+  }
+
+  return (
+    <button
+      className={`status-badge status-badge-${status}`}
+      onClick={handleClick}
+      title={`Mark as ${STATUS_LABEL[NEXT_STATUS[status]]}`}
+    >
+      {STATUS_LABEL[status]}
+    </button>
+  )
+}
+
+// ── Credit calculator ─────────────────────────────────────────────────────────
+
 function calculateCredits(slots, courseMap, planSlots) {
   return slots.reduce((total, slot) => {
     if (slot.is_pool) {
-      const selectedCode = planSlots?.[slot.id]
+      const selectedCode   = planSlots?.[slot.id]
       const selectedCourse = selectedCode ? courseMap[selectedCode] : null
       return total + (selectedCourse?.credits ?? slot.flex_credits ?? 3)
     }

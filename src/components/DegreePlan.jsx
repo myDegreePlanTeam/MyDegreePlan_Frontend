@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { POOL_COURSES } from '../lib/poolResolver'
 import Semester from './Semester'
@@ -12,6 +12,7 @@ export default function DegreePlan({ profile }) {
   const [error, setError]               = useState(null)
   const [activeSlot, setActiveSlot]     = useState(null)
   const [planSlots, setPlanSlots]       = useState({})
+  const [planStatuses, setPlanStatuses] = useState({})
   const [prereqMap, setPrereqMap]       = useState({})
 
   useEffect(() => {
@@ -91,11 +92,11 @@ export default function DegreePlan({ profile }) {
         prereqMapBuilt[entry.course_code][entry.group_index].codes.push(entry.required_code)
       }
 
-      // ── Step 7: load saved student selections ────────────────────
+      // ── Step 7: load saved student selections and statuses ───────
       const slotIds = slotData.map(s => s.id)
       const { data: savedSlots, error: savedSlotsError } = await supabase
         .from('student_plan_slots')
-        .select('requirement_slot_id, selected_course_code')
+        .select('requirement_slot_id, selected_course_code, status')
         .eq('student_id', profile.id)
         .in('requirement_slot_id', slotIds)
 
@@ -105,9 +106,11 @@ export default function DegreePlan({ profile }) {
         return
       }
 
-      const planSlotsMap = {}
+      const planSlotsMap    = {}
+      const planStatusesMap = {}
       for (const row of savedSlots) {
-        planSlotsMap[row.requirement_slot_id] = row.selected_course_code
+        planSlotsMap[row.requirement_slot_id]    = row.selected_course_code
+        planStatusesMap[row.requirement_slot_id] = row.status
       }
 
       // ── Step 8: set all state at once ────────────────────────────
@@ -115,6 +118,7 @@ export default function DegreePlan({ profile }) {
       setCourses(courseMap)
       setPrereqMap(prereqMapBuilt)
       setPlanSlots(planSlotsMap)
+      setPlanStatuses(planStatusesMap)
       setLoading(false)
     }
 
@@ -133,23 +137,69 @@ export default function DegreePlan({ profile }) {
     .map(Number)
     .sort((a, b) => a - b)
 
+  // ── Compute credit totals for the progress bar ───────────────────
+  // Required slots always contribute (they're always on the plan).
+  // Pool slots only contribute once a course has been chosen.
+  const creditTotals = useMemo(() => {
+    let completed = 0
+    let planned   = 0
+    for (const slot of slots) {
+      let credits
+      if (slot.is_pool) {
+        const code = planSlots[slot.id]
+        if (!code) continue
+        credits = courses[code]?.credits ?? slot.flex_credits ?? 3
+      } else {
+        credits = courses[slot.class_code]?.credits ?? 0
+      }
+      if (planStatuses[slot.id] === 'completed') {
+        completed += credits
+      } else {
+        planned += credits
+      }
+    }
+    return { completed, planned }
+  }, [slots, planSlots, planStatuses, courses])
+
   // ── Save a course selection to Supabase ──────────────────────────
+  // Preserves the existing status so re-selecting a pool slot doesn't
+  // reset a course the student already marked in-progress or done.
   async function handleSave(slot, course) {
+    const existingStatus = planStatuses[slot.id] ?? 'planned'
     const { error } = await supabase
       .from('student_plan_slots')
       .upsert({
         student_id:           profile.id,
         requirement_slot_id:  slot.id,
         selected_course_code: course.code,
-        status:               'planned',
+        status:               existingStatus,
       }, { onConflict: 'student_id, requirement_slot_id' })
 
     if (!error) {
-      setPlanSlots(prev => ({
-        ...prev,
-        [slot.id]: course.code,
-      }))
+      setPlanSlots(prev    => ({ ...prev,    [slot.id]: course.code      }))
+      setPlanStatuses(prev => ({ ...prev,    [slot.id]: existingStatus   }))
       setActiveSlot(null)
+    }
+  }
+
+  // ── Cycle a slot's status in Supabase ────────────────────────────
+  // For required slots this creates the row on first click.
+  // For pool slots it updates the existing row.
+  async function handleStatusChange(slot, newStatus) {
+    const courseCode = slot.is_pool ? planSlots[slot.id] : slot.class_code
+    if (slot.is_pool && !courseCode) return
+
+    const { error } = await supabase
+      .from('student_plan_slots')
+      .upsert({
+        student_id:           profile.id,
+        requirement_slot_id:  slot.id,
+        selected_course_code: courseCode,
+        status:               newStatus,
+      }, { onConflict: 'student_id, requirement_slot_id' })
+
+    if (!error) {
+      setPlanStatuses(prev => ({ ...prev, [slot.id]: newStatus }))
     }
   }
 
@@ -171,6 +221,10 @@ export default function DegreePlan({ profile }) {
     )
   }
 
+  const totalHours   = profile.concentrations.total_hours
+  const completedPct = Math.min((creditTotals.completed / totalHours) * 100, 100)
+  const plannedPct   = Math.min((creditTotals.planned   / totalHours) * 100, 100 - completedPct)
+
   return (
     <div className="degreeplan-shell">
 
@@ -180,10 +234,21 @@ export default function DegreePlan({ profile }) {
             <p className="degreeplan-eyebrow">Tennessee Tech University</p>
             <h1 className="degreeplan-title">{profile.concentrations.name}</h1>
             <p className="degreeplan-meta">
-              {profile.concentrations.total_hours} credit hours
-              &nbsp;·&nbsp;
               Started {profile.start_season} {profile.start_year}
             </p>
+            <div className="credit-bar-wrap">
+              <div className="credit-bar-track">
+                <div className="credit-bar-completed" style={{ width: `${completedPct}%` }} />
+                <div className="credit-bar-planned"   style={{ width: `${plannedPct}%`   }} />
+              </div>
+              <p className="credit-bar-label">
+                <span className="credit-label-completed">{creditTotals.completed} completed</span>
+                <span className="credit-label-dot">·</span>
+                <span className="credit-label-planned">{creditTotals.planned} planned</span>
+                <span className="credit-label-dot">·</span>
+                {totalHours} total
+              </p>
+            </div>
           </div>
           <button className="degreeplan-signout" onClick={async () => {
             await supabase.auth.signOut()
@@ -202,7 +267,9 @@ export default function DegreePlan({ profile }) {
               slots={semesterMap[semNum]}
               courseMap={courses}
               planSlots={planSlots}
+              planStatuses={planStatuses}
               onSlotClick={setActiveSlot}
+              onStatusChange={handleStatusChange}
             />
           ))}
         </div>
