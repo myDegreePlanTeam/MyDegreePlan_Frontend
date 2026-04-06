@@ -1,20 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { resolvePool, resolveScience, resolveFreeElective } from '../lib/poolResolver'
+import { resolvePool, resolveScience, resolveFreeElective, POOL_LABELS } from '../lib/poolResolver'
 import { checkPrereqs } from '../lib/prereqChecker'
 import './Dashboard.css'
-
-const POOL_LABELS = {
-  GEN_ED:             'General Education',
-  ENG_LIT:            'English Literature',
-  SCIENCE:            'Natural Science',
-  COMM_REQ:           'Communications',
-  MATH_STATS:         'Statistics',
-  CSC_LOWER_ELECTIVE: 'CSC Lower Elective',
-  CSC_UPPER_ELECTIVE: 'CSC Upper Elective',
-  CSC_ELECTIVE:       'CSC Elective',
-  CSC_HPC_ELECTIVE:   'HPC Elective',
-  FREE_ELECTIVE:      'Free Elective',
-}
 
 export default function SlotModal({
   slot,
@@ -98,9 +85,9 @@ export default function SlotModal({
 
   // ── Build satisfied and taken sets ────────────────────────────────
   const satisfiedCodes = useMemo(() => {
-    const required = slots.filter(s => !s.is_pool).map(s => s.class_code)
-    const selected  = Object.values(planSlots)
-    return new Set([...required, ...selected])
+    const required       = slots.filter(s => !s.is_pool).map(s => s.class_code)
+    const poolSelections = Object.values(planSlots)
+    return new Set([...required, ...poolSelections])
   }, [slots, planSlots])
 
   const takenCodes = useMemo(() => {

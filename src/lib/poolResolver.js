@@ -16,7 +16,7 @@ export const POOL_COURSES = {
   // Validation of those sub-requirements is a future feature.
   // For now, all GEN_ED eligible courses are offered as options.
   GEN_ED: [
-    // History (required 6 hrs — HIST2010 must precede HIST2020)
+    // History (6 hrs — HIST2010 and HIST2020 are independent, no ordering required)
     'HIST2010',
     'HIST2020',
     // Humanities / Fine Arts
@@ -171,6 +171,22 @@ export const POOL_COURSES = {
   FREE_ELECTIVE: null,
 }
 
+// ── Pool slot display labels ──────────────────────────────────────────────────
+// Single source of truth shared by Semester (slot row) and SlotModal (modal title).
+
+export const POOL_LABELS = {
+  GEN_ED:             'General Education',
+  ENG_LIT:            'English Literature',
+  SCIENCE:            'Natural Science',
+  COMM_REQ:           'Communications',
+  MATH_STATS:         'Statistics',
+  CSC_LOWER_ELECTIVE: 'CSC Lower Elective',
+  CSC_UPPER_ELECTIVE: 'CSC Upper Elective',
+  CSC_ELECTIVE:       'CSC Elective',
+  CSC_HPC_ELECTIVE:   'HPC Elective',
+  FREE_ELECTIVE:      'Free Elective',
+}
+
 // ── Helper function ───────────────────────────────────────────────────────────
 // Given a pool code and the full course catalog (as the courseMap object
 // from DegreePlan), returns an array of course objects valid for that slot.
@@ -192,13 +208,13 @@ export function resolvePool(poolCode, courseMap) {
 // ── resolveScience ────────────────────────────────────────────────────────────
 
 const SCIENCE_SEQUENCES = [
-  { courses: ['CHEM1110', 'CHEM1120'], strict: true,  first: 'CHEM1110' },
-  { courses: ['PHYS2010', 'PHYS2020'], strict: true,  first: 'PHYS2010' },
-  { courses: ['PHYS2110', 'PHYS2120'], strict: true,  first: 'PHYS2110' },
-  { courses: ['GEOL1040', 'GEOL1045'], strict: false, first: null       },
-  { courses: ['GEOL1045', 'GEOL1040'], strict: false, first: null       },
-  { courses: ['BIOL1123', 'BIOL1113'], strict: false, first: null       },
-  { courses: ['BIOL2310', 'BIOL1113'], strict: false, first: null       },
+  { courses: ['CHEM1110', 'CHEM1120'] },
+  { courses: ['PHYS2010', 'PHYS2020'] },
+  { courses: ['PHYS2110', 'PHYS2120'] },
+  { courses: ['GEOL1040', 'GEOL1045'] },
+  { courses: ['GEOL1045', 'GEOL1040'] },
+  { courses: ['BIOL1123', 'BIOL1113'] },
+  { courses: ['BIOL2310', 'BIOL1113'] },
 ]
 
 export function resolveScience(planSlots, slots, courseMap) {
@@ -250,10 +266,10 @@ export function resolveScience(planSlots, slots, courseMap) {
 const SCIENCE_SEQUENCE_NAMES = {
   'CHEM1110': 'Chemistry',
   'CHEM1120': 'Chemistry',
-  'PHYS2010': 'Physics',
-  'PHYS2020': 'Physics',
-  'PHYS2110': 'Physics',
-  'PHYS2120': 'Physics',
+  'PHYS2010': 'Physics (Algebra)',
+  'PHYS2020': 'Physics (Algebra)',
+  'PHYS2110': 'Physics (Calculus)',
+  'PHYS2120': 'Physics (Calculus)',
   'GEOL1040': 'Geology',
   'GEOL1045': 'Geology',
   'BIOL1113': 'Biology',
@@ -300,6 +316,7 @@ export function getScienceWarnings(planSlots, slots) {
 // Each category requires at least 6 credit hours.
 // Course codes here must exactly match those listed in POOL_COURSES.GEN_ED above.
 
+// Note: HIST2010 and HIST2020 are independent — no ordering required between them.
 const GEN_ED_CATEGORIES = {
   History: [
     'HIST2010',

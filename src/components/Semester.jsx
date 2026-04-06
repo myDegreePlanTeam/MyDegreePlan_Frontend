@@ -1,17 +1,5 @@
+import { POOL_LABELS } from '../lib/poolResolver'
 import './Dashboard.css'
-
-const POOL_LABELS = {
-  GEN_ED:             'General Education',
-  ENG_LIT:            'English Literature',
-  SCIENCE:            'Natural Science',
-  COMM_REQ:           'Communications',
-  MATH_STATS:         'Statistics',
-  CSC_LOWER_ELECTIVE: 'CSC Lower Elective',
-  CSC_UPPER_ELECTIVE: 'CSC Upper Elective',
-  CSC_ELECTIVE:       'CSC Elective',
-  CSC_HPC_ELECTIVE:   'HPC Elective',
-  FREE_ELECTIVE:      'Free Elective',
-}
 
 // Clicking cycles: planned → in_progress → completed → planned
 const NEXT_STATUS = {
