@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { POOL_LABELS } from '../lib/poolResolver'
 import './Dashboard.css'
 
@@ -23,18 +24,57 @@ export default function Semester({
   onSlotClick,
   onStatusChange,
   scienceWarnings = {},
+  note           = '',
+  onNoteSave,
 }) {
   const totalCr = calculateCredits(slots, courseMap, planSlots)
   const creditWarning = totalCr < 12 ? 'low' : totalCr > 19 ? 'high' : null
+
+  // ── Notes local state ─────────────────────────────────────────────
+  const [noteOpen, setNoteOpen]   = useState(false)
+  const [noteText, setNoteText]   = useState(note)
+
+  // Sync draft text if the saved note changes from outside (e.g. concentration switch)
+  useEffect(() => { setNoteText(note) }, [note])
+
+  function handleNoteBlur() {
+    if (noteText === note) return   // nothing changed — skip the round-trip
+    onNoteSave(semesterNumber, noteText)
+  }
 
   return (
     <div className="semester-card">
       <div className="semester-header">
         <span className="semester-label">Semester {semesterNumber}</span>
-        <span className="semester-credits">
-          {totalCr} cr
-        </span>
+        <div className="semester-header-right">
+          <span className="semester-credits">{totalCr} cr</span>
+          <button
+            className={`semester-notes-btn${note ? ' semester-notes-btn-active' : ''}`}
+            onClick={() => setNoteOpen(o => !o)}
+            title={note ? 'Edit semester note' : 'Add semester note'}
+          >
+            {/* Pencil icon */}
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M8.5 1.5l2 2L4 10H2V8L8.5 1.5z"
+                stroke="currentColor" strokeWidth="1.3"
+                strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {noteOpen && (
+        <div className="semester-notes-wrap">
+          <textarea
+            className="semester-notes-input"
+            value={noteText}
+            onChange={e => setNoteText(e.target.value)}
+            onBlur={handleNoteBlur}
+            placeholder="Add a note for this semester..."
+            rows={2}
+          />
+        </div>
+      )}
       {creditWarning && (
         <div className={`semester-credit-warning semester-credit-warning-${creditWarning}`}>
           {creditWarning === 'low'
@@ -116,10 +156,19 @@ function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotCli
     )
   }
 
-  // Required course — always on the plan, always shows status badge
+  // Required course — always on the plan, always shows status badge.
+  // Clickable (div[role=button]) so students can open the detail view.
+  // StatusBadge already calls e.stopPropagation() so badge clicks don't
+  // bubble up and accidentally open the detail panel.
   if (course) {
     return (
-      <div className={`slot-row slot-required status-${effectiveStatus}`}>
+      <div
+        className={`slot-row slot-required clickable status-${effectiveStatus}`}
+        onClick={() => onSlotClick(slot)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => e.key === 'Enter' && onSlotClick(slot)}
+      >
         <div className="slot-info">
           <span className="slot-code">{course.code}</span>
           <span className="slot-name">{course.name}</span>

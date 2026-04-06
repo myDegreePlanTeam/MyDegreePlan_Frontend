@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
+import CourseDetailModal from './CourseDetailModal'
 import './Dashboard.css'
 
 export default function DegreePlan({ profile, onProfileChange }) {
@@ -14,6 +15,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [planSlots, setPlanSlots]       = useState({})
   const [planStatuses, setPlanStatuses] = useState({})
   const [prereqMap, setPrereqMap]       = useState({})
+  const [coreqMap, setCoreqMap]         = useState({})
+  const [activeDetail, setActiveDetail] = useState(null)
+  const [semesterNotes, setSemesterNotes] = useState({})
   const [showSwitchModal, setShowSwitchModal] = useState(false)
   const [switching, setSwitching]             = useState(false)
 
@@ -52,7 +56,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       // ── Step 4: fetch all courses in one query ───────────────────
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
-        .select('code, name, credits, subject_code, standing_req')
+        .select('code, name, credits, subject_code, standing_req, description')
         .in('code', allCodes)
 
       if (courseError) {
@@ -96,6 +100,22 @@ export default function DegreePlan({ profile, onProfileChange }) {
         prereqMapBuilt[entry.course_code][entry.group_index].codes.push(entry.required_code)
       }
 
+      // ── Step 6b: fetch corequisite entries ───────────────────────
+      // Corequisites don't use AND/OR logic, so the map is a simple
+      // { courseCode: [requiredCode, ...] } — no group structure needed.
+      const { data: coreqData } = await supabase
+        .from('corequisite_entries')
+        .select('course_code, required_code')
+        .in('course_code', allCodes)
+
+      const coreqMapBuilt = {}
+      for (const entry of coreqData ?? []) {
+        if (!coreqMapBuilt[entry.course_code]) {
+          coreqMapBuilt[entry.course_code] = []
+        }
+        coreqMapBuilt[entry.course_code].push(entry.required_code)
+      }
+
       // ── Step 7: load saved student selections and statuses ───────
       const slotIds = slotData.map(s => s.id)
       const { data: savedSlots, error: savedSlotsError } = await supabase
@@ -117,12 +137,26 @@ export default function DegreePlan({ profile, onProfileChange }) {
         planStatusesMap[row.requirement_slot_id] = row.status
       }
 
+      // ── Step 7b: load semester notes ────────────────────────────
+      const { data: notesData } = await supabase
+        .from('student_semester_notes')
+        .select('semester_number, note_text')
+        .eq('student_id', profile.id)
+        .eq('concentration_id', profile.concentration_id)
+
+      const semNotesMap = {}
+      for (const row of notesData ?? []) {
+        semNotesMap[row.semester_number] = row.note_text
+      }
+
       // ── Step 8: set all state at once ────────────────────────────
       setSlots(slotData)
       setCourses(courseMap)
       setPrereqMap(prereqMapBuilt)
+      setCoreqMap(coreqMapBuilt)
       setPlanSlots(planSlotsMap)
       setPlanStatuses(planStatusesMap)
+      setSemesterNotes(semNotesMap)
       setLoading(false)
     }
 
@@ -238,6 +272,45 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setPlanSlots(prev    => { const n = { ...prev }; delete n[slot.id]; return n })
       setPlanStatuses(prev => { const n = { ...prev }; delete n[slot.id]; return n })
       setActiveSlot(null)
+    }
+  }
+
+  // ── Route a slot click to the right panel ────────────────────────
+  // Empty pool slot  → SlotModal (course selection)
+  // Filled pool slot → CourseDetailModal with change/remove actions
+  // Required slot    → CourseDetailModal read-only
+  function handleSlotClick(slot) {
+    if (slot.is_pool && !planSlots[slot.id]) {
+      setActiveSlot(slot)
+    } else {
+      setActiveDetail(slot)
+    }
+  }
+
+  // ── Transition from detail view back to selection modal ───────────
+  // Called when the student hits "Change" inside the detail panel.
+  function handleChangeSelection() {
+    const slot = activeDetail
+    setActiveDetail(null)
+    setActiveSlot(slot)
+  }
+
+  // ── Save or update a semester note ───────────────────────────────
+  // Uses upsert so it works identically whether a row already exists
+  // or is being created for the first time.
+  async function handleNoteSave(semesterNumber, noteText) {
+    const { error } = await supabase
+      .from('student_semester_notes')
+      .upsert({
+        student_id:       profile.id,
+        concentration_id: profile.concentration_id,
+        semester_number:  semesterNumber,
+        note_text:        noteText,
+        updated_at:       new Date().toISOString(),
+      }, { onConflict: 'student_id, concentration_id, semester_number' })
+
+    if (!error) {
+      setSemesterNotes(prev => ({ ...prev, [semesterNumber]: noteText }))
     }
   }
 
@@ -358,9 +431,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
               courseMap={courses}
               planSlots={planSlots}
               planStatuses={planStatuses}
-              onSlotClick={setActiveSlot}
+              onSlotClick={handleSlotClick}
               onStatusChange={handleStatusChange}
               scienceWarnings={scienceWarnings}
+              note={semesterNotes[semNum] ?? ''}
+              onNoteSave={handleNoteSave}
             />
           ))}
         </div>
@@ -379,6 +454,26 @@ export default function DegreePlan({ profile, onProfileChange }) {
           onClose={() => setActiveSlot(null)}
         />
       )}
+
+      {activeDetail && (() => {
+        const slot   = activeDetail
+        const course = slot.is_pool
+          ? courses[planSlots[slot.id]]
+          : courses[slot.class_code]
+        return (
+          <CourseDetailModal
+            slot={slot}
+            course={course}
+            courseMap={courses}
+            prereqMap={prereqMap}
+            coreqMap={coreqMap}
+            isPool={slot.is_pool}
+            onChangeSelection={handleChangeSelection}
+            onRemove={slot => { handleRemove(slot); setActiveDetail(null) }}
+            onClose={() => setActiveDetail(null)}
+          />
+        )
+      })()}
 
       {showSwitchModal && (
         <ConcentrationModal
