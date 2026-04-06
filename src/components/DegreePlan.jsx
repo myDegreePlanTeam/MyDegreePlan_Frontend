@@ -5,7 +5,7 @@ import Semester from './Semester'
 import SlotModal from './SlotModal'
 import './Dashboard.css'
 
-export default function DegreePlan({ profile }) {
+export default function DegreePlan({ profile, onProfileChange }) {
   const [slots, setSlots]               = useState([])
   const [courses, setCourses]           = useState({})
   const [loading, setLoading]           = useState(true)
@@ -14,8 +14,12 @@ export default function DegreePlan({ profile }) {
   const [planSlots, setPlanSlots]       = useState({})
   const [planStatuses, setPlanStatuses] = useState({})
   const [prereqMap, setPrereqMap]       = useState({})
+  const [showSwitchModal, setShowSwitchModal] = useState(false)
+  const [switching, setSwitching]             = useState(false)
 
   useEffect(() => {
+    setLoading(true)
+
     async function loadPlan() {
       // ── Step 1: fetch requirement slots ─────────────────────────
       const { data: slotData, error: slotError } = await supabase
@@ -203,6 +207,55 @@ export default function DegreePlan({ profile }) {
     }
   }
 
+  // ── Remove a pool slot selection ─────────────────────────────────
+  // Deletes the student_plan_slots row and clears local state so the
+  // slot immediately goes back to its empty "Click to select" state.
+  async function handleRemove(slot) {
+    const { error } = await supabase
+      .from('student_plan_slots')
+      .delete()
+      .eq('student_id', profile.id)
+      .eq('requirement_slot_id', slot.id)
+
+    if (!error) {
+      setPlanSlots(prev    => { const n = { ...prev }; delete n[slot.id]; return n })
+      setPlanStatuses(prev => { const n = { ...prev }; delete n[slot.id]; return n })
+      setActiveSlot(null)
+    }
+  }
+
+  // ── Switch the student's concentration ───────────────────────────
+  // Three writes happen in sequence:
+  //   1. Update student_profiles so the DB reflects the new choice.
+  //   2. Delete all student_plan_slots — the new concentration has
+  //      different requirement_slot IDs so old selections are useless
+  //      and would pollute the plan if left behind.
+  //   3. Call onProfileChange with the new profile object. Dashboard
+  //      calls setProfile, DegreePlan receives a new profile prop,
+  //      and useEffect([profile.concentration_id]) fires — reloading
+  //      the plan from scratch with the correct requirement slots.
+  async function handleConcentrationSwitch(newConc) {
+    setSwitching(true)
+
+    const { error: updateErr } = await supabase
+      .from('student_profiles')
+      .update({ concentration_id: newConc.id })
+      .eq('id', profile.id)
+
+    if (updateErr) { setSwitching(false); return }
+
+    const { error: deleteErr } = await supabase
+      .from('student_plan_slots')
+      .delete()
+      .eq('student_id', profile.id)
+
+    if (deleteErr) { setSwitching(false); return }
+
+    setSwitching(false)
+    setShowSwitchModal(false)
+    onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
+  }
+
   // ── Render ───────────────────────────────────────────────────────
 
   if (loading) {
@@ -250,11 +303,19 @@ export default function DegreePlan({ profile }) {
               </p>
             </div>
           </div>
-          <button className="degreeplan-signout" onClick={async () => {
-            await supabase.auth.signOut()
-          }}>
-            Sign out
-          </button>
+          <div className="degreeplan-header-actions">
+            <button
+              className="degreeplan-settings"
+              onClick={() => setShowSwitchModal(true)}
+            >
+              Change concentration
+            </button>
+            <button className="degreeplan-signout" onClick={async () => {
+              await supabase.auth.signOut()
+            }}>
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
@@ -284,10 +345,128 @@ export default function DegreePlan({ profile }) {
           slots={slots}
           prereqMap={prereqMap}
           onSave={handleSave}
+          onRemove={handleRemove}
           onClose={() => setActiveSlot(null)}
         />
       )}
 
+      {showSwitchModal && (
+        <ConcentrationModal
+          currentId={profile.concentration_id}
+          onSwitch={handleConcentrationSwitch}
+          onClose={() => setShowSwitchModal(false)}
+          switching={switching}
+        />
+      )}
+
+    </div>
+  )
+}
+
+// ── ConcentrationModal ─────────────────────────────────────────────────────────
+// Fetches all concentrations from Supabase on mount — single source of truth.
+// Pre-selects the student's current concentration so they can see where they are.
+// The warning banner and the confirm button only activate when the student picks
+// a *different* concentration, so there's no scary text until a change is made.
+
+function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
+  const [concentrations, setConcentrations] = useState([])
+  const [selected, setSelected]             = useState(null)
+  const [loadingConcs, setLoadingConcs]     = useState(true)
+  const [fetchError, setFetchError]         = useState(null)
+
+  useEffect(() => {
+    async function fetchConcentrations() {
+      const { data, error } = await supabase
+        .from('concentrations')
+        .select('id, code, name, total_hours')
+        .order('id', { ascending: true })
+
+      if (error) {
+        setFetchError(error.message)
+        setLoadingConcs(false)
+        return
+      }
+
+      setConcentrations(data)
+      // Pre-select the student's current concentration
+      const current = data.find(c => c.id === currentId)
+      if (current) setSelected(current)
+      setLoadingConcs(false)
+    }
+
+    fetchConcentrations()
+  }, [])
+
+  // True only when the student has picked a concentration different from current
+  const isDifferent = selected && selected.id !== currentId
+
+  function handleBackdropClick(e) {
+    if (e.target === e.currentTarget) onClose()
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-card">
+
+        <div className="modal-header">
+          <div>
+            <p className="modal-eyebrow">Settings</p>
+            <h3 className="modal-title">Change concentration</h3>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="modal-course-list" style={{ padding: '1.25rem 1.5rem' }}>
+          {loadingConcs ? (
+            <p className="modal-empty">Loading concentrations...</p>
+          ) : fetchError ? (
+            <p className="modal-empty" style={{ color: 'var(--danger)' }}>{fetchError}</p>
+          ) : (
+            <div className="concentration-grid">
+              {concentrations.map(c => (
+                <button
+                  key={c.id}
+                  className={`concentration-card ${selected?.id === c.id ? 'selected' : ''}`}
+                  onClick={() => setSelected(c)}
+                >
+                  {c.id === currentId && (
+                    <span className="concentration-current-badge">Current</span>
+                  )}
+                  <span className="concentration-name">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {isDifferent && (
+            <div className="concentration-switch-warning">
+              Switching to <strong>{selected.name}</strong> will clear all your
+              current course selections. This cannot be undone.
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          <div className="modal-footer-btns">
+            <button
+              className="onboarding-btn-secondary"
+              onClick={onClose}
+              disabled={switching}
+            >
+              Cancel
+            </button>
+            <button
+              className="onboarding-btn"
+              onClick={() => isDifferent && onSwitch(selected)}
+              disabled={!isDifferent || switching}
+            >
+              {switching ? 'Switching...' : 'Switch concentration'}
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
   )
 }

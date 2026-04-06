@@ -23,6 +23,7 @@ export default function SlotModal({
   slots,
   prereqMap,
   onSave,
+  onRemove,
   onClose,
 }) {
   const [courses, setCourses]               = useState([])
@@ -39,10 +40,16 @@ export default function SlotModal({
     setAutoFill(null)
     setFreeSections(null)
 
+    // If the slot already has a selection, we'll restore it at the end
+    // of each code path so it shows highlighted when the modal opens.
+    const existingCode   = planSlots[slot.id]
+    const existingCourse = existingCode ? courseMap[existingCode] : null
+
     if (slot.class_code === 'FREE_ELECTIVE') {
       const result = resolveFreeElective(courseMap, slots, planSlots)
       setFreeSections(result)
       setCourses([...result.suggested, ...result.other])
+      if (existingCourse) setSelected(existingCourse)
       return
     }
 
@@ -50,19 +57,23 @@ export default function SlotModal({
       const result = resolveScience(planSlots, slots, courseMap)
       if (result.mode === 'autofill') {
         setCourses([result.course])
-        setSelected(result.course)
         setAutoFill(result.course)
+        // Prefer the saved selection over the autofill suggestion
+        setSelected(existingCourse ?? result.course)
         return
       }
       if (result.mode === 'narrow') {
         setCourses(result.courses)
+        if (existingCourse) setSelected(existingCourse)
         return
       }
       setCourses(resolvePool('SCIENCE', courseMap) ?? [])
+      if (existingCourse) setSelected(existingCourse)
       return
     }
 
     setCourses(resolvePool(slot.class_code, courseMap) ?? [])
+    if (existingCourse) setSelected(existingCourse)
   }, [slot.id])
   // Depend on slot.id only — stable identity per modal open.
   // courseMap, planSlots, slots are all stable objects by the time
@@ -76,8 +87,15 @@ export default function SlotModal({
   }, [slots, planSlots])
 
   const takenCodes = useMemo(() => {
-    return new Set(Object.values(planSlots))
-  }, [planSlots])
+    // Exclude this slot's own selection — otherwise re-opening a filled slot
+    // would show the current course as "Already selected" and unclickable.
+    const currentSlotId = String(slot.id)
+    return new Set(
+      Object.entries(planSlots)
+        .filter(([id]) => id !== currentSlotId)
+        .map(([, code]) => code)
+    )
+  }, [planSlots, slot.id])
 
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
@@ -221,6 +239,15 @@ export default function SlotModal({
         <div className="modal-footer">
           {error && <p className="modal-error">{error}</p>}
           <div className="modal-footer-btns">
+            {planSlots[slot.id] && (
+              <button
+                className="modal-remove-btn"
+                onClick={() => onRemove(slot)}
+                disabled={saving}
+              >
+                Remove selection
+              </button>
+            )}
             <button className="onboarding-btn-secondary" onClick={onClose}>
               Cancel
             </button>

@@ -129,6 +129,7 @@ export default function Dashboard() {
   return (
     <DegreePlan
       profile={profile}
+      onProfileChange={setProfile}
     />
   )
 }

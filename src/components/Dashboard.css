@@ -769,3 +769,78 @@
 .credit-label-dot {
   color: var(--navy-light);
 }
+
+/* ── Header action group ─────────────────────────────────────────── */
+
+.degreeplan-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.degreeplan-settings {
+  background: transparent;
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.degreeplan-settings:hover {
+  border-color: var(--muted);
+  color: var(--white);
+}
+
+/* ── Concentration switch modal ──────────────────────────────────── */
+
+.concentration-switch-warning {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.78rem;
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.08);
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  border-radius: 6px;
+  line-height: 1.6;
+}
+
+.concentration-current-badge {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--gold);
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+/* ── Remove selection button ─────────────────────────────────────── */
+
+.modal-remove-btn {
+  padding: 0.85rem 1rem;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid rgba(224, 92, 92, 0.3);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-right: auto;
+}
+
+.modal-remove-btn:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: rgba(224, 92, 92, 0.06);
+}
+
+.modal-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
