@@ -20,6 +20,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [semesterNotes, setSemesterNotes] = useState({})
   const [showSwitchModal, setShowSwitchModal] = useState(false)
   const [switching, setSwitching]             = useState(false)
+  // ── Undo stack (session-only — intentionally does not survive refresh) ────────
+  // Stores the most recent pool slot selection so the student can reverse it once.
+  // Shape: { slot, courseCode } | null
+  const [lastSelection, setLastSelection] = useState(null)
 
   useEffect(() => {
     setLoading(true)
@@ -234,6 +238,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setPlanSlots(prev    => ({ ...prev,    [slot.id]: course.code      }))
       setPlanStatuses(prev => ({ ...prev,    [slot.id]: existingStatus   }))
       setActiveSlot(null)
+      // Record this selection so the header undo button can reverse it.
+      // Overwrites any previous entry — undo is single-step only.
+      setLastSelection({ slot, courseCode: course.code })
     }
   }
 
@@ -273,6 +280,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setPlanStatuses(prev => { const n = { ...prev }; delete n[slot.id]; return n })
       setActiveSlot(null)
     }
+  }
+
+  // ── Undo the most recent pool slot selection ─────────────────────
+  // Reverses handleSave by calling handleRemove on the recorded slot.
+  // handleRemove deletes the student_plan_slots row and clears local state,
+  // which is exactly what undo needs to do. After the remove completes we
+  // clear lastSelection so the button immediately disables.
+  async function handleUndo() {
+    if (!lastSelection) return
+    await handleRemove(lastSelection.slot)
+    setLastSelection(null)
   }
 
   // ── Route a slot click to the right panel ────────────────────────
@@ -343,6 +361,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     setSwitching(false)
     setShowSwitchModal(false)
+    setLastSelection(null)   // new concentration has different slot IDs — undo would point at a ghost
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
 
@@ -406,6 +425,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
             <GenEdTracker categories={genEdStatus} />
           </div>
           <div className="degreeplan-header-actions">
+            <button
+              className="degreeplan-undo"
+              onClick={handleUndo}
+              disabled={!lastSelection}
+              title={lastSelection ? `Undo: remove ${lastSelection.courseCode}` : 'Nothing to undo'}
+            >
+              ↩ Undo
+            </button>
             <button
               className="degreeplan-settings"
               onClick={() => setShowSwitchModal(true)}
