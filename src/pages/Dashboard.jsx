@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import Onboarding from '../components/Onboarding'
 import DegreePlan from '../components/DegreePlan'
+import { OnboardingSkeleton } from '../components/Skeletons'
 
 export default function Dashboard() {
   // profile holds the student's row from student_profiles
@@ -98,13 +99,7 @@ export default function Dashboard() {
   // React renders whatever you return. We use conditional rendering
   // to show different UI depending on the current state.
 
-  if (loading) {
-    return (
-      <div className="dashboard-loading">
-        <p>Loading your degree plan...</p>
-      </div>
-    )
-  }
+  if (loading) return <OnboardingSkeleton />
 
   if (error) {
     return (

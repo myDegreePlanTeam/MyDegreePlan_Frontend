@@ -4,6 +4,7 @@ import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
 import CourseDetailModal from './CourseDetailModal'
+import { DegreeplanSkeleton } from './Skeletons'
 import './Dashboard.css'
 
 export default function DegreePlan({ profile, onProfileChange }) {
@@ -367,13 +368,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Render ───────────────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div className="dashboard-loading">
-        <p>Loading your degree plan...</p>
-      </div>
-    )
-  }
+  if (loading) return <DegreeplanSkeleton />
 
   if (error) {
     return (

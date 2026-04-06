@@ -4,6 +4,7 @@ import { supabase } from './lib/supabaseClient'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function App() {
   const [session, setSession] = useState(undefined)
@@ -37,7 +38,7 @@ function App() {
           session ? <Navigate to="/dashboard" replace /> : <Signup />
         } />
         <Route path="/dashboard" element={
-          session ? <Dashboard /> : <Navigate to="/login" replace />
+          session ? <ErrorBoundary><Dashboard /></ErrorBoundary> : <Navigate to="/login" replace />
         } />
         <Route path="*" element={
           <Navigate to={session ? "/dashboard" : "/login"} replace />

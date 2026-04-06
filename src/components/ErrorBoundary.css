@@ -1,0 +1,101 @@
+/* ── Error Boundary ──────────────────────────────────────────────── */
+/* Fallback UI shown when an unhandled JavaScript error is caught.
+   Designed to match the navy/gold system so the page never looks broken.
+   Uses CSS custom properties from index.css (loaded globally in main.jsx
+   before any component renders). */
+
+.error-boundary-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--navy);
+  padding: 2rem;
+}
+
+.error-boundary-card {
+  width: 100%;
+  max-width: 520px;
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: 16px;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.error-boundary-eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.error-boundary-title {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  color: var(--white);
+}
+
+.error-boundary-body {
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+/* Primary action — gold fill matching onboarding-btn language */
+.error-boundary-reload {
+  padding: 0.85rem 1.5rem;
+  background: var(--gold);
+  color: var(--navy);
+  border: none;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  letter-spacing: 0.05em;
+  align-self: flex-start;
+}
+
+.error-boundary-reload:hover {
+  background: var(--gold-light);
+}
+
+/* Secondary toggle — understated, matches the muted link language used
+   elsewhere in the app for secondary actions */
+.error-boundary-toggle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  transition: color 0.2s;
+  align-self: flex-start;
+}
+
+.error-boundary-toggle:hover {
+  color: var(--white);
+}
+
+/* Technical detail block — navy background, monospace, danger red text
+   so it reads clearly as developer output, not user-facing copy */
+.error-boundary-details {
+  background: var(--navy);
+  border: 1px solid var(--navy-light);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--danger);
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
