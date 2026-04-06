@@ -841,6 +841,70 @@
   color: var(--danger);
 }
 
+/* ── GEN_ED sub-requirement tracker ─────────────────────────────── */
+/* Sits below the credit bar in the sticky header.
+   Three chips side by side — one per sub-category.
+   Color encodes status: muted=empty, gold=in-progress, green=satisfied, red=at-risk. */
+
+.gen-ed-tracker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.gen-ed-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.gen-ed-chip-label {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.gen-ed-chip-count {
+  opacity: 0.85;
+}
+
+/* Empty — nothing selected yet, still on track */
+.gen-ed-chip-empty {
+  color: var(--muted);
+  background: rgba(138, 155, 176, 0.08);
+  border-color: rgba(138, 155, 176, 0.18);
+}
+
+/* In progress — some credits filled, still achievable */
+.gen-ed-chip-progress {
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.08);
+  border-color: rgba(201, 168, 76, 0.22);
+}
+
+/* Satisfied — 6+ credits filled */
+.gen-ed-chip-satisfied {
+  color: #4caf7d;
+  background: rgba(76, 175, 125, 0.08);
+  border-color: rgba(76, 175, 125, 0.22);
+}
+
+/* At risk — can't reach 6 hrs given remaining empty slots */
+.gen-ed-chip-risk {
+  color: var(--danger);
+  background: rgba(224, 92, 92, 0.08);
+  border-color: rgba(224, 92, 92, 0.22);
+}
+
 /* ── Remove selection button ─────────────────────────────────────── */
 
 .modal-remove-btn {

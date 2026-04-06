@@ -296,6 +296,117 @@ export function getScienceWarnings(planSlots, slots) {
   return {}
 }
 
+// ── GEN_ED sub-requirement categories ────────────────────────────────────────
+// Each category requires at least 6 credit hours.
+// Course codes here must exactly match those listed in POOL_COURSES.GEN_ED above.
+
+const GEN_ED_CATEGORIES = {
+  History: [
+    'HIST2010',
+    'HIST2020',
+  ],
+  Humanities: [
+    'ART1035',
+    'ART2000',
+    'ART2020',
+    'FLST2520',
+    'FLST3520',
+    'FREN2510',
+    'GERM2520',
+    'HIST1310',
+    'HIST2210',
+    'HIST2220',
+    'HIST2310',
+    'HIST2320',
+    'MUS1030',
+    'PHIL1030',
+    'PHIL2250',
+    'RELS2010',
+    'SPAN2510',
+    'SPAN2550',
+    'THEA1030',
+  ],
+  Social: [
+    'AGBE2010',
+    'ANTH1100',
+    'ECON2010',
+    'ECON2020',
+    'ESS1100',
+    'EXPW2015',
+    'GEOG1012',
+    'GEOG1130',
+    'JOUR1110',
+    'POLS1030',
+    'PSY1030',
+    'SOC1010',
+    'WGS2010',
+  ],
+}
+
+// ── getGenEdStatus ────────────────────────────────────────────────────────────
+// Returns an array of three objects — one per sub-category — describing how
+// many credit hours the student has filled toward the 6-hr minimum and whether
+// they are at risk of being unable to meet a sub-requirement.
+//
+// "At risk" means the total credits still needed across all three categories
+// exceeds the capacity of the remaining empty GEN_ED slots.  When the overall
+// plan becomes infeasible every unsatisfied category is flagged.
+//
+// Shape: [{ category, label, filled, required, satisfied, atRisk }, ...]
+
+const GEN_ED_CATEGORY_LABELS = {
+  History:   'History',
+  Humanities: 'Humanities & Arts',
+  Social:    'Social Science',
+}
+
+export function getGenEdStatus(planSlots, slots, courseMap) {
+  const genEdSlots  = slots.filter(s => s.is_pool && s.class_code === 'GEN_ED')
+  const emptySlots  = genEdSlots.filter(s => !planSlots[s.id]).length
+
+  // Build a reverse lookup: courseCode → category
+  const codeToCategory = {}
+  for (const [cat, codes] of Object.entries(GEN_ED_CATEGORIES)) {
+    for (const code of codes) codeToCategory[code] = cat
+  }
+
+  // Sum credits per category from filled GEN_ED slots
+  const creditsByCategory = { History: 0, Humanities: 0, Social: 0 }
+  for (const slot of genEdSlots) {
+    const code = planSlots[slot.id]
+    if (!code) continue
+    const cat = codeToCategory[code]
+    if (cat) {
+      creditsByCategory[cat] += courseMap[code]?.credits ?? 3
+    }
+  }
+
+  const REQUIRED = 6
+
+  // Total credits still needed across all categories
+  const totalShortfall = Object.values(creditsByCategory).reduce((sum, filled) => {
+    return sum + Math.max(0, REQUIRED - filled)
+  }, 0)
+
+  // If the remaining empty slots can't cover the combined shortfall, every
+  // unsatisfied category is at risk.
+  const overallAtRisk = totalShortfall > emptySlots * 3
+
+  return ['History', 'Humanities', 'Social'].map(cat => {
+    const filled    = creditsByCategory[cat]
+    const satisfied = filled >= REQUIRED
+    const atRisk    = !satisfied && overallAtRisk
+    return {
+      category:  cat,
+      label:     GEN_ED_CATEGORY_LABELS[cat],
+      filled,
+      required:  REQUIRED,
+      satisfied,
+      atRisk,
+    }
+  })
+}
+
 // ── resolveFreeElective ───────────────────────────────────────────────────────
 
 export function resolveFreeElective(courseMap, slots, planSlots) {

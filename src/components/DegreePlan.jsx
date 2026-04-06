@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { getScienceWarnings } from '../lib/poolResolver'
+import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
 import './Dashboard.css'
@@ -147,6 +147,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const scienceWarnings = useMemo(
     () => getScienceWarnings(planSlots, slots),
     [planSlots, slots]
+  )
+
+  // ── Compute GEN_ED sub-requirement status ────────────────────────
+  // Recomputes whenever any GEN_ED slot selection changes.
+  // Result is an array of { category, label, filled, required, satisfied, atRisk }
+  // rendered in the sticky header so it's always visible.
+  const genEdStatus = useMemo(
+    () => getGenEdStatus(planSlots, slots, courses),
+    [planSlots, slots, courses]
   )
 
   // ── Compute credit totals for the progress bar ───────────────────
@@ -310,6 +319,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                 {totalHours} total
               </p>
             </div>
+            <GenEdTracker categories={genEdStatus} />
           </div>
           <div className="degreeplan-header-actions">
             <button
@@ -368,6 +378,38 @@ export default function DegreePlan({ profile, onProfileChange }) {
         />
       )}
 
+    </div>
+  )
+}
+
+// ── GenEdTracker ───────────────────────────────────────────────────────────────
+// Renders three compact chips — one per GEN_ED sub-category — showing how many
+// credit hours the student has filled toward the 6-hr minimum.
+//
+// Chip states:
+//   satisfied  → green  (filled >= 6)
+//   atRisk     → red    (can't reach 6 given remaining empty slots)
+//   progress   → gold   (in-flight but still achievable)
+//   empty      → muted  (nothing selected yet, still achievable)
+
+function GenEdTracker({ categories }) {
+  // Only show the tracker when at least one GEN_ED slot exists in the plan
+  if (!categories || categories.length === 0) return null
+
+  return (
+    <div className="gen-ed-tracker">
+      {categories.map(cat => {
+        const state = cat.satisfied ? 'satisfied'
+                    : cat.atRisk   ? 'risk'
+                    : cat.filled > 0 ? 'progress'
+                    : 'empty'
+        return (
+          <div key={cat.category} className={`gen-ed-chip gen-ed-chip-${state}`}>
+            <span className="gen-ed-chip-label">{cat.label}</span>
+            <span className="gen-ed-chip-count">{cat.filled} / {cat.required} hrs</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
