@@ -114,10 +114,41 @@ export default function SlotModal({
     )
   }, [planSlots, slot.id])
 
+  // ── Credit hours accumulated before this semester (positional) ───────
+  // Used to determine whether junior/senior standing is met at this slot.
+  // Only earlier semesters count — not the semester the slot itself lives in.
+  const creditsBefore = useMemo(() => {
+    return slots
+      .filter(s => s.semester_number < slot.semester_number)
+      .reduce((sum, s) => {
+        if (s.is_pool) {
+          const code = planSlots[s.id]
+          if (!code) return sum
+          return sum + (courseMap[code]?.credits ?? s.flex_credits ?? 3)
+        }
+        return sum + (courseMap[s.class_code]?.credits ?? 0)
+      }, 0)
+  }, [slots, planSlots, courseMap, slot.semester_number])
+
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
     if (takenCodes.has(course.code)) {
       return { ...course, status: 'taken' }
+    }
+    // Standing check — must come before prereqs so the message is clear
+    if (course.standing_req === 'senior' && creditsBefore < 90) {
+      return {
+        ...course,
+        status: 'locked',
+        standingHint: `Requires senior standing: 90+ credit hours planned before this semester (${creditsBefore} hrs so far)`,
+      }
+    }
+    if (course.standing_req === 'junior' && creditsBefore < 60) {
+      return {
+        ...course,
+        status: 'locked',
+        standingHint: `Requires junior standing: 60+ credit hours planned before this semester (${creditsBefore} hrs so far)`,
+      }
     }
     const result = checkPrereqs(course.code, prereqMap, satisfiedCodes)
     if (!result.satisfied) {
@@ -305,10 +336,15 @@ function CourseRow({ course, selected, onSelect }) {
             <span className="modal-status-badge taken">Already selected</span>
           )}
           {course.status === 'locked' && (
-            <span className="modal-status-badge locked">Prereqs needed</span>
+            <span className="modal-status-badge locked">
+              {course.standingHint ? 'Standing needed' : 'Prereqs needed'}
+            </span>
           )}
         </div>
         <span className="modal-course-name">{course.name}</span>
+        {course.status === 'locked' && course.standingHint && (
+          <span className="modal-prereq-hint">{course.standingHint}</span>
+        )}
         {course.status === 'locked' && course.missing && (
           <span className="modal-prereq-hint">
             Needs: {course.missing.join(', ')}

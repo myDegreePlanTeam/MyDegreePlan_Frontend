@@ -52,7 +52,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       // ── Step 4: fetch all courses in one query ───────────────────
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
-        .select('code, name, credits, subject_code')
+        .select('code, name, credits, subject_code, standing_req')
         .in('code', allCodes)
 
       if (courseError) {
