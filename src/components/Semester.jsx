@@ -52,6 +52,7 @@ export default function Semester({
             className={`semester-notes-btn${note ? ' semester-notes-btn-active' : ''}`}
             onClick={() => setNoteOpen(o => !o)}
             title={note ? 'Edit semester note' : 'Add semester note'}
+            aria-label={note ? 'Edit semester note' : 'Add semester note'}
           >
             {/* Pencil icon */}
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">

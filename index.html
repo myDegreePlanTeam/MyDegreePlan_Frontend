@@ -3,8 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Preconnect to font origins so DNS + TLS handshake completes
+         before the font CSS request fires — saves ~100-300ms per origin. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Non-blocking font load: preload fetches the CSS at high priority
+         without blocking render. The onload callback switches rel to
+         'stylesheet' once the file is ready. display=swap in the URL
+         means fallback fonts show immediately — no invisible text.
+         <noscript> provides the blocking fallback for no-JS environments. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    >
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet"
+      >
+    </noscript>
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Plan your Computer Science degree at Tennessee Tech University. Track courses, prerequisites, and projected graduation.">
     <title>TTU Degree Planner</title>
   </head>
   <body>

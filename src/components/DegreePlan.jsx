@@ -693,7 +693,7 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
             <p className="modal-eyebrow">Settings</p>
             <h3 className="modal-title">Change concentration</h3>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         <div className="modal-course-list" style={{ padding: '1.25rem 1.5rem' }}>

@@ -48,7 +48,7 @@ export default function CourseDetailModal({
             <h3 className="modal-title">{course.code}</h3>
             <p className="modal-sub">{course.name}</p>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         <div className="course-detail-body">

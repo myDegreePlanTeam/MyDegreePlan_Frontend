@@ -229,7 +229,7 @@ export default function SlotModal({
             </h3>
             <p className="modal-sub">Semester {slot.semester_number}</p>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         {autoFill && (
