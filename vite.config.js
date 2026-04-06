@@ -6,13 +6,22 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // Split heavy dependencies into their own cached chunks.
-        // 'vendor' covers React + Router (rarely change).
-        // 'supabase' is isolated because it's the largest single dep
-        // and updates independently of the React ecosystem.
-        manualChunks: {
-          vendor:   ['react', 'react-dom', 'react-router-dom'],
-          supabase: ['@supabase/supabase-js'],
+        // rolldown (Vite 8's bundler) only supports manualChunks as a
+        // function — the object shorthand from classic Rollup isn't
+        // implemented yet. The function receives each module's resolved
+        // file path and returns the chunk name it should land in.
+        // Vite normalises all paths to forward slashes on every OS.
+        manualChunks(id) {
+          if (
+            id.includes('/node_modules/react/') ||
+            id.includes('/node_modules/react-dom/') ||
+            id.includes('/node_modules/react-router')
+          ) {
+            return 'vendor'
+          }
+          if (id.includes('/node_modules/@supabase/')) {
+            return 'supabase'
+          }
         },
       },
     },
