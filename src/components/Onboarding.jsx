@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import './Dashboard.css'
 
-// Concentration options match exactly what was seeded into the concentrations table
-const CONCENTRATIONS = [
-  { code: 'core',          name: 'CSC Core',                    desc: 'A broad foundation across all areas of computer science.' },
-  { code: 'cybersecurity', name: 'CSC Cybersecurity',           desc: 'Security, networking, cryptography, and systems defense.' },
-  { code: 'dsai',          name: 'CSC Data Science & AI',       desc: 'Machine learning, data analysis, and artificial intelligence.' },
-  { code: 'hpc',           name: 'CSC High Performance Computing', desc: 'Parallel systems, distributed computing, and advanced networking.' },
-]
+// Descriptions are display-only supplementary text — they live here in code
+// because the concentrations table only stores id, code, name, total_hours.
+// Unknown concentrations (e.g. a new one added to the DB later) will simply
+// render without a description rather than breaking the onboarding flow.
+const CONCENTRATION_DESCS = {
+  core:          'A broad foundation across all areas of computer science.',
+  cybersecurity: 'Security, networking, cryptography, and systems defense.',
+  dsai:          'Machine learning, data analysis, and artificial intelligence.',
+  hpc:           'Parallel systems, distributed computing, and advanced networking.',
+}
 
 const SEASONS = ['Fall', 'Spring', 'Summer']
 
@@ -23,6 +26,30 @@ export default function Onboarding({ profileId, onComplete }) {
   const [startYear, setStartYear]         = useState(CURRENT_YEAR)
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState(null)
+
+  // ── Live fetch of concentration list ─────────────────────────────
+  // Replaced the old hardcoded CONCENTRATIONS array. The DB is now the
+  // single source of truth for which concentrations exist.
+  const [concentrations, setConcentrations] = useState([])
+  const [concsLoading, setConcsLoading]     = useState(true)
+  const [concsError, setConcsError]         = useState(null)
+
+  useEffect(() => {
+    async function fetchConcentrations() {
+      const { data, error: fetchErr } = await supabase
+        .from('concentrations')
+        .select('id, code, name, total_hours')
+        .order('id', { ascending: true })
+
+      if (fetchErr) {
+        setConcsError(fetchErr.message)
+      } else {
+        setConcentrations(data)
+      }
+      setConcsLoading(false)
+    }
+    fetchConcentrations()
+  }, [])  // empty deps — fetch once on mount, concentrations don't change mid-session
 
   // ── Step 1 handler — user picks a concentration ──────────────────
   function handleSelectConcentration(code) {
@@ -39,16 +66,11 @@ export default function Onboarding({ profileId, onComplete }) {
     setLoading(true)
     setError(null)
 
-    // First fetch the concentration id that matches the selected code.
-    // We store code (e.g. 'core') in local state but the DB uses integer ids.
-    const { data: concData, error: concError } = await supabase
-      .from('concentrations')
-      .select('id, code, name, total_hours')
-      .eq('code', selectedCode)
-      .single()
-
-    if (concError) {
-      setError(concError.message)
+    // No need to re-fetch — concentrations are already in state from the
+    // useEffect above. A simple find() replaces the old single-row fetch.
+    const concData = concentrations.find(c => c.code === selectedCode)
+    if (!concData) {
+      setError('Selected concentration not found. Please go back and try again.')
       setLoading(false)
       return
     }
@@ -106,16 +128,30 @@ export default function Onboarding({ profileId, onComplete }) {
         {step === 1 && (
           <div className="onboarding-body">
             <div className="concentration-grid">
-              {CONCENTRATIONS.map(c => (
-                <button
-                  key={c.code}
-                  className={`concentration-card ${selectedCode === c.code ? 'selected' : ''}`}
-                  onClick={() => handleSelectConcentration(c.code)}
-                >
-                  <span className="concentration-name">{c.name}</span>
-                  <span className="concentration-desc">{c.desc}</span>
-                </button>
-              ))}
+              {concsLoading ? (
+                // Skeleton cards — same pulse class used by OnboardingSkeleton
+                // so the grid dimensions match the real cards exactly.
+                [0, 1, 2, 3].map(i => (
+                  <div key={i} className="sk-pulse sk-ob-conc-card" />
+                ))
+              ) : concsError ? (
+                <p className="onboarding-error">
+                  Could not load concentrations: {concsError}
+                </p>
+              ) : (
+                concentrations.map(c => (
+                  <button
+                    key={c.code}
+                    className={`concentration-card ${selectedCode === c.code ? 'selected' : ''}`}
+                    onClick={() => handleSelectConcentration(c.code)}
+                  >
+                    <span className="concentration-name">{c.name}</span>
+                    {CONCENTRATION_DESCS[c.code] && (
+                      <span className="concentration-desc">{CONCENTRATION_DESCS[c.code]}</span>
+                    )}
+                  </button>
+                ))
+              )}
             </div>
 
             {error && <p className="onboarding-error">{error}</p>}
@@ -123,7 +159,7 @@ export default function Onboarding({ profileId, onComplete }) {
             <button
               className="onboarding-btn"
               onClick={handleNextStep}
-              disabled={!selectedCode}
+              disabled={!selectedCode || concsLoading}
             >
               Continue
             </button>
