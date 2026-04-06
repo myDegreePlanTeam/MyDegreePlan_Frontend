@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import Semester from './Semester'
@@ -25,6 +25,19 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // Stores the most recent pool slot selection so the student can reverse it once.
   // Shape: { slot, courseCode } | null
   const [lastSelection, setLastSelection] = useState(null)
+
+  // ── Save error toast ──────────────────────────────────────────────────────────
+  // Shown when a background Supabase write fails after an optimistic update.
+  // Auto-dismisses after 5 s; the timer ref lets us reset the countdown if a
+  // second error fires before the first one clears.
+  const [saveError, setSaveError]   = useState(null)
+  const saveErrorTimerRef           = useRef(null)
+
+  function showSaveError(msg) {
+    setSaveError(msg)
+    if (saveErrorTimerRef.current) clearTimeout(saveErrorTimerRef.current)
+    saveErrorTimerRef.current = setTimeout(() => setSaveError(null), 5000)
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -221,12 +234,39 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return { completed, planned }
   }, [slots, planSlots, planStatuses, courses])
 
-  // ── Save a course selection to Supabase ──────────────────────────
-  // Preserves the existing status so re-selecting a pool slot doesn't
-  // reset a course the student already marked in-progress or done.
-  async function handleSave(slot, course) {
+  // ── Save a course selection to Supabase (optimistic) ────────────
+  // Optimistic update pattern — four steps:
+  //
+  //  1. Snapshot  — capture planSlots + planStatuses before any change.
+  //                 React state is immutable, so these references are
+  //                 stable: even after setPlanSlots runs and creates a
+  //                 new object, prevSlots still points to the old one.
+  //
+  //  2. Apply     — update state and close the modal RIGHT NOW.
+  //                 The grid reflects the new selection instantly;
+  //                 the student never waits for a network round-trip.
+  //
+  //  3. Write     — fire the Supabase upsert via .then() so it runs in
+  //                 the background while the UI is already updated.
+  //                 We don't await it — that's what makes this optimistic.
+  //
+  //  4. Rollback  — if the write fails, restore both snapshots and show
+  //                 a toast so the student knows to try again.
+  function handleSave(slot, course) {
     const existingStatus = planStatuses[slot.id] ?? 'planned'
-    const { error } = await supabase
+
+    // Step 1 — snapshot.
+    const prevSlots    = planSlots
+    const prevStatuses = planStatuses
+
+    // Step 2 — optimistic apply.
+    setPlanSlots(prev    => ({ ...prev, [slot.id]: course.code    }))
+    setPlanStatuses(prev => ({ ...prev, [slot.id]: existingStatus }))
+    setActiveSlot(null)
+    setLastSelection({ slot, courseCode: course.code })
+
+    // Step 3 — background write.
+    supabase
       .from('student_plan_slots')
       .upsert({
         student_id:           profile.id,
@@ -234,25 +274,29 @@ export default function DegreePlan({ profile, onProfileChange }) {
         selected_course_code: course.code,
         status:               existingStatus,
       }, { onConflict: 'student_id, requirement_slot_id' })
-
-    if (!error) {
-      setPlanSlots(prev    => ({ ...prev,    [slot.id]: course.code      }))
-      setPlanStatuses(prev => ({ ...prev,    [slot.id]: existingStatus   }))
-      setActiveSlot(null)
-      // Record this selection so the header undo button can reverse it.
-      // Overwrites any previous entry — undo is single-step only.
-      setLastSelection({ slot, courseCode: course.code })
-    }
+      .then(({ error }) => {
+        if (error) {
+          // Step 4 — rollback.
+          setPlanSlots(prevSlots)
+          setPlanStatuses(prevStatuses)
+          setLastSelection(null)
+          showSaveError('Course selection could not be saved. Please try again.')
+        }
+      })
   }
 
-  // ── Cycle a slot's status in Supabase ────────────────────────────
-  // For required slots this creates the row on first click.
-  // For pool slots it updates the existing row.
-  async function handleStatusChange(slot, newStatus) {
+  // ── Cycle a slot's status (optimistic) ──────────────────────────
+  // The status badge flips instantly. If the background write fails,
+  // the badge reverts to the status it showed before the click.
+  function handleStatusChange(slot, newStatus) {
     const courseCode = slot.is_pool ? planSlots[slot.id] : slot.class_code
     if (slot.is_pool && !courseCode) return
 
-    const { error } = await supabase
+    const prevStatuses = planStatuses
+
+    setPlanStatuses(prev => ({ ...prev, [slot.id]: newStatus }))
+
+    supabase
       .from('student_plan_slots')
       .upsert({
         student_id:           profile.id,
@@ -260,10 +304,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
         selected_course_code: courseCode,
         status:               newStatus,
       }, { onConflict: 'student_id, requirement_slot_id' })
-
-    if (!error) {
-      setPlanStatuses(prev => ({ ...prev, [slot.id]: newStatus }))
-    }
+      .then(({ error }) => {
+        if (error) {
+          setPlanStatuses(prevStatuses)
+          showSaveError('Status change could not be saved. Please try again.')
+        }
+      })
   }
 
   // ── Remove a pool slot selection ─────────────────────────────────
@@ -314,11 +360,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setActiveSlot(slot)
   }
 
-  // ── Save or update a semester note ───────────────────────────────
-  // Uses upsert so it works identically whether a row already exists
-  // or is being created for the first time.
-  async function handleNoteSave(semesterNumber, noteText) {
-    const { error } = await supabase
+  // ── Save or update a semester note (optimistic) ─────────────────
+  // The pencil icon activates (gold) and the note text persists to state
+  // immediately when the textarea blurs. If the write fails, the note
+  // text in state reverts — Semester's useEffect([note]) re-syncs the
+  // textarea to the rolled-back value automatically.
+  function handleNoteSave(semesterNumber, noteText) {
+    const prevNotes = semesterNotes
+
+    setSemesterNotes(prev => ({ ...prev, [semesterNumber]: noteText }))
+
+    supabase
       .from('student_semester_notes')
       .upsert({
         student_id:       profile.id,
@@ -327,10 +379,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
         note_text:        noteText,
         updated_at:       new Date().toISOString(),
       }, { onConflict: 'student_id, concentration_id, semester_number' })
-
-    if (!error) {
-      setSemesterNotes(prev => ({ ...prev, [semesterNumber]: noteText }))
-    }
+      .then(({ error }) => {
+        if (error) {
+          setSemesterNotes(prevNotes)
+          showSaveError('Semester note could not be saved. Please try again.')
+        }
+      })
   }
 
   // ── Switch the student's concentration ───────────────────────────
@@ -504,6 +558,23 @@ export default function DegreePlan({ profile, onProfileChange }) {
           onClose={() => setShowSwitchModal(false)}
           switching={switching}
         />
+      )}
+
+      {/* ── Save error toast ─────────────────────────────────────────────
+          Appears when any background Supabase write fails after an
+          optimistic update. Fixed position so it overlays all content.
+          role="alert" makes screen readers announce it immediately. */}
+      {saveError && (
+        <div className="save-error-toast" role="alert">
+          <span>{saveError}</span>
+          <button
+            className="save-error-toast-close"
+            onClick={() => {
+              setSaveError(null)
+              clearTimeout(saveErrorTimerRef.current)
+            }}
+          >✕</button>
+        </div>
       )}
 
     </div>

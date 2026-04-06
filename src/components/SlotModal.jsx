@@ -19,8 +19,6 @@ export default function SlotModal({
   const [scienceNotice, setScienceNotice]   = useState(null)
   const [search, setSearch]                 = useState('')
   const [selected, setSelected]             = useState(null)
-  const [saving, setSaving]                 = useState(false)
-  const [error, setError]                   = useState(null)
 
   // ── Resolve which courses to show based on slot type ──────────────
   useEffect(() => {
@@ -173,12 +171,9 @@ export default function SlotModal({
       })
   }, [courses, search, takenCodes, prereqMap, satisfiedCodes])
 
-  async function handleSave() {
+  function handleSave() {
     if (!selected || selected.status === 'locked' || selected.status === 'taken') return
-    setSaving(true)
-    setError(null)
-    await onSave(slot, selected)
-    setSaving(false)
+    onSave(slot, selected)
   }
 
   function handleBackdropClick(e) {
@@ -278,13 +273,11 @@ export default function SlotModal({
         </div>
 
         <div className="modal-footer">
-          {error && <p className="modal-error">{error}</p>}
           <div className="modal-footer-btns">
             {planSlots[slot.id] && (
               <button
                 className="modal-remove-btn"
                 onClick={() => onRemove(slot)}
-                disabled={saving}
               >
                 Remove selection
               </button>
@@ -295,9 +288,9 @@ export default function SlotModal({
             <button
               className="onboarding-btn"
               onClick={handleSave}
-              disabled={!selected || selected.status === 'locked' || selected.status === 'taken' || saving}
+              disabled={!selected || selected.status === 'locked' || selected.status === 'taken'}
             >
-              {saving ? 'Saving...' : 'Select course'}
+              Select course
             </button>
           </div>
         </div>

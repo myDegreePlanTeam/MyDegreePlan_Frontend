@@ -1312,10 +1312,13 @@
     gap: 0.75rem;
   }
 
-  /* Let the action buttons left-align under the title */
+  /* Let the action buttons left-align and wrap under the title.
+     Without flex-wrap, three buttons (Undo + Change concentration +
+     Sign out) overflow the 375px viewport. */
   .degreeplan-header-actions {
     width: 100%;
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   /* ── Semester grid ── */
@@ -1347,4 +1350,47 @@
     flex-basis: 100%;
     margin-right: 0;
   }
+}
+
+/* ── Save error toast ────────────────────────────────────────────────
+   Appears at the bottom-center of the viewport when a background
+   Supabase write fails after an optimistic update. Fixed position so
+   it floats above the semester grid and any open modals.
+   z-index 200 puts it above the modal-backdrop (100). */
+
+.save-error-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  background: rgba(224, 92, 92, 0.12);
+  border: 1px solid rgba(224, 92, 92, 0.35);
+  border-radius: 8px;
+  padding: 0.75rem 0.875rem 0.75rem 1.125rem;
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  z-index: 200;
+  max-width: min(480px, calc(100vw - 2rem));
+  animation: fadeUp 0.2s ease both;
+}
+
+.save-error-toast-close {
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.65;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.save-error-toast-close:hover {
+  opacity: 1;
 }
