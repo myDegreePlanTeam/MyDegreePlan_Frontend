@@ -195,4 +195,13 @@
   .auth-brand {
     display: none;
   }
+  /* Tighten the form panel padding so content isn't squeezed at 375px */
+  .auth-form-panel {
+    padding: 2rem 1.5rem;
+  }
+  /* Ensure inputs and the submit button meet the 44px minimum tap target */
+  .auth-input,
+  .auth-btn {
+    min-height: 44px;
+  }
 }

@@ -1260,3 +1260,91 @@
 
 /* Continue button placeholder */
 .sk-ob-btn { height: 44px; border-radius: 6px; }
+
+/* ── Mobile responsiveness (≤ 480px) ────────────────────────────────
+   All rules here are additive — no desktop layout is changed.
+   Breakpoint chosen to cover the 375px iPhone SE / standard phone
+   widths while leaving tablets and larger phones at their desktop
+   layout. ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+
+  /* ── Onboarding ── */
+
+  /* Give the card more horizontal room by shrinking the shell padding */
+  .onboarding-shell {
+    padding: 1rem;
+  }
+
+  /* Reduce the generous desktop side-padding inside the card */
+  .onboarding-header {
+    padding: 1.5rem 1.25rem 1.25rem;
+  }
+
+  .onboarding-body {
+    padding: 1.25rem 1.25rem 1.5rem;
+  }
+
+  /* Concentration cards: two columns are too narrow at 375px —
+     collapse to a single readable column */
+  .concentration-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Season + year selectors: side-by-side is cramped at 375px —
+     stack them vertically so each gets a full-width touch target */
+  .season-year-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Dashboard header ── */
+
+  /* Reduce outer padding so the inner content has more room */
+  .degreeplan-header {
+    padding: 1rem;
+  }
+
+  /* Stack title block above actions instead of fighting for
+     horizontal space — avoids overflow and truncation on narrow screens */
+  .degreeplan-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  /* Let the action buttons left-align under the title */
+  .degreeplan-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  /* ── Semester grid ── */
+
+  /* Tighten main padding; the auto-fill grid already collapses to
+     one column at this width via minmax(260px, 1fr) */
+  .degreeplan-main {
+    padding: 1rem;
+  }
+
+  /* ── Modals (SlotModal + CourseDetailModal share these classes) ── */
+
+  /* Tighten footer padding */
+  .modal-footer {
+    padding: 0.75rem 1rem;
+  }
+
+  /* Allow footer buttons to wrap instead of overflowing */
+  .modal-footer-btns {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* "Remove selection" is a destructive action — give it its own
+     full-width row so it's clearly separated from the primary actions
+     above it, and reset the desktop margin-right: auto trick that
+     only works in a single-row flex layout */
+  .modal-remove-btn {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+}
