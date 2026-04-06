@@ -295,6 +295,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const completedPct = Math.min((creditTotals.completed / totalHours) * 100, 100)
   const plannedPct   = Math.min((creditTotals.planned   / totalHours) * 100, 100 - completedPct)
 
+  const maxSemester  = semesterNumbers.length > 0 ? Math.max(...semesterNumbers) : 0
+  const graduation   = projectGraduation(profile.start_season, profile.start_year, maxSemester)
+
   return (
     <div className="degreeplan-shell">
 
@@ -305,6 +308,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
             <h1 className="degreeplan-title">{profile.concentrations.name}</h1>
             <p className="degreeplan-meta">
               Started {profile.start_season} {profile.start_year}
+              {graduation && (
+                <>
+                  <span className="credit-label-dot"> · </span>
+                  <span className="degreeplan-graduation">
+                    Projected graduation: {graduation.season} {graduation.year}
+                  </span>
+                </>
+              )}
             </p>
             <div className="credit-bar-wrap">
               <div className="credit-bar-track">
@@ -380,6 +391,35 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     </div>
   )
+}
+
+// ── Graduation timeline projection ────────────────────────────────────────────
+// TTU operates Fall/Spring only for the standard plan — no Summer.
+// Starting from startSeason/startYear, each semester advances one term.
+// offset = numSemesters - 1 terms forward from the start.
+//
+// Fall start, offset k terms:
+//   even offset → same season (Fall),  year = startYear + k/2
+//   odd  offset → Spring,              year = startYear + Math.floor(k/2) + 1
+//
+// Spring start, offset k terms:
+//   even offset → same season (Spring), year = startYear + k/2
+//   odd  offset → Fall,                 year = startYear + Math.floor(k/2)
+
+function projectGraduation(startSeason, startYear, numSemesters) {
+  if (!startSeason || !startYear || !numSemesters) return null
+  const offset = numSemesters - 1
+  const k      = Math.floor(offset / 2)
+  if (startSeason === 'Fall') {
+    return offset % 2 === 0
+      ? { season: 'Fall',   year: startYear + k }
+      : { season: 'Spring', year: startYear + k + 1 }
+  } else {
+    // Spring start
+    return offset % 2 === 0
+      ? { season: 'Spring', year: startYear + k }
+      : { season: 'Fall',   year: startYear + k }
+  }
 }
 
 // ── GenEdTracker ───────────────────────────────────────────────────────────────

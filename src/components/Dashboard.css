@@ -910,6 +910,47 @@
   border-color: rgba(224, 92, 92, 0.22);
 }
 
+/* ── Graduation projection ───────────────────────────────────────── */
+/* Sits inline in .degreeplan-meta alongside "Started Fall XXXX".
+   Slightly lighter than full muted so it reads as informational,
+   not decorative. No extra element needed — reuses the dot separator
+   already used in the credit bar label. */
+
+.degreeplan-graduation {
+  color: var(--white);
+  opacity: 0.7;
+}
+
+/* ── Semester credit hour warnings ───────────────────────────────── */
+/* Rendered between the semester header row and the slot list.
+   Uses the same left-border language as the status-colored slot rows
+   so the visual vocabulary stays consistent.
+   Low  = gold  (below full-time, < 12 cr) — caution, not danger
+   High = danger (heavy load, > 19 cr)    — stronger signal */
+
+.semester-credit-warning {
+  padding: 0.3rem 1.25rem 0.3rem 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  border-bottom: 1px solid var(--navy-light);
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+}
+
+.semester-credit-warning-low {
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.06);
+  border-left-color: var(--gold);
+  opacity: 0.9;
+}
+
+.semester-credit-warning-high {
+  color: var(--danger);
+  background: rgba(224, 92, 92, 0.06);
+  border-left-color: var(--danger);
+  opacity: 0.9;
+}
+
 /* ── Remove selection button ─────────────────────────────────────── */
 
 .modal-remove-btn {

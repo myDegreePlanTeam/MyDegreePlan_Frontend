@@ -24,14 +24,24 @@ export default function Semester({
   onStatusChange,
   scienceWarnings = {},
 }) {
+  const totalCr = calculateCredits(slots, courseMap, planSlots)
+  const creditWarning = totalCr < 12 ? 'low' : totalCr > 19 ? 'high' : null
+
   return (
     <div className="semester-card">
       <div className="semester-header">
         <span className="semester-label">Semester {semesterNumber}</span>
         <span className="semester-credits">
-          {calculateCredits(slots, courseMap, planSlots)} cr
+          {totalCr} cr
         </span>
       </div>
+      {creditWarning && (
+        <div className={`semester-credit-warning semester-credit-warning-${creditWarning}`}>
+          {creditWarning === 'low'
+            ? 'Below full-time — fewer than 12 credits'
+            : 'Heavy load — more than 19 credits'}
+        </div>
+      )}
       <div className="semester-slots">
         {slots.map(slot => (
           <SlotRow
