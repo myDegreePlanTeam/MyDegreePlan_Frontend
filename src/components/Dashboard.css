@@ -820,6 +820,27 @@
   align-self: flex-start;
 }
 
+/* ── Science sequence warnings on slot rows ──────────────────────── */
+/* Rendered inside .slot-info beneath .slot-name for SCIENCE pool slots.
+   Incomplete = student started a sequence but hasn't filled the partner slot.
+   Conflict   = both science slots are filled with courses from different sequences. */
+
+.slot-science-warning {
+  font-size: 0.63rem;
+  font-style: normal;
+  margin-top: 0.15rem;
+  line-height: 1.3;
+}
+
+.slot-science-warning-incomplete {
+  color: var(--gold);
+  opacity: 0.85;
+}
+
+.slot-science-warning-conflict {
+  color: var(--danger);
+}
+
 /* ── Remove selection button ─────────────────────────────────────── */
 
 .modal-remove-btn {

@@ -235,6 +235,67 @@ export function resolveScience(planSlots, slots, courseMap) {
   return { mode: 'normal' }
 }
 
+// ── getScienceWarnings ────────────────────────────────────────────────────────
+// Given the current planSlots and the full slots list, returns a map of
+// { [slotId]: { type: 'incomplete'|'conflict', sequenceName?: string } }
+// describing any science-sequence problems that should be shown on the degree
+// plan grid (not in the modal).
+//
+// Rules:
+//   • Both empty         → no warnings
+//   • One filled, one empty → warn on the empty slot: must complete the sequence
+//   • Both filled, same sequence → no warnings (plan is valid)
+//   • Both filled, different sequences → conflict warning on BOTH slots
+
+const SCIENCE_SEQUENCE_NAMES = {
+  'CHEM1110': 'Chemistry',
+  'CHEM1120': 'Chemistry',
+  'PHYS2010': 'Physics',
+  'PHYS2020': 'Physics',
+  'PHYS2110': 'Physics',
+  'PHYS2120': 'Physics',
+  'GEOL1040': 'Geology',
+  'GEOL1045': 'Geology',
+  'BIOL1113': 'Biology',
+  'BIOL1123': 'Biology',
+  'BIOL2310': 'Biology',
+}
+
+export function getScienceWarnings(planSlots, slots) {
+  const scienceSlots = slots.filter(s => s.is_pool && s.class_code === 'SCIENCE')
+  if (scienceSlots.length < 2) return {}
+
+  const [slotA, slotB] = scienceSlots
+  const codeA = planSlots[slotA.id]
+  const codeB = planSlots[slotB.id]
+
+  if (!codeA && !codeB) return {}
+
+  const seqA = codeA ? SCIENCE_SEQUENCE_NAMES[codeA] : null
+  const seqB = codeB ? SCIENCE_SEQUENCE_NAMES[codeB] : null
+
+  // Both filled — check if they're from the same sequence
+  if (codeA && codeB) {
+    if (seqA && seqB && seqA !== seqB) {
+      return {
+        [slotA.id]: { type: 'conflict' },
+        [slotB.id]: { type: 'conflict' },
+      }
+    }
+    return {}
+  }
+
+  // One filled, one empty — warn on the empty slot
+  if (codeA && !codeB && seqA) {
+    return { [slotB.id]: { type: 'incomplete', sequenceName: seqA } }
+  }
+  if (!codeA && codeB && seqB) {
+    return { [slotA.id]: { type: 'incomplete', sequenceName: seqB } }
+  }
+
+  return {}
+}
+
 // ── resolveFreeElective ───────────────────────────────────────────────────────
 
 export function resolveFreeElective(courseMap, slots, planSlots) {

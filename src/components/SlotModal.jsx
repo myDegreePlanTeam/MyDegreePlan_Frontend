@@ -29,6 +29,7 @@ export default function SlotModal({
   const [courses, setCourses]               = useState([])
   const [freeSections, setFreeSections]     = useState(null)
   const [autoFill, setAutoFill]             = useState(null)
+  const [scienceNotice, setScienceNotice]   = useState(null)
   const [search, setSearch]                 = useState('')
   const [selected, setSelected]             = useState(null)
   const [saving, setSaving]                 = useState(false)
@@ -39,6 +40,7 @@ export default function SlotModal({
     setSelected(null)
     setAutoFill(null)
     setFreeSections(null)
+    setScienceNotice(null)
 
     // If the slot already has a selection, we'll restore it at the end
     // of each code path so it shows highlighted when the modal opens.
@@ -54,19 +56,34 @@ export default function SlotModal({
     }
 
     if (slot.class_code === 'SCIENCE') {
-      const result = resolveScience(planSlots, slots, courseMap)
+      // Step 11: resolve based on what OTHER science slots have chosen, not this
+      // slot's own current selection. This ensures the modal only shows courses
+      // that are compatible with the sequence already started in the other slot.
+      const otherPlanSlots = Object.fromEntries(
+        Object.entries(planSlots).filter(([id]) => id !== String(slot.id))
+      )
+      const result = resolveScience(otherPlanSlots, slots, courseMap)
+
       if (result.mode === 'autofill') {
         setCourses([result.course])
         setAutoFill(result.course)
-        // Prefer the saved selection over the autofill suggestion
-        setSelected(existingCourse ?? result.course)
+        // Only keep the existing selection if it matches the required partner.
+        // If the existing code is from a different sequence (conflict), default
+        // to the autofill partner so the user sees the correct course highlighted.
+        setSelected(existingCourse?.code === result.course.code ? existingCourse : result.course)
         return
       }
+
       if (result.mode === 'narrow') {
         setCourses(result.courses)
-        if (existingCourse) setSelected(existingCourse)
+        setScienceNotice('Only courses that complete your Biology sequence are shown.')
+        // Only keep the existing selection if it's in the narrowed list
+        if (existingCourse && result.courses.some(c => c.code === existingCourse.code)) {
+          setSelected(existingCourse)
+        }
         return
       }
+
       setCourses(resolvePool('SCIENCE', courseMap) ?? [])
       if (existingCourse) setSelected(existingCourse)
       return
@@ -205,6 +222,12 @@ export default function SlotModal({
         {autoFill && (
           <div className="modal-autofill-notice">
             Partner course auto-selected based on your science sequence choice.
+          </div>
+        )}
+
+        {scienceNotice && !autoFill && (
+          <div className="modal-autofill-notice">
+            {scienceNotice}
           </div>
         )}
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { POOL_COURSES } from '../lib/poolResolver'
+import { getScienceWarnings } from '../lib/poolResolver'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
 import './Dashboard.css'
@@ -140,6 +140,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const semesterNumbers = Object.keys(semesterMap)
     .map(Number)
     .sort((a, b) => a - b)
+
+  // ── Compute science sequence warnings ───────────────────────────
+  // Recomputes whenever a science slot selection changes. The result is a
+  // { [slotId]: { type, sequenceName? } } map passed down to Semester → SlotRow.
+  const scienceWarnings = useMemo(
+    () => getScienceWarnings(planSlots, slots),
+    [planSlots, slots]
+  )
 
   // ── Compute credit totals for the progress bar ───────────────────
   // Required slots always contribute (they're always on the plan).
@@ -331,6 +339,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
               planStatuses={planStatuses}
               onSlotClick={setActiveSlot}
               onStatusChange={handleStatusChange}
+              scienceWarnings={scienceWarnings}
             />
           ))}
         </div>

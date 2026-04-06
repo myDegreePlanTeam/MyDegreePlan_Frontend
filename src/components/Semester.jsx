@@ -30,10 +30,11 @@ export default function Semester({
   semesterNumber,
   slots,
   courseMap,
-  planSlots     = {},
-  planStatuses  = {},
+  planSlots      = {},
+  planStatuses   = {},
   onSlotClick,
   onStatusChange,
+  scienceWarnings = {},
 }) {
   return (
     <div className="semester-card">
@@ -54,6 +55,7 @@ export default function Semester({
             status={planStatuses[slot.id]}
             onSlotClick={onSlotClick}
             onStatusChange={onStatusChange}
+            warning={scienceWarnings[slot.id]}
           />
         ))}
       </div>
@@ -67,7 +69,7 @@ export default function Semester({
 // and browsers silently break the DOM when you try. A div with role/tabIndex
 // is semantically equivalent for keyboard/screen-reader users.
 
-function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotClick, onStatusChange }) {
+function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotClick, onStatusChange, warning }) {
   const effectiveStatus = status ?? 'planned'
 
   // Pool slot — div[role=button] opens the course-selection modal
@@ -90,6 +92,13 @@ function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotCli
               ? (selectedCourse?.name ?? 'Selected')
               : 'Click to select'}
           </span>
+          {warning && (
+            <span className={`slot-science-warning slot-science-warning-${warning.type}`}>
+              {warning.type === 'incomplete'
+                ? `Complete your ${warning.sequenceName} sequence`
+                : 'Sequence conflict'}
+            </span>
+          )}
         </div>
         <div className="slot-right">
           {isSelected && (
