@@ -1,37 +1,44 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
+import { checkPrereqs } from '../lib/prereqChecker'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
 import CourseDetailModal from './CourseDetailModal'
+import AddCourseModal from './AddCourseModal'
 import { DegreeplanSkeleton } from './Skeletons'
+import CompletionBadge from './CompletionBadge'
+import usePlanCompleteness from '../lib/usePlanCompleteness'
 import './Dashboard.css'
 
 export default function DegreePlan({ profile, onProfileChange }) {
-  const [slots, setSlots]               = useState([])
-  const [courses, setCourses]           = useState({})
-  const [loading, setLoading]           = useState(true)
-  const [error, setError]               = useState(null)
-  const [activeSlot, setActiveSlot]     = useState(null)
-  const [planSlots, setPlanSlots]       = useState({})
-  const [planStatuses, setPlanStatuses] = useState({})
-  const [prereqMap, setPrereqMap]       = useState({})
-  const [coreqMap, setCoreqMap]         = useState({})
-  const [activeDetail, setActiveDetail] = useState(null)
-  const [semesterNotes, setSemesterNotes] = useState({})
-  const [showSwitchModal, setShowSwitchModal] = useState(false)
-  const [switching, setSwitching]             = useState(false)
-  // ── Undo stack (session-only — intentionally does not survive refresh) ────────
-  // Stores the most recent pool slot selection so the student can reverse it once.
-  // Shape: { slot, courseCode } | null
-  const [lastSelection, setLastSelection] = useState(null)
+  const [slots, setSlots]                         = useState([])
+  const [courses, setCourses]                     = useState({})
+  const [loading, setLoading]                     = useState(true)
+  const [error, setError]                         = useState(null)
+  const [activeSlot, setActiveSlot]               = useState(null)
+  const [planSlots, setPlanSlots]                 = useState({})
+  const [planStatuses, setPlanStatuses]           = useState({})
+  const [planCreditsRemaining, setPlanCreditsRemaining] = useState({})
+  // planSemesterOverrides: { reqSlotId: number } — student's drag-moved semesters
+  const [planSemesterOverrides, setPlanSemesterOverrides] = useState({})
+  // freeAddSlots: [{id, course_code, semester_number, status}]
+  const [freeAddSlots, setFreeAddSlots]           = useState([])
+  const [prereqMap, setPrereqMap]                 = useState({})
+  const [coreqMap, setCoreqMap]                   = useState({})
+  const [activeDetail, setActiveDetail]           = useState(null)
+  const [semesterNotes, setSemesterNotes]         = useState({})
+  const [showSwitchModal, setShowSwitchModal]     = useState(false)
+  const [switching, setSwitching]                 = useState(false)
+  // addCourseTarget: number | null — which semester the Add Course modal is open for
+  const [addCourseTarget, setAddCourseTarget]     = useState(null)
+  // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
+  const [draggedSlotId, setDraggedSlotId]         = useState(null)
 
-  // ── Save error toast ──────────────────────────────────────────────────────────
-  // Shown when a background Supabase write fails after an optimistic update.
-  // Auto-dismisses after 5 s; the timer ref lets us reset the countdown if a
-  // second error fires before the first one clears.
-  const [saveError, setSaveError]   = useState(null)
-  const saveErrorTimerRef           = useRef(null)
+  const [lastSelection, setLastSelection]         = useState(null)
+  const [saveError, setSaveError]                 = useState(null)
+  const saveErrorTimerRef                         = useRef(null)
 
   function showSaveError(msg) {
     setSaveError(msg)
@@ -39,11 +46,19 @@ export default function DegreePlan({ profile, onProfileChange }) {
     saveErrorTimerRef.current = setTimeout(() => setSaveError(null), 5000)
   }
 
+  // ── dnd-kit sensors ──────────────────────────────────────────────
+  // Use PointerSensor with a 5px activation distance so normal clicks on the
+  // grip handle don't accidentally trigger a drag on tap/touch.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
+  // ── Load plan data ───────────────────────────────────────────────
   useEffect(() => {
     setLoading(true)
 
     async function loadPlan() {
-      // ── Step 1: fetch requirement slots ─────────────────────────
+      // Step 1 — requirement slots (template)
       const { data: slotData, error: slotError } = await supabase
         .from('requirement_slots')
         .select('id, semester_number, slot_order, class_code, is_pool, flex_credits')
@@ -51,76 +66,75 @@ export default function DegreePlan({ profile, onProfileChange }) {
         .order('semester_number', { ascending: true })
         .order('slot_order',      { ascending: true })
 
-      if (slotError) {
-        setError(slotError.message)
-        setLoading(false)
-        return
+      if (slotError) { setError(slotError.message); setLoading(false); return }
+
+      // Step 2 — student's saved selections + semester overrides + credits remaining
+      const slotIds = slotData.map(s => s.id)
+      const { data: savedSlots, error: savedSlotsError } = await supabase
+        .from('student_plan_slots')
+        .select('requirement_slot_id, selected_course_code, status, semester_number, credits_remaining')
+        .eq('student_id', profile.id)
+        .in('requirement_slot_id', slotIds)
+
+      if (savedSlotsError) { setError(savedSlotsError.message); setLoading(false); return }
+
+      const planSlotsMap             = {}
+      const planStatusesMap          = {}
+      const planSemesterOverridesMap = {}
+      const planCreditsRemainingMap  = {}
+      for (const row of savedSlots) {
+        planSlotsMap[row.requirement_slot_id]    = row.selected_course_code
+        planStatusesMap[row.requirement_slot_id] = row.status
+        if (row.semester_number != null)
+          planSemesterOverridesMap[row.requirement_slot_id] = row.semester_number
+        if (row.credits_remaining > 0)
+          planCreditsRemainingMap[row.requirement_slot_id] = row.credits_remaining
       }
 
-      // ── Step 2: collect real course codes from slots ─────────────
-      const realCodes = slotData
-        .filter(s => !s.is_pool)
-        .map(s => s.class_code)
+      // Step 3 — free-add slots
+      const { data: freeAdds, error: freeAddError } = await supabase
+        .from('student_free_add_slots')
+        .select('id, course_code, semester_number, status')
+        .eq('student_id', profile.id)
+        .order('created_at', { ascending: true })
 
-      // ── Step 3: collect all pool course codes from poolResolver ──
+      if (freeAddError) { setError(freeAddError.message); setLoading(false); return }
+
+      // Step 4 — collect all course codes to fetch
       const { POOL_COURSES } = await import('../lib/poolResolver')
-      const poolCodes = Object.values(POOL_COURSES)
-        .filter(arr => arr !== null)
-        .flat()
+      const realCodes  = slotData.filter(s => !s.is_pool).map(s => s.class_code)
+      const poolCodes  = Object.values(POOL_COURSES).filter(arr => arr !== null).flat()
+      const freeAddCodes = (freeAdds ?? []).map(f => f.course_code)
+      const allCodes   = [...new Set([...realCodes, ...poolCodes, ...freeAddCodes])]
 
-      // Combine and deduplicate
-      const allCodes = [...new Set([...realCodes, ...poolCodes])]
-
-      // ── Step 4: fetch all courses in one query ───────────────────
+      // Step 5 — fetch courses
       const { data: courseData, error: courseError } = await supabase
         .from('courses')
         .select('code, name, credits, subject_code, standing_req, description')
         .in('code', allCodes)
 
-      if (courseError) {
-        setError(courseError.message)
-        setLoading(false)
-        return
-      }
-
-      // ── Step 5: build courseMap keyed by code ────────────────────
+      if (courseError) { setError(courseError.message); setLoading(false); return }
       const courseMap = {}
-      for (const course of courseData) {
-        courseMap[course.code] = course
-      }
+      for (const course of courseData) courseMap[course.code] = course
 
-      // ── Step 6: fetch prerequisite entries for all courses ───────
-      // allCodes is still in scope here — this is why Step 6 must
-      // live inside loadPlan, not outside it
+      // Step 6 — prerequisites
       const { data: prereqData, error: prereqError } = await supabase
         .from('prerequisite_entries')
         .select('course_code, group_index, logic, required_code')
         .in('course_code', allCodes)
 
-      if (prereqError) {
-        setError(prereqError.message)
-        setLoading(false)
-        return
-      }
+      if (prereqError) { setError(prereqError.message); setLoading(false); return }
 
-      // Build prereqMap: { 'CSC1310': { 0: { logic: 'AND', codes: ['CSC1300'] } } }
       const prereqMapBuilt = {}
       for (const entry of prereqData) {
-        if (!prereqMapBuilt[entry.course_code]) {
-          prereqMapBuilt[entry.course_code] = {}
-        }
+        if (!prereqMapBuilt[entry.course_code]) prereqMapBuilt[entry.course_code] = {}
         if (!prereqMapBuilt[entry.course_code][entry.group_index]) {
-          prereqMapBuilt[entry.course_code][entry.group_index] = {
-            logic: entry.logic,
-            codes: [],
-          }
+          prereqMapBuilt[entry.course_code][entry.group_index] = { logic: entry.logic, codes: [] }
         }
         prereqMapBuilt[entry.course_code][entry.group_index].codes.push(entry.required_code)
       }
 
-      // ── Step 6b: fetch corequisite entries ───────────────────────
-      // Corequisites don't use AND/OR logic, so the map is a simple
-      // { courseCode: [requiredCode, ...] } — no group structure needed.
+      // Step 6b — corequisites
       const { data: coreqData } = await supabase
         .from('corequisite_entries')
         .select('course_code, required_code')
@@ -128,34 +142,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       const coreqMapBuilt = {}
       for (const entry of coreqData ?? []) {
-        if (!coreqMapBuilt[entry.course_code]) {
-          coreqMapBuilt[entry.course_code] = []
-        }
+        if (!coreqMapBuilt[entry.course_code]) coreqMapBuilt[entry.course_code] = []
         coreqMapBuilt[entry.course_code].push(entry.required_code)
       }
 
-      // ── Step 7: load saved student selections and statuses ───────
-      const slotIds = slotData.map(s => s.id)
-      const { data: savedSlots, error: savedSlotsError } = await supabase
-        .from('student_plan_slots')
-        .select('requirement_slot_id, selected_course_code, status')
-        .eq('student_id', profile.id)
-        .in('requirement_slot_id', slotIds)
-
-      if (savedSlotsError) {
-        setError(savedSlotsError.message)
-        setLoading(false)
-        return
-      }
-
-      const planSlotsMap    = {}
-      const planStatusesMap = {}
-      for (const row of savedSlots) {
-        planSlotsMap[row.requirement_slot_id]    = row.selected_course_code
-        planStatusesMap[row.requirement_slot_id] = row.status
-      }
-
-      // ── Step 7b: load semester notes ────────────────────────────
+      // Step 7 — semester notes
       const { data: notesData } = await supabase
         .from('student_semester_notes')
         .select('semester_number, note_text')
@@ -163,17 +154,18 @@ export default function DegreePlan({ profile, onProfileChange }) {
         .eq('concentration_id', profile.concentration_id)
 
       const semNotesMap = {}
-      for (const row of notesData ?? []) {
-        semNotesMap[row.semester_number] = row.note_text
-      }
+      for (const row of notesData ?? []) semNotesMap[row.semester_number] = row.note_text
 
-      // ── Step 8: set all state at once ────────────────────────────
+      // Step 8 — commit all state at once
       setSlots(slotData)
       setCourses(courseMap)
       setPrereqMap(prereqMapBuilt)
       setCoreqMap(coreqMapBuilt)
       setPlanSlots(planSlotsMap)
       setPlanStatuses(planStatusesMap)
+      setPlanSemesterOverrides(planSemesterOverridesMap)
+      setPlanCreditsRemaining(planCreditsRemainingMap)
+      setFreeAddSlots(freeAdds ?? [])
       setSemesterNotes(semNotesMap)
       setLoading(false)
     }
@@ -181,38 +173,50 @@ export default function DegreePlan({ profile, onProfileChange }) {
     loadPlan()
   }, [profile.concentration_id])
 
-  // ── Group slots by semester number ──────────────────────────────
-  const semesterMap = slots.reduce((acc, slot) => {
-    const sem = slot.semester_number
-    if (!acc[sem]) acc[sem] = []
-    acc[sem].push(slot)
-    return acc
-  }, {})
+  // ── Build semesterMap using per-student semester overrides ────────
+  // A dragged slot's effective semester comes from planSemesterOverrides if set,
+  // otherwise falls back to the template semester_number from requirement_slots.
+  const semesterMap = useMemo(() => {
+    return slots.reduce((acc, slot) => {
+      const sem = planSemesterOverrides[slot.id] ?? slot.semester_number
+      if (!acc[sem]) acc[sem] = []
+      acc[sem].push(slot)
+      return acc
+    }, {})
+  }, [slots, planSemesterOverrides])
 
-  const semesterNumbers = Object.keys(semesterMap)
-    .map(Number)
-    .sort((a, b) => a - b)
+  const freeAddBySemester = useMemo(() => {
+    return freeAddSlots.reduce((acc, s) => {
+      if (!acc[s.semester_number]) acc[s.semester_number] = []
+      acc[s.semester_number].push(s)
+      return acc
+    }, {})
+  }, [freeAddSlots])
 
-  // ── Compute science sequence warnings ───────────────────────────
-  // Recomputes whenever a science slot selection changes. The result is a
-  // { [slotId]: { type, sequenceName? } } map passed down to Semester → SlotRow.
+  const semesterNumbers = useMemo(() => {
+    const all = new Set([
+      ...Object.keys(semesterMap).map(Number),
+      ...Object.keys(freeAddBySemester).map(Number),
+    ])
+    return [...all].sort((a, b) => a - b)
+  }, [semesterMap, freeAddBySemester])
+
+  // ── Science sequence warnings ─────────────────────────────────────
   const scienceWarnings = useMemo(
     () => getScienceWarnings(planSlots, slots),
     [planSlots, slots]
   )
 
-  // ── Compute GEN_ED sub-requirement status ────────────────────────
-  // Recomputes whenever any GEN_ED slot selection changes.
-  // Result is an array of { category, label, filled, required, satisfied, atRisk }
-  // rendered in the sticky header so it's always visible.
+  // ── GEN_ED sub-requirement status ─────────────────────────────────
   const genEdStatus = useMemo(
     () => getGenEdStatus(planSlots, slots, courses),
     [planSlots, slots, courses]
   )
 
-  // ── Compute credit totals for the progress bar ───────────────────
-  // Required slots always contribute (they're always on the plan).
-  // Pool slots only contribute once a course has been chosen.
+  // ── Plan completeness ─────────────────────────────────────────────
+  const { isComplete } = usePlanCompleteness(slots, planSlots, genEdStatus)
+
+  // ── Credit totals ─────────────────────────────────────────────────
   const creditTotals = useMemo(() => {
     let completed = 0
     let planned   = 0
@@ -225,47 +229,75 @@ export default function DegreePlan({ profile, onProfileChange }) {
       } else {
         credits = courses[slot.class_code]?.credits ?? 0
       }
-      if (planStatuses[slot.id] === 'completed') {
-        completed += credits
-      } else {
-        planned += credits
-      }
+      if (planStatuses[slot.id] === 'completed') completed += credits
+      else planned += credits
+    }
+    // Include free-add slots in totals
+    for (const fa of freeAddSlots) {
+      const credits = courses[fa.course_code]?.credits ?? 0
+      if (fa.status === 'completed') completed += credits
+      else planned += credits
     }
     return { completed, planned }
-  }, [slots, planSlots, planStatuses, courses])
+  }, [slots, planSlots, planStatuses, courses, freeAddSlots])
 
-  // ── Save a course selection to Supabase (optimistic) ────────────
-  // Optimistic update pattern — four steps:
+  // ── Reactive prerequisite warnings ───────────────────────────────
+  // Runs after ANY slot move, free-add, or course selection.
+  // For each active course, computes whether its prereqs are satisfied
+  // by courses in earlier semesters. Result:
+  //   { [slotId|'fa_'+freeAddId]: string[] }  (missing prereq codes)
   //
-  //  1. Snapshot  — capture planSlots + planStatuses before any change.
-  //                 React state is immutable, so these references are
-  //                 stable: even after setPlanSlots runs and creates a
-  //                 new object, prevSlots still points to the old one.
-  //
-  //  2. Apply     — update state and close the modal RIGHT NOW.
-  //                 The grid reflects the new selection instantly;
-  //                 the student never waits for a network round-trip.
-  //
-  //  3. Write     — fire the Supabase upsert via .then() so it runs in
-  //                 the background while the UI is already updated.
-  //                 We don't await it — that's what makes this optimistic.
-  //
-  //  4. Rollback  — if the write fails, restore both snapshots and show
-  //                 a toast so the student knows to try again.
+  // We use a string key 'fa_' + id for free-add rows so Semester can
+  // look up warnings without conflating numeric requirement-slot IDs.
+  const prereqWarnings = useMemo(() => {
+    // Collect all "placed" courses with their effective semester
+    const placed = []
+
+    for (const slot of slots) {
+      const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
+      const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
+      if (code) placed.push({ key: slot.id, code, sem })
+    }
+    for (const fa of freeAddSlots) {
+      placed.push({ key: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
+    }
+
+    const warnings = {}
+    for (const item of placed) {
+      // Satisfied = any course whose effective semester is strictly before this one
+      const satisfiedCodes = new Set(
+        placed.filter(p => p.sem < item.sem).map(p => p.code)
+      )
+      const result = checkPrereqs(item.code, prereqMap, satisfiedCodes)
+      if (!result.satisfied) warnings[item.key] = result.missing
+    }
+    return warnings
+  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap])
+
+  // ── Save a pool/required course selection (optimistic) ────────────
+  // Flex-slot logic: if the chosen course covers fewer credits than the
+  // slot's flex_credits total, record the remainder so the UI can show
+  // "X cr remaining". If the course over-satisfies, creditsRemaining = 0.
   function handleSave(slot, course) {
     const existingStatus = planStatuses[slot.id] ?? 'planned'
 
-    // Step 1 — snapshot.
-    const prevSlots    = planSlots
-    const prevStatuses = planStatuses
+    // Flex-slot credit remainder
+    let creditsRemaining = 0
+    if (slot.is_pool && slot.flex_credits > 0) {
+      const diff = slot.flex_credits - course.credits
+      creditsRemaining = diff > 0 ? diff : 0
+    }
 
-    // Step 2 — optimistic apply.
-    setPlanSlots(prev    => ({ ...prev, [slot.id]: course.code    }))
-    setPlanStatuses(prev => ({ ...prev, [slot.id]: existingStatus }))
+    const prevSlots              = planSlots
+    const prevStatuses           = planStatuses
+    const prevCreditsRemaining   = planCreditsRemaining
+
+    setPlanSlots(prev          => ({ ...prev, [slot.id]: course.code }))
+    setPlanStatuses(prev       => ({ ...prev, [slot.id]: existingStatus }))
+    setPlanCreditsRemaining(prev => ({ ...prev, [slot.id]: creditsRemaining }))
     setActiveSlot(null)
     setLastSelection({ slot, courseCode: course.code })
 
-    // Step 3 — background write.
     supabase
       .from('student_plan_slots')
       .upsert({
@@ -273,27 +305,26 @@ export default function DegreePlan({ profile, onProfileChange }) {
         requirement_slot_id:  slot.id,
         selected_course_code: course.code,
         status:               existingStatus,
+        semester_number:      planSemesterOverrides[slot.id] ?? null,
+        credits_remaining:    creditsRemaining,
       }, { onConflict: 'student_id, requirement_slot_id' })
       .then(({ error }) => {
         if (error) {
-          // Step 4 — rollback.
           setPlanSlots(prevSlots)
           setPlanStatuses(prevStatuses)
+          setPlanCreditsRemaining(prevCreditsRemaining)
           setLastSelection(null)
           showSaveError('Course selection could not be saved. Please try again.')
         }
       })
   }
 
-  // ── Cycle a slot's status (optimistic) ──────────────────────────
-  // The status badge flips instantly. If the background write fails,
-  // the badge reverts to the status it showed before the click.
+  // ── Cycle a slot's status ─────────────────────────────────────────
   function handleStatusChange(slot, newStatus) {
     const courseCode = slot.is_pool ? planSlots[slot.id] : slot.class_code
     if (slot.is_pool && !courseCode) return
 
     const prevStatuses = planStatuses
-
     setPlanStatuses(prev => ({ ...prev, [slot.id]: newStatus }))
 
     supabase
@@ -303,6 +334,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
         requirement_slot_id:  slot.id,
         selected_course_code: courseCode,
         status:               newStatus,
+        semester_number:      planSemesterOverrides[slot.id] ?? null,
+        credits_remaining:    planCreditsRemaining[slot.id] ?? 0,
       }, { onConflict: 'student_id, requirement_slot_id' })
       .then(({ error }) => {
         if (error) {
@@ -312,9 +345,25 @@ export default function DegreePlan({ profile, onProfileChange }) {
       })
   }
 
-  // ── Remove a pool slot selection ─────────────────────────────────
-  // Deletes the student_plan_slots row and clears local state so the
-  // slot immediately goes back to its empty "Click to select" state.
+  // ── Cycle a free-add slot's status ───────────────────────────────
+  function handleFreeAddStatusChange(freeAdd, newStatus) {
+    const prev = freeAddSlots
+    setFreeAddSlots(list =>
+      list.map(f => f.id === freeAdd.id ? { ...f, status: newStatus } : f)
+    )
+    supabase
+      .from('student_free_add_slots')
+      .update({ status: newStatus })
+      .eq('id', freeAdd.id)
+      .then(({ error }) => {
+        if (error) {
+          setFreeAddSlots(prev)
+          showSaveError('Status change could not be saved. Please try again.')
+        }
+      })
+  }
+
+  // ── Remove a pool slot selection ──────────────────────────────────
   async function handleRemove(slot) {
     const { error } = await supabase
       .from('student_plan_slots')
@@ -325,25 +374,65 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (!error) {
       setPlanSlots(prev    => { const n = { ...prev }; delete n[slot.id]; return n })
       setPlanStatuses(prev => { const n = { ...prev }; delete n[slot.id]; return n })
+      setPlanCreditsRemaining(prev => { const n = { ...prev }; delete n[slot.id]; return n })
       setActiveSlot(null)
     }
   }
 
-  // ── Undo the most recent pool slot selection ─────────────────────
-  // Reverses handleSave by calling handleRemove on the recorded slot.
-  // handleRemove deletes the student_plan_slots row and clears local state,
-  // which is exactly what undo needs to do. After the remove completes we
-  // clear lastSelection so the button immediately disables.
+  // ── Undo the most recent pool slot selection ──────────────────────
   async function handleUndo() {
     if (!lastSelection) return
     await handleRemove(lastSelection.slot)
     setLastSelection(null)
   }
 
-  // ── Route a slot click to the right panel ────────────────────────
-  // Empty pool slot  → SlotModal (course selection)
-  // Filled pool slot → CourseDetailModal with change/remove actions
-  // Required slot    → CourseDetailModal read-only
+  // ── Add a free-add course to a semester ──────────────────────────
+  // Inserts into student_free_add_slots; optimistic state update first.
+  async function handleAddCourse(semesterNumber, course) {
+    setAddCourseTarget(null)  // close modal immediately
+
+    const { data, error } = await supabase
+      .from('student_free_add_slots')
+      .insert({
+        student_id:      profile.id,
+        course_code:     course.code,
+        semester_number: semesterNumber,
+        status:          'planned',
+      })
+      .select('id, course_code, semester_number, status')
+      .single()
+
+    if (error) {
+      showSaveError('Could not add course. Please try again.')
+      return
+    }
+
+    // Update courseMap if this course wasn't previously loaded
+    if (data && !courses[course.code]) {
+      setCourses(prev => ({ ...prev, [course.code]: course }))
+    }
+
+    setFreeAddSlots(prev => [...prev, data])
+  }
+
+  // ── Remove a free-add slot ────────────────────────────────────────
+  function handleRemoveFreeAdd(freeAdd) {
+    const prev = freeAddSlots
+    setFreeAddSlots(list => list.filter(f => f.id !== freeAdd.id))
+
+    supabase
+      .from('student_free_add_slots')
+      .delete()
+      .eq('id', freeAdd.id)
+      .then(({ error }) => {
+        if (error) {
+          setFreeAddSlots(prev)
+          showSaveError('Could not remove course. Please try again.')
+        }
+      })
+  }
+
+  // ── Route a slot click ────────────────────────────────────────────
   function handleSlotClick(slot) {
     if (slot.is_pool && !planSlots[slot.id]) {
       setActiveSlot(slot)
@@ -352,22 +441,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
   }
 
-  // ── Transition from detail view back to selection modal ───────────
-  // Called when the student hits "Change" inside the detail panel.
   function handleChangeSelection() {
     const slot = activeDetail
     setActiveDetail(null)
     setActiveSlot(slot)
   }
 
-  // ── Save or update a semester note (optimistic) ─────────────────
-  // The pencil icon activates (gold) and the note text persists to state
-  // immediately when the textarea blurs. If the write fails, the note
-  // text in state reverts — Semester's useEffect([note]) re-syncs the
-  // textarea to the rolled-back value automatically.
+  // ── Semester notes ────────────────────────────────────────────────
   function handleNoteSave(semesterNumber, noteText) {
     const prevNotes = semesterNotes
-
     setSemesterNotes(prev => ({ ...prev, [semesterNumber]: noteText }))
 
     supabase
@@ -387,16 +469,69 @@ export default function DegreePlan({ profile, onProfileChange }) {
       })
   }
 
-  // ── Switch the student's concentration ───────────────────────────
-  // Three writes happen in sequence:
-  //   1. Update student_profiles so the DB reflects the new choice.
-  //   2. Delete all student_plan_slots — the new concentration has
-  //      different requirement_slot IDs so old selections are useless
-  //      and would pollute the plan if left behind.
-  //   3. Call onProfileChange with the new profile object. Dashboard
-  //      calls setProfile, DegreePlan receives a new profile prop,
-  //      and useEffect([profile.concentration_id]) fires — reloading
-  //      the plan from scratch with the correct requirement slots.
+  // ── Drag-and-drop handlers ────────────────────────────────────────
+
+  function handleDragStart({ active }) {
+    setDraggedSlotId(active.id)
+  }
+
+  function handleDragEnd({ active, over }) {
+    setDraggedSlotId(null)
+    if (!over) return
+
+    const { type, slotId } = active.data.current
+    const newSemester = over.id   // droppable id = semester number
+
+    if (type === 'requirement_slot') {
+      const slot = slots.find(s => s.id === slotId)
+      if (!slot) return
+      const currentSemester = planSemesterOverrides[slotId] ?? slot.semester_number
+      if (currentSemester === newSemester) return
+
+      const prevOverrides = planSemesterOverrides
+      setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
+
+      const courseCode = slot.is_pool ? planSlots[slotId] : slot.class_code
+      supabase
+        .from('student_plan_slots')
+        .upsert({
+          student_id:           profile.id,
+          requirement_slot_id:  slotId,
+          selected_course_code: courseCode ?? null,
+          status:               planStatuses[slotId] ?? 'planned',
+          semester_number:      newSemester,
+          credits_remaining:    planCreditsRemaining[slotId] ?? 0,
+        }, { onConflict: 'student_id, requirement_slot_id' })
+        .then(({ error }) => {
+          if (error) {
+            setPlanSemesterOverrides(prevOverrides)
+            showSaveError('Could not move slot. Please try again.')
+          }
+        })
+
+    } else if (type === 'free_add') {
+      const fa = freeAddSlots.find(f => f.id === slotId)
+      if (!fa || fa.semester_number === newSemester) return
+
+      const prevFreeAdds = freeAddSlots
+      setFreeAddSlots(list =>
+        list.map(f => f.id === slotId ? { ...f, semester_number: newSemester } : f)
+      )
+
+      supabase
+        .from('student_free_add_slots')
+        .update({ semester_number: newSemester })
+        .eq('id', slotId)
+        .then(({ error }) => {
+          if (error) {
+            setFreeAddSlots(prevFreeAdds)
+            showSaveError('Could not move course. Please try again.')
+          }
+        })
+    }
+  }
+
+  // ── Concentration switch ──────────────────────────────────────────
   async function handleConcentrationSwitch(newConc) {
     setSwitching(true)
 
@@ -404,23 +539,24 @@ export default function DegreePlan({ profile, onProfileChange }) {
       .from('student_profiles')
       .update({ concentration_id: newConc.id })
       .eq('id', profile.id)
-
     if (updateErr) { setSwitching(false); return }
 
     const { error: deleteErr } = await supabase
       .from('student_plan_slots')
       .delete()
       .eq('student_id', profile.id)
-
     if (deleteErr) { setSwitching(false); return }
+
+    // Also clear free-add slots on switch (they're concentration-specific context)
+    await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
 
     setSwitching(false)
     setShowSwitchModal(false)
-    setLastSelection(null)   // new concentration has different slot IDs — undo would point at a ghost
+    setLastSelection(null)
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
 
-  // ── Render ───────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────
 
   if (loading) return <DegreeplanSkeleton />
 
@@ -438,6 +574,18 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   const maxSemester  = semesterNumbers.length > 0 ? Math.max(...semesterNumbers) : 0
   const graduation   = projectGraduation(profile.start_season, profile.start_year, maxSemester)
+
+  // Label for the DragOverlay: resolve from slot or free-add
+  const draggedLabel = (() => {
+    if (!draggedSlotId) return null
+    const slot = slots.find(s => s.id === draggedSlotId)
+    if (slot) {
+      const code = slot.is_pool ? (planSlots[slot.id] ?? slot.class_code) : slot.class_code
+      return code
+    }
+    const fa = freeAddSlots.find(f => f.id === draggedSlotId)
+    return fa?.course_code ?? null
+  })()
 
   return (
     <div className="degreeplan-shell">
@@ -498,23 +646,48 @@ export default function DegreePlan({ profile, onProfileChange }) {
       </header>
 
       <main className="degreeplan-main">
-        <div className="degreeplan-grid">
-          {semesterNumbers.map(semNum => (
-            <Semester
-              key={semNum}
-              semesterNumber={semNum}
-              slots={semesterMap[semNum]}
-              courseMap={courses}
-              planSlots={planSlots}
-              planStatuses={planStatuses}
-              onSlotClick={handleSlotClick}
-              onStatusChange={handleStatusChange}
-              scienceWarnings={scienceWarnings}
-              note={semesterNotes[semNum] ?? ''}
-              onNoteSave={handleNoteSave}
-            />
-          ))}
-        </div>
+        <CompletionBadge
+          isComplete={isComplete}
+          concentrationName={profile.concentrations.name}
+        />
+
+        {/* DndContext wraps the grid so semesters can be drop targets */}
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="degreeplan-grid">
+            {semesterNumbers.map(semNum => (
+              <Semester
+                key={semNum}
+                semesterNumber={semNum}
+                slots={semesterMap[semNum] ?? []}
+                freeAddSlots={freeAddBySemester[semNum] ?? []}
+                courseMap={courses}
+                planSlots={planSlots}
+                planStatuses={planStatuses}
+                planCreditsRemaining={planCreditsRemaining}
+                onSlotClick={handleSlotClick}
+                onStatusChange={handleStatusChange}
+                onFreeAddStatusChange={handleFreeAddStatusChange}
+                onRemoveFreeAdd={handleRemoveFreeAdd}
+                onAddCourse={() => setAddCourseTarget(semNum)}
+                scienceWarnings={scienceWarnings}
+                prereqWarnings={prereqWarnings}
+                note={semesterNotes[semNum] ?? ''}
+                onNoteSave={handleNoteSave}
+              />
+            ))}
+          </div>
+
+          {/* DragOverlay: ghost that follows the cursor during a drag */}
+          <DragOverlay>
+            {draggedLabel && (
+              <div className="slot-drag-overlay">{draggedLabel}</div>
+            )}
+          </DragOverlay>
+        </DndContext>
       </main>
 
       {activeSlot && (
@@ -551,6 +724,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
         )
       })()}
 
+      {addCourseTarget !== null && (
+        <AddCourseModal
+          semesterNumber={addCourseTarget}
+          onAdd={course => handleAddCourse(addCourseTarget, course)}
+          onClose={() => setAddCourseTarget(null)}
+        />
+      )}
+
       {showSwitchModal && (
         <ConcentrationModal
           currentId={profile.concentration_id}
@@ -560,10 +741,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
         />
       )}
 
-      {/* ── Save error toast ─────────────────────────────────────────────
-          Appears when any background Supabase write fails after an
-          optimistic update. Fixed position so it overlays all content.
-          role="alert" makes screen readers announce it immediately. */}
       {saveError && (
         <div className="save-error-toast" role="alert">
           <span>{saveError}</span>
@@ -582,17 +759,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
 }
 
 // ── Graduation timeline projection ────────────────────────────────────────────
-// TTU operates Fall/Spring only for the standard plan — no Summer.
-// Starting from startSeason/startYear, each semester advances one term.
-// offset = numSemesters - 1 terms forward from the start.
-//
-// Fall start, offset k terms:
-//   even offset → same season (Fall),  year = startYear + k/2
-//   odd  offset → Spring,              year = startYear + Math.floor(k/2) + 1
-//
-// Spring start, offset k terms:
-//   even offset → same season (Spring), year = startYear + k/2
-//   odd  offset → Fall,                 year = startYear + Math.floor(k/2)
 
 function projectGraduation(startSeason, startYear, numSemesters) {
   if (!startSeason || !startYear || !numSemesters) return null
@@ -603,7 +769,6 @@ function projectGraduation(startSeason, startYear, numSemesters) {
       ? { season: 'Fall',   year: startYear + k }
       : { season: 'Spring', year: startYear + k + 1 }
   } else {
-    // Spring start
     return offset % 2 === 0
       ? { season: 'Spring', year: startYear + k }
       : { season: 'Fall',   year: startYear + k }
@@ -611,19 +776,9 @@ function projectGraduation(startSeason, startYear, numSemesters) {
 }
 
 // ── GenEdTracker ───────────────────────────────────────────────────────────────
-// Renders three compact chips — one per GEN_ED sub-category — showing how many
-// credit hours the student has filled toward the 6-hr minimum.
-//
-// Chip states:
-//   satisfied  → green  (filled >= 6)
-//   atRisk     → red    (can't reach 6 given remaining empty slots)
-//   progress   → gold   (in-flight but still achievable)
-//   empty      → muted  (nothing selected yet, still achievable)
 
 function GenEdTracker({ categories }) {
-  // Only show the tracker when at least one GEN_ED slot exists in the plan
   if (!categories || categories.length === 0) return null
-
   return (
     <div className="gen-ed-tracker">
       {categories.map(cat => {
@@ -643,10 +798,6 @@ function GenEdTracker({ categories }) {
 }
 
 // ── ConcentrationModal ─────────────────────────────────────────────────────────
-// Fetches all concentrations from Supabase on mount — single source of truth.
-// Pre-selects the student's current concentration so they can see where they are.
-// The warning banner and the confirm button only activate when the student picks
-// a *different* concentration, so there's no scary text until a change is made.
 
 function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
   const [concentrations, setConcentrations] = useState([])
@@ -660,24 +811,15 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
         .from('concentrations')
         .select('id, code, name, total_hours')
         .order('id', { ascending: true })
-
-      if (error) {
-        setFetchError(error.message)
-        setLoadingConcs(false)
-        return
-      }
-
+      if (error) { setFetchError(error.message); setLoadingConcs(false); return }
       setConcentrations(data)
-      // Pre-select the student's current concentration
       const current = data.find(c => c.id === currentId)
       if (current) setSelected(current)
       setLoadingConcs(false)
     }
-
     fetchConcentrations()
   }, [])
 
-  // True only when the student has picked a concentration different from current
   const isDifferent = selected && selected.id !== currentId
 
   function handleBackdropClick(e) {
@@ -687,7 +829,6 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
       <div className="modal-card">
-
         <div className="modal-header">
           <div>
             <p className="modal-eyebrow">Settings</p>
@@ -695,7 +836,6 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
-
         <div className="modal-course-list" style={{ padding: '1.25rem 1.5rem' }}>
           {loadingConcs ? (
             <p className="modal-empty">Loading concentrations...</p>
@@ -717,7 +857,6 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
               ))}
             </div>
           )}
-
           {isDifferent && (
             <div className="concentration-switch-warning">
               Switching to <strong>{selected.name}</strong> will clear all your
@@ -725,14 +864,9 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
             </div>
           )}
         </div>
-
         <div className="modal-footer">
           <div className="modal-footer-btns">
-            <button
-              className="onboarding-btn-secondary"
-              onClick={onClose}
-              disabled={switching}
-            >
+            <button className="onboarding-btn-secondary" onClick={onClose} disabled={switching}>
               Cancel
             </button>
             <button
@@ -744,7 +878,6 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
             </button>
           </div>
         </div>
-
       </div>
     </div>
   )

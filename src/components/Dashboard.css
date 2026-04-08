@@ -1394,3 +1394,281 @@
 .save-error-toast-close:hover {
   opacity: 1;
 }
+
+/* ── CompletionBadge ─────────────────────────────────────────────────
+   Full-width celebratory banner that appears when every slot in the
+   degree plan is filled and all GEN_ED sub-requirements are satisfied.
+
+   Placement: rendered between the sticky header and the semester grid
+   inside .degreeplan-main so it scrolls with the content rather than
+   overlapping controls.
+
+   Animation: slideDown — the banner enters from 16 px above its final
+   position and fades in over 0.45 s.  Uses a cubic-bezier ease that
+   feels snappy rather than sluggish. */
+
+@keyframes completionSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.completion-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(201, 168, 76, 0.18) 0%,
+    rgba(232, 201, 122, 0.10) 100%
+  );
+  border: 1px solid rgba(201, 168, 76, 0.45);
+  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  animation: completionSlideDown 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.completion-banner-check {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: var(--gold);
+  color: var(--navy);
+  border-radius: 50%;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.completion-banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.completion-banner-label {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--gold-light);
+  letter-spacing: 0.02em;
+}
+
+.completion-banner-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.completion-banner-sparkle {
+  flex-shrink: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+@media (max-width: 600px) {
+  .completion-banner {
+    padding: 0.875rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .completion-banner-label {
+    font-size: 0.95rem;
+  }
+}
+
+/* ── Drag handle ─────────────────────────────────────────────────────
+   Grip icon visible on hover of a slot row. Only this element is the
+   dnd-kit drag activator, so clicking the rest of the row still fires
+   normal click/keyboard events. Opacity 0 by default; hover on the
+   parent .slot-row reveals it. cursor: grab switches to grabbing while
+   active, matching native drag UX. */
+
+.slot-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  opacity: 0;
+  cursor: grab;
+  padding: 0 0.25rem;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+  line-height: 1;
+  touch-action: none;   /* required for pointer events in dnd-kit */
+}
+
+.slot-row:hover .slot-drag-handle {
+  opacity: 0.45;
+}
+
+.slot-drag-handle:hover {
+  opacity: 0.85 !important;
+}
+
+.slot-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* ── Dragging state ──────────────────────────────────────────────────
+   The original slot row becomes semi-transparent while its ghost
+   (DragOverlay) follows the cursor. This gives a clear visual cue
+   that the slot is "picked up" without removing it from the layout,
+   which would cause jarring layout shifts. */
+
+.slot-dragging {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ── Drag overlay ghost ──────────────────────────────────────────────
+   Compact floating label that follows the cursor during a drag. */
+
+.slot-drag-overlay {
+  background: var(--navy-mid);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--gold);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── Semester drop target highlight ──────────────────────────────────
+   When a draggable hovers over a semester, add a gold ring so the
+   student sees where they'll land. */
+
+.semester-card-drag-over {
+  outline: 2px solid rgba(201, 168, 76, 0.55);
+  outline-offset: -2px;
+}
+
+/* ── Add Course button ───────────────────────────────────────────────
+   Sits at the bottom of every semester card. Muted by default;
+   brightens on hover. Full-width so it's easy to tap on mobile. */
+
+.semester-add-course-btn {
+  width: 100%;
+  padding: 0.55rem 1.25rem;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--navy-light);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s, background 0.15s;
+}
+
+.semester-add-course-btn:hover {
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.04);
+}
+
+/* ── Free-add slot row ───────────────────────────────────────────────
+   Visually distinct from required/pool slots via a dashed left border
+   and a subtle tint. The "Added" badge labels it as self-placed. */
+
+.slot-free-add {
+  border-left: 2px dashed rgba(138, 155, 176, 0.35);
+  padding-left: calc(1.25rem - 2px);
+  background: rgba(138, 155, 176, 0.02);
+}
+
+.slot-free-add-top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.slot-free-add-badge {
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(138, 155, 176, 0.12);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* × remove button — small, muted, appears only on free-add rows */
+.slot-free-add-remove {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+  opacity: 0.45;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.slot-free-add-remove:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+/* ── Flex credits remaining ──────────────────────────────────────────
+   Shown under the course name on a partially filled flex slot.
+   Gold tint signals "still needs attention" without being alarming. */
+
+.slot-credits-remaining {
+  font-size: 0.63rem;
+  color: var(--gold);
+  opacity: 0.8;
+  margin-top: 0.1rem;
+}
+
+/* ── Prereq warning badge ────────────────────────────────────────────
+   Yellow warning shown inline on a slot when its prerequisites are not
+   satisfied by courses in earlier semesters. Not a blocking error —
+   just an advisory so the student knows to review the order.
+   Clears automatically when the plan is reordered correctly. */
+
+.slot-prereq-warning {
+  font-size: 0.63rem;
+  color: #e8b84b;
+  background: rgba(232, 184, 75, 0.08);
+  border: 1px solid rgba(232, 184, 75, 0.2);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  margin-top: 0.15rem;
+  line-height: 1.4;
+  display: inline-block;
+}
+
+/* ── Add Course modal subject code chip ─────────────────────────────
+   Small label next to the course code showing the subject area
+   (e.g. "MATH", "CSC") so students can scan results faster. */
+
+.add-course-subject {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(138, 155, 176, 0.12);
+  color: var(--muted);
+  font-weight: 500;
+}

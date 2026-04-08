@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useDroppable } from '@dnd-kit/core'
+import { useDraggable } from '@dnd-kit/core'
 import { POOL_LABELS } from '../lib/poolResolver'
 import './Dashboard.css'
 
@@ -18,32 +20,43 @@ const STATUS_LABEL = {
 export default function Semester({
   semesterNumber,
   slots,
+  freeAddSlots       = [],
   courseMap,
-  planSlots      = {},
-  planStatuses   = {},
+  planSlots          = {},
+  planStatuses       = {},
+  planCreditsRemaining = {},
   onSlotClick,
   onStatusChange,
-  scienceWarnings = {},
-  note           = '',
+  onFreeAddStatusChange,
+  onRemoveFreeAdd,
+  onAddCourse,
+  scienceWarnings    = {},
+  prereqWarnings     = {},
+  note               = '',
   onNoteSave,
 }) {
-  const totalCr = calculateCredits(slots, courseMap, planSlots)
+  // ── Droppable: this semester card accepts dragged slots ───────────
+  // id = semesterNumber so handleDragEnd in DegreePlan can read it.
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
+
+  const totalCr      = calculateCredits(slots, freeAddSlots, courseMap, planSlots)
   const creditWarning = totalCr < 12 ? 'low' : totalCr > 19 ? 'high' : null
 
   // ── Notes local state ─────────────────────────────────────────────
-  const [noteOpen, setNoteOpen]   = useState(false)
-  const [noteText, setNoteText]   = useState(note)
-
-  // Sync draft text if the saved note changes from outside (e.g. concentration switch)
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [noteText, setNoteText] = useState(note)
   useEffect(() => { setNoteText(note) }, [note])
 
   function handleNoteBlur() {
-    if (noteText === note) return   // nothing changed — skip the round-trip
+    if (noteText === note) return
     onNoteSave(semesterNumber, noteText)
   }
 
   return (
-    <div className="semester-card">
+    <div
+      className={`semester-card${isOver ? ' semester-card-drag-over' : ''}`}
+      ref={setDropRef}
+    >
       <div className="semester-header">
         <span className="semester-label">Semester {semesterNumber}</span>
         <div className="semester-header-right">
@@ -54,7 +67,6 @@ export default function Semester({
             title={note ? 'Edit semester note' : 'Add semester note'}
             aria-label={note ? 'Edit semester note' : 'Add semester note'}
           >
-            {/* Pencil icon */}
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
               <path d="M8.5 1.5l2 2L4 10H2V8L8.5 1.5z"
                 stroke="currentColor" strokeWidth="1.3"
@@ -76,6 +88,7 @@ export default function Semester({
           />
         </div>
       )}
+
       {creditWarning && (
         <div className={`semester-credit-warning semester-credit-warning-${creditWarning}`}>
           {creditWarning === 'low'
@@ -83,7 +96,9 @@ export default function Semester({
             : 'Heavy load — more than 19 credits'}
         </div>
       )}
+
       <div className="semester-slots">
+        {/* Required / pool slots from the degree template */}
         {slots.map(slot => (
           <SlotRow
             key={slot.id}
@@ -92,36 +107,88 @@ export default function Semester({
             selectedCode={planSlots[slot.id]}
             selectedCourse={planSlots[slot.id] ? courseMap[planSlots[slot.id]] : null}
             status={planStatuses[slot.id]}
+            creditsRemaining={planCreditsRemaining[slot.id] ?? 0}
             onSlotClick={onSlotClick}
             onStatusChange={onStatusChange}
             warning={scienceWarnings[slot.id]}
+            prereqMissing={prereqWarnings[slot.id]}
+          />
+        ))}
+
+        {/* Free-add slots the student manually placed here */}
+        {freeAddSlots.map(fa => (
+          <FreeAddRow
+            key={fa.id}
+            freeAdd={fa}
+            course={courseMap[fa.course_code]}
+            onStatusChange={onFreeAddStatusChange}
+            onRemove={onRemoveFreeAdd}
+            prereqMissing={prereqWarnings[`fa_${fa.id}`]}
           />
         ))}
       </div>
+
+      {/* Add Course button — always visible at the bottom of the card */}
+      <button className="semester-add-course-btn" onClick={onAddCourse}>
+        + Add course
+      </button>
     </div>
   )
 }
 
 // ── SlotRow ───────────────────────────────────────────────────────────────────
-// Pool slots are rendered as a div[role=button] rather than <button> because
-// they contain a StatusBadge <button> — HTML forbids nested interactive buttons
-// and browsers silently break the DOM when you try. A div with role/tabIndex
-// is semantically equivalent for keyboard/screen-reader users.
+// Handles both required courses and pool slots.
+// Has a drag handle (grip icon) that activates @dnd-kit dragging — the rest
+// of the row remains clickable so status changes and detail views still work.
 
-function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotClick, onStatusChange, warning }) {
+function SlotRow({
+  slot,
+  course,
+  selectedCode,
+  selectedCourse,
+  status,
+  creditsRemaining,
+  onSlotClick,
+  onStatusChange,
+  warning,
+  prereqMissing,
+}) {
   const effectiveStatus = status ?? 'planned'
 
-  // Pool slot — div[role=button] opens the course-selection modal
+  // ── Draggable ──────────────────────────────────────────────────────
+  // id = slot.id; data carries type + slotId for handleDragEnd.
+  // listeners are applied only to the grip handle, not the whole row,
+  // so clicking the row/status badge still works normally.
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id:   slot.id,
+    data: { type: 'requirement_slot', slotId: slot.id },
+  })
+
+  const dragStyle = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
+    : undefined
+
+  // Pool slot
   if (slot.is_pool) {
     const isSelected = !!selectedCode
     return (
       <div
-        className={`slot-row slot-pool clickable status-${effectiveStatus} ${isSelected ? 'slot-filled' : ''}`}
+        ref={setNodeRef}
+        style={dragStyle}
+        className={[
+          'slot-row slot-pool clickable',
+          `status-${effectiveStatus}`,
+          isSelected ? 'slot-filled' : '',
+          isDragging ? 'slot-dragging' : '',
+        ].join(' ')}
         onClick={() => onSlotClick(slot)}
         role="button"
         tabIndex={0}
         onKeyDown={e => e.key === 'Enter' && onSlotClick(slot)}
       >
+        {/* Drag handle — only this element starts the drag */}
+        <DragHandle listeners={listeners} attributes={attributes} />
+
         <div className="slot-info">
           <span className="slot-code pool-code">
             {isSelected ? selectedCode : (POOL_LABELS[slot.class_code] ?? slot.class_code)}
@@ -131,11 +198,22 @@ function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotCli
               ? (selectedCourse?.name ?? 'Selected')
               : 'Click to select'}
           </span>
+          {/* Flex credits remaining indicator */}
+          {isSelected && creditsRemaining > 0 && (
+            <span className="slot-credits-remaining">
+              {creditsRemaining} cr remaining
+            </span>
+          )}
           {warning && (
             <span className={`slot-science-warning slot-science-warning-${warning.type}`}>
               {warning.type === 'incomplete'
                 ? `Complete your ${warning.sequenceName} sequence`
                 : 'Sequence conflict'}
+            </span>
+          )}
+          {prereqMissing && prereqMissing.length > 0 && (
+            <span className="slot-prereq-warning">
+              ⚠ Prereq not met: {prereqMissing.join(', ')}
             </span>
           )}
         </div>
@@ -157,22 +235,32 @@ function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotCli
     )
   }
 
-  // Required course — always on the plan, always shows status badge.
-  // Clickable (div[role=button]) so students can open the detail view.
-  // StatusBadge already calls e.stopPropagation() so badge clicks don't
-  // bubble up and accidentally open the detail panel.
+  // Required course
   if (course) {
     return (
       <div
-        className={`slot-row slot-required clickable status-${effectiveStatus}`}
+        ref={setNodeRef}
+        style={dragStyle}
+        className={[
+          'slot-row slot-required clickable',
+          `status-${effectiveStatus}`,
+          isDragging ? 'slot-dragging' : '',
+        ].join(' ')}
         onClick={() => onSlotClick(slot)}
         role="button"
         tabIndex={0}
         onKeyDown={e => e.key === 'Enter' && onSlotClick(slot)}
       >
+        <DragHandle listeners={listeners} attributes={attributes} />
+
         <div className="slot-info">
           <span className="slot-code">{course.code}</span>
           <span className="slot-name">{course.name}</span>
+          {prereqMissing && prereqMissing.length > 0 && (
+            <span className="slot-prereq-warning">
+              ⚠ Prereq not met: {prereqMissing.join(', ')}
+            </span>
+          )}
         </div>
         <div className="slot-right">
           <StatusBadge
@@ -186,7 +274,7 @@ function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotCli
     )
   }
 
-  // Fallback: course data not found
+  // Fallback
   return (
     <div className="slot-row slot-missing">
       <div className="slot-info">
@@ -198,17 +286,103 @@ function SlotRow({ slot, course, selectedCode, selectedCourse, status, onSlotCli
   )
 }
 
+// ── FreeAddRow ────────────────────────────────────────────────────────────────
+// Renders a student-added course with a dashed border, status badge, and × remove.
+
+function FreeAddRow({ freeAdd, course, onStatusChange, onRemove, prereqMissing }) {
+  const effectiveStatus = freeAdd.status ?? 'planned'
+
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id:   freeAdd.id,
+    data: { type: 'free_add', slotId: freeAdd.id },
+  })
+
+  const dragStyle = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
+    : undefined
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={dragStyle}
+      className={[
+        'slot-row slot-free-add',
+        `status-${effectiveStatus}`,
+        isDragging ? 'slot-dragging' : '',
+      ].join(' ')}
+    >
+      <DragHandle listeners={listeners} attributes={attributes} />
+
+      <div className="slot-info">
+        <div className="slot-free-add-top">
+          <span className="slot-code">{freeAdd.course_code}</span>
+          <span className="slot-free-add-badge">Added</span>
+        </div>
+        <span className="slot-name">
+          {course?.name ?? freeAdd.course_code}
+        </span>
+        {prereqMissing && prereqMissing.length > 0 && (
+          <span className="slot-prereq-warning">
+            ⚠ Prereq not met: {prereqMissing.join(', ')}
+          </span>
+        )}
+      </div>
+      <div className="slot-right">
+        <StatusBadge
+          slot={freeAdd}
+          status={effectiveStatus}
+          onStatusChange={(_, newStatus) => onStatusChange(freeAdd, newStatus)}
+        />
+        <span className="slot-credits">
+          {course?.credits ?? '—'} cr
+        </span>
+        <button
+          className="slot-free-add-remove"
+          onClick={e => { e.stopPropagation(); onRemove(freeAdd) }}
+          title="Remove this course"
+          aria-label="Remove course"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── DragHandle ────────────────────────────────────────────────────────────────
+// Grip icon shown on hover. Only this element has dnd-kit listeners, so
+// clicking anywhere else on the row still fires click/keyboard events normally.
+
+function DragHandle({ listeners, attributes }) {
+  return (
+    <button
+      className="slot-drag-handle"
+      {...listeners}
+      {...attributes}
+      onClick={e => e.stopPropagation()}   // prevent row click when grabbing handle
+      tabIndex={-1}
+      aria-label="Drag to move"
+    >
+      {/* 6-dot grip icon */}
+      <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
+        <circle cx="3" cy="2.5"  r="1.2"/>
+        <circle cx="7" cy="2.5"  r="1.2"/>
+        <circle cx="3" cy="7"    r="1.2"/>
+        <circle cx="7" cy="7"    r="1.2"/>
+        <circle cx="3" cy="11.5" r="1.2"/>
+        <circle cx="7" cy="11.5" r="1.2"/>
+      </svg>
+    </button>
+  )
+}
+
 // ── StatusBadge ───────────────────────────────────────────────────────────────
-// Clicking cycles to the next status and saves to Supabase.
-// stopPropagation prevents the click from bubbling up to the pool slot's
-// div[role=button] and accidentally opening the course-selection modal.
 
 function StatusBadge({ slot, status, onStatusChange }) {
   function handleClick(e) {
     e.stopPropagation()
     onStatusChange(slot, NEXT_STATUS[status])
   }
-
   return (
     <button
       className={`status-badge status-badge-${status}`}
@@ -222,14 +396,20 @@ function StatusBadge({ slot, status, onStatusChange }) {
 
 // ── Credit calculator ─────────────────────────────────────────────────────────
 
-function calculateCredits(slots, courseMap, planSlots) {
-  return slots.reduce((total, slot) => {
+function calculateCredits(slots, freeAddSlots, courseMap, planSlots) {
+  let total = slots.reduce((sum, slot) => {
     if (slot.is_pool) {
-      const selectedCode   = planSlots?.[slot.id]
-      const selectedCourse = selectedCode ? courseMap[selectedCode] : null
-      return total + (selectedCourse?.credits ?? slot.flex_credits ?? 3)
+      const code   = planSlots?.[slot.id]
+      const course = code ? courseMap[code] : null
+      return sum + (course?.credits ?? slot.flex_credits ?? 3)
     }
     const course = courseMap[slot.class_code]
-    return total + (course?.credits ?? 0)
+    return sum + (course?.credits ?? 0)
   }, 0)
+
+  for (const fa of freeAddSlots) {
+    total += courseMap[fa.course_code]?.credits ?? 0
+  }
+
+  return total
 }
