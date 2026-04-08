@@ -2,10 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import './Dashboard.css'
 
-// Descriptions are display-only supplementary text — they live here in code
-// because the concentrations table only stores id, code, name, total_hours.
-// Unknown concentrations (e.g. a new one added to the DB later) will simply
-// render without a description rather than breaking the onboarding flow.
 const CONCENTRATION_DESCS = {
   core:          'A broad foundation across all areas of computer science.',
   cybersecurity: 'Security, networking, cryptography, and systems defense.',
@@ -15,9 +11,64 @@ const CONCENTRATION_DESCS = {
 
 const SEASONS = ['Fall', 'Spring', 'Summer']
 
-// Generate a reasonable range of years — 5 years back, 2 years forward
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - 5 + i)
+
+// ── Step 3 checkbox options ───────────────────────────────────────────────────
+// Each entry maps to a prior_credits row that will be inserted on completion.
+// Students are not asked for raw test scores — only threshold questions.
+const PRIOR_CREDIT_OPTIONS = [
+  {
+    id: 'act_math',
+    label: 'ACT Math score of 27 or higher',
+    record: {
+      credit_type:          'act_placement',
+      satisfies_course_code: null,
+      note:                 'ACT Math ≥ 27',
+      credits_awarded:      0,
+    },
+  },
+  {
+    id: 'ap_calc_ab',
+    label: 'AP Calculus AB (score 3+)',
+    record: {
+      credit_type:          'ap_credit',
+      satisfies_course_code: 'MATH1910',
+      note:                 'AP Calculus AB',
+      credits_awarded:      4,
+    },
+  },
+  {
+    id: 'ap_calc_bc',
+    label: 'AP Calculus BC (score 3+)',
+    record: {
+      credit_type:          'ap_credit',
+      satisfies_course_code: 'MATH1920',
+      note:                 'AP Calculus BC',
+      credits_awarded:      4,
+    },
+  },
+  {
+    id: 'ap_engl_lang',
+    label: 'AP English Language and Composition (score 3+)',
+    record: {
+      credit_type:          'ap_credit',
+      satisfies_course_code: 'ENGL1010',
+      note:                 'AP English Language',
+      credits_awarded:      3,
+    },
+  },
+  {
+    id: 'ap_engl_lit',
+    label: 'AP English Literature and Composition (score 3+)',
+    record: {
+      credit_type:          'ap_credit',
+      satisfies_course_code: 'ENGL1020',
+      note:                 'AP English Literature',
+      credits_awarded:      3,
+    },
+  },
+]
 
 export default function Onboarding({ profileId, onComplete }) {
   const [step, setStep]                   = useState(1)
@@ -27,9 +78,13 @@ export default function Onboarding({ profileId, onComplete }) {
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState(null)
 
-  // ── Live fetch of concentration list ─────────────────────────────
-  // Replaced the old hardcoded CONCENTRATIONS array. The DB is now the
-  // single source of truth for which concentrations exist.
+  // Step 3 state
+  const [checkedOptions, setCheckedOptions]       = useState(new Set())
+  const [transferCourseCode, setTransferCode]     = useState('')
+  const [transferCredits, setTransferCredits]     = useState(3)
+  const [transferNote, setTransferNote]           = useState('')
+  const [showTransferForm, setShowTransferForm]   = useState(false)
+
   const [concentrations, setConcentrations] = useState([])
   const [concsLoading, setConcsLoading]     = useState(true)
   const [concsError, setConcsError]         = useState(null)
@@ -49,9 +104,8 @@ export default function Onboarding({ profileId, onComplete }) {
       setConcsLoading(false)
     }
     fetchConcentrations()
-  }, [])  // empty deps — fetch once on mount, concentrations don't change mid-session
+  }, [])
 
-  // ── Step 1 handler — user picks a concentration ──────────────────
   function handleSelectConcentration(code) {
     setSelectedCode(code)
   }
@@ -61,13 +115,21 @@ export default function Onboarding({ profileId, onComplete }) {
     setStep(2)
   }
 
-  // ── Step 2 handler — user confirms and saves ─────────────────────
-  async function handleComplete() {
+  function toggleOption(id) {
+    setCheckedOptions(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // ── Final save — called from step 2 "Build my degree plan" ───────
+  // Always runs regardless of step 3 choices (step 3 is skippable).
+  async function handleComplete(priorCreditRecords = []) {
     setLoading(true)
     setError(null)
 
-    // No need to re-fetch — concentrations are already in state from the
-    // useEffect above. A simple find() replaces the old single-row fetch.
     const concData = concentrations.find(c => c.code === selectedCode)
     if (!concData) {
       setError('Selected concentration not found. Please go back and try again.')
@@ -75,8 +137,6 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
 
-    // Update the student's profile row with their selections.
-    // profileId was passed down from Dashboard as a prop.
     const { error: updateError } = await supabase
       .from('student_profiles')
       .update({
@@ -92,8 +152,13 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
 
-    // Build the updated profile object and pass it back up to Dashboard
-    // via the onComplete callback — no need to re-fetch from Supabase.
+    // Insert any selected prior credit records
+    if (priorCreditRecords.length > 0) {
+      await supabase
+        .from('prior_credits')
+        .insert(priorCreditRecords.map(r => ({ ...r, plan_id: profileId })))
+    }
+
     onComplete({
       id:               profileId,
       concentration_id: concData.id,
@@ -101,6 +166,33 @@ export default function Onboarding({ profileId, onComplete }) {
       start_year:       startYear,
       concentrations:   concData,
     })
+  }
+
+  // Called from step 2 — proceed to step 3 (prior credits)
+  function handleGoToStep3() {
+    if (!selectedCode) return
+    setStep(3)
+  }
+
+  // Called from step 3 "Build my degree plan" — collect checked options + transfer form
+  async function handleFinishWithCredits() {
+    const records = []
+
+    for (const optId of checkedOptions) {
+      const opt = PRIOR_CREDIT_OPTIONS.find(o => o.id === optId)
+      if (opt) records.push(opt.record)
+    }
+
+    if (showTransferForm && transferCourseCode.trim()) {
+      records.push({
+        credit_type:          'transfer_credit',
+        satisfies_course_code: transferCourseCode.trim().toUpperCase(),
+        note:                 transferNote.trim() || null,
+        credits_awarded:      transferCredits,
+      })
+    }
+
+    await handleComplete(records)
   }
 
   // ── Render ────────────────────────────────────────────────────────
@@ -112,25 +204,29 @@ export default function Onboarding({ profileId, onComplete }) {
         <div className="onboarding-header">
           <p className="onboarding-eyebrow">Welcome to TTU Degree Planner</p>
           <h2 className="onboarding-title">
-            {step === 1 ? "Choose your concentration" : "When did you start?"}
+            {step === 1 ? 'Choose your concentration'
+             : step === 2 ? 'When did you start?'
+             : 'Any prior credits or placement scores?'}
           </h2>
           <p className="onboarding-sub">
             {step === 1
-              ? "This determines your required courses and recommended plan."
-              : "This helps us calculate where you are in your degree."}
+              ? 'This determines your required courses and recommended plan.'
+              : step === 2
+              ? 'This helps us calculate where you are in your degree.'
+              : 'We\'ll use these to pre-fill your plan and skip false prereq warnings.'}
           </p>
           <div className="onboarding-steps">
             <div className={`onboarding-step ${step >= 1 ? 'active' : ''}`} />
             <div className={`onboarding-step ${step >= 2 ? 'active' : ''}`} />
+            <div className={`onboarding-step ${step >= 3 ? 'active' : ''}`} />
           </div>
         </div>
 
+        {/* ── Step 1: Concentration ── */}
         {step === 1 && (
           <div className="onboarding-body">
             <div className="concentration-grid">
               {concsLoading ? (
-                // Skeleton cards — same pulse class used by OnboardingSkeleton
-                // so the grid dimensions match the real cards exactly.
                 [0, 1, 2, 3].map(i => (
                   <div key={i} className="sk-pulse sk-ob-conc-card" />
                 ))
@@ -166,6 +262,7 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
+        {/* ── Step 2: Start date ── */}
         {step === 2 && (
           <div className="onboarding-body">
             <div className="season-year-row">
@@ -208,10 +305,99 @@ export default function Onboarding({ profileId, onComplete }) {
               </button>
               <button
                 className="onboarding-btn"
-                onClick={handleComplete}
+                onClick={handleGoToStep3}
                 disabled={loading}
               >
-                {loading ? 'Saving...' : 'Build my degree plan'}
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: Prior credits (skippable) ── */}
+        {step === 3 && (
+          <div className="onboarding-body">
+            <div className="onboarding-prior-credits">
+              {PRIOR_CREDIT_OPTIONS.map(opt => (
+                <label key={opt.id} className="onboarding-checkbox-row">
+                  <input
+                    type="checkbox"
+                    className="onboarding-checkbox"
+                    checked={checkedOptions.has(opt.id)}
+                    onChange={() => toggleOption(opt.id)}
+                  />
+                  <span className="onboarding-checkbox-label">{opt.label}</span>
+                </label>
+              ))}
+
+              {/* Transfer credit sub-form */}
+              <label className="onboarding-checkbox-row">
+                <input
+                  type="checkbox"
+                  className="onboarding-checkbox"
+                  checked={showTransferForm}
+                  onChange={() => setShowTransferForm(v => !v)}
+                />
+                <span className="onboarding-checkbox-label">
+                  Transfer credit for a specific course
+                </span>
+              </label>
+
+              {showTransferForm && (
+                <div className="onboarding-transfer-sub">
+                  <div className="onboarding-field">
+                    <label className="onboarding-label">Course code</label>
+                    <input
+                      className="onboarding-select"
+                      type="text"
+                      value={transferCourseCode}
+                      onChange={e => setTransferCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. MATH1710"
+                      style={{ textTransform: 'uppercase' }}
+                    />
+                  </div>
+                  <div className="onboarding-field">
+                    <label className="onboarding-label">Credits awarded</label>
+                    <select
+                      className="onboarding-select"
+                      value={transferCredits}
+                      onChange={e => setTransferCredits(Number(e.target.value))}
+                    >
+                      {[1,2,3,4,5,6].map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="onboarding-field">
+                    <label className="onboarding-label">Note (optional)</label>
+                    <input
+                      className="onboarding-select"
+                      type="text"
+                      value={transferNote}
+                      onChange={e => setTransferNote(e.target.value)}
+                      placeholder="e.g. Transferred from community college"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {error && <p className="onboarding-error">{error}</p>}
+
+            <div className="onboarding-btn-row">
+              <button
+                className="onboarding-btn-secondary"
+                onClick={() => handleComplete([])}
+                disabled={loading}
+              >
+                {loading ? 'Saving…' : "I'll add these later"}
+              </button>
+              <button
+                className="onboarding-btn"
+                onClick={handleFinishWithCredits}
+                disabled={loading}
+              >
+                {loading ? 'Saving…' : 'Build my degree plan'}
               </button>
             </div>
           </div>
