@@ -4,6 +4,16 @@ import { useDraggable } from '@dnd-kit/core'
 import { POOL_LABELS } from '../lib/poolResolver'
 import './Dashboard.css'
 
+// Maps prior_credit.credit_type to a short badge label shown on locked slots
+const CREDIT_TYPE_LABELS = {
+  ap_credit:       'AP',
+  transfer_credit: 'Transfer',
+  dual_enrollment: 'Dual Enroll',
+  test_out:        'CLEP',
+  ib_credit:       'IB',
+  act_placement:   'ACT',
+}
+
 // Clicking cycles: planned → in_progress → completed → planned
 const NEXT_STATUS = {
   planned:     'in_progress',
@@ -32,6 +42,10 @@ export default function Semester({
   onAddCourse,
   scienceWarnings    = {},
   prereqWarnings     = {},
+  standingWarnings   = {},
+  transferFilled     = {},
+  planLocked         = {},
+  transferDetails    = {},
   note               = '',
   onNoteSave,
 }) {
@@ -112,6 +126,14 @@ export default function Semester({
             onStatusChange={onStatusChange}
             warning={scienceWarnings[slot.id]}
             prereqMissing={prereqWarnings[slot.id]}
+            standingWarning={standingWarnings[slot.id]}
+            isTransferFilled={!!transferFilled[slot.id]}
+            isLocked={!!planLocked[slot.id]}
+            transferBadgeLabel={
+              transferDetails[slot.id]
+                ? CREDIT_TYPE_LABELS[transferDetails[slot.id].creditType] ?? 'Transfer'
+                : 'Transfer'
+            }
           />
         ))}
 
@@ -152,6 +174,10 @@ function SlotRow({
   onStatusChange,
   warning,
   prereqMissing,
+  standingWarning,
+  isTransferFilled,
+  isLocked          = false,
+  transferBadgeLabel = 'Transfer',
 }) {
   const effectiveStatus = status ?? 'planned'
 
@@ -168,6 +194,36 @@ function SlotRow({
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
     : undefined
 
+  // ── Locked slot (satisfied by a prior credit) ──────────────────────
+  // No drag handle, no click handler, no status cycling.
+  // Displayed as filled (transfer-filled style) with a badge.
+  if (isLocked) {
+    const displayCode = slot.is_pool
+      ? (selectedCode ?? (POOL_LABELS[slot.class_code] ?? slot.class_code))
+      : (course?.code ?? slot.class_code)
+    const displayName = slot.is_pool
+      ? (selectedCourse?.name ?? 'Satisfied by transfer credit')
+      : (course?.name ?? 'Satisfied by transfer credit')
+    const displayCredits = slot.is_pool
+      ? (selectedCourse?.credits ?? slot.flex_credits ?? 3)
+      : (course?.credits ?? 0)
+
+    return (
+      <div className="slot-row slot-locked slot-transfer-filled">
+        <div className="slot-info">
+          <div className="slot-code-row">
+            <span className="slot-code">{displayCode}</span>
+            <span className="slot-transfer-badge">{transferBadgeLabel}</span>
+          </div>
+          <span className="slot-name">{displayName}</span>
+        </div>
+        <div className="slot-right">
+          <span className="slot-credits">{displayCredits} cr</span>
+        </div>
+      </div>
+    )
+  }
+
   // Pool slot
   if (slot.is_pool) {
     const isSelected = !!selectedCode
@@ -180,6 +236,7 @@ function SlotRow({
           `status-${effectiveStatus}`,
           isSelected ? 'slot-filled' : '',
           isDragging ? 'slot-dragging' : '',
+          isTransferFilled ? 'slot-transfer-filled' : '',
         ].join(' ')}
         onClick={() => onSlotClick(slot)}
         role="button"
@@ -194,10 +251,16 @@ function SlotRow({
             {isSelected ? selectedCode : (POOL_LABELS[slot.class_code] ?? slot.class_code)}
           </span>
           <span className="slot-name pool-name">
-            {isSelected
-              ? (selectedCourse?.name ?? 'Selected')
-              : 'Click to select'}
+            {isTransferFilled && !isSelected
+              ? 'Satisfied by transfer credit'
+              : isSelected
+                ? (selectedCourse?.name ?? 'Selected')
+                : 'Click to select'}
           </span>
+          {/* Transfer-filled badge */}
+          {isTransferFilled && !isSelected && (
+            <span className="slot-transfer-badge">Transfer</span>
+          )}
           {/* Flex credits remaining indicator */}
           {isSelected && creditsRemaining > 0 && (
             <span className="slot-credits-remaining">
@@ -214,6 +277,11 @@ function SlotRow({
           {prereqMissing && prereqMissing.length > 0 && (
             <span className="slot-prereq-warning">
               ⚠ Prereq not met: {prereqMissing.join(', ')}
+            </span>
+          )}
+          {standingWarning && (
+            <span className="slot-standing-warning">
+              ℹ Standing requirement: {standingWarning === 'junior' ? 'Junior' : 'Senior'}
             </span>
           )}
         </div>
@@ -245,6 +313,7 @@ function SlotRow({
           'slot-row slot-required clickable',
           `status-${effectiveStatus}`,
           isDragging ? 'slot-dragging' : '',
+          isTransferFilled ? 'slot-transfer-filled' : '',
         ].join(' ')}
         onClick={() => onSlotClick(slot)}
         role="button"
@@ -254,11 +323,21 @@ function SlotRow({
         <DragHandle listeners={listeners} attributes={attributes} />
 
         <div className="slot-info">
-          <span className="slot-code">{course.code}</span>
+          <div className="slot-code-row">
+            <span className="slot-code">{course.code}</span>
+            {isTransferFilled && (
+              <span className="slot-transfer-badge">Transfer</span>
+            )}
+          </div>
           <span className="slot-name">{course.name}</span>
           {prereqMissing && prereqMissing.length > 0 && (
             <span className="slot-prereq-warning">
               ⚠ Prereq not met: {prereqMissing.join(', ')}
+            </span>
+          )}
+          {standingWarning && (
+            <span className="slot-standing-warning">
+              ℹ Standing requirement: {standingWarning === 'junior' ? 'Junior' : 'Senior'}
             </span>
           )}
         </div>

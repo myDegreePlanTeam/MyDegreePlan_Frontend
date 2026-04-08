@@ -1672,3 +1672,470 @@
   color: var(--muted);
   font-weight: 500;
 }
+
+/* ── Transfer Credits / Prior Coursework panel ───────────────────────
+   Collapsible panel above the semester grid. Also acts as a dnd-kit
+   drop target — a gold ring appears while a slot is dragged over it.
+   Placement panel shares the same structure but has a muted accent
+   since placement gates are less actionable than transfer credits. */
+
+.prior-credits-panel {
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.prior-credits-panel-drag-over {
+  border-color: rgba(201, 168, 76, 0.65);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.18);
+}
+
+.prior-credits-panel-placement {
+  border-color: rgba(138, 155, 176, 0.3);
+}
+
+.prior-credits-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1.25rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.prior-credits-panel-header:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.prior-credits-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+}
+
+.prior-credits-panel-placement .prior-credits-panel-title {
+  color: var(--muted);
+}
+
+.prior-credits-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: rgba(201, 168, 76, 0.2);
+  color: var(--gold);
+  border-radius: 10px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.prior-credits-panel-placement .prior-credits-count {
+  background: rgba(138, 155, 176, 0.15);
+  color: var(--muted);
+}
+
+.prior-credits-panel-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.prior-credits-drop-hint {
+  font-size: 0.65rem;
+  color: var(--gold);
+  opacity: 0.85;
+  letter-spacing: 0.06em;
+}
+
+.prior-credits-chevron {
+  font-size: 0.6rem;
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.prior-credits-body {
+  border-top: 1px solid var(--navy-light);
+  padding: 0.75rem 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.prior-credits-empty {
+  font-size: 0.75rem;
+  color: var(--muted);
+  opacity: 0.6;
+  line-height: 1.6;
+}
+
+.prior-credits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* Individual prior credit row */
+.prior-credit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+}
+
+.prior-credit-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--white);
+  min-width: 70px;
+}
+
+.prior-credit-note {
+  font-size: 0.72rem;
+  color: var(--muted);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prior-credit-hrs {
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.prior-credit-hrs-gate {
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.prior-credit-remove {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.62rem;
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: opacity 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.prior-credit-remove:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+.prior-credits-add-btn {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed rgba(201, 168, 76, 0.3);
+  border-radius: 5px;
+  color: var(--gold);
+  opacity: 0.75;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+
+.prior-credits-add-btn:hover {
+  opacity: 1;
+  border-color: rgba(201, 168, 76, 0.7);
+}
+
+/* ── Credit type chips ───────────────────────────────────────────────
+   Each credit type gets a distinct but muted color so rows are
+   scannable at a glance without being visually noisy. */
+
+.credit-type-chip {
+  display: inline-block;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0.12rem 0.4rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.credit-type-ap_credit {
+  background: rgba(107, 155, 210, 0.15);
+  color: #6b9bd2;
+}
+
+.credit-type-transfer_credit {
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--gold);
+}
+
+.credit-type-dual_enrollment {
+  background: rgba(76, 175, 125, 0.15);
+  color: #4caf7d;
+}
+
+.credit-type-test_out {
+  background: rgba(176, 107, 210, 0.15);
+  color: #b06bd2;
+}
+
+.credit-type-ib_credit {
+  background: rgba(210, 140, 76, 0.15);
+  color: #d28c4c;
+}
+
+.credit-type-act_placement {
+  background: rgba(138, 155, 176, 0.15);
+  color: var(--muted);
+}
+
+/* ── Standing requirement warning badge ─────────────────────────────
+   Blue info badge distinct from the yellow prereq warning. Signals
+   that a credit-hour threshold (junior/senior standing) is not yet met,
+   not a missing course. Shown inline below the slot name. */
+
+.slot-standing-warning {
+  font-size: 0.63rem;
+  color: #6b9bd2;
+  background: rgba(107, 155, 210, 0.1);
+  border: 1px solid rgba(107, 155, 210, 0.25);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  margin-top: 0.15rem;
+  line-height: 1.4;
+  display: inline-block;
+}
+
+/* ── Transfer-filled slot ────────────────────────────────────────────
+   Slots satisfied by prior credits are shown slightly muted with a
+   green left border (similar to "completed") to signal they're covered. */
+
+.slot-transfer-filled {
+  border-left: 2px solid rgba(76, 175, 125, 0.6);
+  padding-left: calc(1.25rem - 2px);
+  background: rgba(76, 175, 125, 0.03);
+  opacity: 0.85;
+}
+
+/* Badge shown on transfer-filled required course slots */
+.slot-transfer-badge {
+  display: inline-block;
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0.08rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(76, 175, 125, 0.15);
+  color: #4caf7d;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+}
+
+/* Flex row for the code + transfer badge in required slots */
+.slot-code-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* ── Locked slot (satisfied and persisted by a prior credit) ─────────
+   Inherits .slot-transfer-filled visual treatment but removes all
+   interactive affordances: no hover cursor, no focus ring, no drag. */
+
+.slot-locked {
+  cursor: default !important;
+  user-select: none;
+}
+
+.slot-locked:focus,
+.slot-locked:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* ── Add Credit modal form ───────────────────────────────────────────
+   Uses the same modal shell as other modals.
+   Field layout: vertically stacked labels + inputs. */
+
+.add-credit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.add-credit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid var(--navy-light);
+}
+
+.add-credit-field:last-of-type {
+  border-bottom: none;
+}
+
+.add-credit-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.add-credit-select,
+.add-credit-input {
+  background: var(--navy);
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+  padding: 0.6rem 0.875rem;
+  color: var(--white);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.add-credit-select:focus,
+.add-credit-input:focus {
+  border-color: var(--gold);
+}
+
+.add-credit-input-sm {
+  max-width: 80px;
+}
+
+.add-credit-course-field {
+  position: relative;
+}
+
+.add-credit-search-hint {
+  font-size: 0.68rem;
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.add-credit-results {
+  position: absolute;
+  top: calc(100% - 0.4rem);
+  left: 0;
+  right: 0;
+  background: var(--navy-mid);
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+  overflow-y: auto;
+  max-height: 200px;
+  z-index: 50;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.add-credit-result-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.add-credit-result-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.add-credit-result-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--gold);
+  flex-shrink: 0;
+  min-width: 72px;
+}
+
+.add-credit-result-name {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Onboarding step 3: prior credits ───────────────────────────────
+   Checkbox list with the same visual language as the concentration
+   cards but lighter — a simple list rather than a grid. The sub-form
+   for transfer credits animates in below the checkbox it belongs to. */
+
+.onboarding-prior-credits {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.onboarding-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--navy);
+  border: 1px solid var(--navy-light);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.onboarding-checkbox-row:hover {
+  border-color: var(--muted);
+}
+
+.onboarding-checkbox {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.onboarding-checkbox-label {
+  font-size: 0.82rem;
+  color: var(--white);
+  line-height: 1.5;
+}
+
+.onboarding-transfer-sub {
+  margin-top: 0.25rem;
+  margin-left: 1.5rem;
+  padding: 0.75rem;
+  background: rgba(201, 168, 76, 0.04);
+  border: 1px solid rgba(201, 168, 76, 0.18);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
