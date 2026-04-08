@@ -4,7 +4,7 @@ import { useDraggable } from '@dnd-kit/core'
 import { POOL_LABELS } from '../lib/poolResolver'
 import './Dashboard.css'
 
-// Maps prior_credit.credit_type to a short badge label shown on locked slots
+// Maps prior_credit.credit_type to a short badge label shown on slots
 const CREDIT_TYPE_LABELS = {
   ap_credit:       'AP',
   transfer_credit: 'Transfer',
@@ -15,6 +15,9 @@ const CREDIT_TYPE_LABELS = {
 }
 
 // Clicking cycles: planned → in_progress → completed → planned
+// TODO: individual course completion status will be driven by Banner transcript
+// data on university integration. Do not add manual per-course completion
+// toggles until that integration defines the source of truth.
 const NEXT_STATUS = {
   planned:     'in_progress',
   in_progress: 'completed',
@@ -42,15 +45,20 @@ export default function Semester({
   onAddCourse,
   scienceWarnings    = {},
   prereqWarnings     = {},
+  coreqWarnings      = {},
   standingWarnings   = {},
   transferFilled     = {},
-  planLocked         = {},
   transferDetails    = {},
   note               = '',
   onNoteSave,
+  // Completion / collapse props
+  isExpanded         = true,
+  onToggleExpand,
+  isCompleted        = false,
+  onMarkComplete,
+  hasWarnings        = false,
 }) {
-  // ── Droppable: this semester card accepts dragged slots ───────────
-  // id = semesterNumber so handleDragEnd in DegreePlan can read it.
+  // ── Droppable ─────────────────────────────────────────────────────
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
 
   const totalCr      = calculateCredits(slots, freeAddSlots, courseMap, planSlots)
@@ -66,13 +74,50 @@ export default function Semester({
     onNoteSave(semesterNumber, noteText)
   }
 
+  // ── Completed / collapsed summary row ────────────────────────────
+  // Concept 1: the whole semester card collapses to a single summary row.
+  // The course data inside is untouched — only the display collapses.
+  if (!isExpanded) {
+    return (
+      <div
+        className={`semester-card semester-card-collapsed${isCompleted ? ' semester-card-done' : ''}`}
+        ref={setDropRef}
+      >
+        <button
+          className="semester-collapsed-row"
+          onClick={onToggleExpand}
+          aria-label={`Expand semester ${semesterNumber}`}
+        >
+          <span className="semester-label">Semester {semesterNumber}</span>
+          <span className="semester-collapsed-meta">
+            <span className="semester-credits">{totalCr} cr</span>
+            {isCompleted && (
+              <span className="semester-done-badge">Completed ✓</span>
+            )}
+          </span>
+          <span className="semester-chevron">▼</span>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div
-      className={`semester-card${isOver ? ' semester-card-drag-over' : ''}`}
+      className={`semester-card${isOver ? ' semester-card-drag-over' : ''}${isCompleted ? ' semester-card-done' : ''}`}
       ref={setDropRef}
     >
       <div className="semester-header">
-        <span className="semester-label">Semester {semesterNumber}</span>
+        <div className="semester-header-left">
+          <button
+            className="semester-collapse-btn"
+            onClick={onToggleExpand}
+            title="Collapse semester"
+            aria-label="Collapse semester"
+          >
+            ▲
+          </button>
+          <span className="semester-label">Semester {semesterNumber}</span>
+        </div>
         <div className="semester-header-right">
           <span className="semester-credits">{totalCr} cr</span>
           <button
@@ -87,8 +132,38 @@ export default function Semester({
                 strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
+          {/* Mark Complete / Undo Completion button */}
+          {isCompleted ? (
+            <button
+              className="semester-complete-btn semester-complete-btn-undo"
+              onClick={() => onMarkComplete(false)}
+              title="Undo completion — semester returns to normal"
+            >
+              Undo Completion
+            </button>
+          ) : (
+            <button
+              className="semester-complete-btn"
+              onClick={() => !hasWarnings && onMarkComplete(true)}
+              disabled={hasWarnings}
+              title={
+                hasWarnings
+                  ? `Resolve warnings before marking this semester complete`
+                  : 'Mark this semester as complete'
+              }
+            >
+              Mark Complete
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Warning gate message when Mark Complete is disabled */}
+      {hasWarnings && !isCompleted && (
+        <div className="semester-warning-gate">
+          Resolve {countWarnings(slots, freeAddSlots, prereqWarnings, coreqWarnings)} warning(s) before marking this semester complete.
+        </div>
+      )}
 
       {noteOpen && (
         <div className="semester-notes-wrap">
@@ -126,9 +201,9 @@ export default function Semester({
             onStatusChange={onStatusChange}
             warning={scienceWarnings[slot.id]}
             prereqMissing={prereqWarnings[slot.id]}
+            coreqMissing={coreqWarnings[slot.id]}
             standingWarning={standingWarnings[slot.id]}
             isTransferFilled={!!transferFilled[slot.id]}
-            isLocked={!!planLocked[slot.id]}
             transferBadgeLabel={
               transferDetails[slot.id]
                 ? CREDIT_TYPE_LABELS[transferDetails[slot.id].creditType] ?? 'Transfer'
@@ -146,11 +221,12 @@ export default function Semester({
             onStatusChange={onFreeAddStatusChange}
             onRemove={onRemoveFreeAdd}
             prereqMissing={prereqWarnings[`fa_${fa.id}`]}
+            coreqMissing={coreqWarnings[`fa_${fa.id}`]}
           />
         ))}
       </div>
 
-      {/* Add Course button — always visible at the bottom of the card */}
+      {/* Add Course button */}
       <button className="semester-add-course-btn" onClick={onAddCourse}>
         + Add course
       </button>
@@ -159,9 +235,6 @@ export default function Semester({
 }
 
 // ── SlotRow ───────────────────────────────────────────────────────────────────
-// Handles both required courses and pool slots.
-// Has a drag handle (grip icon) that activates @dnd-kit dragging — the rest
-// of the row remains clickable so status changes and detail views still work.
 
 function SlotRow({
   slot,
@@ -174,17 +247,13 @@ function SlotRow({
   onStatusChange,
   warning,
   prereqMissing,
+  coreqMissing,
   standingWarning,
   isTransferFilled,
-  isLocked          = false,
   transferBadgeLabel = 'Transfer',
 }) {
   const effectiveStatus = status ?? 'planned'
 
-  // ── Draggable ──────────────────────────────────────────────────────
-  // id = slot.id; data carries type + slotId for handleDragEnd.
-  // listeners are applied only to the grip handle, not the whole row,
-  // so clicking the row/status badge still works normally.
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id:   slot.id,
     data: { type: 'requirement_slot', slotId: slot.id },
@@ -193,36 +262,6 @@ function SlotRow({
   const dragStyle = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
     : undefined
-
-  // ── Locked slot (satisfied by a prior credit) ──────────────────────
-  // No drag handle, no click handler, no status cycling.
-  // Displayed as filled (transfer-filled style) with a badge.
-  if (isLocked) {
-    const displayCode = slot.is_pool
-      ? (selectedCode ?? (POOL_LABELS[slot.class_code] ?? slot.class_code))
-      : (course?.code ?? slot.class_code)
-    const displayName = slot.is_pool
-      ? (selectedCourse?.name ?? 'Satisfied by transfer credit')
-      : (course?.name ?? 'Satisfied by transfer credit')
-    const displayCredits = slot.is_pool
-      ? (selectedCourse?.credits ?? slot.flex_credits ?? 3)
-      : (course?.credits ?? 0)
-
-    return (
-      <div className="slot-row slot-locked slot-transfer-filled">
-        <div className="slot-info">
-          <div className="slot-code-row">
-            <span className="slot-code">{displayCode}</span>
-            <span className="slot-transfer-badge">{transferBadgeLabel}</span>
-          </div>
-          <span className="slot-name">{displayName}</span>
-        </div>
-        <div className="slot-right">
-          <span className="slot-credits">{displayCredits} cr</span>
-        </div>
-      </div>
-    )
-  }
 
   // Pool slot
   if (slot.is_pool) {
@@ -243,7 +282,6 @@ function SlotRow({
         tabIndex={0}
         onKeyDown={e => e.key === 'Enter' && onSlotClick(slot)}
       >
-        {/* Drag handle — only this element starts the drag */}
         <DragHandle listeners={listeners} attributes={attributes} />
 
         <div className="slot-info">
@@ -257,11 +295,9 @@ function SlotRow({
                 ? (selectedCourse?.name ?? 'Selected')
                 : 'Click to select'}
           </span>
-          {/* Transfer-filled badge */}
           {isTransferFilled && !isSelected && (
-            <span className="slot-transfer-badge">Transfer</span>
+            <span className="slot-transfer-badge">{transferBadgeLabel}</span>
           )}
-          {/* Flex credits remaining indicator */}
           {isSelected && creditsRemaining > 0 && (
             <span className="slot-credits-remaining">
               {creditsRemaining} cr remaining
@@ -274,9 +310,14 @@ function SlotRow({
                 : 'Sequence conflict'}
             </span>
           )}
-          {prereqMissing && prereqMissing.length > 0 && (
+          {prereqMissing?.length > 0 && (
             <span className="slot-prereq-warning">
               ⚠ Prereq not met: {prereqMissing.join(', ')}
+            </span>
+          )}
+          {coreqMissing?.length > 0 && (
+            <span className="slot-prereq-warning slot-coreq-warning">
+              ⚠ Coreq not met: {coreqMissing.join(', ')}
             </span>
           )}
           {standingWarning && (
@@ -326,13 +367,18 @@ function SlotRow({
           <div className="slot-code-row">
             <span className="slot-code">{course.code}</span>
             {isTransferFilled && (
-              <span className="slot-transfer-badge">Transfer</span>
+              <span className="slot-transfer-badge">{transferBadgeLabel}</span>
             )}
           </div>
           <span className="slot-name">{course.name}</span>
-          {prereqMissing && prereqMissing.length > 0 && (
+          {prereqMissing?.length > 0 && (
             <span className="slot-prereq-warning">
               ⚠ Prereq not met: {prereqMissing.join(', ')}
+            </span>
+          )}
+          {coreqMissing?.length > 0 && (
+            <span className="slot-prereq-warning slot-coreq-warning">
+              ⚠ Coreq not met: {coreqMissing.join(', ')}
             </span>
           )}
           {standingWarning && (
@@ -366,9 +412,8 @@ function SlotRow({
 }
 
 // ── FreeAddRow ────────────────────────────────────────────────────────────────
-// Renders a student-added course with a dashed border, status badge, and × remove.
 
-function FreeAddRow({ freeAdd, course, onStatusChange, onRemove, prereqMissing }) {
+function FreeAddRow({ freeAdd, course, onStatusChange, onRemove, prereqMissing, coreqMissing }) {
   const effectiveStatus = freeAdd.status ?? 'planned'
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -400,9 +445,14 @@ function FreeAddRow({ freeAdd, course, onStatusChange, onRemove, prereqMissing }
         <span className="slot-name">
           {course?.name ?? freeAdd.course_code}
         </span>
-        {prereqMissing && prereqMissing.length > 0 && (
+        {prereqMissing?.length > 0 && (
           <span className="slot-prereq-warning">
             ⚠ Prereq not met: {prereqMissing.join(', ')}
+          </span>
+        )}
+        {coreqMissing?.length > 0 && (
+          <span className="slot-prereq-warning slot-coreq-warning">
+            ⚠ Coreq not met: {coreqMissing.join(', ')}
           </span>
         )}
       </div>
@@ -429,8 +479,6 @@ function FreeAddRow({ freeAdd, course, onStatusChange, onRemove, prereqMissing }
 }
 
 // ── DragHandle ────────────────────────────────────────────────────────────────
-// Grip icon shown on hover. Only this element has dnd-kit listeners, so
-// clicking anywhere else on the row still fires click/keyboard events normally.
 
 function DragHandle({ listeners, attributes }) {
   return (
@@ -438,11 +486,10 @@ function DragHandle({ listeners, attributes }) {
       className="slot-drag-handle"
       {...listeners}
       {...attributes}
-      onClick={e => e.stopPropagation()}   // prevent row click when grabbing handle
+      onClick={e => e.stopPropagation()}
       tabIndex={-1}
       aria-label="Drag to move"
     >
-      {/* 6-dot grip icon */}
       <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
         <circle cx="3" cy="2.5"  r="1.2"/>
         <circle cx="7" cy="2.5"  r="1.2"/>
@@ -491,4 +538,20 @@ function calculateCredits(slots, freeAddSlots, courseMap, planSlots) {
   }
 
   return total
+}
+
+// ── Warning count helper ──────────────────────────────────────────────────────
+
+function countWarnings(slots, freeAddSlots, prereqWarnings, coreqWarnings) {
+  let count = 0
+  for (const slot of slots) {
+    if (prereqWarnings[slot.id]?.length > 0) count++
+    if (coreqWarnings[slot.id]?.length > 0) count++
+  }
+  for (const fa of freeAddSlots) {
+    const key = `fa_${fa.id}`
+    if (prereqWarnings[key]?.length > 0) count++
+    if (coreqWarnings[key]?.length > 0) count++
+  }
+  return count
 }

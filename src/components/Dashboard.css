@@ -2139,3 +2139,310 @@
   flex-direction: column;
   gap: 0.75rem;
 }
+/* ── Semester completion & collapse (Tier 9) ────────────────────────────── */
+
+.semester-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.semester-collapse-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.semester-collapse-btn:hover { color: var(--white); }
+
+/* Collapsed summary row */
+.semester-card-collapsed {
+  background: var(--navy-light);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.semester-collapsed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  color: var(--white);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+  text-align: left;
+}
+.semester-collapsed-row:hover { background: rgba(255,255,255,0.03); }
+
+.semester-collapsed-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  justify-content: flex-end;
+  margin-right: 0.75rem;
+}
+
+.semester-done-badge {
+  font-size: 0.72rem;
+  color: #4ade80;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.semester-chevron {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+/* Completed semester border accent */
+.semester-card-done {
+  border-color: rgba(74, 222, 128, 0.25) !important;
+}
+
+/* Mark Complete button */
+.semester-complete-btn {
+  font-size: 0.72rem;
+  font-family: inherit;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.semester-complete-btn:hover:not(:disabled) {
+  border-color: #4ade80;
+  color: #4ade80;
+}
+.semester-complete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.semester-complete-btn-undo {
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+.semester-complete-btn-undo:hover {
+  border-color: var(--danger-light, #f87171) !important;
+  color: var(--danger-light, #f87171) !important;
+}
+
+/* Warning gate message */
+.semester-warning-gate {
+  font-size: 0.75rem;
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.06);
+  border-left: 2px solid var(--gold);
+  padding: 0.4rem 0.75rem;
+  margin: 0 1rem 0.5rem;
+  border-radius: 0 4px 4px 0;
+}
+
+/* ── Global grid controls ────────────────────────────────────────────────── */
+
+.degreeplan-grid-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 1200px;
+  margin: 0 auto 0.75rem;
+  padding: 0 0.5rem;
+}
+
+.grid-control-btn {
+  font-size: 0.75rem;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.grid-control-btn:hover {
+  border-color: rgba(255,255,255,0.3);
+  color: var(--white);
+}
+
+/* ── Coreq warning (distinct from prereq) ────────────────────────────────── */
+
+.slot-coreq-warning {
+  color: #93c5fd !important; /* blue instead of yellow/amber */
+}
+
+/* ── Wizard styles (PriorCreditWizard) ──────────────────────────────────── */
+
+.wizard-card {
+  max-width: 520px;
+  width: 95vw;
+}
+
+.wizard-body {
+  padding: 1.25rem 1.5rem;
+  min-height: 160px;
+}
+
+.wizard-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+
+.wizard-type-btn {
+  padding: 0.75rem 1rem;
+  background: var(--navy);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: var(--white);
+  font-size: 0.88rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.wizard-type-btn:hover {
+  border-color: var(--gold);
+  background: rgba(201, 168, 76, 0.06);
+}
+
+.wizard-exam-list,
+.wizard-score-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.wizard-exam-btn,
+.wizard-score-btn {
+  padding: 0.6rem 1rem;
+  background: var(--navy);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 7px;
+  color: var(--white);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+.wizard-exam-btn:hover,
+.wizard-score-btn:hover {
+  border-color: var(--gold);
+  background: rgba(201, 168, 76, 0.05);
+}
+
+.wizard-score-btn {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.wizard-step-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.wizard-loading,
+.wizard-empty {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.wizard-course-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Confirm step */
+.wizard-confirm-header {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: 1rem;
+}
+.wizard-confirm-score {
+  color: var(--muted);
+}
+
+.wizard-award-card {
+  background: var(--navy);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.wizard-award-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.wizard-award-code {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--gold);
+  font-family: var(--font-mono, monospace);
+}
+
+.wizard-award-name {
+  font-size: 0.85rem;
+  color: var(--white);
+  flex: 1;
+}
+
+.wizard-award-cr {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.wizard-award-effect {
+  font-size: 0.78rem;
+  color: #4ade80;
+  margin: 0;
+}
+
+.wizard-award-effect-no-slot {
+  color: var(--muted) !important;
+}
+
+.wizard-award-pool {
+  font-size: 0.75rem;
+  color: #93c5fd;
+  margin: 0.25rem 0 0;
+}
+
+.wizard-save-error {
+  font-size: 0.8rem;
+  color: var(--danger, #f87171);
+  margin-top: 0.75rem;
+}
+
+.add-credit-result-cr {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: auto;
+  white-space: nowrap;
+}

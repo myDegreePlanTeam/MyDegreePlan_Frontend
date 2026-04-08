@@ -23,6 +23,34 @@
 
 import { classifyPrereq } from './classifyPrereq.js'
 
+// ── checkCoreqs ───────────────────────────────────────────────────────────────
+// Checks whether corequisites for a course are satisfied by availableCodes.
+//
+// Corequisites may be taken in the SAME semester as the requiring course, so
+// they are checked against availableCodes (completedCodes + same-semester codes)
+// rather than completedCodes alone.
+//
+// The coreqMap shape built in DegreePlan.jsx is:
+//   { [courseCode]: string[] }  — flat list of required codes (no group logic)
+//
+// Returns:
+//   { satisfied: true }                         — all coreqs met or none required
+//   { satisfied: false, missing: string[] }      — which codes are absent
+//
+// Signature is intentionally kept separate from checkPrereqs so neither
+// function's signature changes and all existing callers remain valid.
+
+export function checkCoreqs(courseCode, coreqMap, availableCodes) {
+  const required = coreqMap?.[courseCode] ?? []
+  if (required.length === 0) return { satisfied: true }
+
+  const missing = required.filter(code => !availableCodes.has(code))
+  if (missing.length > 0) return { satisfied: false, missing }
+  return { satisfied: true }
+}
+
+// ── checkPrereqs ──────────────────────────────────────────────────────────────
+
 export function checkPrereqs(
   courseCode,
   prereqMap,

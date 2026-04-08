@@ -5,7 +5,7 @@
 // Exports:
 //   resolveTransferCredits(priorCredits, planSlots, slots)
 //     → { [slotId]: true }
-//     Returns the set of slots satisfied by prior credits.
+//     Returns the set of slots satisfied (archived) by prior credits.
 //
 //   resolveTransferDetails(priorCredits, planSlots, slots)
 //     → { [slotId]: { creditType, priorCreditId } }
@@ -17,25 +17,31 @@
 //     same course code is never counted twice.  Prior credits win if a code
 //     appears in both tables.
 //
-// ── Matching rules (shared by resolveTransferCredits / resolveTransferDetails)
+// ── Matching rules (Bug 3 fix — strict Rule 1 / Rule 2 / Rule 3)
 //
-//   Two-pass approach — required slots are matched before pool slots so that
-//   one prior-credit entry cannot satisfy BOTH a specific required slot AND a
-//   gen-ed pool slot for the same course (Bug 3 fix):
+//   Rule 1 — Exact course match only:
+//     A prior credit with satisfies_course_code = 'X' matches ONLY the slot
+//     where class_code = 'X' (non-pool, is_pool = false).
+//     It NEVER matches a pool slot (GEN_ED, SCIENCE, etc.), even if X happens
+//     to be a valid course for that pool.
 //
-//   Pass 1 — Non-pool slots: satisfied if a prior credit's
-//     satisfies_course_code equals the slot's class_code AND the slot has no
-//     active student selection.  Consumed codes are recorded.
+//   Rule 2 — Pool satisfaction is explicit only:
+//     A pool slot is satisfied ONLY by a prior credit whose satisfies_pool
+//     column equals the pool's class_code (e.g. satisfies_pool = 'GEN_ED').
+//     The wizard auto-populates satisfies_pool from test_equivalencies.
+//     Students never set it manually.
+//     One prior_credit archives at most one slot: Rule 1 takes priority.
 //
-//   Pass 2 — Pool slots (GEN_ED, ENG_LIT, SCIENCE, COMM_REQ): satisfied by
-//     the first credit-bearing prior-credit code not yet consumed.  One prior
-//     credit entry satisfies at most one pool slot.
+//   Rule 3 — Unmatched prior credits are valid:
+//     A prior credit with no matching slot still appears in Prior Coursework
+//     and its credits_awarded counts toward the total degree hours.
+//     It archives nothing.
 //
 //   Only credit-bearing prior credits (credits_awarded > 0) participate.
-//   Placement-only entries (credits_awarded === 0) are never matched.
+//   Placement-only entries (credits_awarded === 0) never match anything.
 
-// Pool types that accept transfer-credit satisfaction
-const TRANSFERABLE_POOLS = new Set(['GEN_ED', 'ENG_LIT', 'SCIENCE', 'COMM_REQ'])
+// Pool types that can be explicitly satisfied via satisfies_pool
+const SATISFIABLE_POOLS = new Set(['GEN_ED', 'ENG_LIT', 'SCIENCE', 'COMM_REQ'])
 
 // ── resolveTransferCredits ────────────────────────────────────────────────────
 
@@ -47,37 +53,46 @@ const TRANSFERABLE_POOLS = new Set(['GEN_ED', 'ENG_LIT', 'SCIENCE', 'COMM_REQ'])
  */
 export function resolveTransferCredits(priorCredits, planSlots, slots) {
   const creditBearing = (priorCredits ?? []).filter(
-    pc => (pc.credits_awarded ?? 0) > 0 && pc.satisfies_course_code
+    pc => (pc.credits_awarded ?? 0) > 0
   )
   if (creditBearing.length === 0) return {}
 
-  const coveredCodes = new Set(creditBearing.map(pc => pc.satisfies_course_code))
   const transferFilled = {}
-  // Codes consumed by any slot so far (required OR pool) — prevents one prior
-  // credit from satisfying both a required slot and a pool slot.
-  const usedCodes = new Set()
 
-  // Pass 1: required (non-pool) slots — direct code match, highest priority
+  // ── Rule 1: exact required-slot match ─────────────────────────────
+  // A prior credit with satisfies_course_code = 'X' archives only the
+  // non-pool slot whose class_code = 'X'.  No pool fallthrough ever.
+  const usedPriorCreditIds = new Set()
+
   for (const slot of slots) {
-    if (slot.is_pool) continue
-    if (planSlots[slot.id]) continue                     // student already filled this
-    if (coveredCodes.has(slot.class_code)) {
+    if (slot.is_pool) continue                        // Rule 1: never pool
+    if (planSlots[slot.id]) continue                  // student already filled this
+
+    const match = creditBearing.find(
+      pc => pc.satisfies_course_code === slot.class_code &&
+            !usedPriorCreditIds.has(pc.id)
+    )
+    if (match) {
       transferFilled[slot.id] = true
-      usedCodes.add(slot.class_code)
+      usedPriorCreditIds.add(match.id)
     }
   }
 
-  // Pass 2: pool slots — consume first unused covered code
+  // ── Rule 2: explicit pool match via satisfies_pool ─────────────────
+  // A pool slot is archived only when a prior credit's satisfies_pool
+  // equals the slot's class_code.  No automatic fallthrough.
   for (const slot of slots) {
     if (!slot.is_pool) continue
-    if (!TRANSFERABLE_POOLS.has(slot.class_code)) continue
-    if (planSlots[slot.id]) continue                     // student already selected here
-    for (const code of coveredCodes) {
-      if (!usedCodes.has(code)) {
-        transferFilled[slot.id] = true
-        usedCodes.add(code)
-        break
-      }
+    if (!SATISFIABLE_POOLS.has(slot.class_code)) continue
+    if (planSlots[slot.id]) continue                  // student already selected here
+
+    const match = creditBearing.find(
+      pc => pc.satisfies_pool === slot.class_code &&
+            !usedPriorCreditIds.has(pc.id)
+    )
+    if (match) {
+      transferFilled[slot.id] = true
+      usedPriorCreditIds.add(match.id)
     }
   }
 
@@ -97,44 +112,39 @@ export function resolveTransferCredits(priorCredits, planSlots, slots) {
  */
 export function resolveTransferDetails(priorCredits, planSlots, slots) {
   const creditBearing = (priorCredits ?? []).filter(
-    pc => (pc.credits_awarded ?? 0) > 0 && pc.satisfies_course_code
+    pc => (pc.credits_awarded ?? 0) > 0
   )
   if (creditBearing.length === 0) return {}
 
-  // Map courseCode → first matching prior credit (first wins if duplicates)
-  const codeToCredit = {}
-  for (const pc of creditBearing) {
-    if (!codeToCredit[pc.satisfies_course_code]) {
-      codeToCredit[pc.satisfies_course_code] = pc
-    }
-  }
-
-  const coveredCodes = new Set(Object.keys(codeToCredit))
   const details = {}
-  const usedCodes = new Set()
+  const usedPriorCreditIds = new Set()
 
-  // Pass 1: non-pool slots
+  // Rule 1: non-pool exact match
   for (const slot of slots) {
     if (slot.is_pool) continue
     if (planSlots[slot.id]) continue
-    if (coveredCodes.has(slot.class_code)) {
-      const pc = codeToCredit[slot.class_code]
-      details[slot.id] = { creditType: pc.credit_type, priorCreditId: pc.id }
-      usedCodes.add(slot.class_code)
+    const match = creditBearing.find(
+      pc => pc.satisfies_course_code === slot.class_code &&
+            !usedPriorCreditIds.has(pc.id)
+    )
+    if (match) {
+      details[slot.id] = { creditType: match.credit_type, priorCreditId: match.id }
+      usedPriorCreditIds.add(match.id)
     }
   }
 
-  // Pass 2: pool slots — consume first unused covered code
+  // Rule 2: explicit pool match
   for (const slot of slots) {
     if (!slot.is_pool) continue
-    if (!TRANSFERABLE_POOLS.has(slot.class_code)) continue
+    if (!SATISFIABLE_POOLS.has(slot.class_code)) continue
     if (planSlots[slot.id]) continue
-    for (const [code, pc] of Object.entries(codeToCredit)) {
-      if (!usedCodes.has(code)) {
-        details[slot.id] = { creditType: pc.credit_type, priorCreditId: pc.id }
-        usedCodes.add(code)
-        break
-      }
+    const match = creditBearing.find(
+      pc => pc.satisfies_pool === slot.class_code &&
+            !usedPriorCreditIds.has(pc.id)
+    )
+    if (match) {
+      details[slot.id] = { creditType: match.credit_type, priorCreditId: match.id }
+      usedPriorCreditIds.add(match.id)
     }
   }
 
