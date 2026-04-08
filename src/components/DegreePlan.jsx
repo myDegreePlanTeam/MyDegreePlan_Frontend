@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import { checkPrereqs } from '../lib/prereqChecker'
+import { resolveTransferCredits, resolveTransferDetails, computePlanCredits } from '../lib/transferCredits'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
 import CourseDetailModal from './CourseDetailModal'
@@ -11,6 +12,19 @@ import { DegreeplanSkeleton } from './Skeletons'
 import CompletionBadge from './CompletionBadge'
 import usePlanCompleteness from '../lib/usePlanCompleteness'
 import './Dashboard.css'
+
+// Credit-hour thresholds for academic standing
+const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
+
+// Human-readable labels for prior credit types
+const CREDIT_TYPE_LABELS = {
+  ap_credit:       'AP',
+  transfer_credit: 'Transfer',
+  dual_enrollment: 'Dual Enroll',
+  test_out:        'CLEP',
+  ib_credit:       'IB',
+  act_placement:   'ACT',
+}
 
 export default function DegreePlan({ profile, onProfileChange }) {
   const [slots, setSlots]                         = useState([])
@@ -25,6 +39,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [planSemesterOverrides, setPlanSemesterOverrides] = useState({})
   // freeAddSlots: [{id, course_code, semester_number, status}]
   const [freeAddSlots, setFreeAddSlots]           = useState([])
+  // priorCredits: [{id, credit_type, satisfies_course_code, note, credits_awarded}]
+  const [priorCredits, setPriorCredits]           = useState([])
   const [prereqMap, setPrereqMap]                 = useState({})
   const [coreqMap, setCoreqMap]                   = useState({})
   const [activeDetail, setActiveDetail]           = useState(null)
@@ -35,6 +51,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
   const [draggedSlotId, setDraggedSlotId]         = useState(null)
+  // Add Credit modal: 'transfer' | 'placement' | null
+  const [addCreditMode, setAddCreditMode]         = useState(null)
+  // planLocked: { [slotId]: true } — slots locked by a prior credit (persisted to DB)
+  const [planLocked, setPlanLocked]               = useState({})
 
   const [lastSelection, setLastSelection]         = useState(null)
   const [saveError, setSaveError]                 = useState(null)
@@ -46,9 +66,52 @@ export default function DegreePlan({ profile, onProfileChange }) {
     saveErrorTimerRef.current = setTimeout(() => setSaveError(null), 5000)
   }
 
+  // ── syncTransferLocks ─────────────────────────────────────────────
+  // Called after any prior_credit add/remove.  Determines which slots should
+  // be locked (transfer-satisfied) and persists changes to student_plan_slots.
+  // Pass the freshly-computed priorCredits array to avoid stale closure issues.
+  async function syncTransferLocks(newPriorCredits) {
+    if (!slots.length) return
+
+    const newTransferFilled = resolveTransferCredits(newPriorCredits, planSlots, slots)
+
+    const toLock   = slots.filter(s => newTransferFilled[s.id] && !planLocked[s.id])
+    const toUnlock = slots.filter(s => planLocked[s.id]        && !newTransferFilled[s.id])
+
+    if (toLock.length > 0) {
+      await Promise.all(toLock.map(slot =>
+        supabase.from('student_plan_slots').upsert({
+          student_id:           profile.id,
+          requirement_slot_id:  slot.id,
+          // For required slots the course code is the slot's class_code;
+          // for pool slots it's whatever the student selected (may be null).
+          selected_course_code: slot.is_pool
+            ? (planSlots[slot.id] ?? null)
+            : slot.class_code,
+          status:               planStatuses[slot.id]         ?? 'planned',
+          semester_number:      planSemesterOverrides[slot.id] ?? null,
+          credits_remaining:    planCreditsRemaining[slot.id]  ?? 0,
+          locked:               true,
+        }, { onConflict: 'student_id, requirement_slot_id' })
+      ))
+    }
+
+    if (toUnlock.length > 0) {
+      await supabase.from('student_plan_slots')
+        .update({ locked: false })
+        .eq('student_id', profile.id)
+        .in('requirement_slot_id', toUnlock.map(s => s.id))
+    }
+
+    setPlanLocked(prev => {
+      const next = { ...prev }
+      for (const slot of toLock)   next[slot.id] = true
+      for (const slot of toUnlock) delete next[slot.id]
+      return next
+    })
+  }
+
   // ── dnd-kit sensors ──────────────────────────────────────────────
-  // Use PointerSensor with a 5px activation distance so normal clicks on the
-  // grip handle don't accidentally trigger a drag on tap/touch.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
@@ -72,7 +135,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const slotIds = slotData.map(s => s.id)
       const { data: savedSlots, error: savedSlotsError } = await supabase
         .from('student_plan_slots')
-        .select('requirement_slot_id, selected_course_code, status, semester_number, credits_remaining')
+        .select('requirement_slot_id, selected_course_code, status, semester_number, credits_remaining, locked')
         .eq('student_id', profile.id)
         .in('requirement_slot_id', slotIds)
 
@@ -82,6 +145,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const planStatusesMap          = {}
       const planSemesterOverridesMap = {}
       const planCreditsRemainingMap  = {}
+      const planLockedMap            = {}
       for (const row of savedSlots) {
         planSlotsMap[row.requirement_slot_id]    = row.selected_course_code
         planStatusesMap[row.requirement_slot_id] = row.status
@@ -89,6 +153,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           planSemesterOverridesMap[row.requirement_slot_id] = row.semester_number
         if (row.credits_remaining > 0)
           planCreditsRemainingMap[row.requirement_slot_id] = row.credits_remaining
+        if (row.locked)
+          planLockedMap[row.requirement_slot_id] = true
       }
 
       // Step 3 — free-add slots
@@ -156,6 +222,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const semNotesMap = {}
       for (const row of notesData ?? []) semNotesMap[row.semester_number] = row.note_text
 
+      // Step 7.5 — prior credits (placement gates + transfer/AP credits)
+      const { data: priorCreditsData, error: pcError } = await supabase
+        .from('prior_credits')
+        .select('id, credit_type, satisfies_course_code, note, credits_awarded')
+        .eq('plan_id', profile.id)
+        .order('created_at', { ascending: true })
+
+      if (pcError) { setError(pcError.message); setLoading(false); return }
+
       // Step 8 — commit all state at once
       setSlots(slotData)
       setCourses(courseMap)
@@ -165,8 +240,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setPlanStatuses(planStatusesMap)
       setPlanSemesterOverrides(planSemesterOverridesMap)
       setPlanCreditsRemaining(planCreditsRemainingMap)
+      setPlanLocked(planLockedMap)
       setFreeAddSlots(freeAdds ?? [])
       setSemesterNotes(semNotesMap)
+      setPriorCredits(priorCreditsData ?? [])
       setLoading(false)
     }
 
@@ -174,8 +251,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }, [profile.concentration_id])
 
   // ── Build semesterMap using per-student semester overrides ────────
-  // A dragged slot's effective semester comes from planSemesterOverrides if set,
-  // otherwise falls back to the template semester_number from requirement_slots.
   const semesterMap = useMemo(() => {
     return slots.reduce((acc, slot) => {
       const sem = planSemesterOverrides[slot.id] ?? slot.semester_number
@@ -216,41 +291,58 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // ── Plan completeness ─────────────────────────────────────────────
   const { isComplete } = usePlanCompleteness(slots, planSlots, genEdStatus)
 
+  // ── Transfer credit slot satisfaction ────────────────────────────
+  // Which unfilled slots are satisfied by prior credits (credits_awarded > 0)?
+  const transferFilled = useMemo(
+    () => resolveTransferCredits(priorCredits, planSlots, slots),
+    [priorCredits, planSlots, slots]
+  )
+
   // ── Credit totals ─────────────────────────────────────────────────
+  // computePlanCredits deduplicates: if the same course code appears in both
+  // prior_credits and plan_slots, it is counted only once (transfer wins).
+  // Free-add slots are added on top without deduplication (they are extras).
   const creditTotals = useMemo(() => {
+    const { breakdown } = computePlanCredits(planSlots, priorCredits, slots, courses)
+
     let completed = 0
     let planned   = 0
-    for (const slot of slots) {
-      let credits
-      if (slot.is_pool) {
-        const code = planSlots[slot.id]
-        if (!code) continue
-        credits = courses[code]?.credits ?? slot.flex_credits ?? 3
+
+    for (const item of breakdown) {
+      if (item.source === 'transfer') {
+        // Prior credits are always "completed" (pre-arrival work)
+        completed += item.credits
       } else {
-        credits = courses[slot.class_code]?.credits ?? 0
+        const status = item.slotId != null
+          ? (planStatuses[item.slotId] ?? 'planned')
+          : 'planned'
+        if (status === 'completed') completed += item.credits
+        else                        planned   += item.credits
       }
-      if (planStatuses[slot.id] === 'completed') completed += credits
-      else planned += credits
     }
-    // Include free-add slots in totals
+
+    // Free-add slots (not deduplicated — they are student extras)
     for (const fa of freeAddSlots) {
       const credits = courses[fa.course_code]?.credits ?? 0
       if (fa.status === 'completed') completed += credits
-      else planned += credits
+      else                           planned   += credits
     }
+
     return { completed, planned }
-  }, [slots, planSlots, planStatuses, courses, freeAddSlots])
+  }, [slots, planSlots, planStatuses, courses, freeAddSlots, priorCredits])
+
+  // ── Transfer details (richer info for badge labels) ───────────────
+  const transferDetails = useMemo(
+    () => resolveTransferDetails(priorCredits, planSlots, slots),
+    [priorCredits, planSlots, slots]
+  )
 
   // ── Reactive prerequisite warnings ───────────────────────────────
   // Runs after ANY slot move, free-add, or course selection.
   // For each active course, computes whether its prereqs are satisfied
-  // by courses in earlier semesters. Result:
-  //   { [slotId|'fa_'+freeAddId]: string[] }  (missing prereq codes)
-  //
-  // We use a string key 'fa_' + id for free-add rows so Semester can
-  // look up warnings without conflating numeric requirement-slot IDs.
+  // by courses in earlier semesters OR by prior credits (Semester 0).
+  // Also passes courseMap so classifyPrereq can suppress placement/consent warnings.
   const prereqWarnings = useMemo(() => {
-    // Collect all "placed" courses with their effective semester
     const placed = []
 
     for (const slot of slots) {
@@ -264,33 +356,74 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     const warnings = {}
     for (const item of placed) {
-      // Satisfied = any course whose effective semester is strictly before this one
       const satisfiedCodes = new Set(
         placed.filter(p => p.sem < item.sem).map(p => p.code)
       )
-      const result = checkPrereqs(item.code, prereqMap, satisfiedCodes)
+      const result = checkPrereqs(item.code, prereqMap, satisfiedCodes, priorCredits, courses)
       if (!result.satisfied) warnings[item.key] = result.missing
     }
     return warnings
-  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap])
+  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses])
+
+  // ── Standing requirement warnings ────────────────────────────────
+  // Distinct from prereqWarnings — shown as a blue info badge.
+  // Checks courses that require junior (≥60 cr) or senior (≥90 cr) standing.
+  // Prior credits count toward standing since they're pre-arrival hours.
+  const standingWarnings = useMemo(() => {
+    const priorCreditHrs = priorCredits.reduce(
+      (sum, pc) => sum + (pc.credits_awarded ?? 0), 0
+    )
+    const warnings = {}
+
+    for (const slot of slots) {
+      const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
+      const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
+      if (!code) continue
+
+      const course = courses[code]
+      if (!course?.standing_req) continue
+
+      const threshold = STANDING_THRESHOLDS[course.standing_req]
+      if (!threshold) continue
+
+      // Sum credits from all slots placed in earlier semesters
+      let creditsBefore = priorCreditHrs
+      for (const s of slots) {
+        const sSem = planSemesterOverrides[s.id] ?? s.semester_number
+        if (sSem >= sem) continue
+        if (s.is_pool) {
+          const c = planSlots[s.id]
+          creditsBefore += c ? (courses[c]?.credits ?? 0) : 0
+        } else {
+          creditsBefore += courses[s.class_code]?.credits ?? 0
+        }
+      }
+      for (const fa of freeAddSlots) {
+        if (fa.semester_number < sem) {
+          creditsBefore += courses[fa.course_code]?.credits ?? 0
+        }
+      }
+
+      if (creditsBefore < threshold) {
+        warnings[slot.id] = course.standing_req  // 'junior' | 'senior'
+      }
+    }
+    return warnings
+  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, courses, priorCredits])
 
   // ── Save a pool/required course selection (optimistic) ────────────
-  // Flex-slot logic: if the chosen course covers fewer credits than the
-  // slot's flex_credits total, record the remainder so the UI can show
-  // "X cr remaining". If the course over-satisfies, creditsRemaining = 0.
   function handleSave(slot, course) {
     const existingStatus = planStatuses[slot.id] ?? 'planned'
 
-    // Flex-slot credit remainder
     let creditsRemaining = 0
     if (slot.is_pool && slot.flex_credits > 0) {
       const diff = slot.flex_credits - course.credits
       creditsRemaining = diff > 0 ? diff : 0
     }
 
-    const prevSlots              = planSlots
-    const prevStatuses           = planStatuses
-    const prevCreditsRemaining   = planCreditsRemaining
+    const prevSlots            = planSlots
+    const prevStatuses         = planStatuses
+    const prevCreditsRemaining = planCreditsRemaining
 
     setPlanSlots(prev          => ({ ...prev, [slot.id]: course.code }))
     setPlanStatuses(prev       => ({ ...prev, [slot.id]: existingStatus }))
@@ -321,6 +454,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Cycle a slot's status ─────────────────────────────────────────
   function handleStatusChange(slot, newStatus) {
+    if (planLocked[slot.id]) return   // locked by transfer credit — non-interactive
     const courseCode = slot.is_pool ? planSlots[slot.id] : slot.class_code
     if (slot.is_pool && !courseCode) return
 
@@ -387,9 +521,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   // ── Add a free-add course to a semester ──────────────────────────
-  // Inserts into student_free_add_slots; optimistic state update first.
   async function handleAddCourse(semesterNumber, course) {
-    setAddCourseTarget(null)  // close modal immediately
+    setAddCourseTarget(null)
 
     const { data, error } = await supabase
       .from('student_free_add_slots')
@@ -407,7 +540,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
       return
     }
 
-    // Update courseMap if this course wasn't previously loaded
     if (data && !courses[course.code]) {
       setCourses(prev => ({ ...prev, [course.code]: course }))
     }
@@ -432,8 +564,47 @@ export default function DegreePlan({ profile, onProfileChange }) {
       })
   }
 
+  // ── Prior credit CRUD ─────────────────────────────────────────────
+  async function handleAddPriorCredit(creditData) {
+    const { data, error } = await supabase
+      .from('prior_credits')
+      .insert({ ...creditData, plan_id: profile.id })
+      .select('id, credit_type, satisfies_course_code, note, credits_awarded')
+      .single()
+
+    if (error) {
+      showSaveError('Could not add credit. Please try again.')
+      return
+    }
+
+    const newCredits = [...priorCredits, data]
+    setPriorCredits(newCredits)
+    await syncTransferLocks(newCredits)
+  }
+
+  async function handleRemovePriorCredit(id) {
+    const prev       = priorCredits
+    const newCredits = priorCredits.filter(pc => pc.id !== id)
+    setPriorCredits(newCredits)
+
+    const { error } = await supabase
+      .from('prior_credits')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      setPriorCredits(prev)
+      showSaveError('Could not remove credit. Please try again.')
+      return
+    }
+
+    // Unlock any slots that were locked by this prior credit
+    await syncTransferLocks(newCredits)
+  }
+
   // ── Route a slot click ────────────────────────────────────────────
   function handleSlotClick(slot) {
+    if (planLocked[slot.id]) return   // locked by transfer credit — non-interactive
     if (slot.is_pool && !planSlots[slot.id]) {
       setActiveSlot(slot)
     } else {
@@ -475,16 +646,58 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setDraggedSlotId(active.id)
   }
 
-  function handleDragEnd({ active, over }) {
+  async function handleDragEnd({ active, over }) {
     setDraggedSlotId(null)
     if (!over) return
 
     const { type, slotId } = active.data.current
-    const newSemester = over.id   // droppable id = semester number
+
+    // ── Drop on Transfer Credits panel ───────────────────────────────
+    if (over.id === 'transfer_credits') {
+      if (type === 'requirement_slot') {
+        const slot = slots.find(s => s.id === slotId)
+        if (!slot) return
+        if (planLocked[slotId]) return   // locked slots cannot be dragged to transfer panel
+        const courseCode = slot.is_pool ? planSlots[slotId] : slot.class_code
+        if (!courseCode) return  // nothing to transfer for unfilled pool slot
+
+        const course        = courses[courseCode]
+        const creditsAwarded = course?.credits ?? 3
+        const semLabel       = planSemesterOverrides[slotId] ?? slot.semester_number
+
+        await handleAddPriorCredit({
+          credit_type:          'transfer_credit',
+          satisfies_course_code: courseCode,
+          note:                 `Dragged from Semester ${semLabel}`,
+          credits_awarded:      creditsAwarded,
+        })
+
+        // For pool slots, also clear the selection so the slot is empty again
+        if (slot.is_pool) await handleRemove(slot)
+
+      } else if (type === 'free_add') {
+        const fa = freeAddSlots.find(f => f.id === slotId)
+        if (!fa) return
+
+        const course = courses[fa.course_code]
+        await handleAddPriorCredit({
+          credit_type:          'transfer_credit',
+          satisfies_course_code: fa.course_code,
+          note:                 `Dragged from Semester ${fa.semester_number}`,
+          credits_awarded:      course?.credits ?? 3,
+        })
+        handleRemoveFreeAdd(fa)
+      }
+      return
+    }
+
+    // ── Drop on a semester card (normal reorder) ──────────────────────
+    const newSemester = over.id
 
     if (type === 'requirement_slot') {
       const slot = slots.find(s => s.id === slotId)
       if (!slot) return
+      if (planLocked[slotId]) return   // locked slots cannot be moved
       const currentSemester = planSemesterOverrides[slotId] ?? slot.semester_number
       if (currentSemester === newSemester) return
 
@@ -547,12 +760,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
       .eq('student_id', profile.id)
     if (deleteErr) { setSwitching(false); return }
 
-    // Also clear free-add slots on switch (they're concentration-specific context)
     await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
+    await supabase.from('prior_credits').delete().eq('plan_id', profile.id)
 
     setSwitching(false)
     setShowSwitchModal(false)
     setLastSelection(null)
+    setPriorCredits([])
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
 
@@ -575,7 +789,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const maxSemester  = semesterNumbers.length > 0 ? Math.max(...semesterNumbers) : 0
   const graduation   = projectGraduation(profile.start_season, profile.start_year, maxSemester)
 
-  // Label for the DragOverlay: resolve from slot or free-add
   const draggedLabel = (() => {
     if (!draggedSlotId) return null
     const slot = slots.find(s => s.id === draggedSlotId)
@@ -586,6 +799,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const fa = freeAddSlots.find(f => f.id === draggedSlotId)
     return fa?.course_code ?? null
   })()
+
+  const transferCredits = priorCredits.filter(pc => (pc.credits_awarded ?? 0) > 0)
+  const placementGates  = priorCredits.filter(pc => (pc.credits_awarded ?? 0) === 0)
 
   return (
     <div className="degreeplan-shell">
@@ -651,12 +867,35 @@ export default function DegreePlan({ profile, onProfileChange }) {
           concentrationName={profile.concentrations.name}
         />
 
-        {/* DndContext wraps the grid so semesters can be drop targets */}
+        {/* DndContext wraps both panels + grid so the transfer zone receives drops */}
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
+          {/* ── Transfer Credits / Prior Coursework panel ── */}
+          <TransferCreditsPanel
+            credits={transferCredits}
+            onRemove={handleRemovePriorCredit}
+            onAddClick={() => setAddCreditMode('transfer')}
+          />
+
+          {/* ── Placement & Test Scores panel ── */}
+          {placementGates.length > 0 && (
+            <PlacementPanel
+              credits={placementGates}
+              onRemove={handleRemovePriorCredit}
+              onAddClick={() => setAddCreditMode('placement')}
+            />
+          )}
+          {placementGates.length === 0 && (
+            <PlacementPanel
+              credits={[]}
+              onRemove={handleRemovePriorCredit}
+              onAddClick={() => setAddCreditMode('placement')}
+            />
+          )}
+
           <div className="degreeplan-grid">
             {semesterNumbers.map(semNum => (
               <Semester
@@ -675,13 +914,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
                 onAddCourse={() => setAddCourseTarget(semNum)}
                 scienceWarnings={scienceWarnings}
                 prereqWarnings={prereqWarnings}
+                standingWarnings={standingWarnings}
+                transferFilled={transferFilled}
+                planLocked={planLocked}
+                transferDetails={transferDetails}
                 note={semesterNotes[semNum] ?? ''}
                 onNoteSave={handleNoteSave}
               />
             ))}
           </div>
 
-          {/* DragOverlay: ghost that follows the cursor during a drag */}
           <DragOverlay>
             {draggedLabel && (
               <div className="slot-drag-overlay">{draggedLabel}</div>
@@ -729,6 +971,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
           semesterNumber={addCourseTarget}
           onAdd={course => handleAddCourse(addCourseTarget, course)}
           onClose={() => setAddCourseTarget(null)}
+        />
+      )}
+
+      {addCreditMode && (
+        <AddCreditModal
+          mode={addCreditMode}
+          onSave={handleAddPriorCredit}
+          onClose={() => setAddCreditMode(null)}
         />
       )}
 
@@ -793,6 +1043,316 @@ function GenEdTracker({ categories }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── TransferCreditsPanel ───────────────────────────────────────────────────────
+// Collapsible panel above the semester grid.
+// Acts as a drop target so students can drag filled slots here.
+// Shows all prior_credits with credits_awarded > 0.
+
+function TransferCreditsPanel({ credits, onRemove, onAddClick }) {
+  const [open, setOpen] = useState(true)
+
+  const { setNodeRef, isOver } = useDroppable({ id: 'transfer_credits' })
+
+  return (
+    <div
+      className={`prior-credits-panel${isOver ? ' prior-credits-panel-drag-over' : ''}`}
+      style={{ maxWidth: 1200, margin: '0 auto 1rem' }}
+      ref={setNodeRef}
+    >
+      <div className="prior-credits-panel-header" onClick={() => setOpen(o => !o)}>
+        <div className="prior-credits-panel-title">
+          <span>Transfer Credits &amp; Prior Coursework</span>
+          {credits.length > 0 && (
+            <span className="prior-credits-count">{credits.length}</span>
+          )}
+        </div>
+        <div className="prior-credits-panel-right">
+          {isOver && (
+            <span className="prior-credits-drop-hint">Drop to transfer</span>
+          )}
+          <span className="prior-credits-chevron">{open ? '▲' : '▼'}</span>
+        </div>
+      </div>
+
+      {open && (
+        <div className="prior-credits-body">
+          {credits.length === 0 ? (
+            <p className="prior-credits-empty">
+              No transfer credits added yet. Drag a filled course here, or use Add Credit.
+            </p>
+          ) : (
+            <div className="prior-credits-list">
+              {credits.map(pc => (
+                <div key={pc.id} className="prior-credit-row">
+                  <span className={`credit-type-chip credit-type-${pc.credit_type}`}>
+                    {CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}
+                  </span>
+                  <span className="prior-credit-code">
+                    {pc.satisfies_course_code ?? '—'}
+                  </span>
+                  <span className="prior-credit-note">{pc.note ?? ''}</span>
+                  <span className="prior-credit-hrs">{pc.credits_awarded} cr</span>
+                  <button
+                    className="prior-credit-remove"
+                    onClick={() => onRemove(pc.id)}
+                    title="Remove this credit"
+                    aria-label="Remove credit"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="prior-credits-add-btn" onClick={onAddClick}>
+            + Add Credit
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── PlacementPanel ─────────────────────────────────────────────────────────────
+// Shows prior_credits with credits_awarded = 0 (pure placement gates like ACT scores).
+// No drop zone — placement gates are added manually only.
+
+function PlacementPanel({ credits, onRemove, onAddClick }) {
+  const [open, setOpen] = useState(false)  // collapsed by default since less common
+
+  return (
+    <div
+      className="prior-credits-panel prior-credits-panel-placement"
+      style={{ maxWidth: 1200, margin: '0 auto 1rem' }}
+    >
+      <div className="prior-credits-panel-header" onClick={() => setOpen(o => !o)}>
+        <div className="prior-credits-panel-title">
+          <span>Placement &amp; Test Scores</span>
+          {credits.length > 0 && (
+            <span className="prior-credits-count">{credits.length}</span>
+          )}
+        </div>
+        <span className="prior-credits-chevron">{open ? '▲' : '▼'}</span>
+      </div>
+
+      {open && (
+        <div className="prior-credits-body">
+          {credits.length === 0 ? (
+            <p className="prior-credits-empty">
+              No placement scores recorded. Add an ACT score or other gate.
+            </p>
+          ) : (
+            <div className="prior-credits-list">
+              {credits.map(pc => (
+                <div key={pc.id} className="prior-credit-row">
+                  <span className={`credit-type-chip credit-type-${pc.credit_type}`}>
+                    {CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}
+                  </span>
+                  <span className="prior-credit-note">{pc.note ?? '—'}</span>
+                  <span className="prior-credit-hrs prior-credit-hrs-gate">Gate only</span>
+                  <button
+                    className="prior-credit-remove"
+                    onClick={() => onRemove(pc.id)}
+                    title="Remove this score"
+                    aria-label="Remove placement score"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="prior-credits-add-btn" onClick={onAddClick}>
+            + Add Score / Placement
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── AddCreditModal ─────────────────────────────────────────────────────────────
+// Small form modal for adding a prior credit or placement gate.
+// mode: 'transfer' shows credit-bearing types (AP, Transfer, Dual, CLEP, IB)
+// mode: 'placement' shows only act_placement
+
+const TRANSFER_TYPES = [
+  { value: 'ap_credit',       label: 'AP Credit' },
+  { value: 'transfer_credit', label: 'Transfer Credit' },
+  { value: 'dual_enrollment', label: 'Dual Enrollment' },
+  { value: 'test_out',        label: 'CLEP / Test Out' },
+  { value: 'ib_credit',       label: 'IB Credit' },
+]
+
+const PLACEMENT_TYPES = [
+  { value: 'act_placement', label: 'ACT Placement' },
+]
+
+function AddCreditModal({ mode, onSave, onClose }) {
+  const types       = mode === 'placement' ? PLACEMENT_TYPES : TRANSFER_TYPES
+  const [creditType, setCreditType]   = useState(types[0].value)
+  const [courseCode, setCourseCode]   = useState('')
+  const [credits, setCredits]         = useState(3)
+  const [note, setNote]               = useState('')
+  const [saving, setSaving]           = useState(false)
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching]     = useState(false)
+  const searchTimer                   = useRef(null)
+
+  const isPlacement = mode === 'placement'
+
+  // Debounced course search
+  function handleCourseSearch(val) {
+    setCourseCode(val)
+    if (!val.trim() || isPlacement) { setSearchResults([]); return }
+    clearTimeout(searchTimer.current)
+    setSearching(true)
+    searchTimer.current = setTimeout(async () => {
+      const term = val.trim()
+      const { data } = await supabase
+        .from('courses')
+        .select('code, name, credits')
+        .or(`code.ilike.%${term}%,name.ilike.%${term}%`)
+        .limit(10)
+      setSearchResults(data ?? [])
+      setSearching(false)
+    }, 250)
+  }
+
+  function selectCourse(course) {
+    setCourseCode(course.code)
+    setCredits(course.credits ?? 3)
+    setSearchResults([])
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSaving(true)
+    await onSave({
+      credit_type:          creditType,
+      satisfies_course_code: isPlacement ? null : (courseCode.trim() || null),
+      note:                 note.trim() || null,
+      credits_awarded:      isPlacement ? 0 : credits,
+    })
+    setSaving(false)
+    onClose()
+  }
+
+  function handleBackdropClick(e) {
+    if (e.target === e.currentTarget) onClose()
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-card" style={{ maxHeight: '90vh' }}>
+        <div className="modal-header">
+          <div>
+            <p className="modal-eyebrow">Prior Credits</p>
+            <h3 className="modal-title">
+              {isPlacement ? 'Add Placement Score' : 'Add Transfer / Prior Credit'}
+            </h3>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <form className="add-credit-form" onSubmit={handleSubmit}>
+          <div className="add-credit-field">
+            <label className="add-credit-label">Credit type</label>
+            <select
+              className="add-credit-select"
+              value={creditType}
+              onChange={e => setCreditType(e.target.value)}
+            >
+              {types.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {!isPlacement && (
+            <div className="add-credit-field add-credit-course-field">
+              <label className="add-credit-label">Course it replaces (optional)</label>
+              <input
+                className="add-credit-input"
+                type="text"
+                value={courseCode}
+                onChange={e => handleCourseSearch(e.target.value)}
+                placeholder="Search by code or name…"
+                autoComplete="off"
+              />
+              {searching && (
+                <p className="add-credit-search-hint">Searching…</p>
+              )}
+              {searchResults.length > 0 && (
+                <div className="add-credit-results">
+                  {searchResults.map(c => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      className="add-credit-result-row"
+                      onClick={() => selectCourse(c)}
+                    >
+                      <span className="add-credit-result-code">{c.code}</span>
+                      <span className="add-credit-result-name">{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!isPlacement && (
+            <div className="add-credit-field">
+              <label className="add-credit-label">Credits awarded</label>
+              <input
+                className="add-credit-input add-credit-input-sm"
+                type="number"
+                min={1}
+                max={12}
+                value={credits}
+                onChange={e => setCredits(Number(e.target.value))}
+              />
+            </div>
+          )}
+
+          <div className="add-credit-field">
+            <label className="add-credit-label">Note</label>
+            <input
+              className="add-credit-input"
+              type="text"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder={isPlacement
+                ? 'e.g. ACT Math 29'
+                : 'e.g. AP Calculus AB, score 4'}
+            />
+          </div>
+
+          <div className="modal-footer">
+            <div className="modal-footer-btns">
+              <button
+                type="button"
+                className="onboarding-btn-secondary"
+                onClick={onClose}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="onboarding-btn"
+                disabled={saving}
+              >
+                {saving ? 'Saving…' : 'Add'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
