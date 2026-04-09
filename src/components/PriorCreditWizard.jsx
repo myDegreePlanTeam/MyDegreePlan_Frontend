@@ -21,6 +21,7 @@ import './Dashboard.css'
 // Credit type options presented in Step 1
 const CREDIT_TYPES = [
   { value: 'ap_credit',       label: 'AP Exam',               hasScore: true  },
+  { value: 'act_credit',      label: 'ACT Score',             hasScore: true  },
   { value: 'test_out',        label: 'CLEP Exam',             hasScore: true  },
   { value: 'ib_credit',       label: 'IB Exam',               hasScore: true  },
   { value: 'dual_enrollment', label: 'Dual Enrollment',       hasScore: false },
@@ -49,7 +50,8 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
   const searchTimerRef = useRef(null)
 
   // Step 3 data
-  const [scoreOptions, setScoreOptions] = useState([])  // distinct min_score values for selected exam
+  // Each entry: { score, awardedCodes, totalCredits, isPlacementOnly }
+  const [scoreOptions, setScoreOptions] = useState([])
 
   const typeConfig = CREDIT_TYPES.find(t => t.value === creditType)
 
@@ -83,8 +85,19 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
       .not('min_score', 'is', null)
       .order('min_score', { ascending: true })
       .then(({ data }) => {
-        const scores = [...new Set((data ?? []).map(r => r.min_score))].sort((a, b) => a - b)
-        setScoreOptions(scores)
+        const rows = data ?? []
+        // Build cumulative award info per score threshold.
+        // Each threshold shows everything a student earns at that score
+        // (i.e. all rows with min_score <= threshold), matching the Step 4 query.
+        const allScores = [...new Set(rows.map(r => r.min_score))].sort((a, b) => a - b)
+        const options = allScores.map(score => {
+          const cumulativeRows = rows.filter(r => r.min_score <= score)
+          const totalCredits   = cumulativeRows.reduce((s, r) => s + (r.credits_awarded ?? 0), 0)
+          const awardedCodes   = [...new Set(cumulativeRows.map(r => r.awarded_course_code).filter(Boolean))]
+          const isPlacementOnly = cumulativeRows.every(r => (r.credits_awarded ?? 0) === 0)
+          return { score, awardedCodes, totalCredits, isPlacementOnly }
+        })
+        setScoreOptions(options)
       })
   }, [step, creditType, selectedExam])
 
@@ -334,18 +347,30 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
               <p className="wizard-step-hint">
                 Select the score you received on{' '}
                 <strong>{selectedExam?.test_name}</strong>.
-                Only scores that award TTU credit are shown.
+                Only qualifying score thresholds are shown.
               </p>
               {scoreOptions.length === 0 && (
                 <p className="wizard-empty">Loading score options…</p>
               )}
-              {scoreOptions.map(score => (
+              {scoreOptions.map(opt => (
                 <button
-                  key={score}
+                  key={opt.score}
                   className="wizard-score-btn"
-                  onClick={() => handleScoreSelect(score)}
+                  onClick={() => handleScoreSelect(opt.score)}
                 >
-                  Score {score}
+                  <span className="wizard-score-num">Score {opt.score}+</span>
+                  {opt.isPlacementOnly ? (
+                    <span className="wizard-score-detail">
+                      Qualifies for placement into {opt.awardedCodes.join(', ')} — no credit hours awarded
+                    </span>
+                  ) : (
+                    <span className="wizard-score-detail">
+                      Awards {opt.totalCredits} credit hour{opt.totalCredits !== 1 ? 's' : ''}
+                      {opt.awardedCodes.length > 0
+                        ? ` toward ${opt.awardedCodes.join(', ')}`
+                        : ''}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -373,15 +398,25 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
                   ? (slot.semester_number ?? '?')
                   : null
                 const alreadyInPlan = !!slot
+                const isPlacementOnly = (award.credits_awarded ?? 0) === 0
 
                 return (
                   <div key={i} className="wizard-award-card">
                     <div className="wizard-award-main">
                       <span className="wizard-award-code">{award.awarded_course_code}</span>
                       <span className="wizard-award-name">{award.course_name}</span>
-                      <span className="wizard-award-cr">{award.credits_awarded} cr</span>
+                      {isPlacementOnly ? (
+                        <span className="wizard-award-cr wizard-award-cr-placement">No credit hours</span>
+                      ) : (
+                        <span className="wizard-award-cr">{award.credits_awarded} cr</span>
+                      )}
                     </div>
-                    {alreadyInPlan ? (
+                    {isPlacementOnly ? (
+                      <p className="wizard-award-effect wizard-award-effect-placement">
+                        This qualifies you for placement into{' '}
+                        <strong>{award.awarded_course_code}</strong> — no credit hours are awarded.
+                      </p>
+                    ) : alreadyInPlan ? (
                       <p className="wizard-award-effect">
                         This removes <strong>{award.awarded_course_code}</strong> from
                         Semester {slotSem} of your plan.
