@@ -10,7 +10,7 @@
 //   Rule 1 — Placement types (act_placement) must have credits_awarded = 0.
 //   Rule 2 — Scored exam types (ap_credit, test_out, ib_credit) must match
 //             a test_equivalencies row; credits must match the table value.
-//   Rule 3 — Transfer/dual_enrollment credits are capped at catalog hours;
+//   Rule 3 — Transfer credit is capped at catalog hours;
 //             cap is 6 if course is not in catalog.
 //   Rule 4 — courseCode is required for all non-placement credit types.
 
@@ -159,7 +159,7 @@ describe('validatePriorCredit — Rule 2 (ib_credit)', () => {
   })
 })
 
-// ── Rule 3: transfer_credit and dual_enrollment ───────────────────────────────
+// ── Rule 3: transfer_credit ───────────────────────────────────────────────────
 
 describe('validatePriorCredit — Rule 3 (transfer_credit)', () => {
   it('valid when credits_awarded equals catalog hours', () => {
@@ -191,19 +191,6 @@ describe('validatePriorCredit — Rule 3 (transfer_credit)', () => {
     expect(result.valid).toBe(false)
     expect(result.error).toMatch(/not in the TTU catalog/i)
     expect(result.correctedCredits).toBe(6)
-  })
-})
-
-describe('validatePriorCredit — Rule 3 (dual_enrollment)', () => {
-  it('valid when dual_enrollment credits_awarded equals catalog hours', () => {
-    const result = validatePriorCredit('dual_enrollment', 'CSC1300', 3, TEST_EQ, CATALOG)
-    expect(result.valid).toBe(true)
-  })
-
-  it('invalid when dual_enrollment credits exceed catalog hours', () => {
-    const result = validatePriorCredit('dual_enrollment', 'CSC1300', 6, TEST_EQ, CATALOG)
-    expect(result.valid).toBe(false)
-    expect(result.correctedCredits).toBe(3)
   })
 })
 

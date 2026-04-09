@@ -21,11 +21,11 @@ const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
 const CREDIT_TYPE_LABELS = {
   ap_credit:       'AP',
   transfer_credit: 'Transfer',
-  dual_enrollment: 'Dual Enroll',
   test_out:        'CLEP',
   ib_credit:       'IB',
   act_placement:   'ACT',
   act_credit:      'ACT',
+  cambridge:       'Cambridge',
 }
 
 export default function DegreePlan({ profile, onProfileChange }) {

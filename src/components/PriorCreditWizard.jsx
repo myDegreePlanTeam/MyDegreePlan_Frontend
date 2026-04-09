@@ -24,7 +24,6 @@ const CREDIT_TYPES = [
   { value: 'act_credit',      label: 'ACT Score',             hasScore: true  },
   { value: 'test_out',        label: 'CLEP Exam',             hasScore: true  },
   { value: 'ib_credit',       label: 'IB Exam',               hasScore: true  },
-  { value: 'dual_enrollment', label: 'Dual Enrollment',       hasScore: false },
   { value: 'cambridge',       label: 'Cambridge International', hasScore: false },
   { value: 'transfer_credit', label: 'Transfer Credit',       hasScore: false },
 ]

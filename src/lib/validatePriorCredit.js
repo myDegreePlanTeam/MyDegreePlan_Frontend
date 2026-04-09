@@ -13,9 +13,8 @@
 //
 // Parameters:
 //   creditType         — matches prior_credits.credit_type
-//                        ('ap_credit', 'act_credit', 'transfer_credit',
-//                         'dual_enrollment', 'test_out', 'ib_credit',
-//                         'act_placement')
+//                        ('ap_credit', 'act_credit', 'cambridge', 'test_out',
+//                         'ib_credit', 'transfer_credit', 'act_placement')
 //   courseCode         — prior_credits.satisfies_course_code (may be null for
 //                        placement-only entries)
 //   creditsAwarded     — prior_credits.credits_awarded
@@ -25,20 +24,20 @@
 //
 // Rules:
 //   1. Placement-only types (act_placement) must have credits_awarded = 0.
-//   2. For scored exam types (ap_credit, test_out, ib_credit):
+//   2. For scored exam types (ap_credit, test_out, ib_credit, act_credit, cambridge):
 //      test_equivalencies must have a row where test_type = creditType
 //      AND awarded_course_code = courseCode.
 //      credits_awarded must match the equivalency row exactly
 //      (correctedCredits is returned when it mismatches).
-//   3. For transfer_credit and dual_enrollment:
+//   3. For transfer_credit:
 //      courseCode is looked up in courseCatalog.
 //      credits_awarded is capped at the catalog course credit hours.
 //      If courseCode is not in catalog: cap at 6 and include an advisor note.
 //   4. courseCode is required for all non-placement types.
 
 const PLACEMENT_TYPES = new Set(['act_placement'])
-const SCORED_EXAM_TYPES = new Set(['ap_credit', 'test_out', 'ib_credit', 'act_credit'])
-const TRANSFER_TYPES = new Set(['transfer_credit', 'dual_enrollment'])
+const SCORED_EXAM_TYPES = new Set(['ap_credit', 'test_out', 'ib_credit', 'act_credit', 'cambridge'])
+const TRANSFER_TYPES = new Set(['transfer_credit'])
 const TRANSFER_CAP_WITHOUT_CATALOG = 6
 
 /**
@@ -106,7 +105,7 @@ export function validatePriorCredit(
     return { valid: true, error: null, correctedCredits: null }
   }
 
-  // ── Rule 3: transfer/dual enrollment — cap at catalog credit hours ────
+  // ── Rule 3: transfer_credit — cap at catalog credit hours ────────────
   if (TRANSFER_TYPES.has(creditType)) {
     const catalogCourse = (courseCatalog ?? {})[courseCode]
 
