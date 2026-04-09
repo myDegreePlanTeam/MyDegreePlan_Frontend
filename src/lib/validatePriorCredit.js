@@ -13,8 +13,9 @@
 //
 // Parameters:
 //   creditType         — matches prior_credits.credit_type
-//                        ('ap_credit', 'transfer_credit', 'dual_enrollment',
-//                         'test_out', 'ib_credit', 'act_placement')
+//                        ('ap_credit', 'act_credit', 'transfer_credit',
+//                         'dual_enrollment', 'test_out', 'ib_credit',
+//                         'act_placement')
 //   courseCode         — prior_credits.satisfies_course_code (may be null for
 //                        placement-only entries)
 //   creditsAwarded     — prior_credits.credits_awarded
@@ -36,7 +37,7 @@
 //   4. courseCode is required for all non-placement types.
 
 const PLACEMENT_TYPES = new Set(['act_placement'])
-const SCORED_EXAM_TYPES = new Set(['ap_credit', 'test_out', 'ib_credit'])
+const SCORED_EXAM_TYPES = new Set(['ap_credit', 'test_out', 'ib_credit', 'act_credit'])
 const TRANSFER_TYPES = new Set(['transfer_credit', 'dual_enrollment'])
 const TRANSFER_CAP_WITHOUT_CATALOG = 6
 
