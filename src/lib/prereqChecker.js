@@ -30,23 +30,65 @@ import { classifyPrereq } from './classifyPrereq.js'
 // they are checked against availableCodes (completedCodes + same-semester codes)
 // rather than completedCodes alone.
 //
-// The coreqMap shape built in DegreePlan.jsx is:
-//   { [courseCode]: string[] }  — flat list of required codes (no group logic)
+// Accepts two coreqMap shapes:
+//   Flat list (legacy):  { [courseCode]: string[] }
+//     — all entries are treated as AND requirements.
+//   Grouped (current):   { [courseCode]: { [groupIndex]: { logic: 'AND'|'OR', codes: string[] } } }
+//     — OR groups short-circuit when any one member is in availableCodes.
 //
 // Returns:
 //   { satisfied: true }                         — all coreqs met or none required
-//   { satisfied: false, missing: string[] }      — which codes are absent
+//   { satisfied: false, missing: string[] }      — which codes/groups are absent
 //
 // Signature is intentionally kept separate from checkPrereqs so neither
 // function's signature changes and all existing callers remain valid.
 
 export function checkCoreqs(courseCode, coreqMap, availableCodes) {
   const required = coreqMap?.[courseCode] ?? []
-  if (required.length === 0) return { satisfied: true }
 
-  const missing = required.filter(code => !availableCodes.has(code))
+  // ── Flat list (legacy/simple): all entries are AND requirements ───────────
+  if (Array.isArray(required)) {
+    if (required.length === 0) return { satisfied: true }
+    const missing = required.filter(code => !availableCodes.has(code))
+    if (missing.length > 0) return { satisfied: false, missing }
+    return { satisfied: true }
+  }
+
+  // ── Grouped format: same shape as prereqMap ───────────────────────────────
+  // OR groups short-circuit when any one member is in availableCodes.
+  if (Object.keys(required).length === 0) return { satisfied: true }
+
+  const missing = []
+  for (const groupIndex of Object.keys(required)) {
+    const group = required[groupIndex]
+
+    if (group.logic === 'AND') {
+      const unmet = group.codes.filter(code => !availableCodes.has(code))
+      if (unmet.length > 0) missing.push(...unmet)
+
+    } else if (group.logic === 'OR') {
+      // Short-circuit: any one member satisfied → entire OR group clears
+      const anyMet = group.codes.some(code => availableCodes.has(code))
+      if (!anyMet) missing.push(`(${group.codes.join(' or ')})`)
+    }
+  }
+
   if (missing.length > 0) return { satisfied: false, missing }
   return { satisfied: true }
+}
+
+// ── Internal helper ──────────────────────────────────────────────────────────
+// Returns true if `code` is listed as a corequisite for `courseCode` in the
+// provided coreqMap.  Handles both flat-list and grouped coreqMap shapes.
+// Used by checkPrereqs to suppress prereq warnings for codes that the coreq
+// checker already owns.
+
+function isCoreqForCourse(courseCode, code, coreqMap) {
+  const coreqs = coreqMap[courseCode]
+  if (!coreqs) return false
+  if (Array.isArray(coreqs)) return coreqs.includes(code)
+  // Grouped format: { [groupIndex]: { logic, codes } }
+  return Object.values(coreqs).some(group => group.codes.includes(code))
 }
 
 // ── checkPrereqs ──────────────────────────────────────────────────────────────
@@ -56,7 +98,8 @@ export function checkPrereqs(
   prereqMap,
   satisfiedCodes,
   priorCredits = [],
-  courseMap    = {}
+  courseMap    = {},
+  coreqMap     = {}
 ) {
   const groups = prereqMap[courseCode]
 
@@ -96,12 +139,20 @@ export function checkPrereqs(
     if (group.logic === 'AND') {
       // Every code in this group must be satisfied
       // (AND groups only ever have one code by our schema design)
-      const unmet = group.codes.filter(code => !enhanced.has(code))
+      // Suppress warning for a code that is also listed as a coreq — the coreq
+      // checker already owns it and will warn if co-enrollment is missing.
+      const unmet = group.codes.filter(
+        code => !enhanced.has(code) && !isCoreqForCourse(courseCode, code, coreqMap)
+      )
       if (unmet.length > 0) missing.push(...unmet)
 
     } else if (group.logic === 'OR') {
-      // At least one code in this group must be satisfied
-      const anyMet = group.codes.some(code => enhanced.has(code))
+      // At least one code in this group must be satisfied.
+      // A code that is also a coreq counts as satisfied here — the coreq
+      // checker verifies actual co-enrollment independently.
+      const anyMet = group.codes.some(
+        code => enhanced.has(code) || isCoreqForCourse(courseCode, code, coreqMap)
+      )
       if (!anyMet) missing.push(`(${group.codes.join(' or ')})`)
     }
   }
