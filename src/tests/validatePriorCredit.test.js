@@ -32,6 +32,15 @@ const TEST_EQ = [
   // IB History → HIST2010 (3 cr)
   { test_type: 'ib_credit', test_name: 'IB History HL', min_score: 5,
     awarded_course_code: 'HIST2010', credits_awarded: 3 },
+  // ACT English score 27+ → ENGL1010 (3 cr)
+  { test_type: 'act_credit', test_name: 'ACT English', min_score: 27,
+    awarded_course_code: 'ENGL1010', credits_awarded: 3 },
+  // ACT English score 31+ → additionally ENGL1020 (3 cr)
+  { test_type: 'act_credit', test_name: 'ACT English', min_score: 31,
+    awarded_course_code: 'ENGL1020', credits_awarded: 3 },
+  // ACT Math — placement only (credits_awarded = 0)
+  { test_type: 'act_credit', test_name: 'ACT Mathematics', min_score: 27,
+    awarded_course_code: 'MATH1910', credits_awarded: 0 },
 ]
 
 const CATALOG = {
@@ -221,5 +230,41 @@ describe('validatePriorCredit — empty/missing inputs', () => {
   it('handles null courseCatalog gracefully', () => {
     const result = validatePriorCredit('transfer_credit', 'MATH1910', 3, TEST_EQ, null)
     expect(result.valid).toBe(true)  // 3 ≤ 6 cap
+  })
+})
+
+// ── Rule 2: act_credit — scored exam validation ───────────────────────────────
+
+describe('validatePriorCredit — Rule 2 (act_credit)', () => {
+  it('valid when act_credit matches test_equivalencies with correct credits', () => {
+    // ACT English score 27 → ENGL1010 (3 cr)
+    const result = validatePriorCredit('act_credit', 'ENGL1010', 3, TEST_EQ, CATALOG)
+    expect(result.valid).toBe(true)
+    expect(result.error).toBeNull()
+    expect(result.correctedCredits).toBeNull()
+  })
+
+  it('invalid when act_credit credits_awarded does not match; returns correctedCredits', () => {
+    // ENGL1010 via ACT awards 3 cr; student claimed 6
+    const result = validatePriorCredit('act_credit', 'ENGL1010', 6, TEST_EQ, CATALOG)
+    expect(result.valid).toBe(false)
+    expect(result.error).toMatch(/credits awarded must be 3/i)
+    expect(result.correctedCredits).toBe(3)
+  })
+
+  it('invalid when act_credit placement_only row has credits_awarded > 0', () => {
+    // ACT Math equivalency has credits_awarded = 0 (placement only)
+    // Submitting credits_awarded = 3 must be rejected; correctedCredits = 0
+    const result = validatePriorCredit('act_credit', 'MATH1910', 3, TEST_EQ, CATALOG)
+    expect(result.valid).toBe(false)
+    expect(result.correctedCredits).toBe(0)
+  })
+
+  it('invalid when course has no act_credit entry in test_equivalencies', () => {
+    // CSC1300 has no ACT equivalency in TEST_EQ
+    const result = validatePriorCredit('act_credit', 'CSC1300', 3, TEST_EQ, CATALOG)
+    expect(result.valid).toBe(false)
+    expect(result.error).toMatch(/no act_credit equivalency found/i)
+    expect(result.correctedCredits).toBeNull()
   })
 })
