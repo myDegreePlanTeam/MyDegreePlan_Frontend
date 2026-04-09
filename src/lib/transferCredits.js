@@ -40,8 +40,14 @@
 //   Only credit-bearing prior credits (credits_awarded > 0) participate.
 //   Placement-only entries (credits_awarded === 0) never match anything.
 
-// Pool types that can be explicitly satisfied via satisfies_pool
-const SATISFIABLE_POOLS = new Set(['GEN_ED', 'ENG_LIT', 'SCIENCE', 'COMM_REQ'])
+// Pool types that can be explicitly satisfied via satisfies_pool.
+// Includes all pool codes used in requirement_slots so that drag-to-prior-credit
+// and wizard entries can archive any pool slot.
+const SATISFIABLE_POOLS = new Set([
+  'GEN_ED', 'ENG_LIT', 'SCIENCE', 'COMM_REQ',
+  'MATH_STATS', 'CSC_LOWER_ELECTIVE', 'CSC_UPPER_ELECTIVE',
+  'CSC_ELECTIVE', 'CSC_HPC_ELECTIVE', 'FREE_ELECTIVE',
+])
 
 // ── resolveTransferCredits ────────────────────────────────────────────────────
 
@@ -66,7 +72,9 @@ export function resolveTransferCredits(priorCredits, planSlots, slots) {
 
   for (const slot of slots) {
     if (slot.is_pool) continue                        // Rule 1: never pool
-    if (planSlots[slot.id]) continue                  // student already filled this
+    // Note: planSlots[slot.id] for non-pool slots is just the fixed class_code stored
+    // as a side-effect of semester drags or prior archiving — it does not mean the
+    // student "filled" the slot with a different course.  Do not skip here.
 
     const match = creditBearing.find(
       pc => pc.satisfies_course_code === slot.class_code &&

@@ -120,9 +120,12 @@ describe('resolveTransferCredits — Rule 1 (required course slots)', () => {
     expect(result[6]).toBeUndefined()   // CSC1300 not matched
   })
 
-  it('does NOT override a slot the student has already filled', () => {
+  it('archives a non-pool slot even when planSlots has an entry for it', () => {
+    // planSlots[1] = 'ENGL1010' means the student has a student_plan_slots row
+    // (e.g. from a semester drag). For non-pool slots this is just the fixed class_code
+    // re-stored; it does NOT mean the slot is already satisfied.
     const result = resolveTransferCredits([AP_ENGL], { 1: 'ENGL1010' }, [SLOT_ENGL1010])
-    expect(result[1]).toBeUndefined()
+    expect(result[1]).toBe(true)
   })
 
   it('one prior credit satisfies at most one required slot', () => {
@@ -194,7 +197,9 @@ describe('resolveTransferCredits — Rule 2 (pool slots require explicit satisfi
     expect(result[4]).toBe(true)
   })
 
-  it('does NOT satisfy a non-satisfiable pool slot (e.g. FREE_ELECTIVE)', () => {
+  it('satisfies a FREE_ELECTIVE pool slot when satisfies_pool = "FREE_ELECTIVE"', () => {
+    // All pool types (including FREE_ELECTIVE) are now in SATISFIABLE_POOLS so
+    // drag-to-prior-credit and wizard entries can archive any pool slot.
     const freeSlot = { id: 7, class_code: 'FREE_ELECTIVE', is_pool: true }
     const creditWithFreePool = {
       id: 'pc-8',
@@ -204,7 +209,7 @@ describe('resolveTransferCredits — Rule 2 (pool slots require explicit satisfi
       credits_awarded: 3,
     }
     const result = resolveTransferCredits([creditWithFreePool], {}, [freeSlot])
-    expect(result[7]).toBeUndefined()
+    expect(result[7]).toBe(true)
   })
 
   it('does NOT override a pool slot the student already selected', () => {

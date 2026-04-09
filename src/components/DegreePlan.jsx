@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
@@ -802,6 +802,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     // ── Drop on Transfer Credits panel ───────────────────────────────
     if (over.id === 'transfer_credits') {
+      if (type === 'prior_credit') return   // already in panel; ignore
+
       if (type === 'requirement_slot') {
         const slot = slots.find(s => s.id === slotId)
         if (!slot) return
@@ -816,12 +818,31 @@ export default function DegreePlan({ profile, onProfileChange }) {
         await handleAddPriorCredit({
           credit_type:           'transfer_credit',
           satisfies_course_code: courseCode,
-          satisfies_pool:        null,
+          satisfies_pool:        slot.is_pool ? slot.class_code : null,
           note:                  `Dragged from Semester ${semLabel}`,
           credits_awarded:       creditsAwarded,
         })
 
-        if (slot.is_pool) await handleRemove(slot)
+        // Explicitly archive the source slot.  syncArchivedSlots (called inside
+        // handleAddPriorCredit) may miss it due to a stale planSlots closure
+        // (Rule 1 skips when planSlots[slot.id] is set; Rule 2 skips pool slots
+        // with a selection).  This upsert is idempotent if sync already ran.
+        const { error: archErr } = await supabase.from('student_plan_slots').upsert({
+          student_id:           profile.id,
+          requirement_slot_id:  slot.id,
+          selected_course_code: courseCode,
+          status:               planStatuses[slot.id]          ?? 'planned',
+          semester_number:      planSemesterOverrides[slot.id]  ?? null,
+          credits_remaining:    planCreditsRemaining[slot.id]   ?? 0,
+          archived:             true,
+          archive_reason:       'prior_credit',
+        }, { onConflict: 'student_id, requirement_slot_id' })
+        if (!archErr) {
+          setPlanArchived(prev => ({ ...prev, [slot.id]: true }))
+          if (slot.is_pool) {
+            setPlanSlots(prev => { const n = { ...prev }; delete n[slot.id]; return n })
+          }
+        }
 
       } else if (type === 'free_add') {
         const fa = freeAddSlots.find(f => f.id === slotId)
@@ -890,6 +911,25 @@ export default function DegreePlan({ profile, onProfileChange }) {
             showSaveError('Could not move course. Please try again.')
           }
         })
+
+    } else if (type === 'prior_credit') {
+      // ── Drag prior credit row back to a semester ──────────────────
+      const { priorCreditId } = active.data.current
+      const pc = priorCredits.find(p => p.id === priorCreditId)
+      if (!pc) return
+
+      // Pre-compute which slots will be freed when this credit is removed.
+      // If a requirement slot unarchives, it reappears in its original semester
+      // and no free-add is needed.  If nothing unarchives, add as free-add.
+      const newCreditsWithout = priorCredits.filter(p => p.id !== priorCreditId)
+      const wouldStillArchive = resolveTransferCredits(newCreditsWithout, planSlots, slots)
+      const freedSlots        = slots.filter(s => planArchived[s.id] && !wouldStillArchive[s.id])
+
+      await handleRemovePriorCredit(priorCreditId)
+
+      if (freedSlots.length === 0 && pc.satisfies_course_code && courses[pc.satisfies_course_code]) {
+        await handleAddCourse(newSemester, courses[pc.satisfies_course_code])
+      }
     }
   }
 
@@ -946,11 +986,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
       return code
     }
     const fa = freeAddSlots.find(f => f.id === draggedSlotId)
-    return fa?.course_code ?? null
+    if (fa) return fa.course_code ?? null
+    const pc = priorCredits.find(p => p.id === draggedSlotId)
+    return pc?.satisfies_course_code ?? pc?.note ?? null
   })()
 
-  const transferCredits = priorCredits.filter(pc => (pc.credits_awarded ?? 0) > 0)
-  const placementGates  = priorCredits.filter(pc => (pc.credits_awarded ?? 0) === 0)
 
   const completedSemesterCount = semesterNumbers.filter(n => planSemesterCompleted[n]).length
 
@@ -1024,16 +1064,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          {/* ── Transfer Credits / Prior Coursework panel ── */}
+          {/* ── Prior Coursework panel ── */}
           <TransferCreditsPanel
-            credits={transferCredits}
-            onRemove={handleRemovePriorCredit}
-            onAddClick={() => setShowWizard(true)}
-          />
-
-          {/* ── Placement & Test Scores panel ── */}
-          <PlacementPanel
-            credits={placementGates}
+            credits={priorCredits}
             onRemove={handleRemovePriorCredit}
             onAddClick={() => setShowWizard(true)}
           />
@@ -1228,6 +1261,44 @@ function GenEdTracker({ categories }) {
   )
 }
 
+// ── PriorCreditDraggableRow ────────────────────────────────────────────────────
+
+function PriorCreditDraggableRow({ pc, onRemove }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id:   pc.id,
+    data: { type: 'prior_credit', priorCreditId: pc.id, courseCode: pc.satisfies_course_code },
+  })
+  const isPlacement = (pc.credits_awarded ?? 0) === 0
+  return (
+    <div
+      ref={setNodeRef}
+      className={`prior-credit-row${isDragging ? ' prior-credit-row-dragging' : ''}`}
+      {...listeners}
+      {...attributes}
+    >
+      <span className={`credit-type-chip credit-type-${pc.credit_type}`}>
+        {CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}
+      </span>
+      <span className="prior-credit-code">{pc.satisfies_course_code ?? '—'}</span>
+      <span className="prior-credit-note">{pc.note ?? ''}</span>
+      {isPlacement ? (
+        <span className="prior-credit-hrs prior-credit-hrs-gate">Gate only</span>
+      ) : (
+        <span className="prior-credit-hrs">{pc.credits_awarded} cr</span>
+      )}
+      <button
+        className="prior-credit-remove"
+        onPointerDown={e => e.stopPropagation()}
+        onClick={() => onRemove(pc.id)}
+        title="Remove this credit"
+        aria-label="Remove credit"
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
+
 // ── TransferCreditsPanel ───────────────────────────────────────────────────────
 
 function TransferCreditsPanel({ credits, onRemove, onAddClick }) {
@@ -1243,7 +1314,7 @@ function TransferCreditsPanel({ credits, onRemove, onAddClick }) {
     >
       <div className="prior-credits-panel-header" onClick={() => setOpen(o => !o)}>
         <div className="prior-credits-panel-title">
-          <span>Transfer Credits &amp; Prior Coursework</span>
+          <span>Prior Coursework</span>
           {credits.length > 0 && (
             <span className="prior-credits-count">{credits.length}</span>
           )}
@@ -1260,90 +1331,17 @@ function TransferCreditsPanel({ credits, onRemove, onAddClick }) {
         <div className="prior-credits-body">
           {credits.length === 0 ? (
             <p className="prior-credits-empty">
-              No transfer credits added yet. Drag a filled course here, or use Add Prior Credit.
+              No prior coursework recorded. Drag a filled course here, or use Add Prior Credit.
             </p>
           ) : (
             <div className="prior-credits-list">
               {credits.map(pc => (
-                <div key={pc.id} className="prior-credit-row">
-                  <span className={`credit-type-chip credit-type-${pc.credit_type}`}>
-                    {CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}
-                  </span>
-                  <span className="prior-credit-code">
-                    {pc.satisfies_course_code ?? '—'}
-                  </span>
-                  <span className="prior-credit-note">{pc.note ?? ''}</span>
-                  <span className="prior-credit-hrs">{pc.credits_awarded} cr</span>
-                  <button
-                    className="prior-credit-remove"
-                    onClick={() => onRemove(pc.id)}
-                    title="Remove this credit"
-                    aria-label="Remove credit"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <PriorCreditDraggableRow key={pc.id} pc={pc} onRemove={onRemove} />
               ))}
             </div>
           )}
           <button className="prior-credits-add-btn" onClick={onAddClick}>
             + Add Prior Credit
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── PlacementPanel ─────────────────────────────────────────────────────────────
-
-function PlacementPanel({ credits, onRemove, onAddClick }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div
-      className="prior-credits-panel prior-credits-panel-placement"
-      style={{ maxWidth: 1200, margin: '0 auto 1rem' }}
-    >
-      <div className="prior-credits-panel-header" onClick={() => setOpen(o => !o)}>
-        <div className="prior-credits-panel-title">
-          <span>Placement &amp; Test Scores</span>
-          {credits.length > 0 && (
-            <span className="prior-credits-count">{credits.length}</span>
-          )}
-        </div>
-        <span className="prior-credits-chevron">{open ? '▲' : '▼'}</span>
-      </div>
-
-      {open && (
-        <div className="prior-credits-body">
-          {credits.length === 0 ? (
-            <p className="prior-credits-empty">
-              No placement scores recorded. Add an ACT score or other gate.
-            </p>
-          ) : (
-            <div className="prior-credits-list">
-              {credits.map(pc => (
-                <div key={pc.id} className="prior-credit-row">
-                  <span className={`credit-type-chip credit-type-${pc.credit_type}`}>
-                    {CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}
-                  </span>
-                  <span className="prior-credit-note">{pc.note ?? '—'}</span>
-                  <span className="prior-credit-hrs prior-credit-hrs-gate">Gate only</span>
-                  <button
-                    className="prior-credit-remove"
-                    onClick={() => onRemove(pc.id)}
-                    title="Remove this score"
-                    aria-label="Remove placement score"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <button className="prior-credits-add-btn" onClick={onAddClick}>
-            + Add Score / Placement
           </button>
         </div>
       )}
