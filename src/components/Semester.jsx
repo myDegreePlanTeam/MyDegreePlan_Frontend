@@ -12,6 +12,7 @@ const CREDIT_TYPE_LABELS = {
   test_out:        'CLEP',
   ib_credit:       'IB',
   act_placement:   'ACT',
+  act_credit:      'ACT',
 }
 
 // Clicking cycles: planned → in_progress → completed → planned

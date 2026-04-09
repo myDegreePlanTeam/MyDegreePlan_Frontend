@@ -25,6 +25,7 @@ const CREDIT_TYPE_LABELS = {
   test_out:        'CLEP',
   ib_credit:       'IB',
   act_placement:   'ACT',
+  act_credit:      'ACT',
 }
 
 export default function DegreePlan({ profile, onProfileChange }) {
@@ -54,8 +55,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [draggedSlotId, setDraggedSlotId]         = useState(null)
   // showWizard: true when the guided prior credit wizard is open
   const [showWizard, setShowWizard]               = useState(false)
-  // showPlacementModal: true when the simple ACT-placement modal is open
-  const [showPlacementModal, setShowPlacementModal] = useState(false)
 
   // planArchived: { [slotId]: true } — slots removed from grid by a prior credit
   // (Concept 2 / Bug 2). Persisted as archived=true, archive_reason='prior_credit'
@@ -1036,7 +1035,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           <PlacementPanel
             credits={placementGates}
             onRemove={handleRemovePriorCredit}
-            onAddClick={() => setShowPlacementModal(true)}
+            onAddClick={() => setShowWizard(true)}
           />
 
           {/* ── Global grid controls ── */}
@@ -1163,12 +1162,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
         />
       )}
 
-      {showPlacementModal && (
-        <AddPlacementModal
-          onSave={handleAddPriorCredit}
-          onClose={() => setShowPlacementModal(false)}
-        />
-      )}
 
       {showSwitchModal && (
         <ConcentrationModal
@@ -1354,70 +1347,6 @@ function PlacementPanel({ credits, onRemove, onAddClick }) {
           </button>
         </div>
       )}
-    </div>
-  )
-}
-
-// ── AddPlacementModal ──────────────────────────────────────────────────────────
-// Simple modal for ACT placement scores (credits_awarded = 0).
-// The guided wizard handles all credit-bearing types.
-
-function AddPlacementModal({ onSave, onClose }) {
-  const [note, setNote]     = useState('')
-  const [saving, setSaving] = useState(false)
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setSaving(true)
-    await onSave({
-      credit_type:           'act_placement',
-      satisfies_course_code: null,
-      satisfies_pool:        null,
-      note:                  note.trim() || null,
-      credits_awarded:       0,
-    })
-    setSaving(false)
-    onClose()
-  }
-
-  function handleBackdropClick(e) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
-  return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-card">
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Placement</p>
-            <h3 className="modal-title">Add ACT Placement Score</h3>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <form className="add-credit-form" onSubmit={handleSubmit}>
-          <div className="add-credit-field">
-            <label className="add-credit-label">Note</label>
-            <input
-              className="add-credit-input"
-              type="text"
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              placeholder="e.g. ACT Math 29"
-              autoFocus
-            />
-          </div>
-          <div className="modal-footer">
-            <div className="modal-footer-btns">
-              <button type="button" className="onboarding-btn-secondary" onClick={onClose} disabled={saving}>
-                Cancel
-              </button>
-              <button type="submit" className="onboarding-btn" disabled={saving}>
-                {saving ? 'Saving…' : 'Add'}
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
     </div>
   )
 }
