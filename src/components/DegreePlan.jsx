@@ -218,15 +218,20 @@ export default function DegreePlan({ profile, onProfileChange }) {
       }
 
       // Step 6b — corequisites
+      // Fetch group_index and logic so OR groups can short-circuit correctly.
       const { data: coreqData } = await supabase
         .from('corequisite_entries')
-        .select('course_code, required_code')
+        .select('course_code, required_code, group_index, logic')
         .in('course_code', allCodes)
 
       const coreqMapBuilt = {}
       for (const entry of coreqData ?? []) {
-        if (!coreqMapBuilt[entry.course_code]) coreqMapBuilt[entry.course_code] = []
-        coreqMapBuilt[entry.course_code].push(entry.required_code)
+        if (!coreqMapBuilt[entry.course_code]) coreqMapBuilt[entry.course_code] = {}
+        const gi = entry.group_index
+        if (!coreqMapBuilt[entry.course_code][gi]) {
+          coreqMapBuilt[entry.course_code][gi] = { logic: entry.logic, codes: [] }
+        }
+        coreqMapBuilt[entry.course_code][gi].codes.push(entry.required_code)
       }
 
       // Step 7 — semester notes + completion state
@@ -396,11 +401,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
           )
           .map(p => p.code)
       )
-      const result = checkPrereqs(item.code, prereqMap, completedCodes, priorCredits, courses)
+      const result = checkPrereqs(item.code, prereqMap, completedCodes, priorCredits, courses, coreqMap)
       if (!result.satisfied) warnings[item.key] = result.missing
     }
     return warnings
-  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses, planSemesterCompleted])
+  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses, planSemesterCompleted, coreqMap])
 
   // ── Reactive corequisite warnings (Bug 4 fix) ────────────────────
   // availableCodes = completedCodes + same-semester codes
