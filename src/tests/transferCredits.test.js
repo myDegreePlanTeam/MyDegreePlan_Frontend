@@ -275,6 +275,82 @@ describe('resolveTransferCredits — mixed slots', () => {
   })
 })
 
+// ── Pool archiving for specific courses (Session B regression tests) ─────────
+
+describe('resolveTransferCredits — pool archiving for specific courses', () => {
+  const SLOT_GEN_ED   = { id: 20, class_code: 'GEN_ED',  is_pool: true }
+  const SLOT_SCIENCE  = { id: 21, class_code: 'SCIENCE',  is_pool: true }
+  const SLOT_SCIENCE2 = { id: 22, class_code: 'SCIENCE',  is_pool: true }
+
+  it('ECON2020 with satisfies_pool = "GEN_ED" archives the GEN_ED pool slot', () => {
+    const econ2020 = {
+      id: 'pc-s1',
+      credit_type: 'ap_credit',
+      satisfies_course_code: 'ECON2020',
+      satisfies_pool: 'GEN_ED',
+      credits_awarded: 3,
+    }
+    const result = resolveTransferCredits([econ2020], {}, [SLOT_GEN_ED])
+    expect(result[20]).toBe(true)
+  })
+
+  it('BIOL1113 with satisfies_pool = "SCIENCE" archives a SCIENCE pool slot', () => {
+    const biol1113 = {
+      id: 'pc-s2',
+      credit_type: 'ap_credit',
+      satisfies_course_code: 'BIOL1113',
+      satisfies_pool: 'SCIENCE',
+      credits_awarded: 4,
+    }
+    const result = resolveTransferCredits([biol1113], {}, [SLOT_SCIENCE])
+    expect(result[21]).toBe(true)
+  })
+
+  it('two science credits (BIOL1113 + BIOL1123) each archive one SCIENCE pool slot', () => {
+    const biol1113 = {
+      id: 'pc-s3',
+      credit_type: 'ap_credit',
+      satisfies_course_code: 'BIOL1113',
+      satisfies_pool: 'SCIENCE',
+      credits_awarded: 4,
+    }
+    const biol1123 = {
+      id: 'pc-s4',
+      credit_type: 'ap_credit',
+      satisfies_course_code: 'BIOL1123',
+      satisfies_pool: 'SCIENCE',
+      credits_awarded: 4,
+    }
+    const result = resolveTransferCredits([biol1113, biol1123], {}, [SLOT_SCIENCE, SLOT_SCIENCE2])
+    expect(result[21]).toBe(true)
+    expect(result[22]).toBe(true)
+  })
+
+  it('BIOL1113 with satisfies_pool = null does NOT archive a SCIENCE pool slot (Rule 2)', () => {
+    const biol1113NoPool = {
+      id: 'pc-s5',
+      credit_type: 'ap_credit',
+      satisfies_course_code: 'BIOL1113',
+      satisfies_pool: null,   // pool not set — should not archive SCIENCE slot
+      credits_awarded: 4,
+    }
+    const result = resolveTransferCredits([biol1113NoPool], {}, [SLOT_SCIENCE])
+    expect(result[21]).toBeUndefined()
+  })
+
+  it('ECON2020 with satisfies_pool = null does NOT archive a GEN_ED pool slot (Rule 2)', () => {
+    const econ2020NoPool = {
+      id: 'pc-s6',
+      credit_type: 'transfer_credit',
+      satisfies_course_code: 'ECON2020',
+      satisfies_pool: null,   // pool not explicitly set — archives nothing
+      credits_awarded: 3,
+    }
+    const result = resolveTransferCredits([econ2020NoPool], {}, [SLOT_GEN_ED])
+    expect(result[20]).toBeUndefined()
+  })
+})
+
 // ── Idempotency ──────────────────────────────────────────────────────────────
 
 describe('resolveTransferCredits — idempotency', () => {

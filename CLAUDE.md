@@ -134,9 +134,10 @@ is not implemented.
 'act_placement'   — ACT/SAT score gate; credits_awarded must be 0
 'ap_credit'       — AP exam credit
 'transfer_credit' — external transfer course
-'dual_enrollment' — high-school dual enrollment
 'test_out'        — CLEP or departmental exam
 'ib_credit'       — International Baccalaureate
+'act_credit'      — ACT exam credit (e.g. English score 27+ → ENGL1010)
+'cambridge'       — Cambridge International exam credit
 ```
 
 **`test_equivalencies.test_type`**
@@ -144,8 +145,8 @@ is not implemented.
 'ap_credit'
 'test_out'
 'ib_credit'
-'dual_enrollment'
 'cambridge'
+'act_credit'
 ```
 
 ---

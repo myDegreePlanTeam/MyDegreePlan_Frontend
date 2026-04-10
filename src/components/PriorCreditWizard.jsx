@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { POOL_COURSES } from '../lib/poolResolver'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1
@@ -106,12 +107,21 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
 
     async function loadAwards() {
       if (creditType === 'transfer_credit') {
-        // Transfer credit: one award for the selected course
+        // Transfer credit: one award for the selected course.
+        // Look up whether the course belongs to a pool so the INSERT can archive
+        // the matching pool slot via resolveTransferCredits Rule 2.
         if (!selectedExam) return
+        let satisfiesPool = null
+        for (const [poolCode, codes] of Object.entries(POOL_COURSES)) {
+          if (codes && codes.includes(selectedExam.code)) {
+            satisfiesPool = poolCode
+            break
+          }
+        }
         setAwards([{
           awarded_course_code: selectedExam.code,
           credits_awarded:     selectedExam.credits ?? 3,
-          satisfies_pool:      null,
+          satisfies_pool:      satisfiesPool,
           course_name:         selectedExam.name,
         }])
         return
