@@ -12,7 +12,8 @@ import './Dashboard.css'
 //   course            — the course object to display (resolved by the parent)
 //   courseMap         — full { code: courseObj } map, used to look up names
 //   prereqMap         — { courseCode: { groupIdx: { logic, codes[] } } }
-//   coreqMap          — { courseCode: [requiredCode, ...] }
+//   coreqMap          — { courseCode: { groupIdx: { logic, codes[] } } }
+//                       (also accepts legacy flat shape { courseCode: [code, ...] })
 //   isPool            — true if this is a pool slot (shows change/remove actions)
 //   onChangeSelection — callback: close detail, open SlotModal for same slot
 //   onRemove          — callback: remove pool selection
@@ -188,15 +189,50 @@ function formatPrereqs(courseCode, prereqMap, courseMap) {
 }
 
 // ── formatCoreqs ──────────────────────────────────────────────────────────────
-// Converts a flat coreqMap entry into readable strings.
-// Corequisites don't have logic grouping — they're all required concurrently.
+// Converts a coreqMap entry into human-readable strings.
+//
+// Accepts two coreqMap shapes (matching checkCoreqs in prereqChecker.js):
+//   Flat list (legacy):  { [courseCode]: string[] }
+//       — all entries are treated as AND requirements.
+//   Grouped (current):   { [courseCode]: { [groupIdx]: { logic, codes[] } } }
+//       — same shape as prereqMap; OR groups render as "one of: A, B, or C".
 
 function formatCoreqs(courseCode, coreqMap, courseMap) {
-  const codes = coreqMap[courseCode]
-  if (!codes || codes.length === 0) return []
+  const entry = coreqMap[courseCode]
+  if (!entry) return []
 
-  return codes.map(code => {
+  const labelFor = (code) => {
     const name = courseMap[code]?.name
     return name ? `${code} \u2013 ${name}` : code
-  })
+  }
+
+  // Legacy flat-list shape — all codes are AND-required concurrently
+  if (Array.isArray(entry)) {
+    return entry.map(labelFor)
+  }
+
+  // Grouped shape — mirror formatPrereqs
+  const groupIndices = Object.keys(entry)
+  if (groupIndices.length === 0) return []
+
+  const lines = []
+  for (const groupIndex of groupIndices.sort((a, b) => Number(a) - Number(b))) {
+    const group = entry[groupIndex]
+    if (!group || !Array.isArray(group.codes)) continue
+
+    if (group.logic === 'AND') {
+      for (const code of group.codes) lines.push(labelFor(code))
+    } else {
+      const options = group.codes.map(labelFor)
+      if (options.length === 1) {
+        lines.push(options[0])
+      } else {
+        const last  = options[options.length - 1]
+        const front = options.slice(0, -1).join(', ')
+        lines.push(`one of: ${front}, or ${last}`)
+      }
+    }
+  }
+
+  return lines
 }
