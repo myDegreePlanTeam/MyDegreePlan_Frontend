@@ -8,10 +8,11 @@ import './Dashboard.css'
 const CREDIT_TYPE_LABELS = {
   ap_credit:       'AP',
   transfer_credit: 'Transfer',
-  dual_enrollment: 'Dual Enroll',
   test_out:        'CLEP',
   ib_credit:       'IB',
   act_placement:   'ACT',
+  act_credit:      'ACT',
+  cambridge:       'Cambridge',
 }
 
 // Clicking cycles: planned → in_progress → completed → planned

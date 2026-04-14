@@ -72,23 +72,22 @@ MDP/
 │           ├── transferCredits.test.js
 │           └── validatePriorCredit.test.js
 │
-├── MyDegreePlan_Prototype/            ← schema, migrations, seed script (its own git repo)
-│   ├── seed.js                        ← inserts catalog data from JSON into Supabase
-│   ├── rls_migration.sql              ← Tier 5: RLS policies for all tables
-│   ├── migration_tier6.sql            ← credits_remaining, semester_number, student_free_add_slots
-│   ├── migration_tier7.sql            ← prior_credits table
-│   ├── migration_tier8.sql            ← locked column on student_plan_slots
-│   ├── migration_tier9.sql            ← archived/archive_reason, satisfies_pool,
-│   │                                     completed_by_student, test_equivalencies table
-│   ├── prototype.json                 ← course catalog source data
-│   ├── csc_core.json                  ← CSC Core degree plan template
-│   ├── csc_cybersecurity.json         ← CSC Cybersecurity concentration template
-│   ├── csc_dsai.json                  ← CSC Data Science & AI concentration template
-│   └── csc_hpc.json                   ← CSC High Performance Computing concentration template
-│
-└── db/
-    └── seeds/
-        └── test_equivalencies.sql     ← seed data for the test_equivalencies table
+└── MyDegreePlan_Prototype/            ← schema, migrations, seed script (its own git repo)
+    ├── seed.js                        ← inserts catalog data from JSON into Supabase
+    ├── rls_migration.sql              ← Tier 5: RLS policies for all tables
+    ├── migration_tier6.sql            ← credits_remaining, semester_number, student_free_add_slots
+    ├── migration_tier7.sql            ← prior_credits table
+    ├── migration_tier8.sql            ← locked column on student_plan_slots
+    ├── migration_tier9.sql            ← archived/archive_reason, satisfies_pool,
+    │                                     completed_by_student, test_equivalencies table
+    ├── migration_tier10.sql           ← act_credit added to test_type and credit_type enums
+    ├── migration_tier11.sql           ← remove dual_enrollment; drop zero-credit equivalency rows
+    ├── test_equivalencies.sql         ← seed data for the test_equivalencies table
+    ├── prototype.json                 ← course catalog source data
+    ├── csc_core.json                  ← CSC Core degree plan template
+    ├── csc_cybersecurity.json         ← CSC Cybersecurity concentration template
+    ├── csc_dsai.json                  ← CSC Data Science & AI concentration template
+    └── csc_hpc.json                   ← CSC High Performance Computing concentration template
 ```
 
 **Migration naming convention:** files are named `migration_tier{N}.sql` in
@@ -135,9 +134,10 @@ is not implemented.
 'act_placement'   — ACT/SAT score gate; credits_awarded must be 0
 'ap_credit'       — AP exam credit
 'transfer_credit' — external transfer course
-'dual_enrollment' — high-school dual enrollment
 'test_out'        — CLEP or departmental exam
 'ib_credit'       — International Baccalaureate
+'act_credit'      — ACT exam credit (e.g. English score 27+ → ENGL1010)
+'cambridge'       — Cambridge International exam credit
 ```
 
 **`test_equivalencies.test_type`**
@@ -145,8 +145,8 @@ is not implemented.
 'ap_credit'
 'test_out'
 'ib_credit'
-'dual_enrollment'
 'cambridge'
+'act_credit'
 ```
 
 ---
