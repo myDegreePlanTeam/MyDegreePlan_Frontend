@@ -16,7 +16,11 @@ export default function Dashboard() {
     let cancelled = false
 
     async function loadProfile() {
-        const { data: { user } } = await supabase.auth.getUser()
+        // getSession() reads the locally-cached session — no network round-trip.
+        // App.jsx has already validated the session exists before rendering
+        // Dashboard, so we can trust it here without calling getUser() again.
+        const { data: { session } } = await supabase.auth.getSession()
+        const user = session?.user
 
         if (!user) {
         setError('No authenticated user found.')
