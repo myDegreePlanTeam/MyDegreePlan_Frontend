@@ -171,45 +171,10 @@ is not implemented.
 
 ## Branch and Commit Convention
 
-Both sub-repos commit directly to `main` (no persistent feature branches yet in the history).
-For new work, create a branch before starting:
-
-```
-fix/description      — bug fix
-feat/description     — new feature
-chore/description    — tooling, config, dependency updates
-test/description     — test-only changes
-migration/description — database migration files
-docs/description     — documentation only
-```
-
-**Rules:**
-- One branch per logical concern
-- Never commit broken code
+See [`README.md`](./README.md) for branch prefixes and commit types. Additional rules:
+- One branch per logical concern; never commit broken code
 - Run `npm run test` (from `MyDegreePlan_Frontend/`) before every commit
-- Developer tests the branch before merging to main
 - `main` is always deployable
-
----
-
-## Commit Message Format
-
-```
-type(scope): description
-```
-
-**Types:** `fix`, `feat`, `chore`, `test`, `migration`, `seed`, `docs`
-
-**Examples from this project's history:**
-```
-fix(archiving): semester-level completion only; prior-credit slot archiving replaces locked
-feat(onboarding): prior credits and placement gates entry (Tier 7)
-test(tier7): prereqChecker placement/consent tests and transferCredits suite
-feat(prereq): prior credits and placement/consent classification (Tier 7)
-fix(transfer): two-pass resolveTransferCredits prevents double pool lock
-test(credits): add computePlanCredits Vitest suite (33 tests)
-migration: tier 9 — archived slots, satisfies_pool, completed_by_student, test_equivalencies
-```
 
 ---
 
@@ -347,18 +312,9 @@ required). Used by `CompletionBadge` and `Dashboard`.
 
 ---
 
-## Known Deferred Work (do not implement without explicit instruction)
+## Deferred Work
 
-- Banner / university SIS integration
-- Individual per-course manual completion toggling
-- Admin catalog UI (course/requirement editing)
-- Plan history / versioning
-- Email notifications
-- TypeScript migration
-- Full-text course search
-- GEN_ED sub-requirement enforcement (History 6hr / Humanities 6hr / Social 6hr splitting)
-- Science sequence auto-pair enforcement beyond warnings
-- Additional departments beyond CSC
+See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explicit instruction.
 
 ---
 

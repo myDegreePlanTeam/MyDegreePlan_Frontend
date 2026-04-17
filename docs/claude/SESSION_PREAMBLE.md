@@ -1,23 +1,34 @@
+> **If you're reading this mid-session:** confirm you've also read any sibling files in this directory before proceeding. If `CLAUDE.md` at repo root exists, confirm it points here (and nowhere else has gone stale).
+
 # TTU Degree Planner — Session Preamble
 
 > Paste this at the top of any new Degree Planner session (Claude.ai, Claude Code, or Antigravity). Keep it tight; if something below no longer applies, prune rather than append.
 
 ## Project
-TTU Degree Planner — fully client-side SPA. Semester grid, prerequisite logic, drag-and-drop, transfer credits, AP/IB/CLEP exam credit handling, JSON-driven curriculum data layer covering all 178 TTU bachelor's programs.
+TTU Degree Planner — React 19 + Vite SPA with Supabase (Postgres + Auth) as backend.
+Current scope: **TTU Computer Science only** (4 concentrations: No Concentration, DSAI,
+Cybersecurity, HPC). Prototype commissioned by the TTU CSC department. Features: semester
+grid, prereq/coreq checking, drag-and-drop, transfer credits, AP/IB/CLEP/ACT exam credit.
 
 **Canonical source of truth:** the codebase in Claude Code. The Claude.ai project workspace may lag behind — when they disagree, the code wins. Flag any drift you notice.
 
 **Session anchors** (read these before proposing changes if present in context):
-- `CLAUDE.md` — project structure and conventions
-- `CONTEXT_AND_PRIORITIES.md` — current priorities and decisions log
+- `CLAUDE.md` (repo root) — redirects to `docs/claude/`
+- `docs/claude/CLAUDE.md` — project structure, schema, conventions, core principles
+- `docs/claude/ROADMAP.md` — future goals and deferred work
+- `docs/claude/BRANCH_*.md` — active branch context (delete before merge)
 
-## Key data files
-- `coursesFile.json` — course catalog, prerequisites, corequisites
-- `degrees.json` — program requirements for all 178 bachelor's programs
-- `examCredits.json` — AP / IB / CLEP credit mappings
+## Key data sources
+Runtime data lives in Supabase tables, not JSON. JSON files in `MyDegreePlan_Prototype/`
+are seed inputs for `seed.js`:
+- `coursesFile.json` — course catalog → `courses`, `prerequisite_entries`, `corequisite_entries`
+- `degrees.json` + `csc_*.json` — concentration templates → `concentrations`, `requirement_slots`
+- `test_equivalencies.sql` — exam credit mappings → `test_equivalencies` table (drives `PriorCreditWizard`)
 
 ## Known open issues
-- **OR-logic prerequisite schema gap** — affects 200+ courses catalog-wide. Do not paper over with ad hoc fixes; any change touching prereqs should either respect the eventual OR schema or explicitly flag the workaround.
+- **OR-logic in catalog data**: schema and runtime logic support OR groups (`prerequisite_entries.logic`, `prereqChecker.js` short-circuits); remaining risk is whether specific course rows in the seed use `logic='OR'` correctly. Verify against `coursesFile.json` before assuming a course's OR chain is encoded.
+- **Cambridge exam credit**: `test_type='cambridge'` allowed by DB, no wizard step yet.
+- **Pool-slot drag-back**: unarchived pool slots come back empty; student must re-select.
 
 ## Working agreements
 
