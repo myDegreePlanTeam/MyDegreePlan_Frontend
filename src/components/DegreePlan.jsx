@@ -662,19 +662,25 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   // ── Prior credit CRUD ─────────────────────────────────────────────
-  async function handleAddPriorCredit(creditData) {
+  // Accepts a single credit-data object OR an array of them.
+  // Passing an array inserts all rows in one Supabase call and updates
+  // priorCredits state once — avoiding the stale-closure overwrite that
+  // occurs when callers loop and call this function once per award.
+  async function handleAddPriorCredit(creditDataOrArray) {
+    const items   = Array.isArray(creditDataOrArray) ? creditDataOrArray : [creditDataOrArray]
+    const inserts = items.map(item => ({ ...item, plan_id: profile.id }))
+
     const { data, error } = await supabase
       .from('prior_credits')
-      .insert({ ...creditData, plan_id: profile.id })
+      .insert(inserts)
       .select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded')
-      .single()
 
     if (error) {
       showSaveError('Could not add credit. Please try again.')
       return
     }
 
-    const newCredits = [...priorCredits, data]
+    const newCredits = [...priorCredits, ...(data ?? [])]
     setPriorCredits(newCredits)
     await syncArchivedSlots(newCredits)
   }
