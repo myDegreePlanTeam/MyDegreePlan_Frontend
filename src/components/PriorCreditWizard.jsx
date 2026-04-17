@@ -229,16 +229,19 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
 
     const note = buildNote(creditType, selectedExam, selectedScore)
 
-    // Save each awarded course as a separate prior_credit row
-    for (const award of awards) {
-      await onSave({
+    // Pass all awarded rows as a single array so the parent can batch-insert
+    // them atomically and update priorCredits state once.  Calling onSave in
+    // a loop causes stale-closure overwrites: each iteration captures the same
+    // priorCredits snapshot, so only the last row survives in React state.
+    await onSave(
+      awards.map(award => ({
         credit_type:           creditType,
         satisfies_course_code: award.awarded_course_code,
         satisfies_pool:        award.satisfies_pool,
         note,
         credits_awarded:       award.credits_awarded,
-      })
-    }
+      }))
+    )
 
     setSaving(false)
     onClose()
@@ -393,7 +396,7 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
                   {selectedExam?.test_name ?? selectedExam?.code}
                 </span>
                 {selectedScore != null && (
-                  <span className="wizard-confirm-score"> — Score {selectedScore}</span>
+                  <span className="wizard-confirm-score"> — Score {selectedScore}+</span>
                 )}
               </div>
 
