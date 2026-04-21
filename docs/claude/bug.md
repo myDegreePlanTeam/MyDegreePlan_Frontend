@@ -12,10 +12,10 @@
 | Severity | Count |
 |---|---|
 | Critical | 1 |
-| High     | 11 |
-| Medium   | 8 |
-| Low      | 5 |
-| **Total** | **25** |
+| High     | 14 |
+| Medium   | 11 |
+| Low      | 6  |
+| **Total** | **32** |
 
 ---
 
@@ -427,6 +427,199 @@ Iteration order (insertion order) is: `GEN_ED`, `ENG_LIT`, `SCIENCE`, `COMM_REQ`
 **Suspected fix:** Remove the notes field from the wizard entirely for the prototype, or wire it to a visible display in the Prior Coursework panel so the promise is kept. Do not leave a data-entry field that leads nowhere.
 
 **Confidence:** High
+
+---
+
+> **2026-04-21 update:** Seven new bugs (BUG-26 through BUG-32) added from post-merge
+> onboarding session review. Identified through live testing of the merged
+> fix/onboarding-prior-credit branch. Severity counts updated: High +3, Medium +3,
+> Low +1, Total +7. New totals: Critical 1, High 13, Medium 11, Low 6, Total 32.
+
+---
+
+### BUG-26: Transfer credit catalog search returns no results for valid course codes
+
+**Severity:** High
+**File(s):** `src/components/PriorCreditWizard.jsx` (transfer credit step)
+
+**Description:** The transfer credit step has a working search input and button, but
+searching for a valid catalog course code (e.g. `MATH1910`) returns no results. The
+search is wired but not functional. Root cause not yet traced — likely a Supabase
+query misconfiguration or a mismatch between the field being searched and the catalog
+column name.
+
+**Impact:** Transfer credit entry is completely non-functional for the catalog-bound
+picker introduced in fix/onboarding-prior-credit. No student can enter a transfer
+credit via the wizard.
+
+**Interim fix (prototype):** Disable and visually grey out the transfer credit option
+in the wizard with a "Coming soon" label. Transfer credit entry requires a broader
+transferable-course database that does not yet exist. Do not attempt to fix the search
+logic until that database is in scope.
+
+**Full fix (post-prototype):** Build or import a transferable-course database, wire
+the search correctly against it, and re-enable the option.
+
+**Confidence:** High
+
+---
+
+### BUG-27: No back button on onboarding wizard
+
+**Severity:** High
+**File(s):** `src/components/PriorCreditWizard.jsx`, `src/components/Onboarding.jsx`
+
+**Description:** The onboarding wizard has no back navigation. A student who selects
+the wrong option, enters incorrect data, or changes their mind on any step has no
+recovery path short of refreshing and restarting the entire onboarding flow. All
+multi-step forms need back navigation as a baseline UX requirement.
+
+**Impact:** Any misclick or wrong input locks the student into the current path.
+For a freshman encountering the tool for the first time, this is a trust-breaking
+experience.
+
+**Suspected fix:** Add a "Back" button to every wizard step that is not the first.
+Each step should return to the previous step's state, not reset the entire wizard.
+Step state is already managed locally; back navigation is a step index decrement
+plus state preservation.
+
+**Confidence:** High
+
+---
+
+### BUG-28: ACT Math placement gate inaccessible after onboarding
+
+**Severity:** High
+**File(s):** `src/components/PriorCreditWizard.jsx`, `src/components/DegreePlan.jsx`
+(Prior Coursework panel add flow)
+
+**Description:** ACT score entry (specifically the ACT Math 27+ placement gate for
+MATH1910) was previously only accessible via the freshman-specific onboarding branch,
+which is being removed per product decision. After removal of the freshman/non-freshman
+split, there is no path for any student to enter ACT scores at all — not during
+onboarding and not from the post-onboarding Prior Coursework panel. The `act_placement`
+and `act_credit` credit types exist in the schema and in `test_equivalencies` but have
+no UI entry point.
+
+**Impact:** Students who placed out of MATH1910 via ACT Math 27+ cannot record that
+placement. MATH1910 will remain on their plan with unsatisfied prereq warnings
+permanently. This affects a significant portion of incoming freshmen.
+
+**Suspected fix:** Add ACT score input as a step in the universal onboarding wizard
+(not gated on freshman status). Validate the score against `test_equivalencies` rows
+with `test_type = 'act_placement'` and `test_type = 'act_credit'`. Also expose ACT
+score entry from the post-onboarding Prior Coursework add flow, consistent with how
+AP/IB entries are accessible post-onboarding.
+
+**Confidence:** High
+
+---
+
+### BUG-29: Onboarding wizard output string formatting broken for prior credit entries
+
+**Severity:** Medium
+**File(s):** `src/components/PriorCreditWizard.jsx` (confirmation/summary step)
+
+**Description:** The wizard summary output concatenates strings without spacing or
+visual separation. Example output: `"ENGL2235AP Exam: English Literature and
+Composition, score 33 cr"` — which reads as score 33 with unknown credits, when the
+intended output is course code `ENGL2235`, exam name, score `3+`, and `3 cr`. Course
+code, exam name, score, and credit count are merged into an unreadable single string.
+
+**Impact:** Students cannot verify their wizard entries before confirming. The output
+looks like a data error even when the underlying data is correct, undermining trust in
+the wizard at the final confirmation step.
+
+**Suspected fix:** Apply consistent spacing and visual separation between fields in the
+summary row. Match the visual structure used in the post-onboarding Prior Coursework
+panel (credit type badge, course code, course name, credit count as distinct elements).
+Do not leave the summary as a raw concatenated string.
+
+**Confidence:** High
+
+---
+
+### BUG-30: Prior Coursework panel entries are unsorted; no grouping by credit type
+
+**Severity:** Medium
+**File(s):** `src/components/DegreePlan.jsx` (Prior Coursework panel render),
+`src/components/PriorCreditWizard.jsx` (wizard summary step)
+
+**Description:** Entries in the Prior Coursework panel stack in insertion order
+regardless of credit type. A student with AP credits, ACT credits, and transfer
+credits sees them interleaved with no visual grouping. The same issue applies to the
+wizard summary step. Desired behavior: entries grouped and sorted by category (AP,
+IB, ACT, Transfer, CLEP, etc.) with a category header or divider.
+
+**Impact:** A student with more than 4-5 prior credit entries cannot quickly scan to
+verify or find a specific entry. Advisor review is similarly impaired. Becomes worse
+as the number of prior credit entries grows.
+
+**Suspected fix:** Sort `prior_credits` by `credit_type` before rendering in both the
+panel and the wizard summary. Group with a visible category label per type. Order of
+groups: AP → IB → ACT → CLEP → Transfer → Other.
+
+**Confidence:** High
+
+---
+
+### BUG-31: MATH1910 prerequisite display omits ACT Math 27+ OR gate
+
+**Severity:** Medium
+**File(s):** `src/lib/prereqChecker.js`, `src/lib/classifyPrereq.js`,
+`src/components/SlotModal.jsx` (prereq display)
+
+**Description:** MATH1910 requires one of MATH1730, MATH1710, or MATH1720 — OR an
+ACT Math score of 27+. The OR requirement is encoded in the course description but
+does not appear in the prerequisite section rendered by the planner. `classifyPrereq`
+detects placement/consent language in descriptions to suppress warnings, but it does
+not surface the placement gate as a visible alternative in the prereq list. A student
+with ACT Math 27+ sees MATH1910 locked with missing prereqs and no indication that
+their score satisfies the requirement.
+
+**Impact:** Students with valid ACT placement are incorrectly shown as unable to take
+MATH1910. The prereq section actively contradicts the course description. This is
+compounded by BUG-28 (no ACT score entry path), meaning the score can't even be
+recorded to resolve the warning.
+
+**Suspected fix:** Extend `classifyPrereq` or the prereq display layer to surface
+placement gates as named alternatives in the prereq list (e.g. "or ACT Math 27+")
+rather than only suppressing warnings silently. Requires coordination with BUG-28
+fix so that a recorded ACT score satisfies the gate and clears the warning.
+
+**Confidence:** Medium — the display fix is clear; the interaction with `classifyPrereq`
+suppression logic needs careful tracing before implementing.
+
+---
+
+### BUG-32: Course descriptions contain redundant prerequisite, corequisite, and placement text
+
+**Severity:** Medium
+**File(s):** `MyDegreePlan_Prototype/prototype.json` (immediate scope),
+`MyDegreePlan_Prototype/coursesFile.json` (deferred — 30,000 lines, separate task)
+
+**Description:** Course `description` fields in the catalog JSON include prerequisite,
+corequisite, and placement requirement text that the planner already parses and
+displays in dedicated sections. This makes descriptions bloated and repetitive —
+a student sees the same information twice, with the description version being less
+structured and harder to read.
+
+**Impact:** Every course detail view is noisier than necessary. For courses with
+complex prereq chains (e.g. MATH1910, CSC3350), the description is dominated by
+prerequisite text rather than actual course content. Descriptions are the student's
+primary signal for whether a course is relevant to their interests.
+
+**Interim fix (prototype scope):** Programmatically strip prerequisite, corequisite,
+and placement language from `description` fields in `prototype.json`. Re-seed
+`MyDegreePlan_Prototype/` after stripping. Claude Code should write a script to
+perform the strip and preview the diff before applying.
+
+**Full fix (post-prototype):** Apply the same stripping logic to `coursesFile.json`
+once the catalog data task is in scope. `coursesFile.json` is 30,000 lines and is
+a separate, larger data task — do not attempt in the same session as `prototype.json`.
+
+**Confidence:** High for the stripping approach; Medium for the exact regex/pattern
+needed (descriptions are inconsistently formatted across courses).
 
 ---
 
