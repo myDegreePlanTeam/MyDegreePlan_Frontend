@@ -26,7 +26,7 @@ const CREDIT_TYPES = [
   { value: 'test_out',        label: 'CLEP Exam',             hasScore: true  },
   { value: 'ib_credit',       label: 'IB Exam',               hasScore: true  },
   { value: 'cambridge',       label: 'Cambridge International', hasScore: false },
-  { value: 'transfer_credit', label: 'Transfer Credit',       hasScore: false },
+  { value: 'transfer_credit', label: 'Transfer Credit',       hasScore: false, disabled: true },
 ]
 
 // Human-readable labels for display
@@ -288,10 +288,15 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
               {CREDIT_TYPES.map(t => (
                 <button
                   key={t.value}
-                  className="wizard-type-btn"
-                  onClick={() => handleTypeSelect(t.value)}
+                  className={`wizard-type-btn${t.disabled ? ' wizard-type-btn-disabled' : ''}`}
+                  onClick={() => !t.disabled && handleTypeSelect(t.value)}
+                  disabled={t.disabled}
+                  aria-disabled={t.disabled ? 'true' : undefined}
                 >
-                  {t.label}
+                  <span className="wizard-type-btn-label">{t.label}</span>
+                  {t.disabled && (
+                    <span className="wizard-type-btn-pill">Coming soon</span>
+                  )}
                 </button>
               ))}
             </div>

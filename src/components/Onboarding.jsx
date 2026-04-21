@@ -452,16 +452,18 @@ export default function Onboarding({ profileId, onComplete }) {
                 </label>
               ))}
 
-              {/* Transfer credit sub-form */}
-              <label className="onboarding-checkbox-row">
+              {/* Transfer credit sub-form — disabled pending real catalog (BUG-26) */}
+              <label className="onboarding-checkbox-row onboarding-checkbox-row-disabled">
                 <input
                   type="checkbox"
                   className="onboarding-checkbox"
-                  checked={showTransferForm}
-                  onChange={() => setShowTransferForm(v => !v)}
+                  checked={false}
+                  disabled
+                  onChange={() => {}}
                 />
                 <span className="onboarding-checkbox-label">
                   Transfer credit for a specific course
+                  <span className="onboarding-coming-soon-pill">Coming soon</span>
                 </span>
               </label>
 
