@@ -1189,6 +1189,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
           planSlots={planSlots}
           slots={slots}
           prereqMap={prereqMap}
+          coreqMap={coreqMap}
+          priorCredits={priorCredits}
+          planSemesterOverrides={planSemesterOverrides}
           onSave={handleSave}
           onRemove={handleRemove}
           onClose={() => setActiveSlot(null)}

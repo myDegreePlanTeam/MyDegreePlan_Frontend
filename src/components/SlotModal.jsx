@@ -9,6 +9,9 @@ export default function SlotModal({
   planSlots,
   slots,
   prereqMap,
+  coreqMap,
+  priorCredits,
+  planSemesterOverrides,
   onSave,
   onRemove,
   onClose,
@@ -82,11 +85,25 @@ export default function SlotModal({
   // the modal opens and don't need to be dependencies here.
 
   // ── Build satisfied and taken sets ────────────────────────────────
+  // Prereqs are "completed codes in prior semesters only" — strictly < targetSem.
+  // Coreqs (same-semester enrollment) are handled inside checkPrereqs via
+  // isCoreqForCourse. Prior credits are not added here; checkPrereqs enhances
+  // the set internally from the priorCredits argument.
   const satisfiedCodes = useMemo(() => {
-    const required       = slots.filter(s => !s.is_pool).map(s => s.class_code)
-    const poolSelections = Object.values(planSlots)
-    return new Set([...required, ...poolSelections])
-  }, [slots, planSlots])
+    const targetSem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
+    const codes = new Set()
+    for (const s of slots) {
+      const sSem = planSemesterOverrides?.[s.id] ?? s.semester_number
+      if (sSem >= targetSem) continue
+      if (s.is_pool) {
+        const code = planSlots[s.id]
+        if (code) codes.add(code)
+      } else {
+        codes.add(s.class_code)
+      }
+    }
+    return codes
+  }, [slots, planSlots, planSemesterOverrides, slot.id, slot.semester_number])
 
   const takenCodes = useMemo(() => {
     // Exclude this slot's own selection — otherwise re-opening a filled slot
@@ -101,19 +118,42 @@ export default function SlotModal({
 
   // ── Credit hours accumulated before this semester (positional) ───────
   // Used to determine whether junior/senior standing is met at this slot.
-  // Only earlier semesters count — not the semester the slot itself lives in.
+  // Mirrors computePlanCredits dedup: prior credits first (authoritative,
+  // win over plan slots for the same code), then plan slots in semesters
+  // strictly before the target. planSemesterOverrides is honored on both
+  // sides so drag-moved courses resolve to their current semester.
   const creditsBefore = useMemo(() => {
-    return slots
-      .filter(s => s.semester_number < slot.semester_number)
-      .reduce((sum, s) => {
-        if (s.is_pool) {
-          const code = planSlots[s.id]
-          if (!code) return sum
-          return sum + (courseMap[code]?.credits ?? s.flex_credits ?? 3)
-        }
-        return sum + (courseMap[s.class_code]?.credits ?? 0)
-      }, 0)
-  }, [slots, planSlots, courseMap, slot.semester_number])
+    const targetSem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
+    const seen = new Set()
+    let total = 0
+
+    for (const pc of (priorCredits ?? [])) {
+      if ((pc.credits_awarded ?? 0) <= 0) continue
+      if (!pc.satisfies_course_code) continue
+      if (seen.has(pc.satisfies_course_code)) continue
+      seen.add(pc.satisfies_course_code)
+      total += pc.credits_awarded
+    }
+
+    for (const s of slots) {
+      const sSem = planSemesterOverrides?.[s.id] ?? s.semester_number
+      if (sSem >= targetSem) continue
+      let code, credits
+      if (s.is_pool) {
+        code = planSlots[s.id]
+        if (!code) continue
+        credits = courseMap[code]?.credits ?? s.flex_credits ?? 3
+      } else {
+        code = s.class_code
+        credits = courseMap[code]?.credits ?? 0
+      }
+      if (seen.has(code)) continue
+      seen.add(code)
+      total += credits
+    }
+
+    return total
+  }, [slots, planSlots, courseMap, priorCredits, planSemesterOverrides, slot.id, slot.semester_number])
 
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
@@ -135,7 +175,14 @@ export default function SlotModal({
         standingHint: `Requires junior standing: 60+ credit hours planned before this semester (${creditsBefore} hrs so far)`,
       }
     }
-    const result = checkPrereqs(course.code, prereqMap, satisfiedCodes)
+    const result = checkPrereqs(
+      course.code,
+      prereqMap,
+      satisfiedCodes,
+      priorCredits,
+      courseMap,
+      coreqMap,
+    )
     if (!result.satisfied) {
       return { ...course, status: 'locked', missing: result.missing }
     }
@@ -169,7 +216,7 @@ export default function SlotModal({
         const order = { available: 0, locked: 1, taken: 2 }
         return order[a.status] - order[b.status]
       })
-  }, [courses, search, takenCodes, prereqMap, satisfiedCodes])
+  }, [courses, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap])
 
   function handleSave() {
     if (!selected || selected.status === 'locked' || selected.status === 'taken') return
