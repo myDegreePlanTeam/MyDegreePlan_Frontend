@@ -287,6 +287,22 @@ export default function DegreePlan({ profile, onProfileChange }) {
     loadPlan()
   }, [profile.concentration_id])
 
+  // ── One-shot archive sync after initial load (BUG-23) ─────────────
+  // Prior credits inserted during onboarding bypass handleAddPriorCredit,
+  // so syncArchivedSlots never runs on them — leaving covered slots
+  // visible on the grid on first load.  This effect detects and repairs
+  // that state once slots + priorCredits are loaded.
+  useEffect(() => {
+    if (loading)                 return
+    if (!slots.length)           return
+    if (priorCredits.length === 0) return
+
+    const targetArchived = resolveTransferCredits(priorCredits, planSlots, slots)
+    const needsSync = slots.some(s => targetArchived[s.id] && !planArchived[s.id])
+    if (needsSync) syncArchivedSlots(priorCredits)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, slots, priorCredits, planArchived])
+
   // ── Build semesterMap — archived slots excluded ───────────────────
   // Concept 2: prior-credit archived slots are not in the future plan grid.
   const semesterMap = useMemo(() => {
