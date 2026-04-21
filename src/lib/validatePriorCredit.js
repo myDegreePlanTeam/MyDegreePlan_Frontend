@@ -30,15 +30,14 @@
 //      credits_awarded must match the equivalency row exactly
 //      (correctedCredits is returned when it mismatches).
 //   3. For transfer_credit:
-//      courseCode is looked up in courseCatalog.
+//      courseCode must exist in courseCatalog — otherwise the entry is rejected
+//      (BUG-20: prevents data corruption from freeform course-code entry).
 //      credits_awarded is capped at the catalog course credit hours.
-//      If courseCode is not in catalog: cap at 6 and include an advisor note.
 //   4. courseCode is required for all non-placement types.
 
 const PLACEMENT_TYPES = new Set(['act_placement'])
 const SCORED_EXAM_TYPES = new Set(['ap_credit', 'test_out', 'ib_credit', 'act_credit', 'cambridge'])
 const TRANSFER_TYPES = new Set(['transfer_credit'])
-const TRANSFER_CAP_WITHOUT_CATALOG = 6
 
 /**
  * @param {string}      creditType
@@ -105,22 +104,17 @@ export function validatePriorCredit(
     return { valid: true, error: null, correctedCredits: null }
   }
 
-  // ── Rule 3: transfer_credit — cap at catalog credit hours ────────────
+  // ── Rule 3: transfer_credit — course must exist in catalog ───────────
   if (TRANSFER_TYPES.has(creditType)) {
     const catalogCourse = (courseCatalog ?? {})[courseCode]
 
     if (!catalogCourse) {
-      // Course not in catalog — cap at 6 with advisor note
-      if (creditsAwarded > TRANSFER_CAP_WITHOUT_CATALOG) {
-        return {
-          valid:            false,
-          error:            `Course ${courseCode} is not in the TTU catalog. ` +
-                            `Credits awarded are capped at ${TRANSFER_CAP_WITHOUT_CATALOG}. ` +
-                            `Please consult an advisor if this course awards more.`,
-          correctedCredits: TRANSFER_CAP_WITHOUT_CATALOG,
-        }
+      return {
+        valid:            false,
+        error:            `We don't recognize course code "${courseCode}". ` +
+                          `Please check the TTU catalog or contact your advisor.`,
+        correctedCredits: null,
       }
-      return { valid: true, error: null, correctedCredits: null }
     }
 
     const catalogCredits = catalogCourse.credits ?? 0
