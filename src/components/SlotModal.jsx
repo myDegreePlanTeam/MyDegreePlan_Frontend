@@ -85,11 +85,25 @@ export default function SlotModal({
   // the modal opens and don't need to be dependencies here.
 
   // ── Build satisfied and taken sets ────────────────────────────────
+  // Prereqs are "completed codes in prior semesters only" — strictly < targetSem.
+  // Coreqs (same-semester enrollment) are handled inside checkPrereqs via
+  // isCoreqForCourse. Prior credits are not added here; checkPrereqs enhances
+  // the set internally from the priorCredits argument.
   const satisfiedCodes = useMemo(() => {
-    const required       = slots.filter(s => !s.is_pool).map(s => s.class_code)
-    const poolSelections = Object.values(planSlots)
-    return new Set([...required, ...poolSelections])
-  }, [slots, planSlots])
+    const targetSem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
+    const codes = new Set()
+    for (const s of slots) {
+      const sSem = planSemesterOverrides?.[s.id] ?? s.semester_number
+      if (sSem >= targetSem) continue
+      if (s.is_pool) {
+        const code = planSlots[s.id]
+        if (code) codes.add(code)
+      } else {
+        codes.add(s.class_code)
+      }
+    }
+    return codes
+  }, [slots, planSlots, planSemesterOverrides, slot.id, slot.semester_number])
 
   const takenCodes = useMemo(() => {
     // Exclude this slot's own selection — otherwise re-opening a filled slot
