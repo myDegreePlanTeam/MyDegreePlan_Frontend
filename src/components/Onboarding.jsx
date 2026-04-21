@@ -85,7 +85,6 @@ export default function Onboarding({ profileId, onComplete }) {
   const [transferResults, setTransferResults]     = useState([])
   const [searchingTransfer, setSearchingTransfer] = useState(false)
   const [selectedTransferCourse, setSelectedTransferCourse] = useState(null)
-  const [transferNote, setTransferNote]           = useState('')
   const [showTransferForm, setShowTransferForm]   = useState(false)
   const transferSearchTimerRef                    = useRef(null)
 
@@ -246,7 +245,7 @@ export default function Onboarding({ profileId, onComplete }) {
       records.push({
         credit_type:          'transfer_credit',
         satisfies_course_code: selectedTransferCourse.code,
-        note:                 transferNote.trim() || null,
+        note:                 `Transferred: ${selectedTransferCourse.code} — ${selectedTransferCourse.name}`,
         credits_awarded:      creditsFromCatalog,
       })
     }
@@ -441,16 +440,6 @@ export default function Onboarding({ profileId, onComplete }) {
                         ? `${selectedTransferCourse.credits} cr (from TTU catalog)`
                         : 'Pick a course above to see credits.'}
                     </p>
-                  </div>
-                  <div className="onboarding-field">
-                    <label className="onboarding-label">Note (optional)</label>
-                    <input
-                      className="onboarding-select"
-                      type="text"
-                      value={transferNote}
-                      onChange={e => setTransferNote(e.target.value)}
-                      placeholder="e.g. Transferred from community college"
-                    />
                   </div>
                 </div>
               )}
