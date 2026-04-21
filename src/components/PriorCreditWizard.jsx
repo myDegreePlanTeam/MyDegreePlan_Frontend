@@ -17,6 +17,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { resolveSatisfiesPool } from '../lib/poolResolver'
+import { validatePriorCredit } from '../lib/validatePriorCredit'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1
@@ -38,6 +39,9 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
   const [selectedExam, setSelectedExam] = useState(null) // { test_name, ... } or course object
   const [selectedScore, setSelectedScore] = useState(null)
   const [awards, setAwards]       = useState([])  // final list of { awarded_course_code, credits_awarded, satisfies_pool }
+  // Raw test_equivalencies rows that produced the awards for this exam+type,
+  // retained so handleApply can validate awards against min_score (BUG-8).
+  const [equivalencyRows, setEquivalencyRows] = useState([])
   const [saving, setSaving]       = useState(false)
   const [saveError, setSaveError] = useState(null)
 
@@ -129,7 +133,7 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
       // Exam-based: query test_equivalencies for this exam + score
       let query = supabase
         .from('test_equivalencies')
-        .select('awarded_course_code, credits_awarded, satisfies_pool')
+        .select('awarded_course_code, credits_awarded, satisfies_pool, min_score, test_type, test_name')
         .eq('test_type', creditType)
         .eq('test_name', selectedExam.test_name)
 
@@ -140,7 +144,7 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
       }
 
       const { data } = await query
-      if (!data || data.length === 0) { setAwards([]); return }
+      if (!data || data.length === 0) { setAwards([]); setEquivalencyRows([]); return }
 
       // Fetch course names for display
       const codes = [...new Set(data.map(r => r.awarded_course_code).filter(Boolean))]
@@ -152,6 +156,7 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
       const courseMap = {}
       for (const c of courseData ?? []) courseMap[c.code] = c
 
+      setEquivalencyRows(data)
       setAwards(data.map(row => ({
         awarded_course_code: row.awarded_course_code,
         credits_awarded:     row.credits_awarded,
@@ -225,6 +230,28 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
     if (awards.length === 0) return
     setSaving(true)
     setSaveError(null)
+
+    // BUG-8: before handing rows to the parent, defend against stale
+    // wizard state by re-validating each scored-exam award against
+    // test_equivalencies with the student's selected score. Transfer
+    // credits have no score; legacy path (no score) still succeeds.
+    if (creditType !== 'transfer_credit' && typeConfig?.hasScore) {
+      for (const award of awards) {
+        const { valid, error } = validatePriorCredit(
+          creditType,
+          award.awarded_course_code,
+          award.credits_awarded,
+          equivalencyRows,
+          {},
+          selectedScore,
+        )
+        if (!valid) {
+          setSaveError(error)
+          setSaving(false)
+          return
+        }
+      }
+    }
 
     const note = buildNote(creditType, selectedExam, selectedScore)
 

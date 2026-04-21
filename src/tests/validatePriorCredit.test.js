@@ -266,3 +266,38 @@ describe('validatePriorCredit — Rule 2 (act_credit)', () => {
     expect(result.correctedCredits).toBeNull()
   })
 })
+
+// ── BUG-8: userScore gating for scored exam types ───────────────────────────
+
+describe('validatePriorCredit — Rule 2 (min_score gate, BUG-8)', () => {
+  it('rejects AP Calculus AB with score=2 (below min_score=3)', () => {
+    const result = validatePriorCredit(
+      'ap_credit', 'MATH1910', 4, TEST_EQ, CATALOG, 2
+    )
+    expect(result.valid).toBe(false)
+    expect(result.error).toMatch(/score of 2 does not qualify/i)
+    expect(result.correctedCredits).toBeNull()
+  })
+
+  it('accepts AP Calculus AB with score=3 (meets min_score=3)', () => {
+    const result = validatePriorCredit(
+      'ap_credit', 'MATH1910', 4, TEST_EQ, CATALOG, 3
+    )
+    expect(result.valid).toBe(true)
+    expect(result.error).toBeNull()
+  })
+
+  it('accepts AP Calculus AB with score=null (legacy caller — no regression)', () => {
+    const result = validatePriorCredit(
+      'ap_credit', 'MATH1910', 4, TEST_EQ, CATALOG, null
+    )
+    expect(result.valid).toBe(true)
+  })
+
+  it('accepts AP Calculus AB with score=5 (above min_score=3)', () => {
+    const result = validatePriorCredit(
+      'ap_credit', 'MATH1910', 4, TEST_EQ, CATALOG, 5
+    )
+    expect(result.valid).toBe(true)
+  })
+})

@@ -8,7 +8,8 @@
 //
 // Pure function: no Supabase calls, no side effects.
 //
-// validatePriorCredit(creditType, courseCode, creditsAwarded, testEquivalencies, courseCatalog)
+// validatePriorCredit(creditType, courseCode, creditsAwarded,
+//                     testEquivalencies, courseCatalog, userScore = null)
 //   → { valid: boolean, error: string | null, correctedCredits: number | null }
 //
 // Parameters:
@@ -19,8 +20,14 @@
 //                        placement-only entries)
 //   creditsAwarded     — prior_credits.credits_awarded
 //   testEquivalencies  — array of test_equivalencies rows:
-//                        [{ test_type, awarded_course_code, credits_awarded, ... }]
+//                        [{ test_type, awarded_course_code, credits_awarded,
+//                          min_score, ... }]
 //   courseCatalog      — map of { [courseCode]: { credits, ... } }
+//   userScore          — optional. Student's actual exam score. When provided
+//                        AND creditType is a scored exam, only equivalency
+//                        rows with min_score <= userScore qualify. Legacy
+//                        callers that don't know the score pass null (the
+//                        default) and get the pre-BUG-8 behavior.
 //
 // Rules:
 //   1. Placement-only types (act_placement) must have credits_awarded = 0.
@@ -29,6 +36,9 @@
 //      AND awarded_course_code = courseCode.
 //      credits_awarded must match the equivalency row exactly
 //      (correctedCredits is returned when it mismatches).
+//      When userScore is non-null, the row must additionally satisfy
+//      min_score <= userScore (BUG-8: prevents AP-3 students from claiming
+//      credit gated behind an AP-5 row via direct INSERT).
 //   3. For transfer_credit:
 //      courseCode must exist in courseCatalog — otherwise the entry is rejected
 //      (BUG-20: prevents data corruption from freeform course-code entry).
@@ -45,6 +55,7 @@ const TRANSFER_TYPES = new Set(['transfer_credit'])
  * @param {number}      creditsAwarded
  * @param {Array}       testEquivalencies  – test_equivalencies rows
  * @param {Object}      courseCatalog      – { [code]: { credits, ... } }
+ * @param {number|null} userScore          – optional exam score for score-gating
  * @returns {{ valid: boolean, error: string|null, correctedCredits: number|null }}
  */
 export function validatePriorCredit(
@@ -52,7 +63,8 @@ export function validatePriorCredit(
   courseCode,
   creditsAwarded,
   testEquivalencies = [],
-  courseCatalog     = {}
+  courseCatalog     = {},
+  userScore         = null
 ) {
   // ── Rule 1: placement-only types ─────────────────────────────────────
   if (PLACEMENT_TYPES.has(creditType)) {
@@ -77,15 +89,32 @@ export function validatePriorCredit(
 
   // ── Rule 2: scored exam types — validate against test_equivalencies ───
   if (SCORED_EXAM_TYPES.has(creditType)) {
-    const rows = (testEquivalencies ?? []).filter(
+    const allRows = (testEquivalencies ?? []).filter(
       row => row.test_type === creditType && row.awarded_course_code === courseCode
     )
 
-    if (rows.length === 0) {
+    if (allRows.length === 0) {
       return {
         valid: false,
         error: `No ${creditType} equivalency found for course ${courseCode}. ` +
                `This exam type may not award credit for this course.`,
+        correctedCredits: null,
+      }
+    }
+
+    // BUG-8: when the caller knows the student's score, reject equivalency
+    // rows whose min_score exceeds it so AP-3 students can't claim an
+    // AP-5-only award by bypassing the wizard.  Legacy callers pass null
+    // and retain the pre-BUG-8 behavior of accepting any matching row.
+    const rows = userScore == null
+      ? allRows
+      : allRows.filter(r => r.min_score == null || r.min_score <= userScore)
+
+    if (rows.length === 0) {
+      return {
+        valid: false,
+        error: `A score of ${userScore} does not qualify for ${courseCode} ` +
+               `via ${creditType}. Check the minimum required score.`,
         correctedCredits: null,
       }
     }
