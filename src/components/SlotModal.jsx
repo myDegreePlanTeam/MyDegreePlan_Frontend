@@ -9,6 +9,9 @@ export default function SlotModal({
   planSlots,
   slots,
   prereqMap,
+  coreqMap,
+  priorCredits,
+  planSemesterOverrides,
   onSave,
   onRemove,
   onClose,
@@ -135,7 +138,14 @@ export default function SlotModal({
         standingHint: `Requires junior standing: 60+ credit hours planned before this semester (${creditsBefore} hrs so far)`,
       }
     }
-    const result = checkPrereqs(course.code, prereqMap, satisfiedCodes)
+    const result = checkPrereqs(
+      course.code,
+      prereqMap,
+      satisfiedCodes,
+      priorCredits,
+      courseMap,
+      coreqMap,
+    )
     if (!result.satisfied) {
       return { ...course, status: 'locked', missing: result.missing }
     }
@@ -169,7 +179,7 @@ export default function SlotModal({
         const order = { available: 0, locked: 1, taken: 2 }
         return order[a.status] - order[b.status]
       })
-  }, [courses, search, takenCodes, prereqMap, satisfiedCodes])
+  }, [courses, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap])
 
   function handleSave() {
     if (!selected || selected.status === 'locked' || selected.status === 'taken') return
