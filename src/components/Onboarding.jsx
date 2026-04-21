@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
+import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
 const CONCENTRATION_DESCS = {
@@ -79,7 +80,11 @@ export default function Onboarding({ profileId, onComplete }) {
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState(null)
 
-  // Step 3 state
+  // BUG-22: first-time-freshman flag (UI-only; not persisted — inferred later
+  // from the presence of transfer_credit rows to avoid a schema change).
+  const [isFirstTimeFreshman, setIsFirstTimeFreshman] = useState(null)
+
+  // Step 3 state — freshman path
   const [checkedOptions, setCheckedOptions]       = useState(new Set())
   const [transferSearch, setTransferSearch]       = useState('')
   const [transferResults, setTransferResults]     = useState([])
@@ -87,6 +92,14 @@ export default function Onboarding({ profileId, onComplete }) {
   const [selectedTransferCourse, setSelectedTransferCourse] = useState(null)
   const [showTransferForm, setShowTransferForm]   = useState(false)
   const transferSearchTimerRef                    = useRef(null)
+
+  // Step 3 state — non-freshman path (BUG-22)
+  // Entries accumulate locally; they are inserted in a single batch by
+  // handleComplete when the student clicks "Build my degree plan".  This
+  // mirrors the freshman path — no prior_credits rows are written until
+  // the final save, so abandoning onboarding leaves no stray data.
+  const [pendingRecords, setPendingRecords] = useState([])
+  const [showWizard, setShowWizard]         = useState(false)
 
   const [concentrations, setConcentrations] = useState([])
   const [concsLoading, setConcsLoading]     = useState(true)
@@ -201,7 +214,24 @@ export default function Onboarding({ profileId, onComplete }) {
   // Called from step 2 — proceed to step 3 (prior credits)
   function handleGoToStep3() {
     if (!selectedCode) return
+    if (isFirstTimeFreshman == null) return   // BUG-22: require a choice
     setStep(3)
+  }
+
+  // BUG-22: non-freshman path — PriorCreditWizard hands us an array of
+  // { credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded }
+  // records.  Accumulate for batch insert on completion.
+  function handleWizardSave(records) {
+    setPendingRecords(prev => [...prev, ...records])
+  }
+
+  function handleRemovePending(index) {
+    setPendingRecords(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // Called on "Build my degree plan" from the non-freshman step 3
+  async function handleFinishNonFreshman() {
+    await handleComplete(pendingRecords)
   }
 
   // Called from step 3 "Build my degree plan" — collect checked options + transfer form
@@ -351,6 +381,40 @@ export default function Onboarding({ profileId, onComplete }) {
               </div>
             </div>
 
+            {/* BUG-22: branching question — routes step 3 to the freshman
+                checklist or the full PriorCreditWizard launcher. */}
+            <div className="onboarding-field">
+              <label className="onboarding-label">
+                Is this your first term at TTU as an incoming freshman?
+              </label>
+              <div className="onboarding-radio-row">
+                <label className="onboarding-checkbox-row">
+                  <input
+                    type="radio"
+                    name="freshman-flag"
+                    className="onboarding-checkbox"
+                    checked={isFirstTimeFreshman === true}
+                    onChange={() => setIsFirstTimeFreshman(true)}
+                  />
+                  <span className="onboarding-checkbox-label">
+                    Yes — I'm a first-time freshman
+                  </span>
+                </label>
+                <label className="onboarding-checkbox-row">
+                  <input
+                    type="radio"
+                    name="freshman-flag"
+                    className="onboarding-checkbox"
+                    checked={isFirstTimeFreshman === false}
+                    onChange={() => setIsFirstTimeFreshman(false)}
+                  />
+                  <span className="onboarding-checkbox-label">
+                    No — I have transfer or prior coursework to enter
+                  </span>
+                </label>
+              </div>
+            </div>
+
             {error && <p className="onboarding-error">{error}</p>}
 
             <div className="onboarding-btn-row">
@@ -364,7 +428,7 @@ export default function Onboarding({ profileId, onComplete }) {
               <button
                 className="onboarding-btn"
                 onClick={handleGoToStep3}
-                disabled={loading}
+                disabled={loading || isFirstTimeFreshman == null}
               >
                 Continue
               </button>
@@ -372,8 +436,8 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 3: Prior credits (skippable) ── */}
-        {step === 3 && (
+        {/* ── Step 3: Prior credits (skippable) — freshman path ── */}
+        {step === 3 && isFirstTimeFreshman && (
           <div className="onboarding-body">
             <div className="onboarding-prior-credits">
               {PRIOR_CREDIT_OPTIONS.map(opt => (
@@ -466,7 +530,82 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
+        {/* ── Step 3: Prior credits — non-freshman path (BUG-22) ── */}
+        {step === 3 && isFirstTimeFreshman === false && (
+          <div className="onboarding-body">
+            <p className="onboarding-sub">
+              Add each AP exam, transfer course, CLEP score, or other prior credit.
+              You can add as many as you need, and remove any before finishing.
+            </p>
+
+            {pendingRecords.length === 0 ? (
+              <p className="onboarding-readonly-value">
+                No prior credits added yet.
+              </p>
+            ) : (
+              <ul className="onboarding-pending-list">
+                {pendingRecords.map((rec, i) => (
+                  <li key={i} className="onboarding-pending-row">
+                    <span className="onboarding-pending-code">
+                      {rec.satisfies_course_code ?? '(placement only)'}
+                    </span>
+                    <span className="onboarding-pending-note">{rec.note}</span>
+                    <span className="onboarding-pending-cr">
+                      {rec.credits_awarded ?? 0} cr
+                    </span>
+                    <button
+                      type="button"
+                      className="onboarding-pending-remove"
+                      onClick={() => handleRemovePending(i)}
+                      aria-label={`Remove ${rec.satisfies_course_code ?? 'entry'}`}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button
+              type="button"
+              className="onboarding-btn-secondary"
+              onClick={() => setShowWizard(true)}
+              disabled={loading}
+            >
+              + Add prior credit
+            </button>
+
+            {error && <p className="onboarding-error">{error}</p>}
+
+            <div className="onboarding-btn-row">
+              <button
+                className="onboarding-btn-secondary"
+                onClick={() => handleComplete([])}
+                disabled={loading}
+              >
+                {loading ? 'Saving…' : "I'll add these later"}
+              </button>
+              <button
+                className="onboarding-btn"
+                onClick={handleFinishNonFreshman}
+                disabled={loading}
+              >
+                {loading ? 'Saving…' : 'Build my degree plan'}
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
+
+      {showWizard && (
+        <PriorCreditWizard
+          onSave={handleWizardSave}
+          onClose={() => setShowWizard(false)}
+          planSlots={{}}
+          slots={[]}
+        />
+      )}
     </div>
   )
 }
