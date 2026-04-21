@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits } from '../lib/transferCredits'
+import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
 import CourseDetailModal from './CourseDetailModal'
@@ -1380,9 +1381,16 @@ function TransferCreditsPanel({ credits, onRemove, onAddClick }) {
               No prior coursework recorded. Drag a filled course here, or use Add Prior Credit.
             </p>
           ) : (
-            <div className="prior-credits-list">
-              {credits.map(pc => (
-                <PriorCreditDraggableRow key={pc.id} pc={pc} onRemove={onRemove} />
+            <div className="prior-credits-groups">
+              {groupAndSortPriorCredits(credits).map(group => (
+                <div key={group.type} className="prior-credits-group">
+                  <div className="prior-credits-group-header">{group.label}</div>
+                  <div className="prior-credits-list">
+                    {group.entries.map(pc => (
+                      <PriorCreditDraggableRow key={pc.id} pc={pc} onRemove={onRemove} />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}

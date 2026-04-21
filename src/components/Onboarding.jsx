@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
+import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
@@ -545,36 +546,45 @@ export default function Onboarding({ profileId, onComplete }) {
                 No prior credits added yet.
               </p>
             ) : (
-              <ul className="onboarding-pending-list">
-                {pendingRecords.map((rec, i) => {
-                  const isPlacement = (rec.credits_awarded ?? 0) === 0
-                  return (
-                    <li key={i} className="onboarding-pending-row">
-                      <span className="onboarding-pending-code">
-                        {rec.satisfies_course_code ?? '(placement only)'}
-                      </span>
-                      {rec.note && (
-                        <>
-                          <span className="onboarding-pending-sep" aria-hidden="true">·</span>
-                          <span className="onboarding-pending-note">{rec.note}</span>
-                        </>
-                      )}
-                      <span className="onboarding-pending-sep" aria-hidden="true">·</span>
-                      <span className="onboarding-pending-cr">
-                        {isPlacement ? 'Gate only' : `${rec.credits_awarded} cr`}
-                      </span>
-                      <button
-                        type="button"
-                        className="onboarding-pending-remove"
-                        onClick={() => handleRemovePending(i)}
-                        aria-label={`Remove ${rec.satisfies_course_code ?? 'entry'}`}
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
+              <div className="onboarding-pending-groups">
+                {groupAndSortPriorCredits(
+                  pendingRecords.map((rec, i) => ({ ...rec, _pendingIndex: i }))
+                ).map(group => (
+                  <div key={group.type} className="onboarding-pending-group">
+                    <div className="onboarding-pending-group-header">{group.label}</div>
+                    <ul className="onboarding-pending-list">
+                      {group.entries.map(rec => {
+                        const isPlacement = (rec.credits_awarded ?? 0) === 0
+                        return (
+                          <li key={rec._pendingIndex} className="onboarding-pending-row">
+                            <span className="onboarding-pending-code">
+                              {rec.satisfies_course_code ?? '(placement only)'}
+                            </span>
+                            {rec.note && (
+                              <>
+                                <span className="onboarding-pending-sep" aria-hidden="true">·</span>
+                                <span className="onboarding-pending-note">{rec.note}</span>
+                              </>
+                            )}
+                            <span className="onboarding-pending-sep" aria-hidden="true">·</span>
+                            <span className="onboarding-pending-cr">
+                              {isPlacement ? 'Gate only' : `${rec.credits_awarded} cr`}
+                            </span>
+                            <button
+                              type="button"
+                              className="onboarding-pending-remove"
+                              onClick={() => handleRemovePending(rec._pendingIndex)}
+                              aria-label={`Remove ${rec.satisfies_course_code ?? 'entry'}`}
+                            >
+                              ✕
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             )}
 
             <button

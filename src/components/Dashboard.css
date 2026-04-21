@@ -1840,6 +1840,47 @@
   flex-shrink: 0;
 }
 
+/* Grouped prior-coursework sections (BUG-30). Each section has a small
+   header and its own row list so the panel reads as AP / IB / ACT / etc. */
+.prior-credits-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.prior-credits-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.prior-credits-group-header {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.85;
+  padding: 0 0.1rem;
+}
+
+.onboarding-pending-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.onboarding-pending-group-header {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.85;
+  padding: 0 0.1rem;
+  margin-bottom: 0.35rem;
+}
+
 .prior-credit-remove {
   background: transparent;
   border: none;
