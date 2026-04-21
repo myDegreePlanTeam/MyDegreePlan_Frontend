@@ -10,8 +10,9 @@
 //   Rule 1 — Placement types (act_placement) must have credits_awarded = 0.
 //   Rule 2 — Scored exam types (ap_credit, test_out, ib_credit) must match
 //             a test_equivalencies row; credits must match the table value.
-//   Rule 3 — Transfer credit is capped at catalog hours;
-//             cap is 6 if course is not in catalog.
+//   Rule 3 — Transfer credit requires a course code that exists in the
+//             TTU catalog; credits are capped at catalog hours.
+//             Non-catalog course codes are rejected (BUG-20).
 //   Rule 4 — courseCode is required for all non-placement credit types.
 
 import { describe, it, expect } from 'vitest'
@@ -181,16 +182,24 @@ describe('validatePriorCredit — Rule 3 (transfer_credit)', () => {
     expect(result.correctedCredits).toBe(4)
   })
 
-  it('course not in catalog — valid if credits ≤ 6', () => {
+  it('course not in catalog — invalid regardless of credits (BUG-20)', () => {
     const result = validatePriorCredit('transfer_credit', 'ZZZZ9999', 3, TEST_EQ, CATALOG)
-    expect(result.valid).toBe(true)
+    expect(result.valid).toBe(false)
+    expect(result.error).toMatch(/don.t recognize/i)
+    expect(result.correctedCredits).toBeNull()
   })
 
-  it('course not in catalog — invalid if credits > 6; caps at 6', () => {
-    const result = validatePriorCredit('transfer_credit', 'ZZZZ9999', 9, TEST_EQ, CATALOG)
+  it('freeform / nonsense course code — invalid (BUG-20)', () => {
+    const result = validatePriorCredit('transfer_credit', 'Jimmy', 3, TEST_EQ, CATALOG)
     expect(result.valid).toBe(false)
-    expect(result.error).toMatch(/not in the TTU catalog/i)
-    expect(result.correctedCredits).toBe(6)
+    expect(result.error).toMatch(/don.t recognize/i)
+    expect(result.correctedCredits).toBeNull()
+  })
+
+  it('error message includes the unrecognized course code (BUG-20)', () => {
+    const result = validatePriorCredit('transfer_credit', 'FAKE9999', 3, TEST_EQ, CATALOG)
+    expect(result.valid).toBe(false)
+    expect(result.error).toMatch(/FAKE9999/)
   })
 })
 
@@ -208,15 +217,17 @@ describe('validatePriorCredit — empty/missing inputs', () => {
     expect(result.valid).toBe(false)
   })
 
-  it('handles empty courseCatalog gracefully for transfer_credit', () => {
-    // Course not in catalog → cap at 6
+  it('empty courseCatalog rejects transfer_credit (BUG-20)', () => {
+    // Post-BUG-20: no catalog fallback; unknown course is invalid.
     const result = validatePriorCredit('transfer_credit', 'MATH1910', 3, TEST_EQ, {})
-    expect(result.valid).toBe(true)  // 3 ≤ 6 cap
+    expect(result.valid).toBe(false)
+    expect(result.error).toMatch(/don.t recognize/i)
   })
 
-  it('handles null courseCatalog gracefully', () => {
+  it('null courseCatalog rejects transfer_credit (BUG-20)', () => {
     const result = validatePriorCredit('transfer_credit', 'MATH1910', 3, TEST_EQ, null)
-    expect(result.valid).toBe(true)  // 3 ≤ 6 cap
+    expect(result.valid).toBe(false)
+    expect(result.error).toMatch(/don.t recognize/i)
   })
 })
 

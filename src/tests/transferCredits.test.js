@@ -361,3 +361,71 @@ describe('resolveTransferCredits — idempotency', () => {
     expect(first).toEqual(second)
   })
 })
+
+// ── BUG-23 regression: onboarding archival parity ────────────────────────────
+//
+// Prior credits inserted during onboarding bypass the add/remove handler that
+// normally calls syncArchivedSlots.  The pure resolver must still report the
+// correct archival set so the one-shot load-time sync in DegreePlan.jsx can
+// detect and repair the mismatch.  These tests lock in the expectation that
+// resolveTransferCredits returns a non-empty archival set for the exact kinds
+// of entries the onboarding wizard produces (AP exams with satisfies_course_code).
+
+describe('resolveTransferCredits — BUG-23 onboarding archival parity', () => {
+  it('archives a required slot for an AP credit added with empty planSlots (fresh onboarding)', () => {
+    // Fresh onboarding state: no student_plan_slots rows yet, just the
+    // prior_credit row written by Onboarding.handleComplete.
+    const result = resolveTransferCredits([AP_CALC], {}, [SLOT_MATH1910])
+    expect(result[SLOT_MATH1910.id]).toBe(true)
+  })
+
+  it('archives every covered required slot when multiple AP credits enter at onboarding', () => {
+    const result = resolveTransferCredits(
+      [AP_ENGL, AP_CALC],
+      {},
+      [SLOT_ENGL1010, SLOT_MATH1910, SLOT_CSC1300]
+    )
+    expect(result[SLOT_ENGL1010.id]).toBe(true)
+    expect(result[SLOT_MATH1910.id]).toBe(true)
+    expect(result[SLOT_CSC1300.id]).toBeUndefined()
+  })
+
+  it('reports no archival for placement-only onboarding entries (credits_awarded = 0)', () => {
+    // ACT placement entries must never archive anything — guards the sync
+    // effect against accidentally flipping archived=true on a covered slot.
+    const result = resolveTransferCredits([PLACEMENT_ONLY], {}, [SLOT_ENGL1010, SLOT_MATH1910])
+    expect(result).toEqual({})
+  })
+})
+
+// ── BUG-24 regression: duplicate prior credits archive at most one slot ──────
+//
+// The drag-to-transfer handler in DegreePlan.jsx now dedups against
+// priorCredits before inserting.  The pure resolver's "first match wins"
+// guarantee is the backstop: even if a duplicate row slips into the DB
+// (e.g. via direct API call or legacy data), only one slot is reported
+// as archived, preventing phantom double-coverage in the UI.
+
+describe('resolveTransferCredits — BUG-24 duplicate prior credit resilience', () => {
+  it('a second prior credit for the same course does NOT double-archive the slot', () => {
+    const duplicate = { ...AP_CALC, id: 'pc-dup' }
+    const result = resolveTransferCredits([AP_CALC, duplicate], {}, [SLOT_MATH1910])
+    expect(Object.keys(result)).toEqual([String(SLOT_MATH1910.id)])
+    expect(result[SLOT_MATH1910.id]).toBe(true)
+  })
+
+  it('duplicates in the priorCredits array do not archive additional slots', () => {
+    // Only one MATH1910 slot exists; two AP_CALC entries must still archive
+    // just that single slot — and the extra credit becomes an unmatched
+    // Rule 3 entry (still valid; archives nothing).
+    const duplicate = { ...AP_CALC, id: 'pc-dup' }
+    const result = resolveTransferCredits(
+      [AP_CALC, duplicate],
+      {},
+      [SLOT_MATH1910, SLOT_ENGL1010, SLOT_CSC1300]
+    )
+    expect(result[SLOT_MATH1910.id]).toBe(true)
+    expect(result[SLOT_ENGL1010.id]).toBeUndefined()
+    expect(result[SLOT_CSC1300.id]).toBeUndefined()
+  })
+})
