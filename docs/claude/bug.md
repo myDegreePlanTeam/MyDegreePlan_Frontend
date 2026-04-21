@@ -13,9 +13,9 @@
 |---|---|
 | Critical | 1 |
 | High     | 14 |
-| Medium   | 11 |
+| Medium   | 12 |
 | Low      | 6  |
-| **Total** | **32** |
+| **Total** | **33** |
 
 ---
 
@@ -620,6 +620,31 @@ a separate, larger data task — do not attempt in the same session as `prototyp
 
 **Confidence:** High for the stripping approach; Medium for the exact regex/pattern
 needed (descriptions are inconsistently formatted across courses).
+
+---
+
+### BUG-33: Manual semester completion credits not counted toward standing thresholds in SlotModal
+
+**Severity:** Medium
+**File(s):** `src/components/SlotModal.jsx` (`creditsBefore`), `src/components/DegreePlan.jsx` (manual completion path)
+
+**Description:** `creditsBefore` in `SlotModal` now correctly counts prior credits
+(AP, transfer, etc.) toward junior/senior standing thresholds after the BUG-5 fix.
+However, credits from manually completed semesters (`completed_by_student = true` on
+`student_semester_notes`) are not counted the same way. A student who marks 60+ credits
+complete in the grid does not see the junior standing threshold clear in the modal —
+the two paths feed different calculations.
+
+**Impact:** Students with manually completed semesters see incorrect standing
+requirements in slot modals. Inconsistent with the prior-credits path which now
+works correctly after BUG-5.
+
+**Suspected fix:** Include credits from completed semesters in the `creditsBefore`
+sum, consistent with how `computePlanCredits` handles completion state. Coordinate
+with the mark-complete behavior fix (Phase 2, `fix/mark-complete-behavior`) since
+that branch will overhaul how completion credits are tracked.
+
+**Confidence:** High
 
 ---
 

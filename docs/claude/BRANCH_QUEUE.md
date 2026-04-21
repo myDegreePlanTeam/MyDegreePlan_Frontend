@@ -7,12 +7,7 @@
 
 ## Active Branches (not yet merged)
 
-### fix/slot-modal-prereq-credits
-**Status:** Unpushed commits — needs assessment before any other branch is opened
-**Targets:** BUG-1, BUG-2, BUG-5
-**Action:** Run assessment prompt → fix gaps if any → push → merge → delete branch
-**Prompt:** `PROMPT_assess-slot-modal-prereq-credits.md`
-**Blocks:** Everything below
+_None._
 
 ---
 
@@ -73,6 +68,10 @@
 - Mark complete awards credits, collapses card to summary row, hides from grid
 - "Uncomplete" option for mis-clicks
 - Credits display correctly in Requirements tab and CompletionBadge
+- BUG-33 — Manual completion credits not counted toward standing thresholds in SlotModal
+**Notes:**
+- BUG-33 fix must coordinate with this branch — creditsBefore in SlotModal
+  needs to read completed-semester credits the same way computePlanCredits does.
 **Prompt:** Not yet written
 
 ### fix/undo-stack
@@ -149,3 +148,4 @@
 | `fix/prereq-coreq-logic` | pre-audit | Various prereq/coreq logic fixes |
 | `fix/act-wizard-and-equivalencies` | pre-2026-04-21 | ACT credit, unified prior coursework panel, drag-to-transfer, drag-back |
 | `fix/onboarding-prior-credit` | 2026-04-21 | BUG-20, BUG-21, BUG-22, BUG-23, BUG-24, BUG-25 |
+| `fix/slot-modal-prereq-credits` | 2026-04-21 | BUG-1, BUG-2, BUG-5 |
