@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { POOL_COURSES } from '../lib/poolResolver'
+import { resolveSatisfiesPool } from '../lib/poolResolver'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1
@@ -110,18 +110,17 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
         // Transfer credit: one award for the selected course.
         // Look up whether the course belongs to a pool so the INSERT can archive
         // the matching pool slot via resolveTransferCredits Rule 2.
+        //
+        // BUG-4: iterate only over pools that actually exist in the active
+        // concentration's plan (slots prop). A course like CSC2220 lives in
+        // both CSC_LOWER_ELECTIVE (Core) and CSC_ELECTIVE (Cybersecurity/DSAI),
+        // so a concentration-agnostic match would always pick the first listed
+        // pool and miss the real slot on other concentrations.
         if (!selectedExam) return
-        let satisfiesPool = null
-        for (const [poolCode, codes] of Object.entries(POOL_COURSES)) {
-          if (codes && codes.includes(selectedExam.code)) {
-            satisfiesPool = poolCode
-            break
-          }
-        }
         setAwards([{
           awarded_course_code: selectedExam.code,
           credits_awarded:     selectedExam.credits ?? 3,
-          satisfies_pool:      satisfiesPool,
+          satisfies_pool:      resolveSatisfiesPool(selectedExam.code, slots),
           course_name:         selectedExam.name,
         }])
         return
@@ -162,7 +161,7 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
     }
 
     loadAwards()
-  }, [step, creditType, selectedExam, selectedScore, typeConfig])
+  }, [step, creditType, selectedExam, selectedScore, typeConfig, slots])
 
   // ── Course search for transfer_credit (Step 2) ────────────────────
   function handleCourseSearch(val) {

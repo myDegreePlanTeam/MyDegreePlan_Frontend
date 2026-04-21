@@ -192,6 +192,31 @@ export const POOL_LABELS = {
 // from DegreePlan), returns an array of course objects valid for that slot.
 // Returns null for FREE_ELECTIVE — the modal handles that case separately.
 
+// ── resolveSatisfiesPool ──────────────────────────────────────────────────────
+// Given a transfer-credit course code and the active concentration's
+// requirement_slots, return the pool code (e.g. 'CSC_ELECTIVE') that the
+// transfer should archive, or null if no pool on this plan contains it.
+//
+// BUG-4: CSC2220 belongs to both CSC_LOWER_ELECTIVE and CSC_ELECTIVE, so a
+// concentration-agnostic scan over POOL_COURSES always returned the first
+// match and missed the real slot on Cybersecurity/DSAI plans (which have
+// CSC_ELECTIVE slots but no CSC_LOWER_ELECTIVE slots). Scoping to the pools
+// that actually appear as is_pool slots on the active plan fixes this.
+
+export function resolveSatisfiesPool(courseCode, slots) {
+  if (!courseCode) return null
+  const planPoolCodes = new Set(
+    (slots ?? [])
+      .filter(s => s?.is_pool)
+      .map(s => s.class_code)
+  )
+  for (const [poolCode, codes] of Object.entries(POOL_COURSES)) {
+    if (!planPoolCodes.has(poolCode)) continue
+    if (codes?.includes(courseCode)) return poolCode
+  }
+  return null
+}
+
 export function resolvePool(poolCode, courseMap) {
   // FREE_ELECTIVE — return null to signal open resolution
   // (handled separately in SlotModal with suggestions)

@@ -26,6 +26,7 @@ import {
   resolvePool,
   resolveScience,
   resolveFreeElective,
+  resolveSatisfiesPool,
   POOL_COURSES,
 } from '../poolResolver'
 
@@ -357,5 +358,56 @@ describe('resolveFreeElective', () => {
     expect(suggested.map(c => c.code)).toEqual(['CSC1300', 'CSC4780'])
     // ART courses are in other — should come back sorted
     expect(other.map(c => c.code)).toEqual(['ART1035', 'ART2000'])
+  })
+})
+
+// ── resolveSatisfiesPool (BUG-4) ─────────────────────────────────────────────
+//
+// Transfer credits must archive a pool slot only when the target pool
+// actually exists on the active concentration's plan.  CSC2220 lives in
+// both CSC_LOWER_ELECTIVE (Core) and CSC_ELECTIVE (Cybersecurity/DSAI),
+// so a concentration-agnostic scan over POOL_COURSES would always pick the
+// first match and miss the real slot on other concentrations.
+
+describe('resolveSatisfiesPool', () => {
+
+  // Cybersecurity plans have CSC_ELECTIVE slots but no CSC_LOWER_ELECTIVE.
+  const cyberSlots = [
+    { id: 1, is_pool: false, class_code: 'CSC1200' },
+    { id: 2, is_pool: true,  class_code: 'CSC_ELECTIVE' },
+    { id: 3, is_pool: true,  class_code: 'CSC_ELECTIVE' },
+    { id: 4, is_pool: true,  class_code: 'GEN_ED' },
+  ]
+
+  // Core plans have CSC_LOWER_ELECTIVE + CSC_UPPER_ELECTIVE.
+  const coreSlots = [
+    { id: 1, is_pool: true, class_code: 'CSC_LOWER_ELECTIVE' },
+    { id: 2, is_pool: true, class_code: 'CSC_UPPER_ELECTIVE' },
+    { id: 3, is_pool: true, class_code: 'GEN_ED' },
+  ]
+
+  it('resolves CSC2220 to CSC_ELECTIVE on a Cybersecurity plan (BUG-4 regression)', () => {
+    expect(resolveSatisfiesPool('CSC2220', cyberSlots)).toBe('CSC_ELECTIVE')
+  })
+
+  it('resolves CSC2220 to CSC_LOWER_ELECTIVE on a Core plan', () => {
+    expect(resolveSatisfiesPool('CSC2220', coreSlots)).toBe('CSC_LOWER_ELECTIVE')
+  })
+
+  it('returns null when no pool on the active plan contains the course', () => {
+    expect(resolveSatisfiesPool('CSC2220', [
+      { id: 1, is_pool: true, class_code: 'GEN_ED' },
+    ])).toBeNull()
+  })
+
+  it('ignores non-pool slots when scanning', () => {
+    const slots = [
+      { id: 1, is_pool: false, class_code: 'CSC_ELECTIVE' }, // sentinel — not a pool
+    ]
+    expect(resolveSatisfiesPool('CSC2220', slots)).toBeNull()
+  })
+
+  it('returns null for a null courseCode', () => {
+    expect(resolveSatisfiesPool(null, cyberSlots)).toBeNull()
   })
 })

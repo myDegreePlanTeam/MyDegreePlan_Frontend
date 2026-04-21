@@ -29,6 +29,10 @@ export default function Onboarding({ profileId, onComplete }) {
   // abandoning onboarding leaves no stray prior_credits rows.
   const [pendingRecords, setPendingRecords] = useState([])
   const [showWizard, setShowWizard]         = useState(false)
+  // Requirement slots for the selected concentration.  Loaded lazily when
+  // the student advances to step 3 so the wizard can resolve transfer
+  // credits against the correct pool set (BUG-4).
+  const [concSlots, setConcSlots]           = useState([])
 
   const [concentrations, setConcentrations] = useState([])
   const [concsLoading, setConcsLoading]     = useState(true)
@@ -60,8 +64,19 @@ export default function Onboarding({ profileId, onComplete }) {
     setStep(2)
   }
 
-  function handleGoToStep3() {
+  async function handleGoToStep3() {
     if (!selectedCode) return
+
+    // Load requirement_slots for the selected concentration so the wizard
+    // can map transfer-credit courses to the correct pool on this plan.
+    const concData = concentrations.find(c => c.code === selectedCode)
+    if (concData) {
+      const { data } = await supabase
+        .from('requirement_slots')
+        .select('id, class_code, is_pool')
+        .eq('concentration_id', concData.id)
+      setConcSlots(data ?? [])
+    }
     setStep(3)
   }
 
@@ -333,7 +348,7 @@ export default function Onboarding({ profileId, onComplete }) {
           onSave={handleWizardSave}
           onClose={() => setShowWizard(false)}
           planSlots={{}}
-          slots={[]}
+          slots={concSlots}
         />
       )}
     </div>
