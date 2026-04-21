@@ -833,6 +833,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
         const courseCode = slot.is_pool ? planSlots[slotId] : slot.class_code
         if (!courseCode) return
 
+        // BUG-24 dedup: if this course is already covered by a prior credit,
+        // don't create a duplicate row.  Re-run the archive sync so the slot
+        // gets archived if it isn't already (covers the BUG-23 reload case).
+        if (priorCredits.some(pc => pc.satisfies_course_code === courseCode)) {
+          await syncArchivedSlots(priorCredits)
+          return
+        }
+
         const course         = courses[courseCode]
         const creditsAwarded = course?.credits ?? 3
         const semLabel       = planSemesterOverrides[slotId] ?? slot.semester_number
@@ -869,6 +877,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
       } else if (type === 'free_add') {
         const fa = freeAddSlots.find(f => f.id === slotId)
         if (!fa) return
+
+        // BUG-24 dedup: if a prior credit already covers this course,
+        // drop the free-add row without inserting a duplicate.
+        if (priorCredits.some(pc => pc.satisfies_course_code === fa.course_code)) {
+          handleRemoveFreeAdd(fa)
+          return
+        }
 
         const course = courses[fa.course_code]
         await handleAddPriorCredit({
