@@ -85,7 +85,6 @@ export default function Onboarding({ profileId, onComplete }) {
   const [transferResults, setTransferResults]     = useState([])
   const [searchingTransfer, setSearchingTransfer] = useState(false)
   const [selectedTransferCourse, setSelectedTransferCourse] = useState(null)
-  const [transferCredits, setTransferCredits]     = useState(3)
   const [transferNote, setTransferNote]           = useState('')
   const [showTransferForm, setShowTransferForm]   = useState(false)
   const transferSearchTimerRef                    = useRef(null)
@@ -221,16 +220,21 @@ export default function Onboarding({ profileId, onComplete }) {
         return
       }
 
+      // Credits are always read from the catalog — never user input.  This
+      // mirrors the CLAUDE.md principle for scored exam types (credits_awarded
+      // is authoritative from test_equivalencies / courses, never self-reported).
+      const creditsFromCatalog = selectedTransferCourse.credits ?? 0
+
       // Backend safety net: guard against bad rows even though the UI picker
       // binds to the catalog.  Matches the principle in CLAUDE.md that every
       // prior_credits INSERT is validated before it reaches the database.
       const miniCatalog = {
-        [selectedTransferCourse.code]: { credits: selectedTransferCourse.credits },
+        [selectedTransferCourse.code]: { credits: creditsFromCatalog },
       }
       const { valid, error: validationError } = validatePriorCredit(
         'transfer_credit',
         selectedTransferCourse.code,
-        transferCredits,
+        creditsFromCatalog,
         [],
         miniCatalog,
       )
@@ -243,7 +247,7 @@ export default function Onboarding({ profileId, onComplete }) {
         credit_type:          'transfer_credit',
         satisfies_course_code: selectedTransferCourse.code,
         note:                 transferNote.trim() || null,
-        credits_awarded:      transferCredits,
+        credits_awarded:      creditsFromCatalog,
       })
     }
 
@@ -432,15 +436,11 @@ export default function Onboarding({ profileId, onComplete }) {
                   </div>
                   <div className="onboarding-field">
                     <label className="onboarding-label">Credits awarded</label>
-                    <select
-                      className="onboarding-select"
-                      value={transferCredits}
-                      onChange={e => setTransferCredits(Number(e.target.value))}
-                    >
-                      {[1,2,3,4,5,6].map(n => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
+                    <p className="onboarding-readonly-value">
+                      {selectedTransferCourse
+                        ? `${selectedTransferCourse.credits} cr (from TTU catalog)`
+                        : 'Pick a course above to see credits.'}
+                    </p>
                   </div>
                   <div className="onboarding-field">
                     <label className="onboarding-label">Note (optional)</label>
