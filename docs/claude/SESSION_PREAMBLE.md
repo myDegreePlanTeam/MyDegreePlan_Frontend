@@ -16,7 +16,10 @@ grid, prereq/coreq checking, drag-and-drop, transfer credits, AP/IB/CLEP/ACT exa
 - `CLAUDE.md` (repo root) — redirects to `docs/claude/`
 - `docs/claude/CLAUDE.md` — project structure, schema, conventions, core principles
 - `docs/claude/ROADMAP.md` — future goals and deferred work
+- `docs/claude/BRANCH_QUEUE.md` — queued, active, and merged branches
 - `docs/claude/BRANCH_*.md` — active branch context (delete before merge)
+- `docs/claude/PROMPT_write-branch-prompt.md` — reusable meta-prompt: paste into a fresh session to generate the next queued branch's `BRANCH_<name>.md` context doc and `PROMPT_<name>.md` kickoff prompt
+- `docs/claude/PROMPT_*.md` — paste-ready kickoff prompts for individual branches
 
 ## Key data sources
 Runtime data lives in Supabase tables, not JSON. JSON files in `MyDegreePlan_Prototype/`
