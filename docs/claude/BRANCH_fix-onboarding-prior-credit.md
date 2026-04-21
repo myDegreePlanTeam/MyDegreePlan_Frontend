@@ -59,7 +59,7 @@ Six commits, one per bug, in the order above:
 5. `fix: prevent duplicate prior_credits on drag-to-transfer (BUG-24)`
 6. `feat: expand prior credit wizard for non-freshman students (BUG-22)`
 
-All existing 169 tests must pass at each commit boundary. New tests added per bug.
+All existing 172 tests must pass at each commit boundary. New tests added per bug.
 
 ---
 
@@ -89,7 +89,7 @@ cd MyDegreePlan_Frontend
 npm run test
 ```
 
-All 169 existing tests must pass. New tests added per bug must also pass. If any existing test fails due to a fix, stop and report — do not modify tests to accommodate new behavior without explicit approval.
+All 172 existing tests must pass. New tests added per bug must also pass. If any existing test fails due to a fix, stop and report — do not modify tests to accommodate new behavior without explicit approval.
 
 ---
 
