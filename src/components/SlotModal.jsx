@@ -118,19 +118,42 @@ export default function SlotModal({
 
   // ── Credit hours accumulated before this semester (positional) ───────
   // Used to determine whether junior/senior standing is met at this slot.
-  // Only earlier semesters count — not the semester the slot itself lives in.
+  // Mirrors computePlanCredits dedup: prior credits first (authoritative,
+  // win over plan slots for the same code), then plan slots in semesters
+  // strictly before the target. planSemesterOverrides is honored on both
+  // sides so drag-moved courses resolve to their current semester.
   const creditsBefore = useMemo(() => {
-    return slots
-      .filter(s => s.semester_number < slot.semester_number)
-      .reduce((sum, s) => {
-        if (s.is_pool) {
-          const code = planSlots[s.id]
-          if (!code) return sum
-          return sum + (courseMap[code]?.credits ?? s.flex_credits ?? 3)
-        }
-        return sum + (courseMap[s.class_code]?.credits ?? 0)
-      }, 0)
-  }, [slots, planSlots, courseMap, slot.semester_number])
+    const targetSem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
+    const seen = new Set()
+    let total = 0
+
+    for (const pc of (priorCredits ?? [])) {
+      if ((pc.credits_awarded ?? 0) <= 0) continue
+      if (!pc.satisfies_course_code) continue
+      if (seen.has(pc.satisfies_course_code)) continue
+      seen.add(pc.satisfies_course_code)
+      total += pc.credits_awarded
+    }
+
+    for (const s of slots) {
+      const sSem = planSemesterOverrides?.[s.id] ?? s.semester_number
+      if (sSem >= targetSem) continue
+      let code, credits
+      if (s.is_pool) {
+        code = planSlots[s.id]
+        if (!code) continue
+        credits = courseMap[code]?.credits ?? s.flex_credits ?? 3
+      } else {
+        code = s.class_code
+        credits = courseMap[code]?.credits ?? 0
+      }
+      if (seen.has(code)) continue
+      seen.add(code)
+      total += credits
+    }
+
+    return total
+  }, [slots, planSlots, courseMap, priorCredits, planSemesterOverrides, slot.id, slot.semester_number])
 
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
