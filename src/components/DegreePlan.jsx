@@ -1320,7 +1320,13 @@ function PriorCreditDraggableRow({ pc, onRemove }) {
         {CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}
       </span>
       <span className="prior-credit-code">{pc.satisfies_course_code ?? '—'}</span>
-      <span className="prior-credit-note">{pc.note ?? ''}</span>
+      {pc.note && (
+        <>
+          <span className="prior-credit-sep" aria-hidden="true">·</span>
+          <span className="prior-credit-note">{pc.note}</span>
+        </>
+      )}
+      <span className="prior-credit-sep" aria-hidden="true">·</span>
       {isPlacement ? (
         <span className="prior-credit-hrs prior-credit-hrs-gate">Gate only</span>
       ) : (

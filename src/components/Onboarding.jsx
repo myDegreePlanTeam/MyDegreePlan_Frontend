@@ -546,25 +546,34 @@ export default function Onboarding({ profileId, onComplete }) {
               </p>
             ) : (
               <ul className="onboarding-pending-list">
-                {pendingRecords.map((rec, i) => (
-                  <li key={i} className="onboarding-pending-row">
-                    <span className="onboarding-pending-code">
-                      {rec.satisfies_course_code ?? '(placement only)'}
-                    </span>
-                    <span className="onboarding-pending-note">{rec.note}</span>
-                    <span className="onboarding-pending-cr">
-                      {rec.credits_awarded ?? 0} cr
-                    </span>
-                    <button
-                      type="button"
-                      className="onboarding-pending-remove"
-                      onClick={() => handleRemovePending(i)}
-                      aria-label={`Remove ${rec.satisfies_course_code ?? 'entry'}`}
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
+                {pendingRecords.map((rec, i) => {
+                  const isPlacement = (rec.credits_awarded ?? 0) === 0
+                  return (
+                    <li key={i} className="onboarding-pending-row">
+                      <span className="onboarding-pending-code">
+                        {rec.satisfies_course_code ?? '(placement only)'}
+                      </span>
+                      {rec.note && (
+                        <>
+                          <span className="onboarding-pending-sep" aria-hidden="true">·</span>
+                          <span className="onboarding-pending-note">{rec.note}</span>
+                        </>
+                      )}
+                      <span className="onboarding-pending-sep" aria-hidden="true">·</span>
+                      <span className="onboarding-pending-cr">
+                        {isPlacement ? 'Gate only' : `${rec.credits_awarded} cr`}
+                      </span>
+                      <button
+                        type="button"
+                        className="onboarding-pending-remove"
+                        onClick={() => handleRemovePending(i)}
+                        aria-label={`Remove ${rec.satisfies_course_code ?? 'entry'}`}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
             )}
 

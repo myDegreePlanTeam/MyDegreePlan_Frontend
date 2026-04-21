@@ -1825,6 +1825,21 @@
   opacity: 0.6;
 }
 
+/* Separator dot between fields in the prior credit row (BUG-29).
+   Visible gap + a dot character so fields never visually concatenate. */
+.prior-credit-sep {
+  color: var(--muted);
+  opacity: 0.5;
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.onboarding-pending-sep {
+  color: var(--muted);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
 .prior-credit-remove {
   background: transparent;
   border: none;
