@@ -325,6 +325,13 @@ export default function Onboarding({ profileId, onComplete }) {
             <div className="onboarding-btn-row">
               <button
                 className="onboarding-btn-secondary"
+                onClick={() => setStep(2)}
+                disabled={loading}
+              >
+                Back
+              </button>
+              <button
+                className="onboarding-btn-secondary"
                 onClick={() => handleComplete([])}
                 disabled={loading}
               >
