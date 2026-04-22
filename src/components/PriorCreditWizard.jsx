@@ -22,12 +22,13 @@ import './Dashboard.css'
 
 // Credit type options presented in Step 1
 const CREDIT_TYPES = [
-  { value: 'ap_credit',       label: 'AP Exam',               hasScore: true  },
-  { value: 'act_credit',      label: 'ACT Score',             hasScore: true  },
-  { value: 'test_out',        label: 'CLEP Exam',             hasScore: true  },
-  { value: 'ib_credit',       label: 'IB Exam',               hasScore: true  },
-  { value: 'cambridge',       label: 'Cambridge International', hasScore: false },
-  { value: 'transfer_credit', label: 'Transfer Credit',       hasScore: false, disabled: true },
+  { value: 'ap_credit',       label: 'AP Exam',                    hasScore: true  },
+  { value: 'act_credit',      label: 'ACT Score',                  hasScore: true  },
+  { value: 'act_placement',   label: 'ACT Placement (no credit)',  hasScore: true  },
+  { value: 'test_out',        label: 'CLEP Exam',                  hasScore: true  },
+  { value: 'ib_credit',       label: 'IB Exam',                    hasScore: true  },
+  { value: 'cambridge',       label: 'Cambridge International',    hasScore: false },
+  { value: 'transfer_credit', label: 'Transfer Credit',            hasScore: false, disabled: true },
 ]
 
 // Human-readable labels for display
