@@ -9,6 +9,8 @@
 
 > **2026-04-24 update:** `fix/onboarding-wizard-overhaul` merged. BUG-4 (concentration-agnostic transfer-credit pool resolution), BUG-8 (`validatePriorCredit` did not enforce `min_score`), BUG-27 (no back button on onboarding step 3), BUG-28 (ACT Math gate inaccessible post-freshman-branch removal), BUG-29 (wizard output string concatenation), and BUG-30 (Prior Coursework panel unsorted) are fixed. BUG-26 received its planned interim fix (transfer-credit option disabled + greyed as "Coming soon"). The full fix for BUG-26 is tracked in `BRANCH_QUEUE.md` under Deferred Data Tasks (`data/transferable-course-database`), so the BUG-26 entry is removed from this list. The freshman/non-freshman onboarding branching was removed as part of the same merge. Entries for the seven fixed bugs are deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-24 update (2):** `fix/slot-modal-prereq-credits` merged. BUG-1 (`SlotModal.annotate` dropped prior credits, catalog, and coreqs from `checkPrereqs`), BUG-2 (`SlotModal.satisfiedCodes` was not restricted to prior semesters), and BUG-5 (`SlotModal.creditsBefore` ignored `priorCredits` and `planSemesterOverrides`) are fixed. Entries deleted below; remaining bug numbering is unchanged. BUG-33 still references "after the BUG-5 fix" — historical pointer, intentional.
+
 ## Bug counts by severity
 
 | Severity | Count |
@@ -18,41 +20,6 @@
 | Medium   | 10 |
 | Low      | 5  |
 | **Total** | **26** |
-
----
-
-### BUG-1: `SlotModal.annotate` calls `checkPrereqs` with only 3 arguments, dropping prior credits, catalog, and coreqs
-
-**Severity:** High
-**File(s):** `src/components/SlotModal.jsx:138`, `src/lib/prereqChecker.js:96-103`
-
-**Description:** `annotate()` calls `checkPrereqs(course.code, prereqMap, satisfiedCodes)` — omitting `priorCredits`, `courseMap`, and `coreqMap`. `prereqChecker.js` declares those parameters with defaults (`[]`, `{}`, `{}`), so the call compiles, but the consequences are:
-- Prior credits that satisfy a prereq are ignored in the modal (e.g. a student with AP Calc AB credit for MATH1910 will still see MATH1920 locked with "Prereqs needed").
-- `classifyPrereq` cannot detect placement/consent courses (empty `courseMap`), so those suppressions do not apply in the modal.
-- Codes that are only coreqs (not prereqs) will falsely appear as missing prereqs.
-
-`DegreePlan.jsx` correctly passes all six arguments elsewhere, so the grid and modal disagree.
-
-**Impact:** Observable wrong output: courses the student can actually take are rendered as locked, and vice versa for consent/placement courses. Students with significant prior credits will be unable to select downstream courses from the pool-slot modal.
-
-**Suspected fix:** Thread `priorCredits`, `courseMap`, and `coreqMap` (or at least `priorCredits` and `courseMap`) through `SlotModal` props from `DegreePlan` and pass them into `checkPrereqs`.
-
-**Confidence:** High
-
----
-
-### BUG-2: `SlotModal.satisfiedCodes` includes pool selections and class_codes from every semester, not just prior ones
-
-**Severity:** High
-**File(s):** `src/components/SlotModal.jsx:85-89`
-
-**Description:** `satisfiedCodes` is built as the union of *every* non-pool `class_code` plus *every* value in `planSlots`. It does not restrict to slots whose `semester_number < slot.semester_number`. `checkPrereqs` contractually uses `completedCodes` (prior semesters only); this modal hands it "ever-planned codes".
-
-**Impact:** A course whose only prereq is scheduled in a *later* semester appears available in the modal when opened for an *earlier* semester. A student could plan a course into Semester 3 whose prereq they have only placed in Semester 5, and the modal will not block the selection. Contradicts the per-semester prereq semantics enforced by `DegreePlan.prereqWarnings`.
-
-**Suspected fix:** Filter `satisfiedCodes` to slots with `semester_number < slot.semester_number` (respecting `planSemesterOverrides`), mirroring the grid's logic.
-
-**Confidence:** High
 
 ---
 
@@ -70,23 +37,6 @@
 The UI badge label fails to render ("Transfer" / "AP" / etc.) even though the slot is archived. This is silent enough that it looks like a rendering bug instead of a data-contract violation.
 
 **Suspected fix:** Pick one canonical skip policy for non-pool Rule 1 and apply it in both functions. Update the `DegreePlan.syncArchivedSlots` comment to match. Factor the shared matching logic into one helper so drift cannot recur.
-
-**Confidence:** High
-
----
-
-### BUG-5: `SlotModal.creditsBefore` ignores `priorCredits` and `planSemesterOverrides`
-
-**Severity:** High
-**File(s):** `src/components/SlotModal.jsx:105-116`
-
-**Description:** `creditsBefore` sums `slots.filter(s => s.semester_number < slot.semester_number)`. It uses the *static* `slot.semester_number` rather than the student's active semester via `planSemesterOverrides`, and it ignores credit-bearing `priorCredits`. Standing thresholds are junior=60 and senior=90.
-
-**Impact:**
-1. A student with substantial prior credits (common for transfers) will see otherwise-accessible senior-standing courses locked with a "Requires senior standing" hint because the modal never counts their transferred hours. Observable wrong output.
-2. A student who drags a course to a later semester than its template position will see standing miscalculated against the original slot positions, not the edited plan.
-
-**Suspected fix:** Include `priorCredits` credit hours in the sum (skipping zero-credit placement rows and deduping by course code, consistent with `computePlanCredits`), and replace `s.semester_number` with `planSemesterOverrides[s.id] ?? s.semester_number`.
 
 **Confidence:** High
 
