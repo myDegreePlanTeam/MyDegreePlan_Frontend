@@ -20,19 +20,48 @@ import { resolveSatisfiesPool } from '../lib/poolResolver'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
 import './Dashboard.css'
 
-// Credit type options presented in Step 1
+// Credit type options presented in Step 1.
+//
+// `value` is the category used for the wizard's own state routing.  It is the
+// DB `credit_type` for single-type categories; for merged categories (e.g.
+// 'act', which surfaces both `act_credit` and `act_placement` exams) the
+// value is a virtual category key and the real DB type is read from the
+// selected exam's `test_type`.
+//
+// `testTypes` — array of `test_equivalencies.test_type` values to query in
+// Step 2. Defaults to `[value]` when omitted. Merged categories list every
+// DB type that should appear in the Step 2 exam list.
 const CREDIT_TYPES = [
-  { value: 'ap_credit',       label: 'AP Exam',                    hasScore: true  },
-  { value: 'act_credit',      label: 'ACT Score',                  hasScore: true  },
-  { value: 'act_placement',   label: 'ACT Placement (no credit)',  hasScore: true  },
-  { value: 'test_out',        label: 'CLEP Exam',                  hasScore: true  },
-  { value: 'ib_credit',       label: 'IB Exam',                    hasScore: true  },
-  { value: 'cambridge',       label: 'Cambridge International',    hasScore: false },
-  { value: 'transfer_credit', label: 'Transfer Credit',            hasScore: false, disabled: true },
+  { value: 'ap_credit',       label: 'AP Exam',                  hasScore: true  },
+  { value: 'act',             label: 'ACT Score',                hasScore: true,
+    testTypes: ['act_credit', 'act_placement'] },
+  { value: 'test_out',        label: 'CLEP Exam',                hasScore: true  },
+  { value: 'ib_credit',       label: 'IB Exam',                  hasScore: true  },
+  { value: 'cambridge',       label: 'Cambridge International',  hasScore: false },
+  { value: 'transfer_credit', label: 'Transfer Credit',          hasScore: false, disabled: true },
 ]
 
-// Human-readable labels for display
-const TYPE_LABELS = Object.fromEntries(CREDIT_TYPES.map(t => [t.value, t.label]))
+// Human-readable labels for display, keyed by both category value and raw
+// DB test_type so notes built off the selected exam's real type still
+// resolve to a friendly label.
+const TYPE_LABELS = {
+  ...Object.fromEntries(CREDIT_TYPES.map(t => [t.value, t.label])),
+  act_credit:    'ACT Score',
+  act_placement: 'ACT Placement',
+}
+
+// Resolve the list of DB test_types backing a given category option.
+function resolveTestTypes(typeConfig, creditType) {
+  if (typeConfig?.testTypes?.length) return typeConfig.testTypes
+  return [creditType]
+}
+
+// Effective DB test_type for downstream queries and inserts. For single-type
+// categories this is just `creditType`. For merged categories the real type
+// comes from whichever exam the student chose in Step 2.
+function effectiveTestType(selectedExam, creditType) {
+  return selectedExam?.test_type ?? creditType
+}
 
 export default function PriorCreditWizard({ onSave, onClose, planSlots, slots }) {
   const [step, setStep]           = useState(1)
@@ -61,31 +90,46 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
   const typeConfig = CREDIT_TYPES.find(t => t.value === creditType)
 
   // ── Step 2: load exam list from test_equivalencies ────────────────
+  //
+  // For merged categories (e.g. ACT, which spans act_credit + act_placement),
+  // we query every test_type backing the category and keep the real test_type
+  // alongside each exam so Step 3/4/apply can use it downstream.
   useEffect(() => {
     if (step !== 2 || !creditType || creditType === 'transfer_credit') return
 
+    const testTypes = resolveTestTypes(typeConfig, creditType)
     setLoadingExams(true)
     supabase
       .from('test_equivalencies')
-      .select('test_name')
-      .eq('test_type', creditType)
+      .select('test_name, test_type')
+      .in('test_type', testTypes)
       .order('test_name', { ascending: true })
       .then(({ data }) => {
-        // Deduplicate test names
-        const names = [...new Set((data ?? []).map(r => r.test_name))]
-        setExamOptions(names)
+        // Deduplicate on (test_name, test_type) so a name that happens to
+        // exist in two merged types (hypothetical today, cheap to guard)
+        // still shows distinct entries.
+        const seen = new Set()
+        const options = []
+        for (const row of data ?? []) {
+          const key = `${row.test_name}|${row.test_type}`
+          if (seen.has(key)) continue
+          seen.add(key)
+          options.push({ test_name: row.test_name, test_type: row.test_type })
+        }
+        setExamOptions(options)
         setLoadingExams(false)
       })
-  }, [step, creditType])
+  }, [step, creditType, typeConfig])
 
   // ── Step 3: load score options for selected exam ──────────────────
   useEffect(() => {
     if (step !== 3 || !creditType || !selectedExam) return
 
+    const dbType = effectiveTestType(selectedExam, creditType)
     supabase
       .from('test_equivalencies')
       .select('min_score, awarded_course_code, credits_awarded, satisfies_pool')
-      .eq('test_type', creditType)
+      .eq('test_type', dbType)
       .eq('test_name', selectedExam.test_name)
       .not('min_score', 'is', null)
       .order('min_score', { ascending: true })
@@ -131,11 +175,14 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
         return
       }
 
-      // Exam-based: query test_equivalencies for this exam + score
+      // Exam-based: query test_equivalencies for this exam + score.
+      // Merged categories (e.g. ACT) use the exam's own test_type, not the
+      // wizard-level category key.
+      const dbType = effectiveTestType(selectedExam, creditType)
       let query = supabase
         .from('test_equivalencies')
         .select('awarded_course_code, credits_awarded, satisfies_pool, min_score, test_type, test_name')
-        .eq('test_type', creditType)
+        .eq('test_type', dbType)
         .eq('test_name', selectedExam.test_name)
 
       // For scored exams with a selected score, filter to rows where min_score <= selectedScore
@@ -204,8 +251,11 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
     setStep(2)
   }
 
-  function handleExamSelect(examName) {
-    setSelectedExam({ test_name: examName })
+  function handleExamSelect(exam) {
+    // `exam` is { test_name, test_type } for exam-based types.  test_type is
+    // required so merged categories (e.g. ACT) can route the rest of the
+    // wizard to the correct DB test_type.
+    setSelectedExam({ test_name: exam.test_name, test_type: exam.test_type })
     setSelectedScore(null)
     if (typeConfig?.hasScore) {
       setStep(3)
@@ -236,10 +286,14 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
     // wizard state by re-validating each scored-exam award against
     // test_equivalencies with the student's selected score. Transfer
     // credits have no score; legacy path (no score) still succeeds.
+    //
+    // Merged categories (e.g. ACT) must validate against the exam's real
+    // DB test_type, not the wizard category key.
+    const dbType = effectiveTestType(selectedExam, creditType)
     if (creditType !== 'transfer_credit' && typeConfig?.hasScore) {
       for (const award of awards) {
         const { valid, error } = validatePriorCredit(
-          creditType,
+          dbType,
           award.awarded_course_code,
           award.credits_awarded,
           equivalencyRows,
@@ -254,7 +308,7 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
       }
     }
 
-    const note = buildNote(creditType, selectedExam, selectedScore)
+    const note = buildNote(dbType, selectedExam, selectedScore)
 
     // Pass all awarded rows as a single array so the parent can batch-insert
     // them atomically and update priorCredits state once.  Calling onSave in
@@ -262,7 +316,9 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
     // priorCredits snapshot, so only the last row survives in React state.
     await onSave(
       awards.map(award => ({
-        credit_type:           creditType,
+        // Persist the concrete DB test_type (e.g. act_credit or act_placement),
+        // never the merged wizard category key.
+        credit_type:           dbType,
         satisfies_course_code: award.awarded_course_code,
         satisfies_pool:        award.satisfies_pool,
         note,
@@ -339,13 +395,13 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
                   Contact your advisor if you believe this is an error.
                 </p>
               )}
-              {examOptions.map(name => (
+              {examOptions.map(exam => (
                 <button
-                  key={name}
+                  key={`${exam.test_name}|${exam.test_type}`}
                   className="wizard-exam-btn"
-                  onClick={() => handleExamSelect(name)}
+                  onClick={() => handleExamSelect(exam)}
                 >
-                  {name}
+                  {exam.test_name}
                 </button>
               ))}
             </div>

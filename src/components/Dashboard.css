@@ -2350,6 +2350,12 @@
 .wizard-body {
   padding: 1.25rem 1.5rem;
   min-height: 160px;
+  /* Claim the remaining vertical space inside .modal-card (which is a
+     flex column, capped at 80vh) and scroll internally when the step's
+     content overflows — matters on short viewports and for Step 4 when
+     an exam awards several courses. */
+  flex: 1 1 auto;
+  overflow-y: auto;
 }
 
 .wizard-type-grid {
@@ -2429,8 +2435,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  max-height: 320px;
-  overflow-y: auto;
+  /* Scrolling is handled by .wizard-body; no inner max-height here so
+     there is a single scroll surface (avoids touch-device nested-scroll
+     conflicts on small screens). */
 }
 
 .wizard-exam-btn,
