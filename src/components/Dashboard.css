@@ -1825,6 +1825,62 @@
   opacity: 0.6;
 }
 
+/* Separator dot between fields in the prior credit row (BUG-29).
+   Visible gap + a dot character so fields never visually concatenate. */
+.prior-credit-sep {
+  color: var(--muted);
+  opacity: 0.5;
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.onboarding-pending-sep {
+  color: var(--muted);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* Grouped prior-coursework sections (BUG-30). Each section has a small
+   header and its own row list so the panel reads as AP / IB / ACT / etc. */
+.prior-credits-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.prior-credits-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.prior-credits-group-header {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.85;
+  padding: 0 0.1rem;
+}
+
+.onboarding-pending-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.onboarding-pending-group-header {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.85;
+  padding: 0 0.1rem;
+  margin-bottom: 0.35rem;
+}
+
 .prior-credit-remove {
   background: transparent;
   border: none;
@@ -2294,6 +2350,12 @@
 .wizard-body {
   padding: 1.25rem 1.5rem;
   min-height: 160px;
+  /* Claim the remaining vertical space inside .modal-card (which is a
+     flex column, capped at 80vh) and scroll internally when the step's
+     content overflows — matters on short viewports and for Step 4 when
+     an exam awards several courses. */
+  flex: 1 1 auto;
+  overflow-y: auto;
 }
 
 .wizard-type-grid {
@@ -2319,13 +2381,63 @@
   background: rgba(201, 168, 76, 0.06);
 }
 
+.wizard-type-btn-disabled,
+.wizard-type-btn-disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.55;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.wizard-type-btn-label {
+  display: inline-block;
+}
+
+.wizard-type-btn-pill {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(201, 168, 76, 0.18);
+  color: var(--gold);
+  vertical-align: middle;
+}
+
+.onboarding-checkbox-row-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.onboarding-checkbox-row-disabled .onboarding-checkbox {
+  cursor: not-allowed;
+}
+
+.onboarding-coming-soon-pill {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(201, 168, 76, 0.18);
+  color: var(--gold);
+  vertical-align: middle;
+}
+
 .wizard-exam-list,
 .wizard-score-list {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  max-height: 320px;
-  overflow-y: auto;
+  /* Scrolling is handled by .wizard-body; no inner max-height here so
+     there is a single scroll surface (avoids touch-device nested-scroll
+     conflicts on small screens). */
 }
 
 .wizard-exam-btn,

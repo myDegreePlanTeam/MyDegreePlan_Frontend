@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-04-21
+> Last updated: 2026-04-24
 
 ---
 
@@ -11,30 +11,13 @@ _None._
 
 ---
 
-## Queued Branches (in order — do not start until fix/slot-modal-prereq-credits is merged)
+## Queued Branches
 
-### fix/onboarding-cleanup
-**Targets:**
-- BUG-26 — Transfer credit search non-functional → interim fix: grey out as "Coming Soon"
-- BUG-27 — No back button on onboarding wizard
-- BUG-28 — ACT Math gate inaccessible post-onboarding
-- BUG-29 — Wizard output string formatting broken
-- BUG-30 — Prior Coursework panel unsorted, no grouping by credit type
-- Product decision: Remove freshman/non-freshman branching; use non-freshman flow universally
-
-**Notes:**
-- BUG-26 interim fix is a disable + label, not a real fix. Real fix deferred post-prototype.
-- BUG-28 and BUG-27 are the most complex items; implement last within this branch.
-- ACT score input should become a universal wizard step (not freshman-gated).
-**Prompt:** Not yet written
-
----
-
-### fix/prereq-display (depends on fix/onboarding-cleanup merged)
+### fix/prereq-display
 **Targets:**
 - BUG-31 — MATH1910 prereq display omits ACT Math 27+ OR gate
 **Notes:**
-- Requires BUG-28 fix (ACT score entry) to be in place first so the fix is testable end-to-end.
+- BUG-28 (universal ACT entry in wizard) has landed via `fix/onboarding-wizard-overhaul`, so this fix is now testable end-to-end.
 - Medium confidence on implementation approach — read `classifyPrereq.js` carefully before planning.
 **Prompt:** Not yet written
 
@@ -149,3 +132,4 @@ _None._
 | `fix/act-wizard-and-equivalencies` | pre-2026-04-21 | ACT credit, unified prior coursework panel, drag-to-transfer, drag-back |
 | `fix/onboarding-prior-credit` | 2026-04-21 | BUG-20, BUG-21, BUG-22, BUG-23, BUG-24, BUG-25 |
 | `fix/slot-modal-prereq-credits` | 2026-04-21 | BUG-1, BUG-2, BUG-5 |
+| `fix/onboarding-wizard-overhaul` | 2026-04-24 | BUG-4, BUG-8, BUG-26 (interim grey-out), BUG-27, BUG-28, BUG-29, BUG-30 + freshman/non-freshman branch removal |

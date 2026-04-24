@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits } from '../lib/transferCredits'
+import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
 import CourseDetailModal from './CourseDetailModal'
@@ -1320,7 +1321,13 @@ function PriorCreditDraggableRow({ pc, onRemove }) {
         {CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}
       </span>
       <span className="prior-credit-code">{pc.satisfies_course_code ?? '—'}</span>
-      <span className="prior-credit-note">{pc.note ?? ''}</span>
+      {pc.note && (
+        <>
+          <span className="prior-credit-sep" aria-hidden="true">·</span>
+          <span className="prior-credit-note">{pc.note}</span>
+        </>
+      )}
+      <span className="prior-credit-sep" aria-hidden="true">·</span>
       {isPlacement ? (
         <span className="prior-credit-hrs prior-credit-hrs-gate">Gate only</span>
       ) : (
@@ -1374,9 +1381,16 @@ function TransferCreditsPanel({ credits, onRemove, onAddClick }) {
               No prior coursework recorded. Drag a filled course here, or use Add Prior Credit.
             </p>
           ) : (
-            <div className="prior-credits-list">
-              {credits.map(pc => (
-                <PriorCreditDraggableRow key={pc.id} pc={pc} onRemove={onRemove} />
+            <div className="prior-credits-groups">
+              {groupAndSortPriorCredits(credits).map(group => (
+                <div key={group.type} className="prior-credits-group">
+                  <div className="prior-credits-group-header">{group.label}</div>
+                  <div className="prior-credits-list">
+                    {group.entries.map(pc => (
+                      <PriorCreditDraggableRow key={pc.id} pc={pc} onRemove={onRemove} />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}

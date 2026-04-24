@@ -7,15 +7,17 @@
 
 > **2026-04-17 update:** The original BUG-1 (HPC declared hours did not match slot total) has been fixed. `csc_hpc.json` Semester 8 now includes a second `GEN_ED` slot, bringing the concentration to 120 hrs, and `migration_tier12.sql` backfills the same slot into the live `requirement_slots` table. Remaining bugs below are renumbered accordingly.
 
+> **2026-04-24 update:** `fix/onboarding-wizard-overhaul` merged. BUG-4 (concentration-agnostic transfer-credit pool resolution), BUG-8 (`validatePriorCredit` did not enforce `min_score`), BUG-27 (no back button on onboarding step 3), BUG-28 (ACT Math gate inaccessible post-freshman-branch removal), BUG-29 (wizard output string concatenation), and BUG-30 (Prior Coursework panel unsorted) are fixed. BUG-26 received its planned interim fix (transfer-credit option disabled + greyed as "Coming soon"). The full fix for BUG-26 is tracked in `BRANCH_QUEUE.md` under Deferred Data Tasks (`data/transferable-course-database`), so the BUG-26 entry is removed from this list. The freshman/non-freshman onboarding branching was removed as part of the same merge. Entries for the seven fixed bugs are deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
-| Critical | 1 |
-| High     | 14 |
-| Medium   | 12 |
-| Low      | 6  |
-| **Total** | **33** |
+| Critical | 1  |
+| High     | 10 |
+| Medium   | 10 |
+| Low      | 5  |
+| **Total** | **26** |
 
 ---
 
@@ -73,33 +75,6 @@ The UI badge label fails to render ("Transfer" / "AP" / etc.) even though the sl
 
 ---
 
-### BUG-4: `PriorCreditWizard` transfer-credit pool resolution is concentration-agnostic and uses arbitrary object-iteration order
-
-**Severity:** High
-**File(s):** `src/components/PriorCreditWizard.jsx:114-120`, `src/lib/poolResolver.js:11-172` (POOL_COURSES)
-
-**Description:** When a transfer-credit award is built, the wizard resolves `satisfies_pool` by iterating `POOL_COURSES` and taking the first pool whose list contains the course:
-```
-for (const [poolCode, codes] of Object.entries(POOL_COURSES)) {
-  if (codes && codes.includes(selectedExam.code)) { satisfiesPool = poolCode; break }
-}
-```
-Multiple pools contain overlapping membership:
-- `CSC2220`, `CSC2570`, `CSC2770` are in both `CSC_LOWER_ELECTIVE` and `CSC_ELECTIVE`.
-- Most 3000/4000-level CSC courses are in both `CSC_UPPER_ELECTIVE` and `CSC_ELECTIVE`, and several also in `CSC_HPC_ELECTIVE`.
-
-Iteration order (insertion order) is: `GEN_ED`, `ENG_LIT`, `SCIENCE`, `COMM_REQ`, `MATH_STATS`, `CSC_LOWER_ELECTIVE`, `CSC_UPPER_ELECTIVE`, `CSC_ELECTIVE`, `CSC_HPC_ELECTIVE`. So:
-- `CSC2220` always resolves to `CSC_LOWER_ELECTIVE`. On the **Cybersecurity** and **Data Science/AI** concentrations there is no `CSC_LOWER_ELECTIVE` slot — the only place `CSC2220` could satisfy is the `CSC_ELECTIVE` pool, but `satisfies_pool='CSC_LOWER_ELECTIVE'` never matches any slot.
-- `CSC4220` always resolves to `CSC_UPPER_ELECTIVE`. On **HPC** and **Cybersecurity** there is no `CSC_UPPER_ELECTIVE` slot.
-
-**Impact:** The prior credit is stored (Rule 3), and its credits are counted, but `resolveTransferCredits` Rule 2 never archives any slot — the student keeps both the prior credit *and* the slot, effectively undercutting their plan by wasted capacity. Transfer-credit entry is quietly concentration-hostile.
-
-**Suspected fix:** Pass the active concentration's slot set into the wizard and pick the pool code that (a) contains the course and (b) actually exists as a slot in the student's plan. Fall back to null only if no plan-resident pool matches.
-
-**Confidence:** High
-
----
-
 ### BUG-5: `SlotModal.creditsBefore` ignores `priorCredits` and `planSemesterOverrides`
 
 **Severity:** High
@@ -144,21 +119,6 @@ Iteration order (insertion order) is: `GEN_ED`, `ENG_LIT`, `SCIENCE`, `COMM_REQ`
 **Suspected fix:** Delete the student's `student_semester_notes` rows in the same transaction as the other three tables, or keyspace notes per-concentration.
 
 **Confidence:** High
-
----
-
-### BUG-8: `validatePriorCredit` does not enforce `min_score` thresholds
-
-**Severity:** Medium
-**File(s):** `src/lib/validatePriorCredit.js:79-106`
-
-**Description:** For scored exam types, the function filters `test_equivalencies` only by `test_type` and `awarded_course_code` — never by `min_score` against the user-supplied score. It then takes `rows[0].credits_awarded` as authoritative. Because the seed enforces a "lowest threshold" cumulative model, this happens to validate credits correctly when credits match. But nothing stops a direct-API caller from inserting a `prior_credit` claiming AP Calculus AB score=2 → MATH1910, 4 cr — the function says "valid."
-
-**Impact:** The documented purpose of this function is "backend safety net … catches direct API calls and any unexpected wizard state." It does catch credit mismatches, but it does not catch score-gate violations. A determined student bypassing the wizard can award themselves credit they did not earn.
-
-**Suspected fix:** Accept the user's score as a parameter; require `row.min_score <= userScore`. Alternatively, require the caller to pass the specific `test_equivalency_id` and look up that row exactly.
-
-**Confidence:** High — the missing guard is explicit in the code.
 
 ---
 
@@ -434,132 +394,6 @@ Iteration order (insertion order) is: `GEN_ED`, `ENG_LIT`, `SCIENCE`, `COMM_REQ`
 > onboarding session review. Identified through live testing of the merged
 > fix/onboarding-prior-credit branch. Severity counts updated: High +3, Medium +3,
 > Low +1, Total +7. New totals: Critical 1, High 13, Medium 11, Low 6, Total 32.
-
----
-
-### BUG-26: Transfer credit catalog search returns no results for valid course codes
-
-**Severity:** High
-**File(s):** `src/components/PriorCreditWizard.jsx` (transfer credit step)
-
-**Description:** The transfer credit step has a working search input and button, but
-searching for a valid catalog course code (e.g. `MATH1910`) returns no results. The
-search is wired but not functional. Root cause not yet traced — likely a Supabase
-query misconfiguration or a mismatch between the field being searched and the catalog
-column name.
-
-**Impact:** Transfer credit entry is completely non-functional for the catalog-bound
-picker introduced in fix/onboarding-prior-credit. No student can enter a transfer
-credit via the wizard.
-
-**Interim fix (prototype):** Disable and visually grey out the transfer credit option
-in the wizard with a "Coming soon" label. Transfer credit entry requires a broader
-transferable-course database that does not yet exist. Do not attempt to fix the search
-logic until that database is in scope.
-
-**Full fix (post-prototype):** Build or import a transferable-course database, wire
-the search correctly against it, and re-enable the option.
-
-**Confidence:** High
-
----
-
-### BUG-27: No back button on onboarding wizard
-
-**Severity:** High
-**File(s):** `src/components/PriorCreditWizard.jsx`, `src/components/Onboarding.jsx`
-
-**Description:** The onboarding wizard has no back navigation. A student who selects
-the wrong option, enters incorrect data, or changes their mind on any step has no
-recovery path short of refreshing and restarting the entire onboarding flow. All
-multi-step forms need back navigation as a baseline UX requirement.
-
-**Impact:** Any misclick or wrong input locks the student into the current path.
-For a freshman encountering the tool for the first time, this is a trust-breaking
-experience.
-
-**Suspected fix:** Add a "Back" button to every wizard step that is not the first.
-Each step should return to the previous step's state, not reset the entire wizard.
-Step state is already managed locally; back navigation is a step index decrement
-plus state preservation.
-
-**Confidence:** High
-
----
-
-### BUG-28: ACT Math placement gate inaccessible after onboarding
-
-**Severity:** High
-**File(s):** `src/components/PriorCreditWizard.jsx`, `src/components/DegreePlan.jsx`
-(Prior Coursework panel add flow)
-
-**Description:** ACT score entry (specifically the ACT Math 27+ placement gate for
-MATH1910) was previously only accessible via the freshman-specific onboarding branch,
-which is being removed per product decision. After removal of the freshman/non-freshman
-split, there is no path for any student to enter ACT scores at all — not during
-onboarding and not from the post-onboarding Prior Coursework panel. The `act_placement`
-and `act_credit` credit types exist in the schema and in `test_equivalencies` but have
-no UI entry point.
-
-**Impact:** Students who placed out of MATH1910 via ACT Math 27+ cannot record that
-placement. MATH1910 will remain on their plan with unsatisfied prereq warnings
-permanently. This affects a significant portion of incoming freshmen.
-
-**Suspected fix:** Add ACT score input as a step in the universal onboarding wizard
-(not gated on freshman status). Validate the score against `test_equivalencies` rows
-with `test_type = 'act_placement'` and `test_type = 'act_credit'`. Also expose ACT
-score entry from the post-onboarding Prior Coursework add flow, consistent with how
-AP/IB entries are accessible post-onboarding.
-
-**Confidence:** High
-
----
-
-### BUG-29: Onboarding wizard output string formatting broken for prior credit entries
-
-**Severity:** Medium
-**File(s):** `src/components/PriorCreditWizard.jsx` (confirmation/summary step)
-
-**Description:** The wizard summary output concatenates strings without spacing or
-visual separation. Example output: `"ENGL2235AP Exam: English Literature and
-Composition, score 33 cr"` — which reads as score 33 with unknown credits, when the
-intended output is course code `ENGL2235`, exam name, score `3+`, and `3 cr`. Course
-code, exam name, score, and credit count are merged into an unreadable single string.
-
-**Impact:** Students cannot verify their wizard entries before confirming. The output
-looks like a data error even when the underlying data is correct, undermining trust in
-the wizard at the final confirmation step.
-
-**Suspected fix:** Apply consistent spacing and visual separation between fields in the
-summary row. Match the visual structure used in the post-onboarding Prior Coursework
-panel (credit type badge, course code, course name, credit count as distinct elements).
-Do not leave the summary as a raw concatenated string.
-
-**Confidence:** High
-
----
-
-### BUG-30: Prior Coursework panel entries are unsorted; no grouping by credit type
-
-**Severity:** Medium
-**File(s):** `src/components/DegreePlan.jsx` (Prior Coursework panel render),
-`src/components/PriorCreditWizard.jsx` (wizard summary step)
-
-**Description:** Entries in the Prior Coursework panel stack in insertion order
-regardless of credit type. A student with AP credits, ACT credits, and transfer
-credits sees them interleaved with no visual grouping. The same issue applies to the
-wizard summary step. Desired behavior: entries grouped and sorted by category (AP,
-IB, ACT, Transfer, CLEP, etc.) with a category header or divider.
-
-**Impact:** A student with more than 4-5 prior credit entries cannot quickly scan to
-verify or find a specific entry. Advisor review is similarly impaired. Becomes worse
-as the number of prior credit entries grows.
-
-**Suspected fix:** Sort `prior_credits` by `credit_type` before rendering in both the
-panel and the wizard summary. Group with a visible category label per type. Order of
-groups: AP → IB → ACT → CLEP → Transfer → Other.
-
-**Confidence:** High
 
 ---
 
