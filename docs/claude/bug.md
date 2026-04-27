@@ -19,49 +19,17 @@
 >
 > Entries deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-27 update:** `fix/transfer-credits-divergence-and-freeadd` merged. BUG-3 (`resolveTransferCredits`/`resolveTransferDetails` Rule 1 divergence) and BUG-6 (`computePlanCredits` did not include `student_free_add_slots`) are fixed. The two resolver functions now share a private `matchPriorCreditsToSlots` helper so they cannot drift again; `computePlanCredits` accepts an optional `freeAddSlots` parameter and dedups across all three sources via a shared `seen` set. Tests grew from 194 → 210 (parity coverage for `resolveTransferDetails`, free-add coverage for `computePlanCredits`). Entries deleted below; remaining bug numbering is unchanged. BUG-34 added in the same pass — see new entry at the bottom of the list.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
-| High     | 4  |
-| Medium   | 10 |
+| High     | 2  |
+| Medium   | 11 |
 | Low      | 5  |
-| **Total** | **19** |
-
----
-
-### BUG-3: `resolveTransferCredits` and `resolveTransferDetails` use different Rule 1 skip logic for non-pool slots
-
-**Severity:** High
-**File(s):** `src/lib/transferCredits.js:73-87` vs `src/lib/transferCredits.js:131-142`, referenced workaround in `src/components/DegreePlan.jsx:830-851`
-
-**Description:** In `resolveTransferCredits`, Rule 1 intentionally does *not* skip when `planSlots[slot.id]` is set (inline comment at line 75-77). In `resolveTransferDetails`, Rule 1 *does* skip at line 133 (`if (planSlots[slot.id]) continue`). The matching logic is supposed to be identical by design (JSDoc at line 113: "Same matching logic"). The inline comment block at `DegreePlan.jsx:832-835` describing the workaround appears to have been written against the `resolveTransferDetails` behavior, not the actual `resolveTransferCredits` behavior.
-
-**Impact:** A non-pool slot whose `planSlots[slot.id]` is populated (e.g. after a semester drag) plus a matching `satisfies_course_code` prior credit will be:
-- archived by `resolveTransferCredits` (the slot shows as transfer-satisfied),
-- absent from `resolveTransferDetails` (no credit-type badge, no `priorCreditId` reference).
-
-The UI badge label fails to render ("Transfer" / "AP" / etc.) even though the slot is archived. This is silent enough that it looks like a rendering bug instead of a data-contract violation.
-
-**Suspected fix:** Pick one canonical skip policy for non-pool Rule 1 and apply it in both functions. Update the `DegreePlan.syncArchivedSlots` comment to match. Factor the shared matching logic into one helper so drift cannot recur.
-
-**Confidence:** High
-
----
-
-### BUG-6: `computePlanCredits` does not include `student_free_add_slots`
-
-**Severity:** High
-**File(s):** `src/lib/transferCredits.js:180-215`
-
-**Description:** `computePlanCredits` iterates `slots` (template-derived `requirement_slots`) and `priorCredits`, but never `student_free_add_slots`. Free-add slots are courses the student added to the plan outside the template; they are first-class plan data.
-
-**Impact:** Total earned credits displayed to the student understate reality by the sum of every free-added course. `CompletionBadge`, Dashboard summaries, and the standing computation (if it ever uses this) are all affected. Dedup contract ("a course code contributes its credit hours exactly once") is also broken in the other direction — a free-added course not in the template is completely omitted.
-
-**Suspected fix:** Add a third pass over `freeAddSlots` after Pass 2, dedup by `course_code` against `seen`, source `'free_add'`. Thread `freeAddSlots` through the hook/component callers.
-
-**Confidence:** High — the omission is straightforward to see in the function body.
+| **Total** | **18** |
 
 ---
 
@@ -377,6 +345,50 @@ with the mark-complete behavior fix (Phase 2, `fix/mark-complete-behavior`) sinc
 that branch will overhaul how completion credits are tracked.
 
 **Confidence:** High
+
+---
+
+### BUG-34: Free-add picker accepts course codes already covered by the plan template or prior credits
+
+**Severity:** Medium
+**File(s):** `src/components/AddCourseModal.jsx`, `src/components/DegreePlan.jsx` (`handleAddCourse`)
+
+**Description:** `AddCourseModal` queries the full `courses` table and lets the
+student pick any code; the parent's `handleAddCourse` inserts straight into
+`student_free_add_slots` without checking whether the same course code already
+appears in the student's existing plan. A student can therefore add a duplicate
+copy of a class that is:
+
+- already a non-pool requirement slot (`requirement_slots.class_code` matches),
+- already the student's selected course in a pool slot (`student_plan_slots.selected_course_code` matches),
+- already a free-added row from a prior add, or
+- already covered by a `prior_credits` row (`satisfies_course_code` matches).
+
+There is no `takenCodes` Set passed into the modal and no validation in the
+`handleAddCourse` insert path. Search results and the confirm button treat every
+catalog row as addable.
+
+**Impact:** Visible duplication in the grid — the same class appears twice (once
+as the original slot/credit, once as the free-added row), each with independent
+status. Drag-and-drop and prereq display behave inconsistently between the two
+copies. Credit totals are *not* inflated thanks to BUG-6's dedup contract
+(`computePlanCredits` counts a course code at most once across `prior_credits`,
+`plan_slots`, and `student_free_add_slots`), but the UI still presents redundant
+work the student does not need to do. Students reading the grid for "what's
+left" see noise rather than a clean to-do list.
+
+**Suspected fix:** Compute the set of taken course codes at the `DegreePlan`
+level — non-pool slot `class_code`s, filled pool slot selections, existing
+free-add `course_code`s, and `prior_credits.satisfies_course_code` — and pass
+it into `AddCourseModal` as a `takenCodes` Set prop. The modal should:
+(a) hide or grey-out search rows whose `code` is in `takenCodes`, with a hint
+explaining why ("Already in your plan" / "Already in Prior Coursework"); and
+(b) refuse selection / disable the Confirm button for those rows. Mirror the
+guard in `handleAddCourse` so a code that slips through (e.g. via stale state)
+is rejected at insert time with a `showSaveError` message. The check should
+match the dedup contract in `computePlanCredits` so the rules stay aligned.
+
+**Confidence:** High — the gap is reproducible end-to-end and the fix is mechanical.
 
 ---
 
