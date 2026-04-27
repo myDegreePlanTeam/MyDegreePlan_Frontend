@@ -244,10 +244,13 @@ Three strict matching rules (Bug 3 fix — do not relax these):
 **`resolveTransferDetails(priorCredits, planSlots, slots)`** → `{ [slotId]: { creditType, priorCreditId } }`
 Same matching logic as `resolveTransferCredits` but returns richer info for UI badge labels.
 
-**`computePlanCredits(planSlots, priorCredits, slots, courses)`** → `{ totalEarned, breakdown }`
+**`computePlanCredits(planSlots, priorCredits, slots, courses, freeAddSlots = [])`** → `{ totalEarned, breakdown }`
 Deduplication rule: a course code contributes its credit hours exactly once regardless of how
-many times it appears across `prior_credits` and `plan_slots`. Prior credits win over plan slots
-for the same course code (two-pass: pass 1 = prior credits, pass 2 = plan slots, skip if seen).
+many times it appears across `prior_credits`, `plan_slots`, and `student_free_add_slots`. Prior
+credits win over plan slots, plan slots win over free-add slots (three-pass: pass 1 = prior
+credits, pass 2 = plan slots, pass 3 = free-add, skip on each subsequent pass if seen).
+`resolveTransferCredits` and `resolveTransferDetails` share a single private matching helper so
+the Rule 1 / Rule 2 logic cannot drift between them (BUG-3).
 
 ### `src/lib/validatePriorCredit.js`
 

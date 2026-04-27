@@ -269,3 +269,108 @@ describe('computePlanCredits — idempotency', () => {
     expect(first.breakdown).toEqual(second.breakdown)
   })
 })
+
+// ── BUG-6: free-add slots are first-class plan data ───────────────────────────
+//
+// Pre-fix: computePlanCredits ignored student_free_add_slots entirely, so a
+// course the student added outside the template never contributed to the
+// total or breakdown.  Callers worked around it by adding free-add credits
+// in a separate loop, which broke dedup if the same code also lived in
+// prior_credits or plan_slots.
+//
+// Post-fix: a third pass over freeAddSlots dedups against the shared `seen`
+// set.  Source 'free_add' carries freeAddId + status so the UI can split
+// completed vs planned without re-querying.
+
+describe('computePlanCredits — free-add slots (BUG-6)', () => {
+  it('counts a free-added course not present elsewhere', () => {
+    const fa = { id: 'fa-1', course_code: 'BIOL1010', status: 'planned' }
+    const { totalEarned, breakdown } = computePlanCredits(
+      {}, [], [], COURSES, [fa]
+    )
+    expect(totalEarned).toBe(4)
+    expect(breakdown).toHaveLength(1)
+    expect(breakdown[0]).toMatchObject({
+      courseCode: 'BIOL1010',
+      credits:    4,
+      source:     'free_add',
+      freeAddId:  'fa-1',
+      status:     'planned',
+    })
+  })
+
+  it('sums free-add credits alongside plan-slot and prior-credit credits', () => {
+    const fa = { id: 'fa-1', course_code: 'BIOL1010', status: 'completed' }
+    const { totalEarned, breakdown } = computePlanCredits(
+      {},
+      [AP_ENGL],            // ENGL1010 via transfer = 3
+      [SLOT_MATH1910],      // MATH1910 via slot     = 4
+      COURSES,
+      [fa],                 // BIOL1010 via free-add = 4
+    )
+    expect(totalEarned).toBe(11)
+    expect(breakdown.map(b => b.source).sort()).toEqual(['free_add', 'slot', 'transfer'])
+  })
+
+  it('skips a free-added course that is already accounted for via prior credit', () => {
+    // Student has AP_ENGL (ENGL1010, 3cr) AND a free-add row for ENGL1010.
+    // The dedup contract guarantees the credits are counted exactly once,
+    // and prior credits win — so the free-add row contributes nothing here.
+    const dupFa = { id: 'fa-dup', course_code: 'ENGL1010', status: 'completed' }
+    const { totalEarned, breakdown } = computePlanCredits(
+      {}, [AP_ENGL], [], COURSES, [dupFa]
+    )
+    expect(totalEarned).toBe(3)
+    expect(breakdown).toHaveLength(1)
+    expect(breakdown[0].source).toBe('transfer')
+  })
+
+  it('skips a free-added course that is already a non-pool plan slot', () => {
+    // Pass 2 (plan slot) wins over Pass 3 (free-add) for the same course.
+    const dupFa = { id: 'fa-dup', course_code: 'CSC1300', status: 'planned' }
+    const { totalEarned, breakdown } = computePlanCredits(
+      {}, [], [SLOT_CSC1300], COURSES, [dupFa]
+    )
+    expect(totalEarned).toBe(3)
+    expect(breakdown).toHaveLength(1)
+    expect(breakdown[0].source).toBe('slot')
+  })
+
+  it('handles empty / undefined freeAddSlots without throwing', () => {
+    expect(() => computePlanCredits({}, [], [], COURSES, [])).not.toThrow()
+    expect(() => computePlanCredits({}, [], [], COURSES, undefined)).not.toThrow()
+    expect(() => computePlanCredits({}, [], [], COURSES)).not.toThrow()
+  })
+
+  it('skips free-add rows missing a course_code', () => {
+    const garbage = { id: 'fa-bad', course_code: null, status: 'planned' }
+    const { totalEarned, breakdown } = computePlanCredits(
+      {}, [], [], COURSES, [garbage]
+    )
+    expect(totalEarned).toBe(0)
+    expect(breakdown).toEqual([])
+  })
+
+  it('uses 0 credits when the catalog has no entry for a free-add course code', () => {
+    const fa = { id: 'fa-1', course_code: 'UNKNOWN1000', status: 'planned' }
+    const { totalEarned, breakdown } = computePlanCredits(
+      {}, [], [], {}, [fa]
+    )
+    expect(totalEarned).toBe(0)
+    expect(breakdown).toHaveLength(1)
+    expect(breakdown[0]).toMatchObject({ courseCode: 'UNKNOWN1000', credits: 0 })
+  })
+
+  it('preserves prior-credits-win-over-plan-slots ordering when free-add is present', () => {
+    // ENGL1010 in all three sources.  Prior credit wins.
+    const planSlots = { 99: 'ENGL1010' }
+    const poolSlot  = { id: 99, class_code: 'GEN_ED', is_pool: true, flex_credits: 3 }
+    const fa        = { id: 'fa-dup', course_code: 'ENGL1010', status: 'completed' }
+    const { totalEarned, breakdown } = computePlanCredits(
+      planSlots, [AP_ENGL], [poolSlot], COURSES, [fa]
+    )
+    expect(totalEarned).toBe(3)
+    expect(breakdown).toHaveLength(1)
+    expect(breakdown[0].source).toBe('transfer')
+  })
+})
