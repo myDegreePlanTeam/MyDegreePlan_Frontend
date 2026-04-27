@@ -11,15 +11,23 @@
 
 > **2026-04-24 update (2):** `fix/slot-modal-prereq-credits` merged. BUG-1 (`SlotModal.annotate` dropped prior credits, catalog, and coreqs from `checkPrereqs`), BUG-2 (`SlotModal.satisfiedCodes` was not restricted to prior semesters), and BUG-5 (`SlotModal.creditsBefore` ignored `priorCredits` and `planSemesterOverrides`) are fixed. Entries deleted below; remaining bug numbering is unchanged. BUG-33 still references "after the BUG-5 fix" — historical pointer, intentional.
 
+> **2026-04-24 update (3):** Audit reconciliation — BUG-20, BUG-21, BUG-23, and BUG-24 were implemented in prior branches but never deleted from this document. Verified against `main`:
+> - **BUG-20** (transfer-credit course-code validation): fixed in `src/lib/validatePriorCredit.js` Rule 3 (rejects course codes absent from the catalog); the wizard's transfer-credit option is also disabled ("Coming soon") per the 2026-04-24 BUG-26 interim.
+> - **BUG-21** (user-editable credits field for transfer entries): no longer applicable — the wizard auto-populates `credits_awarded` from the catalog at `PriorCreditWizard.jsx` Step 4 and Step 2 results are read-only; transfer option is also disabled.
+> - **BUG-23** (AP/placement credits don't archive slots on first load): fixed by the one-shot sync effect in `DegreePlan.jsx` keyed on `[loading, slots, priorCredits, planArchived]`, explicitly labelled "BUG-23" inline.
+> - **BUG-24** (drag-to-Prior-Coursework duplicates prior-credit rows): fixed by the dedup guards in `DegreePlan.jsx` `handleDragEnd` for both `requirement_slot` and `free_add` drag sources, explicitly labelled "BUG-24" inline.
+>
+> Entries deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
-| Critical | 1  |
-| High     | 10 |
+| Critical | 0  |
+| High     | 4  |
 | Medium   | 10 |
 | Low      | 5  |
-| **Total** | **26** |
+| **Total** | **19** |
 
 ---
 
@@ -250,36 +258,6 @@ The UI badge label fails to render ("Transfer" / "AP" / etc.) even though the sl
 
 ---
 
-### BUG-20: Prior credit wizard accepts freeform transfer course codes with no validation
-
-**Severity:** Critical
-**File(s):** `src/components/PriorCreditWizard.jsx` (transfer credit step), `src/lib/validatePriorCredit.js`
-
-**Description:** The "Transfer credit for a specific course" option in the wizard allows a student to type any arbitrary string as a course code (e.g. "Jimmy") with no validation against the course catalog. `validatePriorCredit` caps transfer credits at catalog hours or 6 if the course is not found — but it does not reject a course code that does not exist in the catalog at all. A nonsense course code passes validation and is inserted into `prior_credits` as a real record. Credits awarded by this record are counted toward the student's total degree hours.
-
-**Impact:** Data corruption at onboarding. A student can award themselves arbitrary credits for nonexistent courses. Credit totals are inflated. Any downstream logic reading `prior_credits` (slot archiving, `computePlanCredits`, `CompletionBadge`) operates on fabricated data. This is the highest-risk bug in the onboarding flow because it happens at the point of first use and silently corrupts the plan.
-
-**Suspected fix:** Validate `satisfies_course_code` against the live course catalog in `validatePriorCredit` for `transfer_credit` type — reject if the code does not exist in `courseCatalog`. Surface a clear error in the wizard ("We don't recognize that course code. Please check the TTU catalog or contact your advisor."). Replace free-text course code entry with a searchable dropdown bound to the catalog.
-
-**Confidence:** High
-
----
-
-### BUG-21: Transfer credit wizard allows user-editable credits field; credits should be read from catalog
-
-**Severity:** High
-**File(s):** `src/components/PriorCreditWizard.jsx` (transfer credit step)
-
-**Description:** The wizard presents a free-entry credits field for transfer credit entries. Students should not be able to self-report credit hours — the app should look up the course in the catalog and display the hours as read-only. This is already the documented principle for scored exam types (`credits_awarded` is always read from `test_equivalencies`, never user-editable per `CLAUDE.md`). Transfer credits are inconsistently exempt from this rule.
-
-**Impact:** Students can input inflated or incorrect credit values for real courses. A student transferring MATH1910 (4 cr) could enter 6 credits and the record is inserted without rejection. Combined with BUG-20, the wizard has no floor on credit integrity for transfer entries.
-
-**Suspected fix:** On course code selection (once BUG-20 is fixed with a catalog-bound picker), auto-populate `credits_awarded` from `courses.credits` and render it as read-only. For courses genuinely not in the catalog (rare edge case for non-TTU transfer equivalencies), flag for advisor review rather than allowing student self-entry.
-
-**Confidence:** High
-
----
-
 ### BUG-22: Prior credit wizard is scoped to Semester 1 placement-adjacent credits only; full prior coursework onboarding is not supported
 
 **Severity:** High
@@ -290,36 +268,6 @@ The UI badge label fails to render ("Transfer" / "AP" / etc.) even though the sl
 **Impact:** The primary onboarding promise — "the app loads a plan tailored to where you are" — fails entirely for any student who is not a first-time freshman with zero prior credits. Transfer students see a full 8-semester plan with no prior credits applied and must manually reconstruct their history before the plan becomes useful. This is the exact friction the wizard is meant to eliminate.
 
 **Suspected fix:** Expand the wizard to cover all `credit_type` values across all semesters. Add a branching question at onboarding: "Are you a first-time freshman?" → Yes: current AP/ACT flow. No: full prior coursework entry flow covering transfer credits, dual enrollment, CLEP, and completed TTU courses by semester. Mandatory for the prototype to serve non-freshman users.
-
-**Confidence:** High
-
----
-
-### BUG-23: AP/placement credits entered at onboarding tag courses in semesters but do not remove them from the grid
-
-**Severity:** High
-**File(s):** `src/components/DegreePlan.jsx` (`syncArchivedSlots`), `src/lib/transferCredits.js` (`resolveTransferCredits`)
-
-**Description:** When a student enters an AP or placement credit during onboarding, the credit is recorded in `prior_credits` and tagged on the relevant semester slot — but the slot is not archived and removed from the grid. The course remains visible as a requirement the student still needs to complete, despite having credit for it. The slot archiving logic in `syncArchivedSlots` / `resolveTransferCredits` is either not called at onboarding completion or fails silently for these entries.
-
-**Impact:** Observable wrong output on first plan load. A freshman who entered AP Calculus AB credit during onboarding will see MATH1910 still present in Semester 1 or 2 as an unfilled requirement. The plan does not reflect the student's actual starting position, directly undermining the core product promise.
-
-**Suspected fix:** Ensure `syncArchivedSlots` is called (or equivalent resolution logic runs) immediately after `handleAddPriorCredit` completes for each wizard entry. Verify that AP/placement credit types are processed by `resolveTransferCredits` Rule 1. Add an integration test: wizard entry of AP Calc AB → MATH1910 slot is archived on plan load.
-
-**Confidence:** High
-
----
-
-### BUG-24: Dragging a prior-credit-covered course to the Prior Coursework panel duplicates the record
-
-**Severity:** High
-**File(s):** `src/components/DegreePlan.jsx` (drag-to-transfer handler)
-
-**Description:** When a student drags a course slot that is already covered by a prior credit (e.g. MATH1910 covered by AP Calc AB entered at onboarding) onto the Prior Coursework panel, the drag handler creates a second `prior_credits` record for the same course. The original wizard-entered record is not detected or deduplicated. The result is two `prior_credits` rows for the same course, both counted by `computePlanCredits`, inflating total credits by the course's credit hours.
-
-**Impact:** Silent credit inflation on a action a student would naturally take. Slot archiving may behave unpredictably with two competing records pointing at the same slot. The dedup logic in `computePlanCredits` (course code seen-set) may mask the symptom in credit totals while leaving duplicate rows in the database.
-
-**Suspected fix:** Before creating a drag-to-transfer `prior_credits` record, check whether a record with the same `satisfies_course_code` already exists for this student. If it does, block the drag with a message ("This course is already in your Prior Coursework") or silently no-op. Do not insert a duplicate.
 
 **Confidence:** High
 
