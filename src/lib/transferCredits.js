@@ -11,11 +11,11 @@
 //     → { [slotId]: { creditType, priorCreditId } }
 //     Same matching logic but returns richer info for UI badge labels.
 //
-//   computePlanCredits(planSlots, priorCredits, slots, courses)
+//   computePlanCredits(planSlots, priorCredits, slots, courses, freeAddSlots)
 //     → { totalEarned, breakdown }
-//     Deduplicates credit hours across prior_credits and plan_slots so the
-//     same course code is never counted twice.  Prior credits win if a code
-//     appears in both tables.
+//     Deduplicates credit hours across prior_credits, plan_slots, and
+//     student_free_add_slots so the same course code is never counted twice.
+//     Prior credits win if a code appears in multiple sources.
 //
 // ── Matching rules (Bug 3 fix — strict Rule 1 / Rule 2 / Rule 3)
 //
@@ -49,6 +49,71 @@ const SATISFIABLE_POOLS = new Set([
   'CSC_ELECTIVE', 'CSC_HPC_ELECTIVE', 'FREE_ELECTIVE',
 ])
 
+// ── matchPriorCreditsToSlots (private) ────────────────────────────────────────
+//
+// Single source of truth for the Rule 1 / Rule 2 matching used by both
+// resolveTransferCredits and resolveTransferDetails.  Centralising the logic
+// here prevents the two functions from drifting (BUG-3).
+//
+// Returns an array of { slotId, priorCredit } pairs in stable Rule 1 → Rule 2
+// order, preserving the "first match wins" + "one credit at most one slot"
+// invariants via a shared usedPriorCreditIds set.
+//
+// IMPORTANT — Rule 1 does NOT skip when planSlots[slot.id] is set.
+// For non-pool slots class_code is fixed by the template, so any value in
+// planSlots[slot.id] is a side-effect of semester drags or prior archiving
+// (the slot's class_code re-stored).  It does not represent a different
+// student selection that would block transfer satisfaction.
+//
+// @param {Array}  priorCredits
+// @param {Object} planSlots         { [slotId]: selectedCourseCode }
+// @param {Array}  slots             requirement_slots rows
+// @returns {Array<{ slotId, priorCredit }>}
+function matchPriorCreditsToSlots(priorCredits, planSlots, slots) {
+  const creditBearing = (priorCredits ?? []).filter(
+    pc => (pc.credits_awarded ?? 0) > 0
+  )
+  if (creditBearing.length === 0) return []
+
+  const matches = []
+  const usedPriorCreditIds = new Set()
+  const slotList           = slots ?? []
+  const planSlotsMap       = planSlots ?? {}
+
+  // Rule 1: non-pool exact match.  Do NOT skip on planSlots[slot.id].
+  for (const slot of slotList) {
+    if (slot.is_pool) continue
+
+    const match = creditBearing.find(
+      pc => pc.satisfies_course_code === slot.class_code &&
+            !usedPriorCreditIds.has(pc.id)
+    )
+    if (match) {
+      matches.push({ slotId: slot.id, priorCredit: match })
+      usedPriorCreditIds.add(match.id)
+    }
+  }
+
+  // Rule 2: pool slots — explicit satisfies_pool only; skip when the student
+  // has actively selected a course for the slot (planSlots[slot.id] truthy).
+  for (const slot of slotList) {
+    if (!slot.is_pool) continue
+    if (!SATISFIABLE_POOLS.has(slot.class_code)) continue
+    if (planSlotsMap[slot.id]) continue
+
+    const match = creditBearing.find(
+      pc => pc.satisfies_pool === slot.class_code &&
+            !usedPriorCreditIds.has(pc.id)
+    )
+    if (match) {
+      matches.push({ slotId: slot.id, priorCredit: match })
+      usedPriorCreditIds.add(match.id)
+    }
+  }
+
+  return matches
+}
+
 // ── resolveTransferCredits ────────────────────────────────────────────────────
 
 /**
@@ -58,52 +123,10 @@ const SATISFIABLE_POOLS = new Set([
  * @returns {Object}             – { [slotId]: true } for every transfer-satisfied slot
  */
 export function resolveTransferCredits(priorCredits, planSlots, slots) {
-  const creditBearing = (priorCredits ?? []).filter(
-    pc => (pc.credits_awarded ?? 0) > 0
-  )
-  if (creditBearing.length === 0) return {}
-
   const transferFilled = {}
-
-  // ── Rule 1: exact required-slot match ─────────────────────────────
-  // A prior credit with satisfies_course_code = 'X' archives only the
-  // non-pool slot whose class_code = 'X'.  No pool fallthrough ever.
-  const usedPriorCreditIds = new Set()
-
-  for (const slot of slots) {
-    if (slot.is_pool) continue                        // Rule 1: never pool
-    // Note: planSlots[slot.id] for non-pool slots is just the fixed class_code stored
-    // as a side-effect of semester drags or prior archiving — it does not mean the
-    // student "filled" the slot with a different course.  Do not skip here.
-
-    const match = creditBearing.find(
-      pc => pc.satisfies_course_code === slot.class_code &&
-            !usedPriorCreditIds.has(pc.id)
-    )
-    if (match) {
-      transferFilled[slot.id] = true
-      usedPriorCreditIds.add(match.id)
-    }
+  for (const { slotId } of matchPriorCreditsToSlots(priorCredits, planSlots, slots)) {
+    transferFilled[slotId] = true
   }
-
-  // ── Rule 2: explicit pool match via satisfies_pool ─────────────────
-  // A pool slot is archived only when a prior credit's satisfies_pool
-  // equals the slot's class_code.  No automatic fallthrough.
-  for (const slot of slots) {
-    if (!slot.is_pool) continue
-    if (!SATISFIABLE_POOLS.has(slot.class_code)) continue
-    if (planSlots[slot.id]) continue                  // student already selected here
-
-    const match = creditBearing.find(
-      pc => pc.satisfies_pool === slot.class_code &&
-            !usedPriorCreditIds.has(pc.id)
-    )
-    if (match) {
-      transferFilled[slot.id] = true
-      usedPriorCreditIds.add(match.id)
-    }
-  }
-
   return transferFilled
 }
 
@@ -113,49 +136,22 @@ export function resolveTransferCredits(priorCredits, planSlots, slots) {
  * Same matching logic as resolveTransferCredits but returns richer info so
  * the UI can display the correct badge label ("AP", "Transfer", etc.).
  *
+ * Implemented atop the same private helper as resolveTransferCredits so the
+ * two functions cannot drift (BUG-3).
+ *
  * @param {Array}  priorCredits
  * @param {Object} planSlots
  * @param {Array}  slots
  * @returns {Object} – { [slotId]: { creditType: string, priorCreditId: string } }
  */
 export function resolveTransferDetails(priorCredits, planSlots, slots) {
-  const creditBearing = (priorCredits ?? []).filter(
-    pc => (pc.credits_awarded ?? 0) > 0
-  )
-  if (creditBearing.length === 0) return {}
-
   const details = {}
-  const usedPriorCreditIds = new Set()
-
-  // Rule 1: non-pool exact match
-  for (const slot of slots) {
-    if (slot.is_pool) continue
-    if (planSlots[slot.id]) continue
-    const match = creditBearing.find(
-      pc => pc.satisfies_course_code === slot.class_code &&
-            !usedPriorCreditIds.has(pc.id)
-    )
-    if (match) {
-      details[slot.id] = { creditType: match.credit_type, priorCreditId: match.id }
-      usedPriorCreditIds.add(match.id)
+  for (const { slotId, priorCredit } of matchPriorCreditsToSlots(priorCredits, planSlots, slots)) {
+    details[slotId] = {
+      creditType:    priorCredit.credit_type,
+      priorCreditId: priorCredit.id,
     }
   }
-
-  // Rule 2: explicit pool match
-  for (const slot of slots) {
-    if (!slot.is_pool) continue
-    if (!SATISFIABLE_POOLS.has(slot.class_code)) continue
-    if (planSlots[slot.id]) continue
-    const match = creditBearing.find(
-      pc => pc.satisfies_pool === slot.class_code &&
-            !usedPriorCreditIds.has(pc.id)
-    )
-    if (match) {
-      details[slot.id] = { creditType: match.credit_type, priorCreditId: match.id }
-      usedPriorCreditIds.add(match.id)
-    }
-  }
-
   return details
 }
 
@@ -165,32 +161,47 @@ export function resolveTransferDetails(priorCredits, planSlots, slots) {
  * Computes total credited hours without double-counting.
  *
  * Rule: A course code may contribute its credit hours ONCE to the plan total,
- * regardless of how many times it appears across prior_credits and plan_slots.
- * Prior-credit entries win over plan_slot entries for the same course code —
- * the external credit is the authoritative record.
+ * regardless of how many times it appears across prior_credits, plan_slots,
+ * and student_free_add_slots.  Prior-credit entries win over plan_slot and
+ * free-add entries for the same course code — the external credit is the
+ * authoritative record.
+ *
+ * Pass order:
+ *   1. prior credits           (source = 'transfer')
+ *   2. plan slots              (source = 'slot')
+ *   3. free-add slots          (source = 'free_add')
+ *
+ * Each subsequent pass skips course codes already accounted for in earlier
+ * passes via a shared `seen` Set.
  *
  * @param {Object} planSlots     – { [slotId]: selectedCourseCode }
  * @param {Array}  priorCredits  – prior_credits rows
  * @param {Array}  slots         – requirement_slots rows
  * @param {Object} courses       – { [courseCode]: { credits, ... } }
+ * @param {Array}  freeAddSlots  – student_free_add_slots rows (optional)
  * @returns {{ totalEarned: number, breakdown: Array }}
- *   breakdown item: { courseCode, credits, source: 'slot'|'transfer', slotId? }
- *   slotId is included for source='slot' items so callers can look up status.
+ *   breakdown item shapes:
+ *     { courseCode, credits, source: 'transfer', priorCreditId? }
+ *     { courseCode, credits, source: 'slot',     slotId }
+ *     { courseCode, credits, source: 'free_add', freeAddId, status }
+ *   slotId / freeAddId / status are included so callers can resolve completion
+ *   state (planStatuses for slots, fa.status for free-add rows).
  */
-export function computePlanCredits(planSlots, priorCredits, slots, courses) {
+export function computePlanCredits(planSlots, priorCredits, slots, courses, freeAddSlots = []) {
   const seen = new Set()
   const breakdown = []
 
-  // Pass 1: prior credits (source = 'transfer') — win over plan slots
+  // Pass 1: prior credits (source = 'transfer') — win over plan slots and free-add
   for (const pc of (priorCredits ?? [])) {
     if ((pc.credits_awarded ?? 0) <= 0) continue
     if (!pc.satisfies_course_code) continue
     if (seen.has(pc.satisfies_course_code)) continue
     seen.add(pc.satisfies_course_code)
     breakdown.push({
-      courseCode: pc.satisfies_course_code,
-      credits:    pc.credits_awarded,
-      source:     'transfer',
+      courseCode:    pc.satisfies_course_code,
+      credits:       pc.credits_awarded,
+      source:        'transfer',
+      priorCreditId: pc.id,
     })
   }
 
@@ -208,6 +219,24 @@ export function computePlanCredits(planSlots, priorCredits, slots, courses) {
     if (seen.has(code)) continue                        // already counted via prior credit
     seen.add(code)
     breakdown.push({ courseCode: code, credits, source: 'slot', slotId: slot.id })
+  }
+
+  // Pass 3: student_free_add_slots (source = 'free_add') — first-class plan
+  // data the student added outside the template.  Dedup against prior credits
+  // and plan slots so a course code never contributes its credits twice (BUG-6).
+  for (const fa of (freeAddSlots ?? [])) {
+    const code = fa?.course_code
+    if (!code) continue
+    if (seen.has(code)) continue
+    const credits = (courses ?? {})[code]?.credits ?? 0
+    seen.add(code)
+    breakdown.push({
+      courseCode: code,
+      credits,
+      source:     'free_add',
+      freeAddId:  fa.id,
+      status:     fa.status,
+    })
   }
 
   const totalEarned = breakdown.reduce((sum, b) => sum + b.credits, 0)

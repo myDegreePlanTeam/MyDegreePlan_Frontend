@@ -14,7 +14,7 @@
 //   { [slotId]: true } for every slot that a prior credit satisfies.
 
 import { describe, it, expect } from 'vitest'
-import { resolveTransferCredits } from '../lib/transferCredits'
+import { resolveTransferCredits, resolveTransferDetails } from '../lib/transferCredits'
 
 // ── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -427,5 +427,87 @@ describe('resolveTransferCredits — BUG-24 duplicate prior credit resilience', 
     expect(result[SLOT_MATH1910.id]).toBe(true)
     expect(result[SLOT_ENGL1010.id]).toBeUndefined()
     expect(result[SLOT_CSC1300.id]).toBeUndefined()
+  })
+})
+
+// ── BUG-3: resolveTransferDetails parity with resolveTransferCredits ──────────
+//
+// The two functions used to drift on Rule 1: resolveTransferCredits did NOT
+// skip when planSlots[slot.id] was set, but resolveTransferDetails DID skip.
+// That divergence caused archived non-pool slots to render without a
+// credit-type badge whenever a semester drag had populated planSlots.
+//
+// Both now share a single matchPriorCreditsToSlots helper.  These tests
+// pin the parity invariant in place so the two functions cannot drift again.
+
+describe('resolveTransferDetails — Rule 1 parity with resolveTransferCredits', () => {
+  it('returns badge details for non-pool slots that resolveTransferCredits archives', () => {
+    const filled  = resolveTransferCredits([AP_ENGL], {}, [SLOT_ENGL1010])
+    const details = resolveTransferDetails([AP_ENGL], {}, [SLOT_ENGL1010])
+    expect(filled[SLOT_ENGL1010.id]).toBe(true)
+    expect(details[SLOT_ENGL1010.id]).toEqual({
+      creditType:    'ap_credit',
+      priorCreditId: AP_ENGL.id,
+    })
+  })
+
+  it('returns badge details even when planSlots already has a non-pool entry (BUG-3 regression)', () => {
+    // Pre-fix: details was empty for this case, so the UI showed an archived
+    // slot with no badge.  Post-fix: details and filled agree.
+    const planSlots = { [SLOT_ENGL1010.id]: 'ENGL1010' }
+    const filled    = resolveTransferCredits([AP_ENGL], planSlots, [SLOT_ENGL1010])
+    const details   = resolveTransferDetails([AP_ENGL], planSlots, [SLOT_ENGL1010])
+    expect(filled[SLOT_ENGL1010.id]).toBe(true)
+    expect(details[SLOT_ENGL1010.id]?.creditType).toBe('ap_credit')
+    expect(details[SLOT_ENGL1010.id]?.priorCreditId).toBe(AP_ENGL.id)
+  })
+
+  it('agrees with resolveTransferCredits on slot-id keys for mixed inputs', () => {
+    const filled = resolveTransferCredits(
+      [AP_ENGL, HIST_TRANSFER_GEN_ED],
+      {},
+      [SLOT_ENGL1010, SLOT_GENED_1, SLOT_MATH1910]
+    )
+    const details = resolveTransferDetails(
+      [AP_ENGL, HIST_TRANSFER_GEN_ED],
+      {},
+      [SLOT_ENGL1010, SLOT_GENED_1, SLOT_MATH1910]
+    )
+    expect(Object.keys(details).sort()).toEqual(Object.keys(filled).sort())
+  })
+})
+
+describe('resolveTransferDetails — Rule 2 parity', () => {
+  it('skips pool slots the student has already selected, matching resolveTransferCredits', () => {
+    const planSlots = { [SLOT_GENED_1.id]: 'HIST2010' }
+    const filled    = resolveTransferCredits([HIST_TRANSFER_GEN_ED], planSlots, [SLOT_GENED_1])
+    const details   = resolveTransferDetails([HIST_TRANSFER_GEN_ED], planSlots, [SLOT_GENED_1])
+    expect(filled[SLOT_GENED_1.id]).toBeUndefined()
+    expect(details[SLOT_GENED_1.id]).toBeUndefined()
+  })
+
+  it('returns badge details for pool slots when satisfies_pool matches and slot is unfilled', () => {
+    const filled  = resolveTransferCredits([HIST_TRANSFER_GEN_ED], {}, [SLOT_GENED_1])
+    const details = resolveTransferDetails([HIST_TRANSFER_GEN_ED], {}, [SLOT_GENED_1])
+    expect(filled[SLOT_GENED_1.id]).toBe(true)
+    expect(details[SLOT_GENED_1.id]).toEqual({
+      creditType:    'transfer_credit',
+      priorCreditId: HIST_TRANSFER_GEN_ED.id,
+    })
+  })
+})
+
+describe('resolveTransferDetails — empty / placement-only inputs', () => {
+  it('returns empty object when priorCredits is empty', () => {
+    expect(resolveTransferDetails([], {}, [SLOT_ENGL1010])).toEqual({})
+  })
+
+  it('returns empty object when priorCredits is null/undefined', () => {
+    expect(resolveTransferDetails(null,      {}, [SLOT_ENGL1010])).toEqual({})
+    expect(resolveTransferDetails(undefined, {}, [SLOT_ENGL1010])).toEqual({})
+  })
+
+  it('ignores placement-only credits (credits_awarded === 0)', () => {
+    expect(resolveTransferDetails([PLACEMENT_ONLY], {}, [SLOT_ENGL1010])).toEqual({})
   })
 })

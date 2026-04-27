@@ -358,8 +358,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
   )
 
   // ── Credit totals ─────────────────────────────────────────────────
+  // computePlanCredits dedups across prior_credits, plan_slots, and
+  // free-add slots — a course code contributes once, with prior credits
+  // winning over plan slots and plan slots winning over free-add (BUG-6).
   const creditTotals = useMemo(() => {
-    const { breakdown } = computePlanCredits(planSlots, priorCredits, slots, courses)
+    const { breakdown } = computePlanCredits(
+      planSlots, priorCredits, slots, courses, freeAddSlots
+    )
 
     let completed = 0
     let planned   = 0
@@ -367,6 +372,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
     for (const item of breakdown) {
       if (item.source === 'transfer') {
         completed += item.credits
+      } else if (item.source === 'free_add') {
+        if (item.status === 'completed') completed += item.credits
+        else                             planned   += item.credits
       } else {
         const status = item.slotId != null
           ? (planStatuses[item.slotId] ?? 'planned')
@@ -374,12 +382,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
         if (status === 'completed') completed += item.credits
         else                        planned   += item.credits
       }
-    }
-
-    for (const fa of freeAddSlots) {
-      const credits = courses[fa.course_code]?.credits ?? 0
-      if (fa.status === 'completed') completed += credits
-      else                           planned   += credits
     }
 
     return { completed, planned }
@@ -854,10 +856,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
           credits_awarded:       creditsAwarded,
         })
 
-        // Explicitly archive the source slot.  syncArchivedSlots (called inside
-        // handleAddPriorCredit) may miss it due to a stale planSlots closure
-        // (Rule 1 skips when planSlots[slot.id] is set; Rule 2 skips pool slots
-        // with a selection).  This upsert is idempotent if sync already ran.
+        // Explicitly archive the source slot.  Rule 1 (non-pool) does NOT skip
+        // on planSlots[slot.id] — it would catch this drag — but Rule 2 (pool)
+        // intentionally skips when planSlots[slot.id] is set, so for pool drags
+        // syncArchivedSlots cannot archive without unsetting the selection
+        // first.  This upsert covers both branches and is idempotent if the
+        // resolver already produced the same archive state.
         const { error: archErr } = await supabase.from('student_plan_slots').upsert({
           student_id:           profile.id,
           requirement_slot_id:  slot.id,
