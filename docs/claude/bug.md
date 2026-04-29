@@ -42,15 +42,17 @@
 
 > **2026-04-29 update (8):** `fix/wizard-step3-cleanup` merged. BUG-39 (`PriorCreditWizard` Step 3 prematurely showed credit-hour award) is fixed by dropping the `wizard-score-detail` ternary block from the Step 3 render. Step 3 now shows only "Score X+" buttons; Step 4's existing per-award cards remain the single disclosure surface for credit-bearing and placement-only outcomes. Pure render edit; no test changes (no wizard-component coverage today). Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-29 update (9):** `fix/ap-chem-stem-filter` merged. BUG-35 (AP Chemistry STEM/non-STEM duplicate rows in the wizard) is fixed by adding a single-line filter to the wizard's Step 2 exam loader: any `test_equivalencies.test_name` containing `"(Non-STEM)"` is skipped. The filter applies unconditionally because every prototype concentration is STEM (all CSC). The proper long-term implementation (a `stem_only` column on `test_equivalencies` plus a `stem` flag on `concentrations`) is left deferred. Pure UI filter, no schema change, no test changes. Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 8  |
+| Medium   | 7  |
 | Low      | 6  |
-| **Total** | **15** |
+| **Total** | **14** |
 
 ---
 
@@ -237,38 +239,6 @@ with the mark-complete behavior fix (Phase 2, `fix/mark-complete-behavior`) sinc
 that branch will overhaul how completion credits are tracked.
 
 **Confidence:** High
-
----
-
-### BUG-35: AP Chemistry exam offered as both "STEM" and "non-STEM" rows for CSC majors
-
-**Severity:** Medium
-**File(s):** `MyDegreePlan_Prototype/test_equivalencies.sql` (seed rows),
-`src/components/PriorCreditWizard.jsx` (Step 2 exam list)
-
-**Description:** The `test_equivalencies` table contains two distinct rows for AP
-Chemistry — one labeled for STEM majors (awarding more credit, e.g. CHEM1110 +
-CHEM1120) and one for non-STEM majors (awarding fewer credit hours or different
-target courses). The wizard's Step 2 exam selector surfaces both, leaving the
-student to pick. CSC is a STEM major, so the non-STEM option is never the right
-answer for any user of this prototype, but the wizard offers no signal to that
-effect.
-
-**Impact:** A CSC student picking the wrong row receives the wrong credit award
-and sees the wrong courses archived. Even in the best case the duplicate label
-("AP Chemistry — STEM" vs "AP Chemistry — non-STEM") is confusing — the
-distinction is invisible to a freshman who doesn't know the term "STEM."
-
-**Suspected fix:** Tag each `test_equivalencies` row with a `stem_only` boolean
-(or scope it to specific concentration ids) and filter the wizard's exam list
-by the active concentration's STEM flag. The prototype only ships CSC
-concentrations, so for now the simplest fix is to suppress the non-STEM AP
-Chemistry rows in the wizard's Step 2 query. A future migration that adds a
-`stem` column to `concentrations` and a `stem_only` column to `test_equivalencies`
-would generalize this to non-CSC programs.
-
-**Confidence:** Medium — the data shape is clear; the exact filter (drop
-non-STEM rows entirely vs gate by concentration) is a product call.
 
 ---
 
