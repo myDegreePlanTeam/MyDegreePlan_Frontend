@@ -44,15 +44,17 @@
 
 > **2026-04-29 update (9):** `fix/ap-chem-stem-filter` merged. BUG-35 (AP Chemistry STEM/non-STEM duplicate rows in the wizard) is fixed by adding a single-line filter to the wizard's Step 2 exam loader: any `test_equivalencies.test_name` containing `"(Non-STEM)"` is skipped. The filter applies unconditionally because every prototype concentration is STEM (all CSC). The proper long-term implementation (a `stem_only` column on `test_equivalencies` plus a `stem` flag on `concentrations`) is left deferred. Pure UI filter, no schema change, no test changes. Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-29 update (10):** Two new bugs (BUG-42 and BUG-43) added from a developer flow walkthrough. Both surface in the prior-credit / pool-slot interaction. BUG-42 is a transfer-credit archive correctness issue (filled pool slots not archiving when a prior credit covers the same pool). BUG-43 is a sub-pool granularity gap in GEN_ED selection — partially overlaps with the existing `ROADMAP.md` entry "GEN_ED sub-requirement enforcement" but adds concrete UX scope (modal sub-category surfacing, wizard Step 4 sub-pool labeling). New severity additions: Medium +2. New totals: Critical 0, High 1, Medium 9, Low 6, Total 16.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 7  |
+| Medium   | 9  |
 | Low      | 6  |
-| **Total** | **14** |
+| **Total** | **16** |
 
 ---
 
@@ -396,6 +398,138 @@ credits-planned line so it reads as primary metadata rather than a footnote.
 
 **Confidence:** High — pure CSS edit. May converge with the grid-redesign
 Phase 3 work but is small enough to land on its own.
+
+---
+
+### BUG-42: Filled pool slots not archived when a prior credit covers the same pool
+
+**Severity:** Medium
+**File(s):** `src/lib/transferCredits.js` (`resolveTransferCredits` /
+`resolveTransferDetails` shared `matchPriorCreditsToSlots` helper),
+`src/components/DegreePlan.jsx` (`syncArchivedSlots`, drag/unarchive paths)
+
+**Description:** Per the resolver contract Rule 2, a pool slot is archived
+when a prior credit's `satisfies_pool` equals the slot's `class_code`. In
+practice this works for *empty* pool slots (the AP/IB credit lands and the
+slot disappears from the grid). But when the pool slot is already filled
+with a student-selected course, the archive does not fire — the slot
+remains visible with the student's selection intact.
+
+The student then has two options for the same requirement: their selected
+course in the grid, plus the prior credit in the Prior Coursework panel.
+If the student notices and clears their selection, the now-empty slot
+flips into a "satisfied by AP" indicator — but still does not disappear.
+The slot only properly archives if the student takes the manual two-step
+of unfilling it.
+
+**Reproduction:**
+1. On a CSC plan, fill both SCIENCE pool slots with `CHEM1110` + `CHEM1120`.
+2. Open the prior-credit wizard, choose AP Credit → `Chemistry (STEM)` →
+   score 5. This produces two prior credits, both with
+   `satisfies_pool = 'SCIENCE'`.
+3. Apply.
+4. **Expected:** both SCIENCE pool slots disappear from the grid (archived);
+   the student's selections persist on the row but the slot is hidden, the
+   way it does for an unfilled SCIENCE slot.
+5. **Observed:** slots remain visible with their CHEM1110/CHEM1120
+   selections. Clearing one of the selections shows a "satisfied by AP"
+   indicator but the slot still does not archive away.
+
+**Impact:** Real correctness bug, not just polish. The student sees a
+double-count in the grid (their own selection plus the prior credit) and
+must unfill manually to get the planner into the correct state. Total
+hours computation stays correct because of `computePlanCredits`'s dedup
+contract, but the visible "what's left" grid is wrong.
+
+**Suspected fix:** Audit `matchPriorCreditsToSlots` (the private helper
+shared between `resolveTransferCredits` and `resolveTransferDetails`).
+Two plausible roots:
+- Rule 2 may currently prefer empty pool slots over filled ones when both
+  exist, leaving filled slots un-archived.
+- Or the matching may run correctly but `syncArchivedSlots` may treat the
+  filled slot's archive transition differently from an empty one.
+
+The right behavior is for Rule 2 to match on `class_code` (the pool name)
+without a fill-state filter — Pool credit beats student selection. The
+student's `selected_course_code` should persist on the underlying
+`student_plan_slots` row so that an unarchive (e.g. user removes the
+prior credit) restores it.
+
+Cross-reference: existing `BUG-24` fix (drag-to-Prior-Coursework dedup
+guards) and the `fix/transfer-credits-divergence-and-freeadd` Rule 1/2
+unification — both nearby; ensure the fix doesn't regress either.
+
+**Confidence:** High that the bug exists; Medium on the exact remediation
+path until the matcher is read end-to-end.
+
+---
+
+### BUG-43: GEN_ED slot selection lacks sub-pool (History / Humanities & Arts / Social Science) granularity
+
+**Severity:** Medium
+**File(s):** `src/components/SlotModal.jsx` (GEN_ED render path —
+`resolvePool('GEN_ED', ...)`), `src/components/PriorCreditWizard.jsx`
+(Step 4 award detail — `wizard-award-pool` line),
+`src/lib/poolResolver.js` (`GEN_ED_CATEGORIES`, `getGenEdStatus`)
+
+**Description:** The TTU general education requirement is internally three
+sub-pools (History 6 hr, Humanities & Arts 6 hr, Social Science 6 hr) but
+the planner exposes GEN_ED as a single flat list. Two related UX gaps:
+
+(a) **Modal selection.** When a student opens a GEN_ED slot in the grid,
+the modal shows every gen-ed course in one list. There is no signal that
+they have already filled their History allotment, and they can pick a
+History course for a GEN_ED slot when the History sub-pool is already
+satisfied. The modal should ask the student which sub-category they are
+filling and grey-out sub-categories that are already satisfied with an
+explanation ("History requirement already satisfied").
+
+(b) **Wizard Step 4 disclosure.** When a student adds a gen-ed course
+through the prior-credit wizard, Step 4's confirmation says only "Also
+satisfies: GEN_ED pool requirement" (`wizard-award-pool` line). The
+student does not see which specific sub-pool the credit fills. Same gap
+applies to any other pool with internal categories (none today, but the
+SCIENCE pool's sequence pairing is conceptually similar).
+
+**Impact:** Students can over-allocate one sub-pool (e.g. take three
+History courses) and under-allocate another (zero Humanities). The
+`getGenEdStatus` "at risk" warning does fire on the grid but only after
+the over-allocation has happened — guiding the student during selection
+is the missing piece. For prior credits the disclosure mismatch is
+cosmetic but undermines the wizard's "what will I receive" promise.
+
+**Implementation notes:**
+- The data already exists. `GEN_ED_CATEGORIES` in `poolResolver.js` maps
+  every gen-ed course code to its sub-category, and `getGenEdStatus`
+  already tracks per-category fill counts and at-risk state.
+- The modal currently calls `resolvePool('GEN_ED', courseMap)` which
+  returns the flat list — no sub-grouping.
+- This partially overlaps with the existing `ROADMAP.md` entry
+  *"GEN_ED sub-requirement enforcement"* — but the user's bug is more
+  specific (modal sub-category surfacing + wizard Step 4 labeling) and
+  stops short of full enforcement (e.g. blocking a History pick when
+  History is satisfied).
+- Long-term fix would split GEN_ED into named sub-pools
+  (`GEN_ED_HISTORY`, `GEN_ED_HUMANITIES`, `GEN_ED_SOCIAL`) on
+  `requirement_slots` — covered by the ROADMAP entry. Short-term fix:
+  add sub-grouping to the modal render and wizard disclosure without
+  splitting the schema.
+
+**Suspected fix:**
+- `SlotModal`: when `slot.class_code === 'GEN_ED'`, render a sub-category
+  selector or three-section list grouped by `GEN_ED_CATEGORIES`. Use
+  `getGenEdStatus(planSlots, slots, courseMap)` to determine which
+  sub-pools are satisfied; render those sub-sections greyed with
+  explanations.
+- `PriorCreditWizard` Step 4: when an awarded course's code is in the
+  GEN_ED pool, look up its sub-category from `GEN_ED_CATEGORIES` and
+  surface that label ("History sub-pool" / "Humanities & Arts sub-pool"
+  / "Social Science sub-pool") instead of the bare "GEN_ED."
+
+**Confidence:** Medium — the data and helpers exist; the rendering
+changes are well-bounded. Greying-out a satisfied sub-pool needs a
+product decision on whether to soft-warn or hard-block (audit suggests
+soft, matching today's `getGenEdStatus` philosophy).
 
 ---
 
