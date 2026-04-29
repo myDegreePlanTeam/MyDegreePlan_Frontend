@@ -403,8 +403,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
   )
 
   // ── Reactive prerequisite warnings (Bug 4 fix) ───────────────────
-  // completedCodes = codes in EARLIER semesters + completed semesters + prior credits
-  // Prerequisites check against completedCodes.
+  // completedCodes = codes placed in strictly earlier semesters.
+  // The completion toggle (planSemesterCompleted) is purely a UI affordance
+  // (collapse the card); it does not feed satisfaction into the prereq
+  // checker. BUG-13: previously a later completed semester satisfied
+  // prereqs of earlier-semester courses regardless of direction.
   const prereqWarnings = useMemo(() => {
     const placed = []
 
@@ -419,24 +422,22 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     const warnings = {}
     for (const item of placed) {
-      // completedCodes: codes in earlier semesters, plus any completed-semester codes
       const completedCodes = new Set(
         placed
-          .filter(p =>
-            p.sem < item.sem ||
-            (planSemesterCompleted[p.sem] && p.sem !== item.sem)
-          )
+          .filter(p => p.sem < item.sem)
           .map(p => p.code)
       )
       const result = checkPrereqs(item.code, prereqMap, completedCodes, priorCredits, courses, coreqMap)
       if (!result.satisfied) warnings[item.key] = result.missing
     }
     return warnings
-  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses, planSemesterCompleted, coreqMap])
+  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses, coreqMap])
 
   // ── Reactive corequisite warnings (Bug 4 fix) ────────────────────
-  // availableCodes = completedCodes + same-semester codes
+  // availableCodes = completedCodes (strictly earlier) + same-semester codes
   // Corequisites check against availableCodes (same-semester enrollment counts).
+  // BUG-13: the completion toggle does not feed satisfaction in either
+  // direction; only positional ordering does.
   const coreqWarnings = useMemo(() => {
     const placed = []
 
@@ -457,10 +458,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     for (const item of placed) {
       const completedCodes = new Set([
         ...placed
-          .filter(p =>
-            p.sem < item.sem ||
-            (planSemesterCompleted[p.sem] && p.sem !== item.sem)
-          )
+          .filter(p => p.sem < item.sem)
           .map(p => p.code),
         ...priorCodes,
       ])
@@ -476,7 +474,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       if (!result.satisfied) warnings[item.key] = result.missing
     }
     return warnings
-  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, coreqMap, priorCredits, planSemesterCompleted])
+  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, coreqMap, priorCredits])
 
   // ── Standing requirement warnings ────────────────────────────────
   const standingWarnings = useMemo(() => {
