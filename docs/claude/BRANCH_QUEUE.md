@@ -13,17 +13,6 @@ _None._
 
 ## Queued Branches
 
-### fix/free-add-dedup-guard
-**Targets:**
-- BUG-34 — Free-add picker accepts course codes already covered by the plan template, pool selections, free-adds, or prior credits
-**Scope:** Pure helper `getTakenCodes` added to `src/lib/transferCredits.js` (mirrors `computePlanCredits` dedup keyspace). Threaded as a `takenCodes` prop into `AddCourseModal`, which disables matching rows. Final guard in `DegreePlan.handleAddCourse`. New test file `src/tests/getTakenCodes.test.js`.
-**Notes:**
-- Reuses existing `.modal-course-row.status-taken` and `.modal-status-badge.taken` styles already defined for `SlotModal` — no new CSS.
-- Dedup contract must match `computePlanCredits` exactly (placement-only `prior_credits` with `credits_awarded === 0` do NOT block, mirroring Pass 1).
-**Prompt:** Not yet written
-
----
-
 ### fix/prereq-display
 **Targets:**
 - BUG-31 — MATH1910 prereq display omits ACT Math 27+ OR gate
@@ -147,3 +136,4 @@ _None._
 | `fix/transfer-credits-divergence-and-freeadd` | 2026-04-27 | BUG-3, BUG-6 |
 | `fix/concentration-switch-clears-notes` | 2026-04-29 | BUG-7 |
 | `fix/science-pool-warnings` | 2026-04-29 | BUG-10, BUG-11, BUG-17, BUG-18 |
+| `fix/free-add-dedup-guard` | 2026-04-29 | BUG-34 |

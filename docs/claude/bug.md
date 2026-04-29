@@ -25,15 +25,17 @@
 
 > **2026-04-29 update (2):** `fix/science-pool-warnings` merged. BUG-10 (`getScienceWarnings` used label equality, missing `BIOL1123 + BIOL2310` as an invalid pair), BUG-11 (`resolveScience` indexed `selectedScienceCodes[0]`, biased to the first filled slot), BUG-17 (redundant reversed `GEOL1040/GEOL1045` entry in `SCIENCE_SEQUENCES`), and BUG-18 (`getScienceWarnings` destructured only the first two SCIENCE slots) are fixed. `getScienceWarnings` now compares against `SCIENCE_SEQUENCES` membership and iterates pairwise across all SCIENCE slots; `resolveScience` is multi-code-aware. Tests grew from 210 → 226 (10 new `getScienceWarnings` cases — no prior coverage — plus 3 `resolveScience` regression cases). Entries deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-29 update (3):** `fix/free-add-dedup-guard` merged. BUG-34 (free-add picker accepted course codes already in the plan) is fixed by a new pure helper `getTakenCodes` in `src/lib/transferCredits.js` that mirrors `computePlanCredits`'s Pass-1/2/3 dedup keyspace exactly. `DegreePlan` memoizes the Set and threads it into `AddCourseModal`, which greys out matching rows and disables selection; `handleAddCourse` adds a final guard before the Supabase insert. Existing `.modal-course-row.status-taken` and `.modal-status-badge.taken` styles are reused — no new CSS. Tests grew from 226 → 237 (11 new cases in `src/tests/getTakenCodes.test.js`). Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 9  |
+| Medium   | 8  |
 | Low      | 3  |
-| **Total** | **13** |
+| **Total** | **12** |
 
 ---
 
@@ -269,50 +271,6 @@ with the mark-complete behavior fix (Phase 2, `fix/mark-complete-behavior`) sinc
 that branch will overhaul how completion credits are tracked.
 
 **Confidence:** High
-
----
-
-### BUG-34: Free-add picker accepts course codes already covered by the plan template or prior credits
-
-**Severity:** Medium
-**File(s):** `src/components/AddCourseModal.jsx`, `src/components/DegreePlan.jsx` (`handleAddCourse`)
-
-**Description:** `AddCourseModal` queries the full `courses` table and lets the
-student pick any code; the parent's `handleAddCourse` inserts straight into
-`student_free_add_slots` without checking whether the same course code already
-appears in the student's existing plan. A student can therefore add a duplicate
-copy of a class that is:
-
-- already a non-pool requirement slot (`requirement_slots.class_code` matches),
-- already the student's selected course in a pool slot (`student_plan_slots.selected_course_code` matches),
-- already a free-added row from a prior add, or
-- already covered by a `prior_credits` row (`satisfies_course_code` matches).
-
-There is no `takenCodes` Set passed into the modal and no validation in the
-`handleAddCourse` insert path. Search results and the confirm button treat every
-catalog row as addable.
-
-**Impact:** Visible duplication in the grid — the same class appears twice (once
-as the original slot/credit, once as the free-added row), each with independent
-status. Drag-and-drop and prereq display behave inconsistently between the two
-copies. Credit totals are *not* inflated thanks to BUG-6's dedup contract
-(`computePlanCredits` counts a course code at most once across `prior_credits`,
-`plan_slots`, and `student_free_add_slots`), but the UI still presents redundant
-work the student does not need to do. Students reading the grid for "what's
-left" see noise rather than a clean to-do list.
-
-**Suspected fix:** Compute the set of taken course codes at the `DegreePlan`
-level — non-pool slot `class_code`s, filled pool slot selections, existing
-free-add `course_code`s, and `prior_credits.satisfies_course_code` — and pass
-it into `AddCourseModal` as a `takenCodes` Set prop. The modal should:
-(a) hide or grey-out search rows whose `code` is in `takenCodes`, with a hint
-explaining why ("Already in your plan" / "Already in Prior Coursework"); and
-(b) refuse selection / disable the Confirm button for those rows. Mirror the
-guard in `handleAddCourse` so a code that slips through (e.g. via stale state)
-is rejected at insert time with a `showSaveError` message. The check should
-match the dedup contract in `computePlanCredits` so the rules stay aligned.
-
-**Confidence:** High — the gap is reproducible end-to-end and the fix is mechanical.
 
 ---
 
