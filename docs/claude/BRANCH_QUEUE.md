@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-04-29 (3)
+> Last updated: 2026-04-29 (4)
 
 ---
 
@@ -12,6 +12,16 @@ _None._
 ---
 
 ## Queued Branches
+
+### fix/postgrest-input-sanitization
+**Targets:**
+- BUG-12 — `AddCourseModal` and `PriorCreditWizard` raw-interpolate user input into PostgREST `.or()` filters; commas/parentheses break the query and crafted input can alter the filter tree.
+**Scope:** New tiny helper `src/lib/postgrestEscape.js` exporting `escapeIlikeValue(s)`. Both call sites (`AddCourseModal.jsx:48`, `PriorCreditWizard.jsx:230`) updated to wrap each `.ilike` value in PostgREST double-quote literals and run the input through the helper. New `src/tests/postgrestEscape.test.js`.
+**Notes:**
+- RLS still scopes results, so security exposure is low; the user-visible bug is search breaking on benign input (course names with parentheses, commas).
+**Prompt:** Not yet written
+
+---
 
 ### fix/prereq-display
 **Targets:**
