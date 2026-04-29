@@ -460,18 +460,6 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
                   onClick={() => handleScoreSelect(opt.score)}
                 >
                   <span className="wizard-score-num">Score {opt.score}+</span>
-                  {opt.isPlacementOnly ? (
-                    <span className="wizard-score-detail">
-                      Qualifies for placement into {opt.awardedCodes.join(', ')} — no credit hours awarded
-                    </span>
-                  ) : (
-                    <span className="wizard-score-detail">
-                      Awards {opt.totalCredits} credit hour{opt.totalCredits !== 1 ? 's' : ''}
-                      {opt.awardedCodes.length > 0
-                        ? ` toward ${opt.awardedCodes.join(', ')}`
-                        : ''}
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
