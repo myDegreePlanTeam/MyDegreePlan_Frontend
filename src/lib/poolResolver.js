@@ -252,24 +252,35 @@ export function resolveScience(planSlots, slots, courseMap) {
 
   if (selectedScienceCodes.length === 0) return { mode: 'normal' }
 
-  const alreadySelected = selectedScienceCodes[0]
-
-  // BIOL1113 special case — narrow to the two options
-  if (alreadySelected === 'BIOL1113') {
-    return {
-      mode: 'narrow',
-      courses: ['BIOL1123', 'BIOL2310']
-        .filter(code => courseMap[code])
-        .map(code => courseMap[code]),
+  // BIOL1113 narrows to its two valid partners — but only if neither
+  // partner has been selected yet. Once a partner is filled, the biology
+  // sequence is covered and the modal falls through to the normal pool.
+  if (selectedScienceCodes.includes('BIOL1113')) {
+    const partnerSelected = selectedScienceCodes.includes('BIOL1123')
+      || selectedScienceCodes.includes('BIOL2310')
+    if (!partnerSelected) {
+      return {
+        mode: 'narrow',
+        courses: ['BIOL1123', 'BIOL2310']
+          .filter(c => courseMap[c])
+          .map(c => courseMap[c]),
+      }
     }
+    return { mode: 'normal' }
   }
 
-  // Find sequence and auto-fill partner
+  // Find a sequence whose courses contain every already-selected code.
+  // If found and there is a missing member, autofill it; otherwise the
+  // sequence is already complete (or no single sequence covers the
+  // selection — e.g. two codes from different sequences) → normal.
   for (const seq of SCIENCE_SEQUENCES) {
-    if (!seq.courses.includes(alreadySelected)) continue
-    const partner = seq.courses.find(c => c !== alreadySelected)
-    if (!partner || !courseMap[partner]) continue
-    return { mode: 'autofill', course: courseMap[partner] }
+    const allInSeq = selectedScienceCodes.every(c => seq.courses.includes(c))
+    if (!allInSeq) continue
+    const missing = seq.courses.find(c => !selectedScienceCodes.includes(c))
+    if (missing && courseMap[missing]) {
+      return { mode: 'autofill', course: courseMap[missing] }
+    }
+    break
   }
 
   return { mode: 'normal' }

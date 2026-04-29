@@ -247,6 +247,41 @@ describe('resolveScience', () => {
     expect(result.mode).toBe('autofill')
     expect(result.course.code).toBe('CHEM1120')
   })
+
+  // ── BUG-11 regression: multiple already-selected codes ────────────────────
+  // Defensive: today's templates pass at most one "other" code into
+  // resolveScience because SlotModal strips the active slot. A future
+  // concentration with 3+ SCIENCE slots could pass two or more. The function
+  // must not silently prefer the first.
+
+  it('returns normal mode when BIOL1113 + BIOL1123 are already selected (sequence complete)', () => {
+    const result = resolveScience(
+      { sci1: 'BIOL1113', sci2: 'BIOL1123' },
+      SCIENCE_SLOTS,
+      courseMap,
+    )
+    expect(result).toEqual({ mode: 'normal' })
+  })
+
+  it('returns normal mode when BIOL1113 + BIOL2310 are already selected (sequence complete)', () => {
+    const result = resolveScience(
+      { sci1: 'BIOL1113', sci2: 'BIOL2310' },
+      SCIENCE_SLOTS,
+      courseMap,
+    )
+    expect(result).toEqual({ mode: 'normal' })
+  })
+
+  it('returns normal mode when two already-selected codes are from different sequences', () => {
+    // No first-slot bias: must not autofill the partner of CHEM1110 just
+    // because CHEM1110 happens to come first.
+    const result = resolveScience(
+      { sci1: 'CHEM1110', sci2: 'PHYS2010' },
+      SCIENCE_SLOTS,
+      courseMap,
+    )
+    expect(result).toEqual({ mode: 'normal' })
+  })
 })
 
 // ── getScienceWarnings ────────────────────────────────────────────────────────
