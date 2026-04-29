@@ -13,16 +13,6 @@ _None._
 
 ## Queued Branches
 
-### fix/wizard-step3-cleanup
-**Targets:**
-- BUG-39 — `PriorCreditWizard` Step 3 prematurely shows credit-hour award; should be score-only with credits revealed at Step 4.
-**Scope:** Drop the `wizard-score-detail` ternary block from the Step 3 score-list render. Step 4 already presents both credit-bearing and placement-only outcomes correctly, so no Step 4 changes needed.
-**Notes:**
-- Dead-data note: `scoreOptions` will still pre-compute `totalCredits`, `awardedCodes`, `isPlacementOnly` per score, even though the render no longer reads them. Leave the computation alone — touching it is scope creep and the cost is negligible.
-**Prompt:** Not yet written
-
----
-
 ### fix/prereq-display
 **Targets:**
 - BUG-31 — MATH1910 prereq display omits ACT Math 27+ OR gate
@@ -242,3 +232,4 @@ _None._
 | `fix/free-add-dedup-guard` | 2026-04-29 | BUG-34 |
 | `fix/prereq-warnings-semester-order` | 2026-04-29 | BUG-13 |
 | `fix/postgrest-input-sanitization` | 2026-04-29 | BUG-12 |
+| `fix/wizard-step3-cleanup` | 2026-04-29 | BUG-39 |

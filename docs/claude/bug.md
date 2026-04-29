@@ -40,6 +40,8 @@
 
 > **2026-04-29 update (7):** Seven new bugs (BUG-35 through BUG-41) added from a developer meeting. Identified through review of student-facing UX, accessibility, and the prior-credit wizard. New severity additions: Medium +3, Low +4. New totals: Critical 0, High 1, Medium 8, Low 7, Total 16. The meeting also produced several feature requests and scope expansions that are tracked outside `bug.md` — see `BRANCH_QUEUE.md` (Phase 2 scope expansions for `fix/mark-complete-behavior`, `feat/branding`, `schema/semester-terms`; new entries `feat/rules-filter-sidebar`, `feat/dynamic-semester-count`, `feat/dark-mode`, `feat/exemption-gating`) and `ROADMAP.md`.
 
+> **2026-04-29 update (8):** `fix/wizard-step3-cleanup` merged. BUG-39 (`PriorCreditWizard` Step 3 prematurely showed credit-hour award) is fixed by dropping the `wizard-score-detail` ternary block from the Step 3 render. Step 3 now shows only "Score X+" buttons; Step 4's existing per-award cards remain the single disclosure surface for credit-bearing and placement-only outcomes. Pure render edit; no test changes (no wizard-component coverage today). Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
@@ -47,8 +49,8 @@
 | Critical | 0  |
 | High     | 1  |
 | Medium   | 8  |
-| Low      | 7  |
-| **Total** | **16** |
+| Low      | 6  |
+| **Total** | **15** |
 
 ---
 
@@ -369,33 +371,6 @@ all gold/purple pairs.
 
 **Confidence:** High that the bug exists; Medium on the exact remediation
 because it spans a theme rework.
-
----
-
-### BUG-39: PriorCreditWizard Step 3 prematurely shows credit-hour award before confirmation
-
-**Severity:** Low
-**File(s):** `src/components/PriorCreditWizard.jsx` (Step 3 score selection
-render, around `wizard-score-list`)
-
-**Description:** Step 3 of the wizard ("What score did you receive?") currently
-renders each score option with a secondary line spelling out the credit hours
-the student would receive ("Awards N credit hours toward CODE"). Per the
-intended design, Step 3 should be a clean score-validation step — the user
-selects their score and clicks Next; the award details are revealed at Step 4
-("Confirm what you'll receive"). Showing them on Step 3 duplicates the Step 4
-disclosure and asks the student to make two decisions on one screen.
-
-**Impact:** Low. The information is correct, just premature. Users may pick a
-score based on the credits awarded rather than their actual exam result, which
-defeats the purpose of separating Step 3 (input) from Step 4 (confirmation).
-
-**Suspected fix:** In the score-list render, drop the `wizard-score-detail`
-secondary line and show only the score number plus a minimal cue (e.g. "Score 5"
-without "Awards 4 credit hours"). Move the credit-hour breakdown entirely to
-Step 4 where the wizard already presents the award summary.
-
-**Confidence:** High — pure UI edit, no logic change.
 
 ---
 
