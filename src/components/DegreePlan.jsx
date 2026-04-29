@@ -3,7 +3,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDropp
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
-import { resolveTransferCredits, resolveTransferDetails, computePlanCredits } from '../lib/transferCredits'
+import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes } from '../lib/transferCredits'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
@@ -344,6 +344,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
     [planSlots, slots, courses]
   )
 
+  // ── Codes already in the plan (BUG-34) ─────────────────────────────
+  // Mirrors computePlanCredits dedup keyspace. Passed to AddCourseModal so
+  // the picker greys out duplicates of template, pool, free-add, or
+  // credit-bearing prior_credits entries.
+  const takenCodes = useMemo(
+    () => getTakenCodes(planSlots, slots, priorCredits, freeAddSlots),
+    [planSlots, slots, priorCredits, freeAddSlots]
+  )
+
   // ── Plan completeness (non-archived slots only) ───────────────────
   const activeSlots = useMemo(
     () => slots.filter(s => !planArchived[s.id]),
@@ -639,6 +648,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // ── Add a free-add course to a semester ──────────────────────────
   async function handleAddCourse(semesterNumber, course) {
     setAddCourseTarget(null)
+
+    // BUG-34: defensive guard. The modal already greys taken codes out, but
+    // stale state or a keyboard-activation race could let one through.
+    if (takenCodes.has(course.code)) {
+      showSaveError(`${course.code} is already in your plan.`)
+      return
+    }
 
     const { data, error } = await supabase
       .from('student_free_add_slots')
@@ -1227,6 +1243,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       {addCourseTarget !== null && (
         <AddCourseModal
           semesterNumber={addCourseTarget}
+          takenCodes={takenCodes}
           onAdd={course => handleAddCourse(addCourseTarget, course)}
           onClose={() => setAddCourseTarget(null)}
         />

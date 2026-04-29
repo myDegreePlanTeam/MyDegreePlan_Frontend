@@ -242,3 +242,54 @@ export function computePlanCredits(planSlots, priorCredits, slots, courses, free
   const totalEarned = breakdown.reduce((sum, b) => sum + b.credits, 0)
   return { totalEarned, breakdown }
 }
+
+/**
+ * Returns the set of course codes already represented in the plan.
+ * Mirrors the dedup keyspace of computePlanCredits exactly: a code is
+ * "taken" if it contributes (or would contribute) credit hours via
+ * prior_credits, plan_slots, or student_free_add_slots.
+ *
+ * Rules:
+ *   - prior_credits row counts ONLY if credits_awarded > 0 AND
+ *     satisfies_course_code is non-null (matches Pass 1 of
+ *     computePlanCredits — placement-only entries do not block).
+ *   - non-pool slot contributes its class_code.
+ *   - filled pool slot contributes the planSlots[slot.id] selection.
+ *   - free-add slot contributes its course_code.
+ *
+ * Used by AddCourseModal to grey out catalog rows already in the plan
+ * (BUG-34).
+ *
+ * @param {Object} planSlots     – { [slotId]: selectedCourseCode }
+ * @param {Array}  slots         – requirement_slots rows
+ * @param {Array}  priorCredits  – prior_credits rows
+ * @param {Array}  freeAddSlots  – student_free_add_slots rows (optional)
+ * @returns {Set<string>}
+ */
+export function getTakenCodes(planSlots, slots, priorCredits, freeAddSlots = []) {
+  const taken = new Set()
+
+  for (const pc of (priorCredits ?? [])) {
+    if ((pc.credits_awarded ?? 0) <= 0) continue
+    if (!pc.satisfies_course_code) continue
+    taken.add(pc.satisfies_course_code)
+  }
+
+  for (const slot of (slots ?? [])) {
+    let code
+    if (slot.is_pool) {
+      code = planSlots?.[slot.id]
+      if (!code) continue
+    } else {
+      code = slot.class_code
+    }
+    taken.add(code)
+  }
+
+  for (const fa of (freeAddSlots ?? [])) {
+    if (!fa?.course_code) continue
+    taken.add(fa.course_code)
+  }
+
+  return taken
+}

@@ -9,10 +9,17 @@ import './Dashboard.css'
 //
 // Props:
 //   semesterNumber  — which semester the course will be added to (display only)
+//   takenCodes      — Set<string> of course codes already represented in the plan;
+//                     matching rows render greyed and unselectable (BUG-34)
 //   onAdd(course)   — called with the selected course object
 //   onClose()       — close without action
 
-export default function AddCourseModal({ semesterNumber, onAdd, onClose }) {
+export default function AddCourseModal({
+  semesterNumber,
+  takenCodes = new Set(),
+  onAdd,
+  onClose,
+}) {
   const [search, setSearch]     = useState('')
   const [results, setResults]   = useState([])
   const [loading, setLoading]   = useState(false)
@@ -57,6 +64,7 @@ export default function AddCourseModal({ semesterNumber, onAdd, onClose }) {
   }, [search])
 
   function handleSelect(course) {
+    if (takenCodes.has(course.code)) return
     setSelected(prev => prev?.code === course.code ? null : course)
   }
 
@@ -112,22 +120,29 @@ export default function AddCourseModal({ semesterNumber, onAdd, onClose }) {
             <p className="modal-empty">No courses match your search.</p>
           )}
 
-          {!error && !loading && results.map(course => (
-            <button
-              key={course.code}
-              className={`modal-course-row ${selected?.code === course.code ? 'selected' : ''}`}
-              onClick={() => handleSelect(course)}
-            >
-              <div className="modal-course-info">
-                <div className="modal-course-top">
-                  <span className="modal-course-code">{course.code}</span>
-                  <span className="add-course-subject">{course.subject_code}</span>
+          {!error && !loading && results.map(course => {
+            const isTaken = takenCodes.has(course.code)
+            return (
+              <button
+                key={course.code}
+                className={`modal-course-row ${isTaken ? 'status-taken' : ''} ${selected?.code === course.code ? 'selected' : ''}`}
+                onClick={() => handleSelect(course)}
+                disabled={isTaken}
+              >
+                <div className="modal-course-info">
+                  <div className="modal-course-top">
+                    <span className="modal-course-code">{course.code}</span>
+                    <span className="add-course-subject">{course.subject_code}</span>
+                    {isTaken && (
+                      <span className="modal-status-badge taken">Already in plan</span>
+                    )}
+                  </div>
+                  <span className="modal-course-name">{course.name}</span>
                 </div>
-                <span className="modal-course-name">{course.name}</span>
-              </div>
-              <span className="modal-course-credits">{course.credits} cr</span>
-            </button>
-          ))}
+                <span className="modal-course-credits">{course.credits} cr</span>
+              </button>
+            )
+          })}
         </div>
 
         <div className="modal-footer">
