@@ -27,15 +27,17 @@
 
 > **2026-04-29 update (3):** `fix/free-add-dedup-guard` merged. BUG-34 (free-add picker accepted course codes already in the plan) is fixed by a new pure helper `getTakenCodes` in `src/lib/transferCredits.js` that mirrors `computePlanCredits`'s Pass-1/2/3 dedup keyspace exactly. `DegreePlan` memoizes the Set and threads it into `AddCourseModal`, which greys out matching rows and disables selection; `handleAddCourse` adds a final guard before the Supabase insert. Existing `.modal-course-row.status-taken` and `.modal-status-badge.taken` styles are reused — no new CSS. Tests grew from 226 → 237 (11 new cases in `src/tests/getTakenCodes.test.js`). Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-29 update (4):** `fix/prereq-warnings-semester-order` merged. BUG-13 (`prereqWarnings`/`coreqWarnings` treated any completed-semester code as satisfied regardless of direction) is fixed by dropping the redundant `planSemesterCompleted` clause from both memos. The first clause `p.sem < item.sem` already counts every code in a strictly earlier semester as satisfied, so restricting the completion check to "earlier" — per the audit's suggested fix — makes the clause redundant. Aligns with `CLAUDE.md` core principle 3: semester completion is a UI collapse affordance, not prereq-satisfaction semantics. No test changes (memo not extracted; existing `checkPrereqs`/`checkCoreqs` coverage holds). Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 8  |
+| Medium   | 7  |
 | Low      | 3  |
-| **Total** | **12** |
+| **Total** | **11** |
 
 ---
 
@@ -68,21 +70,6 @@
 **Impact:** At best, search breaks on names containing commas or parentheses (many real course names have parentheses, e.g. "Physics 1: Algebra-Based" — safe, but "Calculus BC (Subscore)" style names can collide with IB/AP test names). At worst, a crafted input alters the filter tree in ways the developer did not intend. Row-level security still scopes results, so direct data exfiltration is unlikely, but query breakage from benign input is a real UX regression.
 
 **Suspected fix:** Sanitize or URL-encode `term` before interpolation, escape commas and parentheses, or split into two sequential queries. PostgREST documents percent-encoding for special characters inside filters.
-
-**Confidence:** Medium
-
----
-
-### BUG-13: `DegreePlan.prereqWarnings` treats codes from a semester the student marked "complete" as completed regardless of the warning target's semester
-
-**Severity:** Medium
-**File(s):** `src/components/DegreePlan.jsx` (prereqWarnings/coreqWarnings memo)
-
-**Description:** When a semester is marked `completed_by_student`, every code in that semester is added to the "satisfied" set fed into `checkPrereqs`, regardless of whether the completed semester comes *before* or *after* the semester containing the course whose prereqs are being evaluated. There is no direction check.
-
-**Impact:** If a student accidentally marks Semester 6 complete (or intentionally does so to collapse the card), and Semester 3 contains a course whose only prereq lives in Semester 6, the Semester 3 course will look prereq-satisfied. Implausible but not prevented. Worst case: a student who toggles a wrong semester temporarily gets green-light warnings and commits to a scheduling decision that the eventual UI correction would reverse.
-
-**Suspected fix:** Only pull satisfied codes from completed *earlier* semesters (positional `semester_number < target.semester_number`, honoring overrides). Completion of a later semester should not feed back into earlier prereq resolution.
 
 **Confidence:** Medium
 

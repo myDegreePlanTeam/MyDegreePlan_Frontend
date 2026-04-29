@@ -13,17 +13,6 @@ _None._
 
 ## Queued Branches
 
-### fix/prereq-warnings-semester-order
-**Targets:**
-- BUG-13 — `prereqWarnings` and `coreqWarnings` treat any completed semester's codes as satisfied regardless of direction. A later semester marked complete satisfies prereqs of earlier-semester courses.
-**Scope:** Two `useMemo` blocks in `src/components/DegreePlan.jsx` (`prereqWarnings`, `coreqWarnings`). Drop the redundant `planSemesterCompleted` clause. Pure-logic edit; the `p.sem < item.sem` first clause already covers prior semesters whether marked complete or not.
-**Notes:**
-- No new tests. Existing `checkPrereqs` / `checkCoreqs` tests cover the underlying invariants; the memo isn't easily extractable without refactor scope creep. Manual verification is the bar.
-- Audit's "Suspected fix" implies restricting to earlier semesters → makes the completion clause redundant → drop it.
-**Prompt:** Not yet written
-
----
-
 ### fix/prereq-display
 **Targets:**
 - BUG-31 — MATH1910 prereq display omits ACT Math 27+ OR gate
@@ -148,3 +137,4 @@ _None._
 | `fix/concentration-switch-clears-notes` | 2026-04-29 | BUG-7 |
 | `fix/science-pool-warnings` | 2026-04-29 | BUG-10, BUG-11, BUG-17, BUG-18 |
 | `fix/free-add-dedup-guard` | 2026-04-29 | BUG-34 |
+| `fix/prereq-warnings-semester-order` | 2026-04-29 | BUG-13 |
