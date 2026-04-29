@@ -18,6 +18,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { resolveSatisfiesPool } from '../lib/poolResolver'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
+import { escapeIlikeValue } from '../lib/postgrestEscape'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1.
@@ -223,11 +224,11 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
     clearTimeout(searchTimerRef.current)
     setSearchingCourses(true)
     searchTimerRef.current = setTimeout(async () => {
-      const term = val.trim()
+      const term = escapeIlikeValue(val.trim())
       const { data } = await supabase
         .from('courses')
         .select('code, name, credits')
-        .or(`code.ilike.%${term}%,name.ilike.%${term}%`)
+        .or(`code.ilike."%${term}%",name.ilike."%${term}%"`)
         .limit(10)
       setCourseResults(data ?? [])
       setSearchingCourses(false)

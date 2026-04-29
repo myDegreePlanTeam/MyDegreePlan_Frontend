@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { escapeIlikeValue } from '../lib/postgrestEscape'
 import './Dashboard.css'
 
 // ── AddCourseModal ─────────────────────────────────────────────────────────────
@@ -41,11 +42,11 @@ export default function AddCourseModal({
 
     setLoading(true)
     debounceRef.current = setTimeout(async () => {
-      const q = `%${search.trim()}%`
+      const q = `%${escapeIlikeValue(search.trim())}%`
       const { data, error: fetchErr } = await supabase
         .from('courses')
         .select('code, name, credits, subject_code')
-        .or(`code.ilike.${q},name.ilike.${q}`)
+        .or(`code.ilike."${q}",name.ilike."${q}"`)
         .order('code', { ascending: true })
         .limit(40)
 
