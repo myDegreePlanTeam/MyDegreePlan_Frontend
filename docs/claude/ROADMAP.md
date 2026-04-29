@@ -79,6 +79,36 @@ re-applying it on unarchive.
 No notification system exists. Candidate triggers: advisor leaves a note, plan
 completeness crosses a threshold, catalog change invalidates a planned course.
 
+### Auto-fill rules and filters sidebar
+Today the planner has no notion of student preferences ("no more than 18 hours
+per semester," "graduate within 8 semesters," "no Friday classes"). A
+prototype-grade rules sidebar would let students set and reorder a priority
+list of constraints that the recommendation engine (when it lands) and the
+auto-fill flow honor. Skeleton scope for the prototype: a sidebar/modal that
+captures a list of rule-typed entries, persists them per student, and
+reads/writes to a new `student_rules` table. Application of the rules to
+plan-modification actions can be staged after the data shape is in place.
+Strongly couples to summer-semester opt-in (see `BRANCH_QUEUE.md`
+`schema/semester-terms` and `feat/dynamic-semester-count`).
+
+### Toggleable light/dark mode
+Theme is currently dark-only via root CSS variables in `src/index.css`. A
+toggle requires (1) a second variable set, (2) a persisted user preference
+(localStorage minimum, `student_profiles.theme` ideal), (3) a system-preference
+fallback via `prefers-color-scheme`. Coordinate with `BUG-38` (contrast audit)
+and `feat/branding` (TTU purple) so all three variable sets share the same
+contrast budget.
+
+### Class exemption / advisor-approval gating
+Some courses require advisor or instructor consent before a student can enroll.
+Today the planner displays them as ordinary slots; the prereq classifier
+detects "consent" language in descriptions but only suppresses warnings. A
+prototype-grade gate would: (1) flag approval-required courses (data column on
+`courses` or detection regex), (2) render those slots greyed with a
+"Needs approval" badge, (3) show a hint explaining the requirement. The full
+approval workflow (advisor sign-off, audit trail, exemption tokens) is
+deferred — this is the visible-cue version only.
+
 ---
 
 ## Infrastructure

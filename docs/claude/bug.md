@@ -38,15 +38,17 @@
 >
 > Entry deleted below; remaining bug numbering is unchanged. No fix branch was opened.
 
+> **2026-04-29 update (7):** Seven new bugs (BUG-35 through BUG-41) added from a developer meeting. Identified through review of student-facing UX, accessibility, and the prior-credit wizard. New severity additions: Medium +3, Low +4. New totals: Critical 0, High 1, Medium 8, Low 7, Total 16. The meeting also produced several feature requests and scope expansions that are tracked outside `bug.md` — see `BRANCH_QUEUE.md` (Phase 2 scope expansions for `fix/mark-complete-behavior`, `feat/branding`, `schema/semester-terms`; new entries `feat/rules-filter-sidebar`, `feat/dynamic-semester-count`, `feat/dark-mode`, `feat/exemption-gating`) and `ROADMAP.md`.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 5  |
-| Low      | 3  |
-| **Total** | **9** |
+| Medium   | 8  |
+| Low      | 7  |
+| **Total** | **16** |
 
 ---
 
@@ -233,6 +235,222 @@ with the mark-complete behavior fix (Phase 2, `fix/mark-complete-behavior`) sinc
 that branch will overhaul how completion credits are tracked.
 
 **Confidence:** High
+
+---
+
+### BUG-35: AP Chemistry exam offered as both "STEM" and "non-STEM" rows for CSC majors
+
+**Severity:** Medium
+**File(s):** `MyDegreePlan_Prototype/test_equivalencies.sql` (seed rows),
+`src/components/PriorCreditWizard.jsx` (Step 2 exam list)
+
+**Description:** The `test_equivalencies` table contains two distinct rows for AP
+Chemistry — one labeled for STEM majors (awarding more credit, e.g. CHEM1110 +
+CHEM1120) and one for non-STEM majors (awarding fewer credit hours or different
+target courses). The wizard's Step 2 exam selector surfaces both, leaving the
+student to pick. CSC is a STEM major, so the non-STEM option is never the right
+answer for any user of this prototype, but the wizard offers no signal to that
+effect.
+
+**Impact:** A CSC student picking the wrong row receives the wrong credit award
+and sees the wrong courses archived. Even in the best case the duplicate label
+("AP Chemistry — STEM" vs "AP Chemistry — non-STEM") is confusing — the
+distinction is invisible to a freshman who doesn't know the term "STEM."
+
+**Suspected fix:** Tag each `test_equivalencies` row with a `stem_only` boolean
+(or scope it to specific concentration ids) and filter the wizard's exam list
+by the active concentration's STEM flag. The prototype only ships CSC
+concentrations, so for now the simplest fix is to suppress the non-STEM AP
+Chemistry rows in the wizard's Step 2 query. A future migration that adds a
+`stem` column to `concentrations` and a `stem_only` column to `test_equivalencies`
+would generalize this to non-CSC programs.
+
+**Confidence:** Medium — the data shape is clear; the exact filter (drop
+non-STEM rows entirely vs gate by concentration) is a product call.
+
+---
+
+### BUG-36: Visual flicker when dragging a course to Prior Coursework
+
+**Severity:** Low
+**File(s):** `src/components/DegreePlan.jsx` (`handleDragEnd` —
+drag-to-prior-coursework path), `src/components/Semester.jsx` (slot row
+remove transition)
+
+**Description:** Dragging a course from a semester onto the Prior Coursework
+panel briefly snaps the slot back to its original semester, then immediately
+re-renders with the slot removed. The user perceives a "snap-back-then-remove"
+flicker rather than a clean transfer. Likely caused by the optimistic state
+update path: the drag-end handler creates the prior credit row (which arrives
+asynchronously), and `syncArchivedSlots` only fires once the new credit lands
+in state, leaving a render frame where the slot is unchanged before the
+archive flag flips.
+
+**Impact:** Low — the final state is correct. UX is jarring and can leave a
+student briefly uncertain whether the drag worked.
+
+**Suspected fix:** In the `prior_credit` drag-end branch of `handleDragEnd`,
+optimistically mark the slot archived in local state before awaiting the
+Supabase insert. Roll the optimistic flag back if the insert errors. Mirrors
+the optimistic patterns already used in `handleAddCourse` and the move
+handlers.
+
+**Confidence:** Medium — the root cause is plausible but unconfirmed without
+devtools profiling. May be entirely a CSS transition timing issue.
+
+---
+
+### BUG-37: Prereq warnings list individual pool member codes instead of the pool name
+
+**Severity:** Medium
+**File(s):** `src/components/SlotModal.jsx` (`annotate`, missing-prereq
+hint render), `src/components/DegreePlan.jsx` (`prereqWarnings` memo —
+Semester slot row badge), `src/lib/poolResolver.js` (`POOL_COURSES`,
+`POOL_LABELS` for the lookup)
+
+**Description:** When a course's missing prereq is satisfiable by any course
+in a pool — e.g. CSC3040 lists `COMM2025` and `PC2500` (both members of the
+COMM_REQ pool) — the warning surface lists the individual codes
+("Needs: COMM2025, PC2500"). Freshmen rarely know course codes, so the hint
+reads as gibberish. The pool semantics ("any one Communications course will
+satisfy this") are visible to the resolver but never reach the user.
+
+**Impact:** Students see a cryptic prereq hint rather than the friendlier
+"Needs: Communications class" or "Needs: any course in the Communications
+requirement." Particularly painful in the SlotModal availability list and on
+slot row warning badges, which is exactly where the student is trying to plan
+ahead.
+
+**Suspected fix:** When constructing the `missing` list for prereq warnings,
+group consecutive codes that share a pool (per `POOL_COURSES` membership)
+into a single label using `POOL_LABELS`. Two design points to settle before
+implementation:
+- If the prereq lists multiple pool members in an OR group, collapse them all
+  into one pool label.
+- If the prereq mixes pool members and individual courses (rare but possible),
+  show both — e.g. "Needs: Communications class, plus MATH1910."
+
+This requires reading the prereq's group structure (`prerequisite_entries.logic`
++ `group_index`), not just the flat code list. Today's `checkPrereqs` doesn't
+return group structure — it returns a flat `missing` array. So either the
+checker grows a richer return shape, or the display layer re-derives groups
+from `prereqMap`.
+
+**Confidence:** Medium — the goal is clear; the exact rendering logic and
+checker API change need product alignment.
+
+---
+
+### BUG-38: Site-wide low contrast (accessibility regression)
+
+**Severity:** Medium
+**File(s):** `src/components/Dashboard.css` (primary surface), `src/index.css`
+(theme variables — `--muted`, `--gold`, `--danger`, `--bg`, etc.),
+`src/pages/Auth.css`
+
+**Description:** Multiple text-on-background pairings across the planner do
+not meet WCAG 2.1 AA contrast (4.5:1 for normal text, 3:1 for large/UI). Most
+visibly: `var(--muted)` body text on the dark navy background, the modal
+status badges (`.modal-status-badge.taken`, `.locked`), credit-bar fills
+against the track, and small metadata such as the eyebrow/sub text in modal
+headers.
+
+**Impact:** Accessibility — fails legal/compliance baselines that TTU is
+likely to require for an officially-deployed planner. Practical: students with
+mild visual impairment or in bright lighting struggle to read the grid.
+
+**Suspected fix:** Audit every foreground/background pair via a contrast tool;
+adjust theme variables (`--muted`, `--gold`, `--danger`, the body
+`background`/`color`) so the AA bar is met. Likely needs a coordinated theme
+pass rather than spot fixes — change one variable, ripple through all consumers.
+Coordinate with the TTU-purple recolor (see `feat/branding` scope expansion in
+`BRANCH_QUEUE.md`) since the new accent color will set the contrast budget for
+all gold/purple pairs.
+
+**Confidence:** High that the bug exists; Medium on the exact remediation
+because it spans a theme rework.
+
+---
+
+### BUG-39: PriorCreditWizard Step 3 prematurely shows credit-hour award before confirmation
+
+**Severity:** Low
+**File(s):** `src/components/PriorCreditWizard.jsx` (Step 3 score selection
+render, around `wizard-score-list`)
+
+**Description:** Step 3 of the wizard ("What score did you receive?") currently
+renders each score option with a secondary line spelling out the credit hours
+the student would receive ("Awards N credit hours toward CODE"). Per the
+intended design, Step 3 should be a clean score-validation step — the user
+selects their score and clicks Next; the award details are revealed at Step 4
+("Confirm what you'll receive"). Showing them on Step 3 duplicates the Step 4
+disclosure and asks the student to make two decisions on one screen.
+
+**Impact:** Low. The information is correct, just premature. Users may pick a
+score based on the credits awarded rather than their actual exam result, which
+defeats the purpose of separating Step 3 (input) from Step 4 (confirmation).
+
+**Suspected fix:** In the score-list render, drop the `wizard-score-detail`
+secondary line and show only the score number plus a minimal cue (e.g. "Score 5"
+without "Awards 4 credit hours"). Move the credit-hour breakdown entirely to
+Step 4 where the wizard already presents the award summary.
+
+**Confidence:** High — pure UI edit, no logic change.
+
+---
+
+### BUG-40: Inconsistent indentation of course names across slot rows and modal lists
+
+**Severity:** Low
+**File(s):** `src/components/Dashboard.css` (`.modal-course-name`,
+`.slot-course-name` or equivalent),
+`src/components/Semester.jsx`, `src/components/SlotModal.jsx`
+
+**Description:** Course name text wraps and indents inconsistently across the
+grid slot rows and the modal course lists. Some rows show the name flush with
+the course code; others appear indented relative to the code; long names wrap
+under the credits column instead of within the name column's bounds. Likely a
+mix of `flex` alignment defaults, missing `min-width: 0` on flex children, and
+inconsistent left padding between the row variants used by Semester slot rows
+vs SlotModal CourseRow vs AddCourseModal results.
+
+**Impact:** Low — readability and visual polish. The grid feels inconsistent
+because the same data renders differently depending on context.
+
+**Suspected fix:** Audit the four row variants
+(`modal-course-row`, `add-credit-result-row`, `slot-row`, free-add slot row)
+and align them on a single layout primitive: drag handle | code | name | credits |
+status. Apply `min-width: 0` to the name flex child so wrapping respects column
+bounds. Likely converges with the `feat/grid-redesign` Phase 3 row-anatomy work,
+but a small CSS pass before that lands is reasonable.
+
+**Confidence:** Medium — the bug is real; the right scope (small polish vs
+wait for grid redesign) is a judgment call.
+
+---
+
+### BUG-41: Semester header (title + credits planned) appears cramped
+
+**Severity:** Low
+**File(s):** `src/components/Dashboard.css` (`.semester-header`),
+`src/components/Semester.jsx` (header render)
+
+**Description:** The header row of each semester card crowds the semester title,
+credits-planned text, completion toggle, and any warning badges into one tight
+horizontal band. The credits-planned text in particular butts up against the
+title with no clear separator, making it hard to see at a glance how many hours
+a semester contains.
+
+**Impact:** Low — readability. Users have to slow down to parse the header on
+each card.
+
+**Suspected fix:** Add explicit gap (`gap` or margin) between header elements;
+consider a two-row layout when the card is below a certain width (title on
+top, credits + controls underneath). Bump font weight or color contrast on the
+credits-planned line so it reads as primary metadata rather than a footnote.
+
+**Confidence:** High — pure CSS edit. May converge with the grid-redesign
+Phase 3 work but is small enough to land on its own.
 
 ---
 
