@@ -13,16 +13,6 @@ _None._
 
 ## Queued Branches
 
-### fix/postgrest-input-sanitization
-**Targets:**
-- BUG-12 — `AddCourseModal` and `PriorCreditWizard` raw-interpolate user input into PostgREST `.or()` filters; commas/parentheses break the query and crafted input can alter the filter tree.
-**Scope:** New tiny helper `src/lib/postgrestEscape.js` exporting `escapeIlikeValue(s)`. Both call sites (`AddCourseModal.jsx:48`, `PriorCreditWizard.jsx:230`) updated to wrap each `.ilike` value in PostgREST double-quote literals and run the input through the helper. New `src/tests/postgrestEscape.test.js`.
-**Notes:**
-- RLS still scopes results, so security exposure is low; the user-visible bug is search breaking on benign input (course names with parentheses, commas).
-**Prompt:** Not yet written
-
----
-
 ### fix/prereq-display
 **Targets:**
 - BUG-31 — MATH1910 prereq display omits ACT Math 27+ OR gate
@@ -148,3 +138,4 @@ _None._
 | `fix/science-pool-warnings` | 2026-04-29 | BUG-10, BUG-11, BUG-17, BUG-18 |
 | `fix/free-add-dedup-guard` | 2026-04-29 | BUG-34 |
 | `fix/prereq-warnings-semester-order` | 2026-04-29 | BUG-13 |
+| `fix/postgrest-input-sanitization` | 2026-04-29 | BUG-12 |

@@ -29,15 +29,17 @@
 
 > **2026-04-29 update (4):** `fix/prereq-warnings-semester-order` merged. BUG-13 (`prereqWarnings`/`coreqWarnings` treated any completed-semester code as satisfied regardless of direction) is fixed by dropping the redundant `planSemesterCompleted` clause from both memos. The first clause `p.sem < item.sem` already counts every code in a strictly earlier semester as satisfied, so restricting the completion check to "earlier" — per the audit's suggested fix — makes the clause redundant. Aligns with `CLAUDE.md` core principle 3: semester completion is a UI collapse affordance, not prereq-satisfaction semantics. No test changes (memo not extracted; existing `checkPrereqs`/`checkCoreqs` coverage holds). Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-29 update (5):** `fix/postgrest-input-sanitization` merged. BUG-12 (raw user input interpolated into PostgREST `.or()` filters in `AddCourseModal` and `PriorCreditWizard`) is fixed by a new helper `src/lib/postgrestEscape.js` exporting `escapeIlikeValue` (strips backslashes and double quotes). Both call sites now wrap each ilike value in PostgREST's double-quote literal syntax so commas and parentheses pass through as literal bytes. Tests grew from 237 → 245 (8 new cases). Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 7  |
+| Medium   | 6  |
 | Low      | 3  |
-| **Total** | **11** |
+| **Total** | **10** |
 
 ---
 
@@ -51,25 +53,6 @@
 **Impact:** If `takenCodes` enforcement ever fails (see BUG-2 and the stale satisfiedCodes/takenCodes patterns in `SlotModal`), or if two pool slots somehow resolve to the same course via drag-and-drop, credit totals undercount by the shared course's credits rather than double-counting. Behavior is arguably correct (dedup semantics), but it masks a data-integrity problem upstream rather than surfacing it.
 
 **Suspected fix:** Intentional per spec; no fix required — but flag duplicate pool selections at save time and reject them at the UI layer.
-
-**Confidence:** Medium
-
----
-
-### BUG-12: `AddCourseModal` and `PriorCreditWizard` raw-interpolate user input into PostgREST `.or()` filters
-
-**Severity:** Medium
-**File(s):** `src/components/AddCourseModal.jsx` (course search), `src/components/PriorCreditWizard.jsx:178`
-
-**Description:**
-```js
-.or(`code.ilike.%${term}%,name.ilike.%${term}%`)
-```
-`term` is raw user input. PostgREST treats commas, parentheses, and special characters as structural delimiters inside `.or()`. A user typing a comma will produce an invalid filter that the server rejects; a malicious user can construct filters that break out of the intended predicate.
-
-**Impact:** At best, search breaks on names containing commas or parentheses (many real course names have parentheses, e.g. "Physics 1: Algebra-Based" — safe, but "Calculus BC (Subscore)" style names can collide with IB/AP test names). At worst, a crafted input alters the filter tree in ways the developer did not intend. Row-level security still scopes results, so direct data exfiltration is unlikely, but query breakage from benign input is a real UX regression.
-
-**Suspected fix:** Sanitize or URL-encode `term` before interpolation, escape commas and parentheses, or split into two sequential queries. PostgREST documents percent-encoding for special characters inside filters.
 
 **Confidence:** Medium
 
