@@ -992,6 +992,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (deleteErr) { setSwitching(false); return }
 
     await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
+    await supabase.from('student_semester_notes').delete().eq('student_id', profile.id)
     await supabase.from('prior_credits').delete().eq('plan_id', profile.id)
 
     setSwitching(false)
