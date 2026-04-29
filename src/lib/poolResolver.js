@@ -237,7 +237,6 @@ const SCIENCE_SEQUENCES = [
   { courses: ['PHYS2010', 'PHYS2020'] },
   { courses: ['PHYS2110', 'PHYS2120'] },
   { courses: ['GEOL1040', 'GEOL1045'] },
-  { courses: ['GEOL1045', 'GEOL1040'] },
   { courses: ['BIOL1123', 'BIOL1113'] },
   { courses: ['BIOL2310', 'BIOL1113'] },
 ]
