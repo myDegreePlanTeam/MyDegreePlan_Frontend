@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-04-29 (7)
+> Last updated: 2026-04-29 (8)
 
 ---
 
@@ -12,6 +12,17 @@ _None._
 ---
 
 ## Queued Branches
+
+### fix/ap-chem-stem-filter
+**Targets:**
+- BUG-35 — AP Chemistry STEM/non-STEM duplicate rows in the wizard for CSC majors.
+**Scope:** Filter `(Non-STEM)`-suffixed exam names out of the wizard's Step 2 exam list. Every concentration in the prototype is STEM (all CSC), so the filter applies unconditionally for now.
+**Notes:**
+- Affects AP only. IB Chemistry SL vs HL is a real exam distinction students choose between when registering — leave alone.
+- The proper long-term fix (a `stem_only` column on `test_equivalencies` plus a `stem` flag on `concentrations`) is documented in BUG-35's audit entry as deferred.
+**Prompt:** Not yet written
+
+---
 
 ### fix/prereq-display
 **Targets:**
