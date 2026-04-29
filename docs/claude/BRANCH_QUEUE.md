@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-04-29 (2)
+> Last updated: 2026-04-29 (3)
 
 ---
 
@@ -12,6 +12,17 @@ _None._
 ---
 
 ## Queued Branches
+
+### fix/prereq-warnings-semester-order
+**Targets:**
+- BUG-13 — `prereqWarnings` and `coreqWarnings` treat any completed semester's codes as satisfied regardless of direction. A later semester marked complete satisfies prereqs of earlier-semester courses.
+**Scope:** Two `useMemo` blocks in `src/components/DegreePlan.jsx` (`prereqWarnings`, `coreqWarnings`). Drop the redundant `planSemesterCompleted` clause. Pure-logic edit; the `p.sem < item.sem` first clause already covers prior semesters whether marked complete or not.
+**Notes:**
+- No new tests. Existing `checkPrereqs` / `checkCoreqs` tests cover the underlying invariants; the memo isn't easily extractable without refactor scope creep. Manual verification is the bar.
+- Audit's "Suspected fix" implies restricting to earlier semesters → makes the completion clause redundant → drop it.
+**Prompt:** Not yet written
+
+---
 
 ### fix/prereq-display
 **Targets:**
