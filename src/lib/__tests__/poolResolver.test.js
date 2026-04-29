@@ -27,6 +27,7 @@ import {
   resolveScience,
   resolveFreeElective,
   resolveSatisfiesPool,
+  getScienceWarnings,
   POOL_COURSES,
 } from '../poolResolver'
 
@@ -245,6 +246,98 @@ describe('resolveScience', () => {
     const result = resolveScience({ sci2: 'CHEM1110' }, SCIENCE_SLOTS, courseMap)
     expect(result.mode).toBe('autofill')
     expect(result.course.code).toBe('CHEM1120')
+  })
+})
+
+// ── getScienceWarnings ────────────────────────────────────────────────────────
+//
+// Surfaces "incomplete" warnings on an empty SCIENCE slot when the partner
+// slot is filled, and "conflict" warnings on both filled slots when the pair
+// is not a valid TTU sequence. BUG-10 (label-equality vs sequence-membership)
+// regression coverage lives here: BIOL1123 + BIOL2310 share the 'Biology'
+// label but are NOT a valid pair, so they must produce a conflict warning.
+
+describe('getScienceWarnings', () => {
+
+  it('returns no warnings when both slots are empty', () => {
+    expect(getScienceWarnings({}, SCIENCE_SLOTS)).toEqual({})
+  })
+
+  it('returns no warnings when there are fewer than two SCIENCE slots', () => {
+    const oneSlot = [{ id: 'sci1', is_pool: true, class_code: 'SCIENCE' }]
+    expect(getScienceWarnings({ sci1: 'CHEM1110' }, oneSlot)).toEqual({})
+  })
+
+  it('warns incomplete on the empty slot when the other is filled', () => {
+    const result = getScienceWarnings({ sci1: 'CHEM1110' }, SCIENCE_SLOTS)
+    expect(result).toEqual({
+      sci2: { type: 'incomplete', sequenceName: 'Chemistry' },
+    })
+  })
+
+  it('warns incomplete on sci1 when sci2 is the filled slot', () => {
+    const result = getScienceWarnings({ sci2: 'PHYS2110' }, SCIENCE_SLOTS)
+    expect(result).toEqual({
+      sci1: { type: 'incomplete', sequenceName: 'Physics (Calculus)' },
+    })
+  })
+
+  it('returns no warnings for a valid Chemistry pair', () => {
+    const result = getScienceWarnings(
+      { sci1: 'CHEM1110', sci2: 'CHEM1120' },
+      SCIENCE_SLOTS,
+    )
+    expect(result).toEqual({})
+  })
+
+  it('returns no warnings for BIOL1113 + BIOL1123 (valid biology pair)', () => {
+    const result = getScienceWarnings(
+      { sci1: 'BIOL1113', sci2: 'BIOL1123' },
+      SCIENCE_SLOTS,
+    )
+    expect(result).toEqual({})
+  })
+
+  it('returns no warnings for BIOL1113 + BIOL2310 (valid biology pair)', () => {
+    const result = getScienceWarnings(
+      { sci1: 'BIOL1113', sci2: 'BIOL2310' },
+      SCIENCE_SLOTS,
+    )
+    expect(result).toEqual({})
+  })
+
+  it('flags conflict for BIOL1123 + BIOL2310 (BUG-10 regression)', () => {
+    // Both share the 'Biology' label but neither pair is in SCIENCE_SEQUENCES
+    // — both must pair with BIOL1113, not each other.
+    const result = getScienceWarnings(
+      { sci1: 'BIOL1123', sci2: 'BIOL2310' },
+      SCIENCE_SLOTS,
+    )
+    expect(result).toEqual({
+      sci1: { type: 'conflict' },
+      sci2: { type: 'conflict' },
+    })
+  })
+
+  it('flags conflict for codes from different sequences', () => {
+    const result = getScienceWarnings(
+      { sci1: 'CHEM1110', sci2: 'PHYS2010' },
+      SCIENCE_SLOTS,
+    )
+    expect(result).toEqual({
+      sci1: { type: 'conflict' },
+      sci2: { type: 'conflict' },
+    })
+  })
+
+  it('does not flag conflict when an unknown code is involved', () => {
+    // FAKE9999 isn't a known science code; we cannot prove it's an invalid
+    // pair, so no warning rather than a false positive.
+    const result = getScienceWarnings(
+      { sci1: 'CHEM1110', sci2: 'FAKE9999' },
+      SCIENCE_SLOTS,
+    )
+    expect(result).toEqual({})
   })
 })
 

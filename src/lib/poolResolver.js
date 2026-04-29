@@ -314,12 +314,21 @@ export function getScienceWarnings(planSlots, slots) {
   const seqA = codeA ? SCIENCE_SEQUENCE_NAMES[codeA] : null
   const seqB = codeB ? SCIENCE_SEQUENCE_NAMES[codeB] : null
 
-  // Both filled — check if they're from the same sequence
+  // Both filled — invalid only when the pair does not appear together in any
+  // SCIENCE_SEQUENCES entry. Label equality is insufficient: BIOL1123 and
+  // BIOL2310 share the 'Biology' label but are not a valid pair (each must
+  // pair with BIOL1113).
   if (codeA && codeB) {
-    if (seqA && seqB && seqA !== seqB) {
-      return {
-        [slotA.id]: { type: 'conflict' },
-        [slotB.id]: { type: 'conflict' },
+    const known = c => Object.prototype.hasOwnProperty.call(SCIENCE_SEQUENCE_NAMES, c)
+    if (known(codeA) && known(codeB)) {
+      const validPair = SCIENCE_SEQUENCES.some(
+        s => s.courses.includes(codeA) && s.courses.includes(codeB)
+      )
+      if (!validPair) {
+        return {
+          [slotA.id]: { type: 'conflict' },
+          [slotB.id]: { type: 'conflict' },
+        }
       }
     }
     return {}
