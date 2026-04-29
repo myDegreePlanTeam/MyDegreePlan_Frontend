@@ -13,6 +13,20 @@ _None._
 
 ## Queued Branches
 
+### fix/science-pool-warnings
+**Targets:**
+- BUG-10 — `getScienceWarnings` treats all Biology codes as the same sequence (label equality vs sequence membership)
+- BUG-11 — `resolveScience` only considers the first filled SCIENCE slot
+- BUG-17 — `SCIENCE_SEQUENCES` lists `GEOL1040 / GEOL1045` in both orderings; second entry unreachable
+- BUG-18 — `getScienceWarnings` only examines the first two SCIENCE pool slots
+**Scope:** `src/lib/poolResolver.js` and `src/lib/__tests__/poolResolver.test.js` only. All four bugs converge on the same logic — switching from label-equality to sequence-membership and generalizing past the first-two-slots assumption.
+**Notes:**
+- Pure-logic file; no Supabase, no React. Test coverage extension is straightforward.
+- Templates today have at most two SCIENCE slots, so BUG-11/BUG-18 are latent — fix them anyway to remove the implicit invariant.
+**Prompt:** Not yet written
+
+---
+
 ### fix/prereq-display
 **Targets:**
 - BUG-31 — MATH1910 prereq display omits ACT Math 27+ OR gate
