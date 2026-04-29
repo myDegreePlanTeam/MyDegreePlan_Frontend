@@ -23,15 +23,17 @@
 
 > **2026-04-29 update:** `fix/concentration-switch-clears-notes` merged. BUG-7 (`handleConcentrationSwitch` did not clear `student_semester_notes`) is fixed by adding the missing delete call alongside the existing sibling deletes for plan slots, free-adds, and prior credits. Audit framing was partially stale: the table is keyed by `(student_id, concentration_id, semester_number)` (Tier 9), so old-concentration notes did not bleed into the new concentration's view, but switch-back resurrection (notes reappearing after Core → HPC → Core) was the real visible symptom. Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-29 update (2):** `fix/science-pool-warnings` merged. BUG-10 (`getScienceWarnings` used label equality, missing `BIOL1123 + BIOL2310` as an invalid pair), BUG-11 (`resolveScience` indexed `selectedScienceCodes[0]`, biased to the first filled slot), BUG-17 (redundant reversed `GEOL1040/GEOL1045` entry in `SCIENCE_SEQUENCES`), and BUG-18 (`getScienceWarnings` destructured only the first two SCIENCE slots) are fixed. `getScienceWarnings` now compares against `SCIENCE_SEQUENCES` membership and iterates pairwise across all SCIENCE slots; `resolveScience` is multi-code-aware. Tests grew from 210 → 226 (10 new `getScienceWarnings` cases — no prior coverage — plus 3 `resolveScience` regression cases). Entries deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 11 |
-| Low      | 5  |
-| **Total** | **17** |
+| Medium   | 9  |
+| Low      | 3  |
+| **Total** | **13** |
 
 ---
 
@@ -45,36 +47,6 @@
 **Impact:** If `takenCodes` enforcement ever fails (see BUG-2 and the stale satisfiedCodes/takenCodes patterns in `SlotModal`), or if two pool slots somehow resolve to the same course via drag-and-drop, credit totals undercount by the shared course's credits rather than double-counting. Behavior is arguably correct (dedup semantics), but it masks a data-integrity problem upstream rather than surfacing it.
 
 **Suspected fix:** Intentional per spec; no fix required — but flag duplicate pool selections at save time and reject them at the UI layer.
-
-**Confidence:** Medium
-
----
-
-### BUG-10: `getScienceWarnings` treats all Biology codes as the same sequence, missing a real conflict
-
-**Severity:** Medium
-**File(s):** `src/lib/poolResolver.js:210-313`
-
-**Description:** `SCIENCE_SEQUENCE_NAMES` maps `BIOL1113`, `BIOL1123`, `BIOL2310` all to `'Biology'`. `SCIENCE_SEQUENCES` only includes the pairs `{BIOL1123, BIOL1113}` and `{BIOL2310, BIOL1113}` — the pair `{BIOL1123, BIOL2310}` is *not* a valid TTU sequence (they are alternative second-course options that share BIOL1113 as partner). But `getScienceWarnings` triggers a conflict only when `seqA !== seqB`. Because both codes are "Biology," a `{BIOL1123, BIOL2310}` selection produces *no* warning despite being invalid.
-
-**Impact:** Students can silently fill both SCIENCE slots with BIOL1123 + BIOL2310 and pass completion without a valid 8-hour biology sequence. `resolveScience` narrow/autofill paths prevent this during modal-driven selection (BIOL1113 narrow mode restricts to BIOL1123/BIOL2310 only when BIOL1113 is already picked — so the combo can only be reached by unfilling the partner), but once reached, no warning appears.
-
-**Suspected fix:** Check sequence membership rather than label equality — a configuration is valid iff both codes appear in the same entry of `SCIENCE_SEQUENCES`.
-
-**Confidence:** Medium
-
----
-
-### BUG-11: `resolveScience` only considers the first filled SCIENCE slot
-
-**Severity:** Medium
-**File(s):** `src/lib/poolResolver.js:220-252`
-
-**Description:** `const alreadySelected = selectedScienceCodes[0]`. If a concentration template has more than two `SCIENCE` slots (none currently do), or if both slots are filled with codes from different partial sequences, resolution is driven by only one code — arbitrary if the first-filled-slot ordering changes. Combined with the `SlotModal` workaround that passes `otherPlanSlots` (one code max), current templates happen to work, but the invariant (exactly one "other" SCIENCE code) is undocumented in the helper.
-
-**Impact:** Low today because both CSC concentrations have exactly two SCIENCE slots. Will silently break if a future concentration adds a third.
-
-**Suspected fix:** Either assert `selectedScienceCodes.length <= 1` in `resolveScience`, or extend the algorithm to handle multi-slot cases explicitly.
 
 **Confidence:** Medium
 
@@ -154,41 +126,6 @@
 **Impact:** Tests pass under false assumptions; a future contributor copying the fixture pattern will produce code that violates the live DB constraint.
 
 **Suspected fix:** Update fixtures to use `'transfer_credit'` or another still-valid value. No behavior change expected.
-
-**Confidence:** High
-
----
-
-### BUG-17: `SCIENCE_SEQUENCES` lists `GEOL1040 / GEOL1045` in both orderings; the second entry is unreachable
-
-**Severity:** Low
-**File(s):** `src/lib/poolResolver.js:210-218`
-
-**Description:**
-```
-{ courses: ['GEOL1040', 'GEOL1045'] },
-{ courses: ['GEOL1045', 'GEOL1040'] },
-```
-`resolveScience` iterates and matches on `includes(alreadySelected)`, then `find(c => c !== alreadySelected)` returns the partner. The first entry already handles both selection orders — the second is redundant. Not wrong, but cosmetic noise. Other sequences (BIOL1123/BIOL1113, BIOL2310/BIOL1113) are correctly listed once each.
-
-**Impact:** None functionally. Maintenance ambiguity.
-
-**Suspected fix:** Delete the second GEOL entry.
-
-**Confidence:** High
-
----
-
-### BUG-18: `getScienceWarnings` only examines the first two SCIENCE pool slots
-
-**Severity:** Low
-**File(s):** `src/lib/poolResolver.js:280-313`
-
-**Description:** `const [slotA, slotB] = scienceSlots` destructures only the first two; extra SCIENCE slots are ignored. Only relevant if a concentration has ≥3 SCIENCE slots — current templates do not.
-
-**Impact:** Latent. Future-concentration-bug risk.
-
-**Suspected fix:** Iterate pairs or compute warnings per-slot against the rest of the set.
 
 **Confidence:** High
 
