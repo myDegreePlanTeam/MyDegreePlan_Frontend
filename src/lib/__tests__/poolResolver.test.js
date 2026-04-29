@@ -339,6 +339,41 @@ describe('getScienceWarnings', () => {
     )
     expect(result).toEqual({})
   })
+
+  // ── BUG-18 regression: ≥3 SCIENCE slots ──────────────────────────────────
+  // Templates today have exactly two SCIENCE slots. These tests use a synthetic
+  // three-slot configuration to confirm the pairwise iteration generalizes
+  // correctly past the original `[slotA, slotB]` destructure.
+
+  const THREE_SCIENCE_SLOTS = [
+    { id: 'sci1', is_pool: true, class_code: 'SCIENCE' },
+    { id: 'sci2', is_pool: true, class_code: 'SCIENCE' },
+    { id: 'sci3', is_pool: true, class_code: 'SCIENCE' },
+  ]
+
+  it('returns no warnings for three empty SCIENCE slots', () => {
+    expect(getScienceWarnings({}, THREE_SCIENCE_SLOTS)).toEqual({})
+  })
+
+  it('warns incomplete on every empty slot when one of three is filled', () => {
+    const result = getScienceWarnings({ sci1: 'CHEM1110' }, THREE_SCIENCE_SLOTS)
+    expect(result).toEqual({
+      sci2: { type: 'incomplete', sequenceName: 'Chemistry' },
+      sci3: { type: 'incomplete', sequenceName: 'Chemistry' },
+    })
+  })
+
+  it('flags conflict on filled slots and warns the empty slot when two of three are mismatched', () => {
+    // sci1 (CHEM1110) and sci2 (BIOL1123) conflict; sci3 is empty and gets
+    // an incomplete warning (first match wins — pair (sci1, sci3)).
+    const result = getScienceWarnings(
+      { sci1: 'CHEM1110', sci2: 'BIOL1123' },
+      THREE_SCIENCE_SLOTS,
+    )
+    expect(result.sci1).toEqual({ type: 'conflict' })
+    expect(result.sci2).toEqual({ type: 'conflict' })
+    expect(result.sci3).toEqual({ type: 'incomplete', sequenceName: 'Chemistry' })
+  })
 })
 
 // ── resolveFreeElective ───────────────────────────────────────────────────────

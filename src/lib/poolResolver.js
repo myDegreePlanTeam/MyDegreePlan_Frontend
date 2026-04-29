@@ -305,44 +305,46 @@ export function getScienceWarnings(planSlots, slots) {
   const scienceSlots = slots.filter(s => s.is_pool && s.class_code === 'SCIENCE')
   if (scienceSlots.length < 2) return {}
 
-  const [slotA, slotB] = scienceSlots
-  const codeA = planSlots[slotA.id]
-  const codeB = planSlots[slotB.id]
+  const warnings = {}
+  const known = c => Object.prototype.hasOwnProperty.call(SCIENCE_SEQUENCE_NAMES, c)
 
-  if (!codeA && !codeB) return {}
+  // Iterate every pair of SCIENCE slots so 3+ slot configurations are handled.
+  // For 2 slots this reduces to one iteration with the original behavior.
+  for (let i = 0; i < scienceSlots.length; i++) {
+    for (let j = i + 1; j < scienceSlots.length; j++) {
+      const slotA = scienceSlots[i]
+      const slotB = scienceSlots[j]
+      const codeA = planSlots[slotA.id]
+      const codeB = planSlots[slotB.id]
 
-  const seqA = codeA ? SCIENCE_SEQUENCE_NAMES[codeA] : null
-  const seqB = codeB ? SCIENCE_SEQUENCE_NAMES[codeB] : null
-
-  // Both filled — invalid only when the pair does not appear together in any
-  // SCIENCE_SEQUENCES entry. Label equality is insufficient: BIOL1123 and
-  // BIOL2310 share the 'Biology' label but are not a valid pair (each must
-  // pair with BIOL1113).
-  if (codeA && codeB) {
-    const known = c => Object.prototype.hasOwnProperty.call(SCIENCE_SEQUENCE_NAMES, c)
-    if (known(codeA) && known(codeB)) {
-      const validPair = SCIENCE_SEQUENCES.some(
-        s => s.courses.includes(codeA) && s.courses.includes(codeB)
-      )
-      if (!validPair) {
-        return {
-          [slotA.id]: { type: 'conflict' },
-          [slotB.id]: { type: 'conflict' },
+      // Both filled — invalid iff the pair is not in any SCIENCE_SEQUENCES entry.
+      if (codeA && codeB) {
+        if (known(codeA) && known(codeB)) {
+          const validPair = SCIENCE_SEQUENCES.some(
+            s => s.courses.includes(codeA) && s.courses.includes(codeB)
+          )
+          if (!validPair) {
+            warnings[slotA.id] = { type: 'conflict' }
+            warnings[slotB.id] = { type: 'conflict' }
+          }
         }
+        continue
+      }
+
+      // One filled, one empty — warn the empty slot to complete the sequence.
+      // First match wins per slot; later pairs do not overwrite an existing
+      // warning on the same empty slot.
+      if (codeA && !codeB && !warnings[slotB.id]) {
+        const seqName = SCIENCE_SEQUENCE_NAMES[codeA]
+        if (seqName) warnings[slotB.id] = { type: 'incomplete', sequenceName: seqName }
+      } else if (!codeA && codeB && !warnings[slotA.id]) {
+        const seqName = SCIENCE_SEQUENCE_NAMES[codeB]
+        if (seqName) warnings[slotA.id] = { type: 'incomplete', sequenceName: seqName }
       }
     }
-    return {}
   }
 
-  // One filled, one empty — warn on the empty slot
-  if (codeA && !codeB && seqA) {
-    return { [slotB.id]: { type: 'incomplete', sequenceName: seqA } }
-  }
-  if (!codeA && codeB && seqB) {
-    return { [slotA.id]: { type: 'incomplete', sequenceName: seqB } }
-  }
-
-  return {}
+  return warnings
 }
 
 // ── GEN_ED sub-requirement categories ────────────────────────────────────────
