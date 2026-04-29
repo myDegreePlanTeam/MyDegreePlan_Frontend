@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-04-24
+> Last updated: 2026-04-29
 
 ---
 
@@ -133,3 +133,5 @@ _None._
 | `fix/onboarding-prior-credit` | 2026-04-21 | BUG-20, BUG-21, BUG-22, BUG-23, BUG-24, BUG-25 |
 | `fix/slot-modal-prereq-credits` | 2026-04-21 | BUG-1, BUG-2, BUG-5 |
 | `fix/onboarding-wizard-overhaul` | 2026-04-24 | BUG-4, BUG-8, BUG-26 (interim grey-out), BUG-27, BUG-28, BUG-29, BUG-30 + freshman/non-freshman branch removal |
+| `fix/transfer-credits-divergence-and-freeadd` | 2026-04-27 | BUG-3, BUG-6 |
+| `fix/concentration-switch-clears-notes` | 2026-04-29 | BUG-7 |

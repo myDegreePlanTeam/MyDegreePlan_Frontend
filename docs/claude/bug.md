@@ -21,30 +21,17 @@
 
 > **2026-04-27 update:** `fix/transfer-credits-divergence-and-freeadd` merged. BUG-3 (`resolveTransferCredits`/`resolveTransferDetails` Rule 1 divergence) and BUG-6 (`computePlanCredits` did not include `student_free_add_slots`) are fixed. The two resolver functions now share a private `matchPriorCreditsToSlots` helper so they cannot drift again; `computePlanCredits` accepts an optional `freeAddSlots` parameter and dedups across all three sources via a shared `seen` set. Tests grew from 194 → 210 (parity coverage for `resolveTransferDetails`, free-add coverage for `computePlanCredits`). Entries deleted below; remaining bug numbering is unchanged. BUG-34 added in the same pass — see new entry at the bottom of the list.
 
+> **2026-04-29 update:** `fix/concentration-switch-clears-notes` merged. BUG-7 (`handleConcentrationSwitch` did not clear `student_semester_notes`) is fixed by adding the missing delete call alongside the existing sibling deletes for plan slots, free-adds, and prior credits. Audit framing was partially stale: the table is keyed by `(student_id, concentration_id, semester_number)` (Tier 9), so old-concentration notes did not bleed into the new concentration's view, but switch-back resurrection (notes reappearing after Core → HPC → Core) was the real visible symptom. Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
-| High     | 2  |
+| High     | 1  |
 | Medium   | 11 |
 | Low      | 5  |
-| **Total** | **18** |
-
----
-
-### BUG-7: `DegreePlan.handleConcentrationSwitch` does not clear `student_semester_notes`
-
-**Severity:** High
-**File(s):** `src/components/DegreePlan.jsx` (`handleConcentrationSwitch`)
-
-**Description:** On concentration switch, the handler deletes rows from `student_plan_slots`, `student_free_add_slots`, and `prior_credits`, but leaves `student_semester_notes` intact. Notes include `completed_by_student` semester flags, which are specific to the old concentration's semester layout.
-
-**Impact:** A student who marked Semester 3 complete on the Core concentration, then switched to HPC, will see HPC's Semester 3 auto-collapsed to the completion summary — despite never having reviewed it. Notes for a deleted layout persist and mis-apply. Silent state leak; no data loss but a visibly wrong UI.
-
-**Suspected fix:** Delete the student's `student_semester_notes` rows in the same transaction as the other three tables, or keyspace notes per-concentration.
-
-**Confidence:** High
+| **Total** | **17** |
 
 ---
 
