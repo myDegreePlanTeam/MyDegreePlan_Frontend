@@ -109,9 +109,15 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
         // Deduplicate on (test_name, test_type) so a name that happens to
         // exist in two merged types (hypothetical today, cheap to guard)
         // still shows distinct entries.
+        // BUG-35: every prototype concentration is STEM (all CSC), so suppress
+        // exam rows whose names mark them as non-STEM equivalents (e.g. AP
+        // "Chemistry (Non-STEM)" awards CHEM1010/CHEM1020 — not useful for
+        // STEM majors). Long-term fix is a stem_only column on
+        // test_equivalencies + stem flag on concentrations; deferred.
         const seen = new Set()
         const options = []
         for (const row of data ?? []) {
+          if (row.test_name?.includes('(Non-STEM)')) continue
           const key = `${row.test_name}|${row.test_type}`
           if (seen.has(key)) continue
           seen.add(key)
