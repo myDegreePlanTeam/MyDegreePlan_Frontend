@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { resolvePool, resolveScience, resolveFreeElective, POOL_LABELS } from '../lib/poolResolver'
+import { resolvePool, resolveScience, resolveFreeElective, POOL_LABELS, formatMissingForDisplay } from '../lib/poolResolver'
 import { checkPrereqs } from '../lib/prereqChecker'
 import './Dashboard.css'
 
@@ -374,7 +374,7 @@ function CourseRow({ course, selected, onSelect }) {
         )}
         {course.status === 'locked' && course.missing && (
           <span className="modal-prereq-hint">
-            Needs: {course.missing.join(', ')}
+            Needs: {formatMissingForDisplay(course.missing)}
           </span>
         )}
       </div>

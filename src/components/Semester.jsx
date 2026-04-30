@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
-import { POOL_LABELS } from '../lib/poolResolver'
+import { POOL_LABELS, formatMissingForDisplay } from '../lib/poolResolver'
 import './Dashboard.css'
 
 // Maps prior_credit.credit_type to a short badge label shown on slots
@@ -313,12 +313,12 @@ function SlotRow({
           )}
           {prereqMissing?.length > 0 && (
             <span className="slot-prereq-warning">
-              ⚠ Prereq not met: {prereqMissing.join(', ')}
+              ⚠ Prereq not met: {formatMissingForDisplay(prereqMissing)}
             </span>
           )}
           {coreqMissing?.length > 0 && (
             <span className="slot-prereq-warning slot-coreq-warning">
-              ⚠ Coreq not met: {coreqMissing.join(', ')}
+              ⚠ Coreq not met: {formatMissingForDisplay(coreqMissing)}
             </span>
           )}
           {standingWarning && (
@@ -374,12 +374,12 @@ function SlotRow({
           <span className="slot-name">{course.name}</span>
           {prereqMissing?.length > 0 && (
             <span className="slot-prereq-warning">
-              ⚠ Prereq not met: {prereqMissing.join(', ')}
+              ⚠ Prereq not met: {formatMissingForDisplay(prereqMissing)}
             </span>
           )}
           {coreqMissing?.length > 0 && (
             <span className="slot-prereq-warning slot-coreq-warning">
-              ⚠ Coreq not met: {coreqMissing.join(', ')}
+              ⚠ Coreq not met: {formatMissingForDisplay(coreqMissing)}
             </span>
           )}
           {standingWarning && (
@@ -448,12 +448,12 @@ function FreeAddRow({ freeAdd, course, onStatusChange, onRemove, prereqMissing, 
         </span>
         {prereqMissing?.length > 0 && (
           <span className="slot-prereq-warning">
-            ⚠ Prereq not met: {prereqMissing.join(', ')}
+            ⚠ Prereq not met: {formatMissingForDisplay(prereqMissing)}
           </span>
         )}
         {coreqMissing?.length > 0 && (
           <span className="slot-prereq-warning slot-coreq-warning">
-            ⚠ Coreq not met: {coreqMissing.join(', ')}
+            ⚠ Coreq not met: {formatMissingForDisplay(coreqMissing)}
           </span>
         )}
       </div>
