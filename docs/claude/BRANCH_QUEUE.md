@@ -236,3 +236,4 @@ _None._
 | `fix/ap-chem-stem-filter` | 2026-04-29 | BUG-35 |
 | `fix/pool-archive-filled-slots` | 2026-04-30 | BUG-42 |
 | `fix/prereq-pool-name-display` | 2026-04-30 | BUG-37 |
+| `fix/gen-ed-sub-pool-surfacing` | 2026-04-30 | BUG-43 |

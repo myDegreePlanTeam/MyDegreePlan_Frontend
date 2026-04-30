@@ -19,6 +19,9 @@
 > **2026-04-30 update (2):** Package I merged. **14 open bugs** — 0 Critical,
 > 1 High, 7 Medium, 6 Low. Recommended next: Package K.
 
+> **2026-04-30 update (3):** Package K merged. **13 open bugs** — 0 Critical,
+> 1 High, 6 Medium, 6 Low. Recommended next: Package L.
+
 ---
 
 ## Standing procedure (every package)
@@ -83,11 +86,13 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
   prior contract were flipped; one new BUG-42 regression test added (245 →
   246). Drag-handler comment in `DegreePlan.jsx` refreshed.
 
-### Package K — `fix/gen-ed-sub-pool-surfacing`
-- **Bug:** BUG-43 (Medium)
+### Package K — `fix/gen-ed-sub-pool-surfacing` ✅ COMPLETE (merged 2026-04-30)
+- **Bug:** BUG-43 (Medium) — fixed
 - **Files:** `src/components/SlotModal.jsx` (GEN_ED render path),
   `src/components/PriorCreditWizard.jsx` (Step 4 award detail line),
-  `src/lib/poolResolver.js` (existing `GEN_ED_CATEGORIES` + `getGenEdStatus`)
+  `src/lib/poolResolver.js` (new `getGenEdSubCategory` helper +
+  `GEN_ED_CATEGORIES` export), `src/components/Dashboard.css` (new
+  `.modal-section-satisfied` rule)
 - **Why:** Today GEN_ED is a flat list; the planner already knows the
   History / Humanities & Arts / Social Science split internally but never
   surfaces it. (a) Modal should group by sub-category and grey out
@@ -97,6 +102,13 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
   is deferred under the existing `ROADMAP.md` entry "GEN_ED sub-requirement
   enforcement."
 - **Diff size:** Medium. Pure UI; data and helpers exist already.
+- **Resolution:** Exported `GEN_ED_CATEGORIES`; added `getGenEdSubCategory`
+  helper. SlotModal renders three sub-sections when `slot.class_code ===
+  'GEN_ED'` and search is empty; satisfied sub-pools dim via the new CSS
+  rule (selection still allowed — soft greying). Wizard Step 4 shows
+  "Also satisfies: General Education — History sub-pool" for GEN_ED
+  awards and POOL_LABELS-formatted text for other pools. Tests grew
+  257 → 262 (5 new cases).
 
 ### Package L — `fix/semester-card-css-polish`
 - **Bugs:** BUG-40 (Low) + BUG-41 (Low)
@@ -158,7 +170,7 @@ generate planning artifacts via the meta-prompt:
 
 ## Recommended near-term sequence
 
-**~~J~~ → ~~I~~ → K → L → M**, hold **N** for the coordinated theme pass.
+**~~J~~ → ~~I~~ → ~~K~~ → L → M**, hold **N** for the coordinated theme pass.
 
 Rationale:
 - **J** first because it's a real correctness bug with a small bounded fix.

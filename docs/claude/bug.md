@@ -50,15 +50,17 @@
 
 > **2026-04-30 update (2):** `fix/prereq-pool-name-display` merged. BUG-37 (prereq warnings list individual pool member codes instead of the pool name) is fixed by adding a pure display helper `formatMissingForDisplay` to `src/lib/poolResolver.js` and routing the seven `missing.join(', ')` consumer sites in `SlotModal.jsx` (1) and `Semester.jsx` (6) through it. Pool-member codes inside an OR group collapse to the pool's `POOL_LABELS` value when ≥2 codes from the same pool appear; mixed groups keep individual codes alongside the label (e.g. `(Communications or MATH1910)`); single pool members never collapse. `checkPrereqs` and `checkCoreqs` signatures and return shapes are unchanged per `CLAUDE.md`. Tests grew from 246 → 257 (11 new cases in `src/tests/formatMissingForDisplay.test.js`). Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-30 update (3):** `fix/gen-ed-sub-pool-surfacing` merged. BUG-43 (GEN_ED slot selection lacks sub-pool granularity) is fixed by surfacing the existing History / Humanities & Arts / Social Science split in two places: (a) `SlotModal` renders GEN_ED courses in three labeled sub-sections when search is empty, with already-satisfied sub-pools dimmed via a new `.modal-section-satisfied` CSS rule; (b) `PriorCreditWizard` Step 4's `wizard-award-pool` line now reads "Also satisfies: General Education — History sub-pool" (or Humanities & Arts / Social Science) for GEN_ED awards and uses `POOL_LABELS` for non-GEN_ED awards. New helper `getGenEdSubCategory` in `poolResolver.js`; `GEN_ED_CATEGORIES` is now exported. Soft greying only — students may still pick from a satisfied sub-pool. Schema-level GEN_ED splitting (ROADMAP "GEN_ED sub-requirement enforcement") remains deferred. Tests grew from 257 → 262 (5 new cases in `src/tests/getGenEdSubCategory.test.js`). Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 7  |
+| Medium   | 6  |
 | Low      | 6  |
-| **Total** | **14** |
+| **Total** | **13** |
 
 ---
 
@@ -361,75 +363,6 @@ credits-planned line so it reads as primary metadata rather than a footnote.
 
 **Confidence:** High — pure CSS edit. May converge with the grid-redesign
 Phase 3 work but is small enough to land on its own.
-
----
-
-### BUG-43: GEN_ED slot selection lacks sub-pool (History / Humanities & Arts / Social Science) granularity
-
-**Severity:** Medium
-**File(s):** `src/components/SlotModal.jsx` (GEN_ED render path —
-`resolvePool('GEN_ED', ...)`), `src/components/PriorCreditWizard.jsx`
-(Step 4 award detail — `wizard-award-pool` line),
-`src/lib/poolResolver.js` (`GEN_ED_CATEGORIES`, `getGenEdStatus`)
-
-**Description:** The TTU general education requirement is internally three
-sub-pools (History 6 hr, Humanities & Arts 6 hr, Social Science 6 hr) but
-the planner exposes GEN_ED as a single flat list. Two related UX gaps:
-
-(a) **Modal selection.** When a student opens a GEN_ED slot in the grid,
-the modal shows every gen-ed course in one list. There is no signal that
-they have already filled their History allotment, and they can pick a
-History course for a GEN_ED slot when the History sub-pool is already
-satisfied. The modal should ask the student which sub-category they are
-filling and grey-out sub-categories that are already satisfied with an
-explanation ("History requirement already satisfied").
-
-(b) **Wizard Step 4 disclosure.** When a student adds a gen-ed course
-through the prior-credit wizard, Step 4's confirmation says only "Also
-satisfies: GEN_ED pool requirement" (`wizard-award-pool` line). The
-student does not see which specific sub-pool the credit fills. Same gap
-applies to any other pool with internal categories (none today, but the
-SCIENCE pool's sequence pairing is conceptually similar).
-
-**Impact:** Students can over-allocate one sub-pool (e.g. take three
-History courses) and under-allocate another (zero Humanities). The
-`getGenEdStatus` "at risk" warning does fire on the grid but only after
-the over-allocation has happened — guiding the student during selection
-is the missing piece. For prior credits the disclosure mismatch is
-cosmetic but undermines the wizard's "what will I receive" promise.
-
-**Implementation notes:**
-- The data already exists. `GEN_ED_CATEGORIES` in `poolResolver.js` maps
-  every gen-ed course code to its sub-category, and `getGenEdStatus`
-  already tracks per-category fill counts and at-risk state.
-- The modal currently calls `resolvePool('GEN_ED', courseMap)` which
-  returns the flat list — no sub-grouping.
-- This partially overlaps with the existing `ROADMAP.md` entry
-  *"GEN_ED sub-requirement enforcement"* — but the user's bug is more
-  specific (modal sub-category surfacing + wizard Step 4 labeling) and
-  stops short of full enforcement (e.g. blocking a History pick when
-  History is satisfied).
-- Long-term fix would split GEN_ED into named sub-pools
-  (`GEN_ED_HISTORY`, `GEN_ED_HUMANITIES`, `GEN_ED_SOCIAL`) on
-  `requirement_slots` — covered by the ROADMAP entry. Short-term fix:
-  add sub-grouping to the modal render and wizard disclosure without
-  splitting the schema.
-
-**Suspected fix:**
-- `SlotModal`: when `slot.class_code === 'GEN_ED'`, render a sub-category
-  selector or three-section list grouped by `GEN_ED_CATEGORIES`. Use
-  `getGenEdStatus(planSlots, slots, courseMap)` to determine which
-  sub-pools are satisfied; render those sub-sections greyed with
-  explanations.
-- `PriorCreditWizard` Step 4: when an awarded course's code is in the
-  GEN_ED pool, look up its sub-category from `GEN_ED_CATEGORIES` and
-  surface that label ("History sub-pool" / "Humanities & Arts sub-pool"
-  / "Social Science sub-pool") instead of the bare "GEN_ED."
-
-**Confidence:** Medium — the data and helpers exist; the rendering
-changes are well-bounded. Greying-out a satisfied sub-pool needs a
-product decision on whether to soft-warn or hard-block (audit suggests
-soft, matching today's `getGenEdStatus` philosophy).
 
 ---
 
