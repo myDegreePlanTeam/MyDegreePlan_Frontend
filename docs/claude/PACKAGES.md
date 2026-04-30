@@ -13,6 +13,9 @@
 - **16 open bugs** — 0 Critical, 1 High, 9 Medium, 6 Low
 - 0 active branches
 
+> **2026-04-30 update:** Package J merged. **15 open bugs** — 0 Critical,
+> 1 High, 8 Medium, 6 Low. Recommended next: Package I.
+
 ---
 
 ## Standing procedure (every package)
@@ -55,8 +58,8 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
 - **Diff size:** Medium. Likely needs `checkPrereqs` to return group structure,
   not just a flat `missing` array — or the display layer re-derives groups.
 
-### Package J — `fix/pool-archive-filled-slots`
-- **Bug:** BUG-42 (Medium)
+### Package J — `fix/pool-archive-filled-slots` ✅ COMPLETE (merged 2026-04-30)
+- **Bug:** BUG-42 (Medium) — fixed
 - **Files:** `src/lib/transferCredits.js` (`matchPriorCreditsToSlots`),
   `src/components/DegreePlan.jsx` (`syncArchivedSlots`)
 - **Why:** A prior credit covering a pool (e.g. AP Chem STEM with
@@ -67,6 +70,10 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
   score 5, observe both slots stay visible instead of archiving.
 - **Diff size:** Small. Likely a 1-line tweak in the matcher (Rule 2 should
   match filled pool slots) plus a sanity-check pass on `syncArchivedSlots`.
+- **Resolution:** Removed the `if (planSlotsMap[slot.id]) continue` guard
+  from Rule 2 in `matchPriorCreditsToSlots`. Two existing tests asserting the
+  prior contract were flipped; one new BUG-42 regression test added (245 →
+  246). Drag-handler comment in `DegreePlan.jsx` refreshed.
 
 ### Package K — `fix/gen-ed-sub-pool-surfacing`
 - **Bug:** BUG-43 (Medium)
@@ -143,7 +150,7 @@ generate planning artifacts via the meta-prompt:
 
 ## Recommended near-term sequence
 
-**J → I → K → L → M**, hold **N** for the coordinated theme pass.
+**~~J~~ → I → K → L → M**, hold **N** for the coordinated theme pass.
 
 Rationale:
 - **J** first because it's a real correctness bug with a small bounded fix.

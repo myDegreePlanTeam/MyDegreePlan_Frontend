@@ -46,15 +46,17 @@
 
 > **2026-04-29 update (10):** Two new bugs (BUG-42 and BUG-43) added from a developer flow walkthrough. Both surface in the prior-credit / pool-slot interaction. BUG-42 is a transfer-credit archive correctness issue (filled pool slots not archiving when a prior credit covers the same pool). BUG-43 is a sub-pool granularity gap in GEN_ED selection — partially overlaps with the existing `ROADMAP.md` entry "GEN_ED sub-requirement enforcement" but adds concrete UX scope (modal sub-category surfacing, wizard Step 4 sub-pool labeling). New severity additions: Medium +2. New totals: Critical 0, High 1, Medium 9, Low 6, Total 16.
 
+> **2026-04-30 update:** `fix/pool-archive-filled-slots` merged. BUG-42 (filled pool slots not archived when a prior credit's `satisfies_pool` covers the same pool) is fixed by removing the `if (planSlotsMap[slot.id]) continue` guard from Rule 2 of the shared `matchPriorCreditsToSlots` helper in `src/lib/transferCredits.js`. Rule 2 is now purely class-code-driven: pool credit beats student selection. `syncArchivedSlots` reads `planSlots[slot.id]` for the upserted `selected_course_code`, so the student's selection is preserved on the DB row and the slot restores correctly within the session if the prior credit is later removed (cross-reload restoration is the deferred ROADMAP "Pool-slot drag-back restoration" item). Two existing tests that asserted the prior contract were flipped; one new BUG-42 regression test was added. Tests grew from 245 → 246. Drag-handler comment in `DegreePlan.jsx` refreshed to reflect the new contract; the explicit upsert in that branch now functions as defensive belt-and-suspenders. Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 9  |
+| Medium   | 8  |
 | Low      | 6  |
-| **Total** | **16** |
+| **Total** | **15** |
 
 ---
 
@@ -398,69 +400,6 @@ credits-planned line so it reads as primary metadata rather than a footnote.
 
 **Confidence:** High — pure CSS edit. May converge with the grid-redesign
 Phase 3 work but is small enough to land on its own.
-
----
-
-### BUG-42: Filled pool slots not archived when a prior credit covers the same pool
-
-**Severity:** Medium
-**File(s):** `src/lib/transferCredits.js` (`resolveTransferCredits` /
-`resolveTransferDetails` shared `matchPriorCreditsToSlots` helper),
-`src/components/DegreePlan.jsx` (`syncArchivedSlots`, drag/unarchive paths)
-
-**Description:** Per the resolver contract Rule 2, a pool slot is archived
-when a prior credit's `satisfies_pool` equals the slot's `class_code`. In
-practice this works for *empty* pool slots (the AP/IB credit lands and the
-slot disappears from the grid). But when the pool slot is already filled
-with a student-selected course, the archive does not fire — the slot
-remains visible with the student's selection intact.
-
-The student then has two options for the same requirement: their selected
-course in the grid, plus the prior credit in the Prior Coursework panel.
-If the student notices and clears their selection, the now-empty slot
-flips into a "satisfied by AP" indicator — but still does not disappear.
-The slot only properly archives if the student takes the manual two-step
-of unfilling it.
-
-**Reproduction:**
-1. On a CSC plan, fill both SCIENCE pool slots with `CHEM1110` + `CHEM1120`.
-2. Open the prior-credit wizard, choose AP Credit → `Chemistry (STEM)` →
-   score 5. This produces two prior credits, both with
-   `satisfies_pool = 'SCIENCE'`.
-3. Apply.
-4. **Expected:** both SCIENCE pool slots disappear from the grid (archived);
-   the student's selections persist on the row but the slot is hidden, the
-   way it does for an unfilled SCIENCE slot.
-5. **Observed:** slots remain visible with their CHEM1110/CHEM1120
-   selections. Clearing one of the selections shows a "satisfied by AP"
-   indicator but the slot still does not archive away.
-
-**Impact:** Real correctness bug, not just polish. The student sees a
-double-count in the grid (their own selection plus the prior credit) and
-must unfill manually to get the planner into the correct state. Total
-hours computation stays correct because of `computePlanCredits`'s dedup
-contract, but the visible "what's left" grid is wrong.
-
-**Suspected fix:** Audit `matchPriorCreditsToSlots` (the private helper
-shared between `resolveTransferCredits` and `resolveTransferDetails`).
-Two plausible roots:
-- Rule 2 may currently prefer empty pool slots over filled ones when both
-  exist, leaving filled slots un-archived.
-- Or the matching may run correctly but `syncArchivedSlots` may treat the
-  filled slot's archive transition differently from an empty one.
-
-The right behavior is for Rule 2 to match on `class_code` (the pool name)
-without a fill-state filter — Pool credit beats student selection. The
-student's `selected_course_code` should persist on the underlying
-`student_plan_slots` row so that an unarchive (e.g. user removes the
-prior credit) restores it.
-
-Cross-reference: existing `BUG-24` fix (drag-to-Prior-Coursework dedup
-guards) and the `fix/transfer-credits-divergence-and-freeadd` Rule 1/2
-unification — both nearby; ensure the fix doesn't regress either.
-
-**Confidence:** High that the bug exists; Medium on the exact remediation
-path until the matcher is read end-to-end.
 
 ---
 

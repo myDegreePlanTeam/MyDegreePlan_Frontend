@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-04-29 (8)
+> Last updated: 2026-04-30
 
 ---
 
@@ -234,3 +234,4 @@ _None._
 | `fix/postgrest-input-sanitization` | 2026-04-29 | BUG-12 |
 | `fix/wizard-step3-cleanup` | 2026-04-29 | BUG-39 |
 | `fix/ap-chem-stem-filter` | 2026-04-29 | BUG-35 |
+| `fix/pool-archive-filled-slots` | 2026-04-30 | BUG-42 |
