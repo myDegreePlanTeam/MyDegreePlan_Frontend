@@ -470,6 +470,56 @@ export function getGenEdStatus(planSlots, slots, courseMap) {
   })
 }
 
+// ── formatMissingForDisplay ───────────────────────────────────────────────────
+// BUG-37: Rewrites the `missing` array returned by checkPrereqs/checkCoreqs
+// into a freshman-readable string.  Pool members inside an OR group collapse
+// to the pool's display label so "Needs: COMM2025, PC2500" reads as
+// "Needs: Communications" — codes outside any pool stay verbatim.
+//
+// Input shape (per prereqChecker.js):
+//   - bare code:      'CSC1300'
+//   - OR group:       '(A or B or C)'
+//
+// Rules for OR groups:
+//   - For each pool that has 2+ codes in this group, replace those codes
+//     with POOL_LABELS[poolCode]. A single pool member alone is NOT
+//     collapsed — the prereq genuinely names that one course.
+//   - Tie-break across pools: the pool with the most matching codes wins;
+//     ties resolve to Object.entries iteration order on POOL_COURSES.
+//   - The output OR group joins remaining tokens with ' or '.  When the
+//     group reduces to a single token, drop the parentheses entirely.
+
+export function formatMissingForDisplay(missing) {
+  if (!Array.isArray(missing) || missing.length === 0) return ''
+  return missing.map(formatOne).join(', ')
+}
+
+function formatOne(entry) {
+  if (typeof entry !== 'string') return String(entry)
+  const m = entry.match(/^\((.+)\)$/)
+  if (!m) return entry                                    // bare code
+  const codes = m[1].split(' or ').map(s => s.trim()).filter(Boolean)
+  if (codes.length <= 1) return entry                     // malformed — leave alone
+
+  let chosenPool    = null
+  let chosenMembers = null
+  for (const [poolCode, poolList] of Object.entries(POOL_COURSES)) {
+    if (!Array.isArray(poolList)) continue                // skip FREE_ELECTIVE (null)
+    const owned = codes.filter(c => poolList.includes(c))
+    if (owned.length >= 2 && (!chosenMembers || owned.length > chosenMembers.length)) {
+      chosenPool    = poolCode
+      chosenMembers = owned
+    }
+  }
+
+  if (!chosenPool) return entry
+
+  const remaining = codes.filter(c => !chosenMembers.includes(c))
+  const tokens    = [POOL_LABELS[chosenPool], ...remaining]
+  if (tokens.length === 1) return tokens[0]
+  return `(${tokens.join(' or ')})`
+}
+
 // ── resolveFreeElective ───────────────────────────────────────────────────────
 
 export function resolveFreeElective(courseMap, slots, planSlots) {
