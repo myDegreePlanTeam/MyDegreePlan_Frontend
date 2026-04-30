@@ -870,12 +870,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
           credits_awarded:       creditsAwarded,
         })
 
-        // Explicitly archive the source slot.  Rule 1 (non-pool) does NOT skip
-        // on planSlots[slot.id] — it would catch this drag — but Rule 2 (pool)
-        // intentionally skips when planSlots[slot.id] is set, so for pool drags
-        // syncArchivedSlots cannot archive without unsetting the selection
-        // first.  This upsert covers both branches and is idempotent if the
-        // resolver already produced the same archive state.
+        // Explicitly archive the source slot.  After BUG-42, both Rule 1
+        // (non-pool) and Rule 2 (pool) match regardless of fill state, so
+        // syncArchivedSlots will already have archived this slot above.
+        // This upsert remains as defensive belt-and-suspenders and is
+        // idempotent if the resolver already produced the same archive state.
         const { error: archErr } = await supabase.from('student_plan_slots').upsert({
           student_id:           profile.id,
           requirement_slot_id:  slot.id,
