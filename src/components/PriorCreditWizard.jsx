@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { resolveSatisfiesPool } from '../lib/poolResolver'
+import { resolveSatisfiesPool, POOL_LABELS, getGenEdSubCategory } from '../lib/poolResolver'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
 import { escapeIlikeValue } from '../lib/postgrestEscape'
 import './Dashboard.css'
@@ -522,11 +522,26 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
                         prior credit and count toward your degree total.
                       </p>
                     )}
-                    {award.satisfies_pool && (
-                      <p className="wizard-award-pool">
-                        Also satisfies: {award.satisfies_pool} pool requirement
-                      </p>
-                    )}
+                    {award.satisfies_pool && (() => {
+                      // BUG-43: surface the GEN_ED sub-pool the credit fills,
+                      // not just "GEN_ED."  Other pools use POOL_LABELS for
+                      // friendlier copy.
+                      if (award.satisfies_pool === 'GEN_ED') {
+                        const sub = getGenEdSubCategory(award.awarded_course_code)
+                        if (sub) {
+                          return (
+                            <p className="wizard-award-pool">
+                              Also satisfies: General Education — {sub.label} sub-pool
+                            </p>
+                          )
+                        }
+                      }
+                      return (
+                        <p className="wizard-award-pool">
+                          Also satisfies: {POOL_LABELS[award.satisfies_pool] ?? award.satisfies_pool} pool requirement
+                        </p>
+                      )
+                    })()}
                   </div>
                 )
               })}
