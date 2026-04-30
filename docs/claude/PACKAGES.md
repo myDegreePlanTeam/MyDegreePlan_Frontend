@@ -16,6 +16,9 @@
 > **2026-04-30 update:** Package J merged. **15 open bugs** — 0 Critical,
 > 1 High, 8 Medium, 6 Low. Recommended next: Package I.
 
+> **2026-04-30 update (2):** Package I merged. **14 open bugs** — 0 Critical,
+> 1 High, 7 Medium, 6 Low. Recommended next: Package K.
+
 ---
 
 ## Standing procedure (every package)
@@ -44,19 +47,24 @@ Standing rules (per `SESSION_PREAMBLE.md`):
 
 Each row is a candidate branch. Pick one and apply the standing procedure.
 
-### Package I — `fix/prereq-pool-name-display`
-- **Bug:** BUG-37 (Medium)
-- **Files:** `src/components/SlotModal.jsx`, `src/components/DegreePlan.jsx`
-  (`prereqWarnings`/`coreqWarnings` memos), `src/lib/poolResolver.js`
-  (`POOL_COURSES`, `POOL_LABELS`)
+### Package I — `fix/prereq-pool-name-display` ✅ COMPLETE (merged 2026-04-30)
+- **Bug:** BUG-37 (Medium) — fixed
+- **Files:** `src/lib/poolResolver.js` (new `formatMissingForDisplay`
+  helper), `src/components/SlotModal.jsx` (1 site), `src/components/Semester.jsx`
+  (6 sites)
 - **Why:** Freshmen don't know course codes. When a missing prereq is
   satisfiable by any course in a pool (e.g. CSC3040 needs COMM2025 *or*
   PC2500, both COMM_REQ pool members), display "Communications class" — not
   the raw codes.
-- **Open question for kickoff:** how to handle prereqs that mix pool members
-  with individual courses in one OR group.
-- **Diff size:** Medium. Likely needs `checkPrereqs` to return group structure,
-  not just a flat `missing` array — or the display layer re-derives groups.
+- **Resolution:** Added pure display helper `formatMissingForDisplay` to
+  `poolResolver.js` that parses the existing `(A or B or C)` OR-group
+  strings emitted by `checkPrereqs`/`checkCoreqs` and collapses pool members
+  to `POOL_LABELS` values when ≥2 codes from the same pool appear. Routed
+  the seven `missing.join(', ')` consumer sites through it. `checkPrereqs`/
+  `checkCoreqs` signatures and return shapes are unchanged. Tests grew
+  246 → 257 (11 new cases). Open-question handling: mixed pool + individual
+  in one OR collapses pool members and keeps individual code; single pool
+  member alone never collapses.
 
 ### Package J — `fix/pool-archive-filled-slots` ✅ COMPLETE (merged 2026-04-30)
 - **Bug:** BUG-42 (Medium) — fixed
@@ -150,7 +158,7 @@ generate planning artifacts via the meta-prompt:
 
 ## Recommended near-term sequence
 
-**~~J~~ → I → K → L → M**, hold **N** for the coordinated theme pass.
+**~~J~~ → ~~I~~ → K → L → M**, hold **N** for the coordinated theme pass.
 
 Rationale:
 - **J** first because it's a real correctness bug with a small bounded fix.

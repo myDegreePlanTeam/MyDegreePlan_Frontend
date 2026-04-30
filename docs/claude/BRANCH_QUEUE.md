@@ -235,3 +235,4 @@ _None._
 | `fix/wizard-step3-cleanup` | 2026-04-29 | BUG-39 |
 | `fix/ap-chem-stem-filter` | 2026-04-29 | BUG-35 |
 | `fix/pool-archive-filled-slots` | 2026-04-30 | BUG-42 |
+| `fix/prereq-pool-name-display` | 2026-04-30 | BUG-37 |

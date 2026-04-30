@@ -48,15 +48,17 @@
 
 > **2026-04-30 update:** `fix/pool-archive-filled-slots` merged. BUG-42 (filled pool slots not archived when a prior credit's `satisfies_pool` covers the same pool) is fixed by removing the `if (planSlotsMap[slot.id]) continue` guard from Rule 2 of the shared `matchPriorCreditsToSlots` helper in `src/lib/transferCredits.js`. Rule 2 is now purely class-code-driven: pool credit beats student selection. `syncArchivedSlots` reads `planSlots[slot.id]` for the upserted `selected_course_code`, so the student's selection is preserved on the DB row and the slot restores correctly within the session if the prior credit is later removed (cross-reload restoration is the deferred ROADMAP "Pool-slot drag-back restoration" item). Two existing tests that asserted the prior contract were flipped; one new BUG-42 regression test was added. Tests grew from 245 → 246. Drag-handler comment in `DegreePlan.jsx` refreshed to reflect the new contract; the explicit upsert in that branch now functions as defensive belt-and-suspenders. Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-04-30 update (2):** `fix/prereq-pool-name-display` merged. BUG-37 (prereq warnings list individual pool member codes instead of the pool name) is fixed by adding a pure display helper `formatMissingForDisplay` to `src/lib/poolResolver.js` and routing the seven `missing.join(', ')` consumer sites in `SlotModal.jsx` (1) and `Semester.jsx` (6) through it. Pool-member codes inside an OR group collapse to the pool's `POOL_LABELS` value when ≥2 codes from the same pool appear; mixed groups keep individual codes alongside the label (e.g. `(Communications or MATH1910)`); single pool members never collapse. `checkPrereqs` and `checkCoreqs` signatures and return shapes are unchanged per `CLAUDE.md`. Tests grew from 246 → 257 (11 new cases in `src/tests/formatMissingForDisplay.test.js`). Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 8  |
+| Medium   | 7  |
 | Low      | 6  |
-| **Total** | **15** |
+| **Total** | **14** |
 
 ---
 
@@ -273,47 +275,6 @@ handlers.
 
 **Confidence:** Medium — the root cause is plausible but unconfirmed without
 devtools profiling. May be entirely a CSS transition timing issue.
-
----
-
-### BUG-37: Prereq warnings list individual pool member codes instead of the pool name
-
-**Severity:** Medium
-**File(s):** `src/components/SlotModal.jsx` (`annotate`, missing-prereq
-hint render), `src/components/DegreePlan.jsx` (`prereqWarnings` memo —
-Semester slot row badge), `src/lib/poolResolver.js` (`POOL_COURSES`,
-`POOL_LABELS` for the lookup)
-
-**Description:** When a course's missing prereq is satisfiable by any course
-in a pool — e.g. CSC3040 lists `COMM2025` and `PC2500` (both members of the
-COMM_REQ pool) — the warning surface lists the individual codes
-("Needs: COMM2025, PC2500"). Freshmen rarely know course codes, so the hint
-reads as gibberish. The pool semantics ("any one Communications course will
-satisfy this") are visible to the resolver but never reach the user.
-
-**Impact:** Students see a cryptic prereq hint rather than the friendlier
-"Needs: Communications class" or "Needs: any course in the Communications
-requirement." Particularly painful in the SlotModal availability list and on
-slot row warning badges, which is exactly where the student is trying to plan
-ahead.
-
-**Suspected fix:** When constructing the `missing` list for prereq warnings,
-group consecutive codes that share a pool (per `POOL_COURSES` membership)
-into a single label using `POOL_LABELS`. Two design points to settle before
-implementation:
-- If the prereq lists multiple pool members in an OR group, collapse them all
-  into one pool label.
-- If the prereq mixes pool members and individual courses (rare but possible),
-  show both — e.g. "Needs: Communications class, plus MATH1910."
-
-This requires reading the prereq's group structure (`prerequisite_entries.logic`
-+ `group_index`), not just the flat code list. Today's `checkPrereqs` doesn't
-return group structure — it returns a flat `missing` array. So either the
-checker grows a richer return shape, or the display layer re-derives groups
-from `prereqMap`.
-
-**Confidence:** Medium — the goal is clear; the exact rendering logic and
-checker API change need product alignment.
 
 ---
 
