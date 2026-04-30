@@ -667,6 +667,14 @@
   border-bottom: 1px solid var(--navy-light);
 }
 
+/* BUG-43: soft greying for GEN_ED sub-sections that are already satisfied. */
+.modal-section-satisfied .modal-section-label {
+  color: var(--muted);
+}
+.modal-section-satisfied .modal-course-row {
+  opacity: 0.55;
+}
+
 /* ── Slot status visuals ─────────────────────────────────────────── */
 
 .slot-row.status-in_progress {

@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
-import { resolvePool, resolveScience, resolveFreeElective, POOL_LABELS, formatMissingForDisplay } from '../lib/poolResolver'
+import {
+  resolvePool, resolveScience, resolveFreeElective,
+  POOL_LABELS, formatMissingForDisplay,
+  GEN_ED_CATEGORIES, getGenEdStatus,
+} from '../lib/poolResolver'
 import { checkPrereqs } from '../lib/prereqChecker'
 import './Dashboard.css'
 
@@ -227,6 +231,67 @@ export default function SlotModal({
     if (e.target === e.currentTarget) onClose()
   }
 
+  // ── Render GEN_ED sub-category sections ────────────────────────────
+  // BUG-43: surface History / Humanities & Arts / Social Science sub-pools
+  // when the GEN_ED slot is opened with an empty search.  Satisfied
+  // sub-pools render with a "(already satisfied)" suffix and CSS-greyed
+  // treatment.  Selection remains soft — students may still pick a course
+  // from a satisfied sub-pool (over-allocation is sometimes intentional).
+  function renderGenEdSections(annotated) {
+    const status = getGenEdStatus(planSlots, slots, courseMap)
+    const codeToCategory = {}
+    for (const [cat, codes] of Object.entries(GEN_ED_CATEGORIES)) {
+      for (const code of codes) codeToCategory[code] = cat
+    }
+
+    const grouped = { History: [], Humanities: [], Social: [], Other: [] }
+    for (const course of annotated) {
+      const cat = codeToCategory[course.code] ?? 'Other'
+      grouped[cat].push(course)
+    }
+
+    return (
+      <>
+        {['History', 'Humanities', 'Social'].map(cat => {
+          const list = grouped[cat]
+          if (list.length === 0) return null
+          const catStatus = status.find(s => s.category === cat)
+          const satisfied = catStatus?.satisfied
+          const wrapClass = satisfied ? 'modal-section-satisfied' : ''
+          return (
+            <div key={cat} className={wrapClass}>
+              <p className="modal-section-label">
+                {catStatus?.label ?? cat}
+                {satisfied && ' (already satisfied)'}
+              </p>
+              {list.map(course => (
+                <CourseRow
+                  key={course.code}
+                  course={course}
+                  selected={selected}
+                  onSelect={setSelected}
+                />
+              ))}
+            </div>
+          )
+        })}
+        {grouped.Other.length > 0 && (
+          <div>
+            <p className="modal-section-label">Other</p>
+            {grouped.Other.map(course => (
+              <CourseRow
+                key={course.code}
+                course={course}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            ))}
+          </div>
+        )}
+      </>
+    )
+  }
+
   // ── Render free elective sections ──────────────────────────────────
   function renderFreeSections() {
     const suggested = freeSections.suggested
@@ -305,6 +370,8 @@ export default function SlotModal({
         <div className="modal-course-list">
           {freeSections && search === '' ? (
             renderFreeSections()
+          ) : slot.class_code === 'GEN_ED' && search === '' ? (
+            renderGenEdSections(filtered)
           ) : filtered.length === 0 ? (
             <p className="modal-empty">No courses match your search.</p>
           ) : (

@@ -363,7 +363,7 @@ export function getScienceWarnings(planSlots, slots) {
 // Course codes here must exactly match those listed in POOL_COURSES.GEN_ED above.
 
 // Note: HIST2010 and HIST2020 are independent — no ordering required between them.
-const GEN_ED_CATEGORIES = {
+export const GEN_ED_CATEGORIES = {
   History: [
     'HIST2010',
     'HIST2020',
@@ -518,6 +518,21 @@ function formatOne(entry) {
   const tokens    = [POOL_LABELS[chosenPool], ...remaining]
   if (tokens.length === 1) return tokens[0]
   return `(${tokens.join(' or ')})`
+}
+
+// ── getGenEdSubCategory ───────────────────────────────────────────────────────
+// Returns { category, label } for any GEN_ED course code, or null if the code
+// is not a GEN_ED member.  Used by SlotModal section grouping (BUG-43) and by
+// PriorCreditWizard Step 4 to label which sub-pool an awarded credit fills.
+
+export function getGenEdSubCategory(courseCode) {
+  if (!courseCode) return null
+  for (const [category, codes] of Object.entries(GEN_ED_CATEGORIES)) {
+    if (codes.includes(courseCode)) {
+      return { category, label: GEN_ED_CATEGORY_LABELS[category] }
+    }
+  }
+  return null
 }
 
 // ── resolveFreeElective ───────────────────────────────────────────────────────
