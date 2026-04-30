@@ -59,11 +59,13 @@ const SATISFIABLE_POOLS = new Set([
 // order, preserving the "first match wins" + "one credit at most one slot"
 // invariants via a shared usedPriorCreditIds set.
 //
-// IMPORTANT — Rule 1 does NOT skip when planSlots[slot.id] is set.
+// IMPORTANT — neither rule skips on planSlots[slot.id].
 // For non-pool slots class_code is fixed by the template, so any value in
-// planSlots[slot.id] is a side-effect of semester drags or prior archiving
-// (the slot's class_code re-stored).  It does not represent a different
-// student selection that would block transfer satisfaction.
+// planSlots[slot.id] is a side-effect of semester drags or prior archiving.
+// For pool slots, pool credit beats student selection (BUG-42): a filled
+// pool slot still archives when satisfies_pool matches.  syncArchivedSlots
+// preserves the student's selection on the upserted DB row so an unarchive
+// restores it.
 //
 // @param {Array}  priorCredits
 // @param {Object} planSlots         { [slotId]: selectedCourseCode }
@@ -78,7 +80,6 @@ function matchPriorCreditsToSlots(priorCredits, planSlots, slots) {
   const matches = []
   const usedPriorCreditIds = new Set()
   const slotList           = slots ?? []
-  const planSlotsMap       = planSlots ?? {}
 
   // Rule 1: non-pool exact match.  Do NOT skip on planSlots[slot.id].
   for (const slot of slotList) {
@@ -94,12 +95,13 @@ function matchPriorCreditsToSlots(priorCredits, planSlots, slots) {
     }
   }
 
-  // Rule 2: pool slots — explicit satisfies_pool only; skip when the student
-  // has actively selected a course for the slot (planSlots[slot.id] truthy).
+  // Rule 2: pool slots — explicit satisfies_pool only.  Fill state is
+  // intentionally NOT a guard: pool credit beats student selection (BUG-42).
+  // The student's planSlots[slot.id] is preserved on the upserted DB row by
+  // syncArchivedSlots so an unarchive restores it within the session.
   for (const slot of slotList) {
     if (!slot.is_pool) continue
     if (!SATISFIABLE_POOLS.has(slot.class_code)) continue
-    if (planSlotsMap[slot.id]) continue
 
     const match = creditBearing.find(
       pc => pc.satisfies_pool === slot.class_code &&

@@ -212,13 +212,16 @@ describe('resolveTransferCredits — Rule 2 (pool slots require explicit satisfi
     expect(result[7]).toBe(true)
   })
 
-  it('does NOT override a pool slot the student already selected', () => {
+  it('archives a filled pool slot when satisfies_pool matches (BUG-42)', () => {
+    // Pool credit beats student selection.  The slot disappears from the
+    // grid; the student's selection is preserved on the DB row by
+    // syncArchivedSlots for restoration on unarchive.
     const result = resolveTransferCredits(
       [HIST_TRANSFER_GEN_ED],
       { 3: 'HIST2010' },   // student already filled slot 3
       [SLOT_GENED_1]
     )
-    expect(result[3]).toBeUndefined()
+    expect(result[3]).toBe(true)
   })
 })
 
@@ -324,6 +327,34 @@ describe('resolveTransferCredits — pool archiving for specific courses', () =>
     const result = resolveTransferCredits([biol1113, biol1123], {}, [SLOT_SCIENCE, SLOT_SCIENCE2])
     expect(result[21]).toBe(true)
     expect(result[22]).toBe(true)
+  })
+
+  it('archives both filled SCIENCE pool slots when AP Chem awards SCIENCE x2 (BUG-42)', () => {
+    // Reproduction from bug.md BUG-42: student fills both SCIENCE slots with
+    // CHEM1110 + CHEM1120, then claims AP Chemistry (STEM) score 5.  Both
+    // pool slots should archive; the student's selections are preserved on
+    // the DB row by syncArchivedSlots.
+    const apChem1 = {
+      id: 'pc-chem-1',
+      credit_type: 'ap_credit',
+      satisfies_course_code: 'CHEM1110',
+      satisfies_pool: 'SCIENCE',
+      credits_awarded: 4,
+    }
+    const apChem2 = {
+      id: 'pc-chem-2',
+      credit_type: 'ap_credit',
+      satisfies_course_code: 'CHEM1120',
+      satisfies_pool: 'SCIENCE',
+      credits_awarded: 4,
+    }
+    const result = resolveTransferCredits(
+      [apChem1, apChem2],
+      { [SLOT_SCIENCE.id]: 'CHEM1110', [SLOT_SCIENCE2.id]: 'CHEM1120' },
+      [SLOT_SCIENCE, SLOT_SCIENCE2]
+    )
+    expect(result[SLOT_SCIENCE.id]).toBe(true)
+    expect(result[SLOT_SCIENCE2.id]).toBe(true)
   })
 
   it('BIOL1113 with satisfies_pool = null does NOT archive a SCIENCE pool slot (Rule 2)', () => {
@@ -478,12 +509,15 @@ describe('resolveTransferDetails — Rule 1 parity with resolveTransferCredits',
 })
 
 describe('resolveTransferDetails — Rule 2 parity', () => {
-  it('skips pool slots the student has already selected, matching resolveTransferCredits', () => {
+  it('returns details for filled pool slots, matching resolveTransferCredits (BUG-42 parity)', () => {
     const planSlots = { [SLOT_GENED_1.id]: 'HIST2010' }
     const filled    = resolveTransferCredits([HIST_TRANSFER_GEN_ED], planSlots, [SLOT_GENED_1])
     const details   = resolveTransferDetails([HIST_TRANSFER_GEN_ED], planSlots, [SLOT_GENED_1])
-    expect(filled[SLOT_GENED_1.id]).toBeUndefined()
-    expect(details[SLOT_GENED_1.id]).toBeUndefined()
+    expect(filled[SLOT_GENED_1.id]).toBe(true)
+    expect(details[SLOT_GENED_1.id]).toEqual({
+      creditType:    'transfer_credit',
+      priorCreditId: HIST_TRANSFER_GEN_ED.id,
+    })
   })
 
   it('returns badge details for pool slots when satisfies_pool matches and slot is unfilled', () => {
