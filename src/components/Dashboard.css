@@ -1604,12 +1604,19 @@
    Sits at the bottom of every semester card. Muted by default;
    brightens on hover. Full-width so it's easy to tap on mobile. */
 
+.semester-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--navy-light);
+  padding-right: 1.25rem;
+}
+
 .semester-add-course-btn {
-  width: 100%;
+  flex: 1;
   padding: 0.55rem 1.25rem;
   background: transparent;
   border: none;
-  border-top: 1px solid var(--navy-light);
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 0.7rem;

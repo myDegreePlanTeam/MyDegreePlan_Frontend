@@ -133,29 +133,6 @@ export default function Semester({
                 strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          {/* Mark Complete / Undo Completion button */}
-          {isCompleted ? (
-            <button
-              className="semester-complete-btn semester-complete-btn-undo"
-              onClick={() => onMarkComplete(false)}
-              title="Undo completion — semester returns to normal"
-            >
-              Undo Completion
-            </button>
-          ) : (
-            <button
-              className="semester-complete-btn"
-              onClick={() => !hasWarnings && onMarkComplete(true)}
-              disabled={hasWarnings}
-              title={
-                hasWarnings
-                  ? `Resolve warnings before marking this semester complete`
-                  : 'Mark this semester as complete'
-              }
-            >
-              Mark Complete
-            </button>
-          )}
         </div>
       </div>
 
@@ -227,10 +204,33 @@ export default function Semester({
         ))}
       </div>
 
-      {/* Add Course button */}
-      <button className="semester-add-course-btn" onClick={onAddCourse}>
-        + Add course
-      </button>
+      <div className="semester-footer">
+        <button className="semester-add-course-btn" onClick={onAddCourse}>
+          + Add course
+        </button>
+        {isCompleted ? (
+          <button
+            className="semester-complete-btn semester-complete-btn-undo"
+            onClick={() => onMarkComplete(false)}
+            title="Undo completion — semester returns to normal"
+          >
+            Undo Completion
+          </button>
+        ) : (
+          <button
+            className="semester-complete-btn"
+            onClick={() => !hasWarnings && onMarkComplete(true)}
+            disabled={hasWarnings}
+            title={
+              hasWarnings
+                ? 'Resolve warnings before marking this semester complete'
+                : 'Mark this semester as complete'
+            }
+          >
+            Mark Complete
+          </button>
+        )}
+      </div>
     </div>
   )
 }
