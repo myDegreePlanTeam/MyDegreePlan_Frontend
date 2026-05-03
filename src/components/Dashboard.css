@@ -348,6 +348,7 @@
   flex-direction: column;
   gap: 0.2rem;
   min-width: 0;
+  flex: 1;
 }
 
 .slot-code {
@@ -542,6 +543,7 @@
   flex-direction: column;
   gap: 0.2rem;
   min-width: 0;
+  flex: 1;
 }
 
 .modal-course-code {
@@ -2043,7 +2045,7 @@
 .slot-code-row {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 0.4rem;
 }
 
 /* ── Locked slot (satisfied and persisted by a prior credit) ─────────
