@@ -24,6 +24,8 @@
 
 > **2026-05-02 update:** `fix/prereq-display` merged. BUG-31 (MATH1910 prereq display omits ACT Math 27+ OR gate) is fixed by conditioning the placement short-circuit in `checkPrereqs` on the presence of a matching `act_placement` prior credit. Without one, normal prereq group evaluation runs and emits the standard missing-course warning. Tests grew 262 → 266 (4 new cases in `src/tests/prereqCheckerPlacement.test.js`; 4 existing placement tests updated to match new behavior). **12 open bugs** — 0 Critical, 1 High, 5 Medium, 6 Low. Recommended next: Package L.
 
+> **2026-05-02 update (2):** Package L merged. `fix/semester-card-css-polish` — BUG-40 (`flex:1` on `.slot-info`/`.modal-course-info`, `slot-code-row gap` corrected) and BUG-41 (semester header gap widened, `.semester-credits` elevated to white `font-weight:500` with a scoped border separator) fixed. CSS-only; 5 rule edits in `Dashboard.css`. Tests held at 266. **10 open bugs** — 0 Critical, 1 High, 5 Medium, 4 Low. Recommended next: Package M.
+
 ---
 
 ## Standing procedure (every package)
@@ -112,15 +114,19 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
   awards and POOL_LABELS-formatted text for other pools. Tests grew
   257 → 262 (5 new cases).
 
-### Package L — `fix/semester-card-css-polish`
-- **Bugs:** BUG-40 (Low) + BUG-41 (Low)
-- **Files:** `src/components/Dashboard.css`, `src/components/Semester.jsx`,
-  possibly `src/components/SlotModal.jsx` for row-variant alignment
+### Package L — `fix/semester-card-css-polish` ✅ COMPLETE (merged 2026-05-02)
+- **Bugs:** BUG-40 (Low) + BUG-41 (Low) — fixed
+- **Files:** `src/components/Dashboard.css` only (5 rule edits)
 - **Why:** Course names indent inconsistently across slot/modal row variants;
   semester-card header crowds title + credits + controls.
-- **Skip if:** you prefer to wait for the Phase 3 `feat/grid-redesign` work
-  which will rebuild these row layouts wholesale.
-- **Diff size:** Small. CSS-only.
+- **Resolution:** Added `flex: 1` to `.slot-info` and `.modal-course-info`
+  so long names truncate within their column. Fixed `.slot-code-row gap: 0`
+  to `0.4rem` matching `.slot-free-add-top`. Raised `.semester-header-right`
+  gap `0.5rem → 0.75rem`; `.semester-credits` gets `font-weight: 500` and
+  `var(--white)`; a `border-right` separator scoped to
+  `.semester-header-right .semester-credits` visually divides credit count
+  from action controls without affecting the collapsed-row view. No JS changes,
+  no test changes; count held at 266.
 
 ### Package M — `fix/drag-to-prior-coursework-flicker`
 - **Bug:** BUG-36 (Low)
@@ -170,7 +176,7 @@ generate planning artifacts via the meta-prompt:
 
 ## Recommended near-term sequence
 
-**~~J~~ → ~~I~~ → ~~K~~ → L → M**, hold **N** for the coordinated theme pass.
+**~~J~~ → ~~I~~ → ~~K~~ → ~~L~~ → M**, hold **N** for the coordinated theme pass.
 
 Rationale:
 - **J** first because it's a real correctness bug with a small bounded fix.

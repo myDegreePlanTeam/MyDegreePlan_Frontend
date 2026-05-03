@@ -228,3 +228,4 @@ _None._
 | `fix/prereq-pool-name-display` | 2026-04-30 | BUG-37 |
 | `fix/gen-ed-sub-pool-surfacing` | 2026-04-30 | BUG-43 |
 | `fix/prereq-display` | 2026-05-02 | BUG-31 |
+| `fix/semester-card-css-polish` | 2026-05-02 | BUG-40, BUG-41 |

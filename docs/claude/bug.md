@@ -59,8 +59,8 @@
 | Critical | 0  |
 | High     | 1  |
 | Medium   | 5  |
-| Low      | 6  |
-| **Total** | **12** |
+| Low      | 4  |
+| **Total** | **10** |
 
 ---
 
@@ -279,61 +279,6 @@ all gold/purple pairs.
 
 **Confidence:** High that the bug exists; Medium on the exact remediation
 because it spans a theme rework.
-
----
-
-### BUG-40: Inconsistent indentation of course names across slot rows and modal lists
-
-**Severity:** Low
-**File(s):** `src/components/Dashboard.css` (`.modal-course-name`,
-`.slot-course-name` or equivalent),
-`src/components/Semester.jsx`, `src/components/SlotModal.jsx`
-
-**Description:** Course name text wraps and indents inconsistently across the
-grid slot rows and the modal course lists. Some rows show the name flush with
-the course code; others appear indented relative to the code; long names wrap
-under the credits column instead of within the name column's bounds. Likely a
-mix of `flex` alignment defaults, missing `min-width: 0` on flex children, and
-inconsistent left padding between the row variants used by Semester slot rows
-vs SlotModal CourseRow vs AddCourseModal results.
-
-**Impact:** Low — readability and visual polish. The grid feels inconsistent
-because the same data renders differently depending on context.
-
-**Suspected fix:** Audit the four row variants
-(`modal-course-row`, `add-credit-result-row`, `slot-row`, free-add slot row)
-and align them on a single layout primitive: drag handle | code | name | credits |
-status. Apply `min-width: 0` to the name flex child so wrapping respects column
-bounds. Likely converges with the `feat/grid-redesign` Phase 3 row-anatomy work,
-but a small CSS pass before that lands is reasonable.
-
-**Confidence:** Medium — the bug is real; the right scope (small polish vs
-wait for grid redesign) is a judgment call.
-
----
-
-### BUG-41: Semester header (title + credits planned) appears cramped
-
-**Severity:** Low
-**File(s):** `src/components/Dashboard.css` (`.semester-header`),
-`src/components/Semester.jsx` (header render)
-
-**Description:** The header row of each semester card crowds the semester title,
-credits-planned text, completion toggle, and any warning badges into one tight
-horizontal band. The credits-planned text in particular butts up against the
-title with no clear separator, making it hard to see at a glance how many hours
-a semester contains.
-
-**Impact:** Low — readability. Users have to slow down to parse the header on
-each card.
-
-**Suspected fix:** Add explicit gap (`gap` or margin) between header elements;
-consider a two-row layout when the card is below a certain width (title on
-top, credits + controls underneath). Bump font weight or color contrast on the
-credits-planned line so it reads as primary metadata rather than a footnote.
-
-**Confidence:** High — pure CSS edit. May converge with the grid-redesign
-Phase 3 work but is small enough to land on its own.
 
 ---
 
