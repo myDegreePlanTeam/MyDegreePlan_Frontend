@@ -168,6 +168,20 @@ export function checkPrereqs(
   }
 
   if (missing.length > 0) {
+    // For placement-classified courses, the ACT score is an OR alternative to
+    // every course prereq.  Flatten all unmet entries into one OR group and
+    // append the score so the display reads "Needs: (MATH1730 or ACT Math 27+)"
+    // rather than listing them as separate comma-joined requirements.
+    if (classification === 'placement') {
+      const desc = courseMap[courseCode]?.description ?? ''
+      const scoreMatch = desc.match(/act math(?:ematics)?\s+score of (\d+)/i)
+      const actHint = scoreMatch ? `ACT Math ${scoreMatch[1]}+` : 'ACT placement score'
+      const allCodes = missing.flatMap(entry => {
+        const orMatch = entry.match(/^\((.+)\)$/)
+        return orMatch ? orMatch[1].split(' or ').map(s => s.trim()) : [entry]
+      })
+      return { satisfied: false, missing: [`(${[...allCodes, actHint].join(' or ')})`] }
+    }
     return { satisfied: false, missing }
   }
 

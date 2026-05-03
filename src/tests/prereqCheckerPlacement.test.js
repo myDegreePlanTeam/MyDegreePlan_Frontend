@@ -354,7 +354,10 @@ describe('checkPrereqs — BUG-31: act_placement guard for placement-classified 
       COURSE_MAP_ACT
     )
     expect(result.satisfied).toBe(false)
-    expect(result.missing).toContain('MATH1730')
+    // Missing is combined into one OR group with the ACT score as an alternative
+    expect(result.missing).toHaveLength(1)
+    expect(result.missing[0]).toContain('MATH1730')
+    expect(result.missing[0]).toContain('ACT Math 27+')
   })
 
   it('returns satisfied: false when act_placement is for a different course code', () => {
@@ -371,7 +374,9 @@ describe('checkPrereqs — BUG-31: act_placement guard for placement-classified 
       COURSE_MAP_ACT
     )
     expect(result.satisfied).toBe(false)
-    expect(result.missing).toContain('MATH1730')
+    expect(result.missing).toHaveLength(1)
+    expect(result.missing[0]).toContain('MATH1730')
+    expect(result.missing[0]).toContain('ACT Math 27+')
   })
 
   it('returns satisfied: true via normal prereq path when prereq course is in satisfiedCodes (no act_placement needed)', () => {
