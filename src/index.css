@@ -37,7 +37,10 @@
   --bg-mid:     #ede8f5;
   --bg-light:   #c9bde0;
   --text:       #1a1030;
-  --text-muted: #7A6B9A;
+  --text-muted: #6B5B8A; /* darkened from #7A6B9A; original yields 4.32:1 on --bg (fails 4.5:1) */
+  /* Gold must be dark in light mode — bright #FFDD00 is invisible on light surfaces */
+  --gold:       #7A5500;
+  --gold-light: #8B6100;
 }
 
 body {
