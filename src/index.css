@@ -1,16 +1,43 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --navy:       #0a0e1a;
-  --navy-mid:   #111827;
-  --navy-light: #1e2a3a;
-  --gold:       #c9a84c;
-  --gold-light: #e8c97a;
-  --white:      #f0ede6;
-  --muted:      #8a9bb0;
+  /* Semantic names — dark theme (default) */
+  --bg:         #0D0717;
+  --bg-mid:     #1A1030;
+  --bg-light:   #2D1E52;
+  --text:       #f0ede6;
+  --text-muted: #8a9bb0;
+
+  /* Backward-compat aliases (Dashboard.css/Auth.css use these; keep them) */
+  --navy:       var(--bg);
+  --navy-mid:   var(--bg-mid);
+  --navy-light: var(--bg-light);
+  --white:      var(--text);
+  --muted:      var(--text-muted);
+
+  /* Gold — TTU brand gold */
+  --gold:       #FFDD00;
+  --gold-light: #FFE84D;
   --danger:     #e05c5c;
+
+  /* Status semantics — replaces hardcoded hex in Dashboard.css */
+  --status-progress: #6b9bd2;
+  --status-done:     #4caf7d;
+  --status-warn:     #e8b84b;
+  --status-info:     #93c5fd;
+  --status-purple:   #b06bd2;
+  --status-orange:   #d28c4c;
+
   --font-display: 'DM Serif Display', serif;
   --font-mono:    'DM Mono', monospace;
+}
+
+:root[data-theme="light"] {
+  --bg:         #f5f2fb;
+  --bg-mid:     #ede8f5;
+  --bg-light:   #c9bde0;
+  --text:       #1a1030;
+  --text-muted: #7A6B9A;
 }
 
 body {
