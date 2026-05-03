@@ -37,19 +37,21 @@ Concerns addressed:
 
 ---
 
-## Open Questions (answer before committing palette values)
+## Confirmed Palette Values (all open questions resolved 2026-05-02)
 
-1. ~~**TTU brand hex values.**~~ **Confirmed:** Purple `#4F2984`, Gold `#FFDD00`.
-   Current `--gold: #c9a84c` and `--gold-light: #e8c97a` will be replaced by `#FFDD00`
-   (and a lighter hover variant, e.g. `#FFE84D`).
-2. **Dark-surface shades.** The deep background (`--navy`) becomes a very dark purple.
-   TTU purple is `#4F2984`; a dark-mode background at ~8–12% lightness of that hue is the
-   typical starting point. Suggested candidates: `--bg: #0D0717`, `--bg-mid: #1A1030`,
-   `--bg-light: #2D1E52`. Confirm before committing.
-3. **Light mode surfaces.** Candidate: body `#f5f2fb`, card `#ede8f5`, border `#c9bde0`,
-   primary text `#1a1030`, muted text `#7A6B9A`. Confirm before coding.
-4. **Toggle placement.** Candidate: top-right of the dashboard header alongside "Sign Out".
-   Confirm — or place it in the `App` shell above the route boundary.
+| Variable | Dark theme | Light theme |
+|---|---|---|
+| `--bg` | `#0D0717` | `#f5f2fb` |
+| `--bg-mid` | `#1A1030` | `#ede8f5` |
+| `--bg-light` | `#2D1E52` | `#c9bde0` |
+| `--text` | `#f0ede6` (keep current) | `#1a1030` |
+| `--text-muted` | `#8a9bb0` (keep current) | `#7A6B9A` |
+| `--gold` | `#FFDD00` | `#FFDD00` |
+| `--gold-light` | `#FFE84D` | `#FFE84D` |
+| `--danger` | `#e05c5c` | `#e05c5c` |
+
+**TTU brand:** Purple `#4F2984`, Gold `#FFDD00`.
+**Toggle placement:** top-right of the dashboard header alongside "Sign Out".
 
 ---
 
@@ -57,7 +59,7 @@ Concerns addressed:
 
 1. Create branch: `git checkout -b feat/theme-pass`.
 2. Run `npm run test`. Baseline: **13 files, 266 tests**. Stop and report if it does not match.
-3. Answer all four Open Questions above before writing any CSS.
+3. Read the **Confirmed Palette Values** table above — all palette decisions are resolved.
 4. Read in full before editing:
    - `src/index.css` — the 8 theme variables and `body` rule.
    - `src/pages/Auth.css` — full file; uses `--gold`, `--muted`, `--navy`, `--navy-mid`, `--navy-light`.
@@ -77,12 +79,12 @@ Dashboard.css and Auth.css need zero variable-name edits:
 
 ```css
 :root {
-  /* Semantic names — define with final hex values */
-  --bg:         <dark-surface>;
-  --bg-mid:     <card-surface>;
-  --bg-light:   <border-color>;
-  --text:       <primary-text>;
-  --text-muted: <secondary-text>;
+  /* Semantic names — dark theme (default) */
+  --bg:         #0D0717;
+  --bg-mid:     #1A1030;
+  --bg-light:   #2D1E52;
+  --text:       #f0ede6;
+  --text-muted: #8a9bb0;
 
   /* Backward-compat aliases (Dashboard.css/Auth.css use these; keep them) */
   --navy:       var(--bg);
@@ -93,7 +95,7 @@ Dashboard.css and Auth.css need zero variable-name edits:
 
   /* Gold — updated to TTU brand gold */
   --gold:       #FFDD00;
-  --gold-light: #FFE84D;  /* hover / lighter variant */
+  --gold-light: #FFE84D;
   --danger:     #e05c5c;
 
   /* Status semantics — replaces hardcoded hex in Dashboard.css */
@@ -107,11 +109,11 @@ Dashboard.css and Auth.css need zero variable-name edits:
 
 :root[data-theme="light"] {
   /* Only redefine the five semantic vars — aliases cascade automatically */
-  --bg:         <light-body>;
-  --bg-mid:     <light-card>;
-  --bg-light:   <light-border>;
-  --text:       <dark-text>;
-  --text-muted: <muted-dark>;
+  --bg:         #f5f2fb;
+  --bg-mid:     #ede8f5;
+  --bg-light:   #c9bde0;
+  --text:       #1a1030;
+  --text-muted: #7A6B9A;
 }
 ```
 
@@ -134,11 +136,12 @@ a direct channel swap is simpler and has no compatibility risk.
 ## Plan
 
 ### Commit 1 — `src/index.css`
-- Replace `:root` block with confirmed TTU purple palette values for the five semantic vars.
+- Replace `:root` block with the palette from the **Confirmed Palette Values** table above.
+  Dark: `--bg #0D0717`, `--bg-mid #1A1030`, `--bg-light #2D1E52`, `--text #f0ede6`, `--text-muted #8a9bb0`.
 - Add backward-compat aliases (`--navy`, `--navy-mid`, `--navy-light`, `--white`, `--muted`).
+- Set `--gold: #FFDD00` and `--gold-light: #FFE84D` (TTU brand gold; replaces `#c9a84c`).
 - Add six `--status-*` variables using current hardcoded values (Commit 3 will audit these).
-- Add `:root[data-theme="light"]` block with confirmed light-mode palette values.
-- Update `--gold: #FFDD00` and `--gold-light: #FFE84D` (TTU brand gold confirmed; replaces `#c9a84c`).
+- Add `:root[data-theme="light"]` block: `--bg #f5f2fb`, `--bg-mid #ede8f5`, `--bg-light #c9bde0`, `--text #1a1030`, `--text-muted #7A6B9A`.
 
 No changes to Dashboard.css, Auth.css, or any `.jsx` on this commit.
 

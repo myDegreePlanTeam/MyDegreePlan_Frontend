@@ -17,9 +17,9 @@ Before writing any code:
 
 1. Read `MyDegreePlan_Frontend/docs/claude/BRANCH_theme-pass.md` in full. It is the
    working context for this branch.
-2. **Answer the Open Questions in the branch doc before touching any CSS.** The four
-   questions cover TTU brand hex values, dark-surface shades, light-mode surface colors,
-   and toggle placement. Ask the user to confirm these values; do not guess.
+2. **All palette values are pre-confirmed** in the branch doc's **Confirmed Palette Values**
+   table. No open questions remain — proceed directly to implementation once you've read
+   the full branch doc.
 3. Confirm you are on the correct branch:
    `cd MyDegreePlan_Frontend && git checkout -b feat/theme-pass` (or
    `git checkout feat/theme-pass` if it already exists).
