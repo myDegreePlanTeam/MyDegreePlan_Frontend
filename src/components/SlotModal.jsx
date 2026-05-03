@@ -232,11 +232,9 @@ export default function SlotModal({
   }
 
   // ── Render GEN_ED sub-category sections ────────────────────────────
-  // BUG-43: surface History / Humanities & Arts / Social Science sub-pools
-  // when the GEN_ED slot is opened with an empty search.  Satisfied
-  // sub-pools render with a "(already satisfied)" suffix and CSS-greyed
-  // treatment.  Selection remains soft — students may still pick a course
-  // from a satisfied sub-pool (over-allocation is sometimes intentional).
+  // BUG-43: surface History / Humanities & Arts / Social Science sub-pools.
+  // Satisfied sub-pools are greyed and non-clickable (like "Already selected").
+  // Sub-category grouping is preserved during search.
   function renderGenEdSections(annotated) {
     const status = getGenEdStatus(planSlots, slots, courseMap)
     const codeToCategory = {}
@@ -250,6 +248,11 @@ export default function SlotModal({
       grouped[cat].push(course)
     }
 
+    const hasSections = ['History', 'Humanities', 'Social'].some(cat => grouped[cat].length > 0)
+    if (!hasSections && grouped.Other.length === 0) {
+      return <p className="modal-empty">No courses match your search.</p>
+    }
+
     return (
       <>
         {['History', 'Humanities', 'Social'].map(cat => {
@@ -257,12 +260,16 @@ export default function SlotModal({
           if (list.length === 0) return null
           const catStatus = status.find(s => s.category === cat)
           const satisfied = catStatus?.satisfied
-          const wrapClass = satisfied ? 'modal-section-satisfied' : ''
+          const wrapClass = ['modal-gen-ed-section', satisfied ? 'modal-section-satisfied' : ''].filter(Boolean).join(' ')
           return (
             <div key={cat} className={wrapClass}>
               <p className="modal-section-label">
                 {catStatus?.label ?? cat}
-                {satisfied && ' (already satisfied)'}
+                {catStatus && (
+                  <span className="modal-section-credits">
+                    {' · '}{catStatus.filled}/{catStatus.required} hrs
+                  </span>
+                )}
               </p>
               {list.map(course => (
                 <CourseRow
@@ -270,13 +277,14 @@ export default function SlotModal({
                   course={course}
                   selected={selected}
                   onSelect={setSelected}
+                  sectionDisabled={satisfied}
                 />
               ))}
             </div>
           )
         })}
         {grouped.Other.length > 0 && (
-          <div>
+          <div className="modal-gen-ed-section">
             <p className="modal-section-label">Other</p>
             {grouped.Other.map(course => (
               <CourseRow
@@ -370,7 +378,7 @@ export default function SlotModal({
         <div className="modal-course-list">
           {freeSections && search === '' ? (
             renderFreeSections()
-          ) : slot.class_code === 'GEN_ED' && search === '' ? (
+          ) : slot.class_code === 'GEN_ED' ? (
             renderGenEdSections(filtered)
           ) : filtered.length === 0 ? (
             <p className="modal-empty">No courses match your search.</p>
@@ -416,12 +424,12 @@ export default function SlotModal({
 
 // ── CourseRow ─────────────────────────────────────────────────────────────────
 
-function CourseRow({ course, selected, onSelect }) {
+function CourseRow({ course, selected, onSelect, sectionDisabled = false }) {
   return (
     <button
       className={`modal-course-row status-${course.status} ${selected?.code === course.code ? 'selected' : ''}`}
-      onClick={() => course.status === 'available' && onSelect(course)}
-      disabled={course.status === 'taken'}
+      onClick={() => !sectionDisabled && course.status === 'available' && onSelect(course)}
+      disabled={course.status === 'taken' || sectionDisabled}
     >
       <div className="modal-course-info">
         <div className="modal-course-top">

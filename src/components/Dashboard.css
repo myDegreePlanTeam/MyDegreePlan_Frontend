@@ -667,12 +667,36 @@
   border-bottom: 1px solid var(--navy-light);
 }
 
-/* BUG-43: soft greying for GEN_ED sub-sections that are already satisfied. */
-.modal-section-satisfied .modal-section-label {
+/* BUG-43: GEN_ED sub-category section wrappers */
+.modal-gen-ed-section + .modal-gen-ed-section {
+  border-top: 1px solid var(--navy-light);
+  margin-top: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+/* Promote GEN_ED section headers above the base muted label style */
+.modal-gen-ed-section .modal-section-label {
+  font-size: 0.75rem;
+  color: var(--white);
+  border-bottom: none;
+  padding-bottom: 0.4rem;
+}
+
+.modal-section-credits {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
+/* BUG-43: satisfied GEN_ED sub-sections — greyed and non-interactive.
+   Use double-class selector to beat .modal-gen-ed-section specificity. */
+.modal-section-satisfied.modal-gen-ed-section .modal-section-label {
   color: var(--muted);
 }
 .modal-section-satisfied .modal-course-row {
-  opacity: 0.55;
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ── Slot status visuals ─────────────────────────────────────────── */
