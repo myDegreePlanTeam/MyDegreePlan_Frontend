@@ -39,13 +39,15 @@ Concerns addressed:
 
 ## Open Questions (answer before committing palette values)
 
-1. **TTU brand hex values.** What are the canonical TTU purple and TTU gold hex codes?
-   The current gold `#c9a84c` may need updating to match the official brand standard.
+1. ~~**TTU brand hex values.**~~ **Confirmed:** Purple `#4F2984`, Gold `#FFDD00`.
+   Current `--gold: #c9a84c` and `--gold-light: #e8c97a` will be replaced by `#FFDD00`
+   (and a lighter hover variant, e.g. `#FFE84D`).
 2. **Dark-surface shades.** The deep background (`--navy`) becomes a very dark purple.
-   TTU purple is approximately `#4F2683`; a dark-mode background at ~10–15% lightness of
-   that hue is the typical starting point — confirm target hex before coding.
+   TTU purple is `#4F2984`; a dark-mode background at ~8–12% lightness of that hue is the
+   typical starting point. Suggested candidates: `--bg: #0D0717`, `--bg-mid: #1A1030`,
+   `--bg-light: #2D1E52`. Confirm before committing.
 3. **Light mode surfaces.** Candidate: body `#f5f2fb`, card `#ede8f5`, border `#c9bde0`,
-   primary text `#1a1030`, muted text `#5c4d7a`. Confirm before coding.
+   primary text `#1a1030`, muted text `#7A6B9A`. Confirm before coding.
 4. **Toggle placement.** Candidate: top-right of the dashboard header alongside "Sign Out".
    Confirm — or place it in the `App` shell above the route boundary.
 
@@ -89,9 +91,9 @@ Dashboard.css and Auth.css need zero variable-name edits:
   --white:      var(--text);
   --muted:      var(--text-muted);
 
-  /* Gold/danger — update if brand hex differs, otherwise keep */
-  --gold:       #c9a84c;
-  --gold-light: #e8c97a;
+  /* Gold — updated to TTU brand gold */
+  --gold:       #FFDD00;
+  --gold-light: #FFE84D;  /* hover / lighter variant */
   --danger:     #e05c5c;
 
   /* Status semantics — replaces hardcoded hex in Dashboard.css */
@@ -136,7 +138,7 @@ a direct channel swap is simpler and has no compatibility risk.
 - Add backward-compat aliases (`--navy`, `--navy-mid`, `--navy-light`, `--white`, `--muted`).
 - Add six `--status-*` variables using current hardcoded values (Commit 3 will audit these).
 - Add `:root[data-theme="light"]` block with confirmed light-mode palette values.
-- Update `--gold` and `--gold-light` if TTU brand gold differs from current `#c9a84c`.
+- Update `--gold: #FFDD00` and `--gold-light: #FFE84D` (TTU brand gold confirmed; replaces `#c9a84c`).
 
 No changes to Dashboard.css, Auth.css, or any `.jsx` on this commit.
 
