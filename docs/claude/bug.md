@@ -58,9 +58,9 @@
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 6  |
+| Medium   | 5  |
 | Low      | 6  |
-| **Total** | **13** |
+| **Total** | **12** |
 
 ---
 
@@ -162,35 +162,6 @@
 > onboarding session review. Identified through live testing of the merged
 > fix/onboarding-prior-credit branch. Severity counts updated: High +3, Medium +3,
 > Low +1, Total +7. New totals: Critical 1, High 13, Medium 11, Low 6, Total 32.
-
----
-
-### BUG-31: MATH1910 prerequisite display omits ACT Math 27+ OR gate
-
-**Severity:** Medium
-**File(s):** `src/lib/prereqChecker.js`, `src/lib/classifyPrereq.js`,
-`src/components/SlotModal.jsx` (prereq display)
-
-**Description:** MATH1910 requires one of MATH1730, MATH1710, or MATH1720 — OR an
-ACT Math score of 27+. The OR requirement is encoded in the course description but
-does not appear in the prerequisite section rendered by the planner. `classifyPrereq`
-detects placement/consent language in descriptions to suppress warnings, but it does
-not surface the placement gate as a visible alternative in the prereq list. A student
-with ACT Math 27+ sees MATH1910 locked with missing prereqs and no indication that
-their score satisfies the requirement.
-
-**Impact:** Students with valid ACT placement are incorrectly shown as unable to take
-MATH1910. The prereq section actively contradicts the course description. This is
-compounded by BUG-28 (no ACT score entry path), meaning the score can't even be
-recorded to resolve the warning.
-
-**Suspected fix:** Extend `classifyPrereq` or the prereq display layer to surface
-placement gates as named alternatives in the prereq list (e.g. "or ACT Math 27+")
-rather than only suppressing warnings silently. Requires coordination with BUG-28
-fix so that a recorded ACT score satisfies the gate and clears the warning.
-
-**Confidence:** Medium — the display fix is clear; the interaction with `classifyPrereq`
-suppression logic needs careful tracing before implementing.
 
 ---
 

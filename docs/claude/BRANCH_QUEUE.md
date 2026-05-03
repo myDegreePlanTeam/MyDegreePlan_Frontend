@@ -13,17 +13,7 @@ _None._
 
 ## Queued Branches
 
-### fix/prereq-display
-**Targets:**
-- BUG-31 — MATH1910 prereq display omits ACT Math 27+ OR gate
-**Notes:**
-- BUG-28 (universal ACT entry in wizard) has landed via `fix/onboarding-wizard-overhaul`, so this fix is now testable end-to-end.
-- Medium confidence on implementation approach — read `classifyPrereq.js` carefully before planning.
-**Prompt:** Not yet written
-
----
-
-### data/strip-course-descriptions-prototype (can run parallel to fix/prereq-display)
+### data/strip-course-descriptions-prototype
 **Targets:**
 - BUG-32 — Redundant prereq/coreq/placement text in course descriptions
 **Scope:** `prototype.json` only. `coursesFile.json` is explicitly deferred.
@@ -237,3 +227,4 @@ _None._
 | `fix/pool-archive-filled-slots` | 2026-04-30 | BUG-42 |
 | `fix/prereq-pool-name-display` | 2026-04-30 | BUG-37 |
 | `fix/gen-ed-sub-pool-surfacing` | 2026-04-30 | BUG-43 |
+| `fix/prereq-display` | 2026-05-02 | BUG-31 |

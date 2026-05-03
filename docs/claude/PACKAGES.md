@@ -22,6 +22,8 @@
 > **2026-04-30 update (3):** Package K merged. **13 open bugs** — 0 Critical,
 > 1 High, 6 Medium, 6 Low. Recommended next: Package L.
 
+> **2026-05-02 update:** `fix/prereq-display` merged. BUG-31 (MATH1910 prereq display omits ACT Math 27+ OR gate) is fixed by conditioning the placement short-circuit in `checkPrereqs` on the presence of a matching `act_placement` prior credit. Without one, normal prereq group evaluation runs and emits the standard missing-course warning. Tests grew 262 → 266 (4 new cases in `src/tests/prereqCheckerPlacement.test.js`; 4 existing placement tests updated to match new behavior). **12 open bugs** — 0 Critical, 1 High, 5 Medium, 6 Low. Recommended next: Package L.
+
 ---
 
 ## Standing procedure (every package)
@@ -148,8 +150,6 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
 Documented in `BRANCH_QUEUE.md` under **Queued Branches** — when you pick one,
 generate planning artifacts via the meta-prompt:
 
-- `fix/prereq-display` — BUG-31 (MATH1910 ACT 27+ OR gate display). Hardest
-  remaining bug — read `classifyPrereq.js` carefully before planning.
 - `data/strip-course-descriptions-prototype` — BUG-32 (strip redundant prereq
   text from `prototype.json`). Data task, scripted strip + re-seed.
 
