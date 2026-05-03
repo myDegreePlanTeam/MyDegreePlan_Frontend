@@ -30,6 +30,7 @@ const CREDIT_TYPE_LABELS = {
 }
 
 export default function DegreePlan({ profile, onProfileChange }) {
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
   const [slots, setSlots]                         = useState([])
   const [courses, setCourses]                     = useState({})
   const [loading, setLoading]                     = useState(true)
@@ -1098,6 +1099,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
               onClick={() => setShowSwitchModal(true)}
             >
               Change concentration
+            </button>
+            <button className="degreeplan-signout" onClick={() => {
+              const next = theme === 'dark' ? 'light' : 'dark'
+              document.documentElement.dataset.theme = next
+              localStorage.setItem('theme', next)
+              setTheme(next)
+            }}>
+              {theme === 'dark' ? '☀ Light' : '☾ Dark'}
             </button>
             <button className="degreeplan-signout" onClick={async () => {
               await supabase.auth.signOut()

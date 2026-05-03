@@ -15,6 +15,17 @@ function App() {
   const [session, setSession] = useState(undefined)
 
   useEffect(() => {
+    const stored = localStorage.getItem('theme')
+    if (stored) {
+      document.documentElement.dataset.theme = stored
+    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      document.documentElement.dataset.theme = 'light'
+    } else {
+      document.documentElement.dataset.theme = 'dark'
+    }
+  }, [])
+
+  useEffect(() => {
     // Get the current session on initial load
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
