@@ -26,6 +26,8 @@
 
 > **2026-05-02 update (2):** Package L merged. `fix/semester-card-css-polish` — BUG-40 (`flex:1` on `.slot-info`/`.modal-course-info`, `slot-code-row gap` corrected) and BUG-41 (semester header gap widened, `.semester-credits` elevated to white `font-weight:500` with a scoped border separator) fixed. CSS-only; 5 rule edits in `Dashboard.css`. Tests held at 266. **10 open bugs** — 0 Critical, 1 High, 5 Medium, 4 Low. Recommended next: Package M.
 
+> **2026-05-02 update (3):** Package N merged as `feat/theme-pass` (coordinated with `feat/branding` and `feat/dark-mode`). BUG-38 (site-wide WCAG AA contrast failures) resolved by: TTU purple palette in `index.css` (dark default + light theme via `data-theme` attribute), backward-compat aliases so Dashboard.css/Auth.css need zero variable-name edits, 16 hardcoded hex values replaced with `--status-*` vars in Dashboard.css, rgba() gold channels updated, `--text-muted`/`--gold`/`--gold-light` darkened in light theme for AA compliance, and a dark-mode toggle with localStorage + `prefers-color-scheme` fallback. Tests held at 266. **9 open bugs** — 0 Critical, 1 High, 4 Medium, 4 Low. Recommended next: Package M.
+
 ---
 
 ## Standing procedure (every package)
@@ -140,14 +142,19 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
   issue rather than a React state issue.
 - **Diff size:** Small once the cause is confirmed.
 
-### Package N — `fix/site-contrast-pass`
-- **Bug:** BUG-38 (Medium)
-- **Files:** `src/components/Dashboard.css`, `src/index.css`
-  (theme variables), `src/pages/Auth.css`
-- **Why:** Multiple foreground/background pairings fail WCAG 2.1 AA contrast.
-- **Recommendation:** **Hold** until paired with `feat/branding` (TTU purple)
-  and `feat/dark-mode`. Re-theme once with a coordinated palette, not three
-  times. Both are queued in `BRANCH_QUEUE.md` Phase 2.
+### Package N — `feat/theme-pass` ✅ COMPLETE (merged 2026-05-02)
+- **Bug:** BUG-38 (Medium) — fixed (coordinated with `feat/branding` + `feat/dark-mode`)
+- **Files:** `src/index.css` (palette rewrite, aliases, status vars, light theme),
+  `src/App.jsx` (theme-init useEffect), `src/components/DegreePlan.jsx` (toggle button),
+  `src/components/Dashboard.css` (16 hex → var() substitutions, rgba() channel updates),
+  `src/pages/Auth.css` (rgba() gold channel update)
+- **Resolution:** TTU purple dark palette (`--bg #0D0717`, `--bg-mid #1A1030`,
+  `--bg-light #2D1E52`) with backward-compat aliases so Dashboard.css/Auth.css need
+  zero variable-name edits. Six `--status-*` vars replace hardcoded hex in Dashboard.css.
+  Light theme via `:root[data-theme="light"]`; `--text-muted`/`--gold`/`--gold-light`
+  darkened in light mode to meet AA. Dark-mode toggle in dashboard header persists to
+  localStorage with `prefers-color-scheme` fallback. Logo/icon deferred to
+  `feat/branding-icon`. Tests held at 266.
 
 ---
 
@@ -176,7 +183,7 @@ generate planning artifacts via the meta-prompt:
 
 ## Recommended near-term sequence
 
-**~~J~~ → ~~I~~ → ~~K~~ → ~~L~~ → M**, hold **N** for the coordinated theme pass.
+**~~J~~ → ~~I~~ → ~~K~~ → ~~L~~ → M → ~~N~~** (N landed as `feat/theme-pass`).
 
 Rationale:
 - **J** first because it's a real correctness bug with a small bounded fix.

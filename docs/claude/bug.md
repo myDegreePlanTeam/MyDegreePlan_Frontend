@@ -52,15 +52,17 @@
 
 > **2026-04-30 update (3):** `fix/gen-ed-sub-pool-surfacing` merged. BUG-43 (GEN_ED slot selection lacks sub-pool granularity) is fixed by surfacing the existing History / Humanities & Arts / Social Science split in two places: (a) `SlotModal` renders GEN_ED courses in three labeled sub-sections when search is empty, with already-satisfied sub-pools dimmed via a new `.modal-section-satisfied` CSS rule; (b) `PriorCreditWizard` Step 4's `wizard-award-pool` line now reads "Also satisfies: General Education — History sub-pool" (or Humanities & Arts / Social Science) for GEN_ED awards and uses `POOL_LABELS` for non-GEN_ED awards. New helper `getGenEdSubCategory` in `poolResolver.js`; `GEN_ED_CATEGORIES` is now exported. Soft greying only — students may still pick from a satisfied sub-pool. Schema-level GEN_ED splitting (ROADMAP "GEN_ED sub-requirement enforcement") remains deferred. Tests grew from 257 → 262 (5 new cases in `src/tests/getGenEdSubCategory.test.js`). Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-05-02 update:** `feat/theme-pass` merged. BUG-38 (site-wide low contrast, WCAG 2.1 AA failures) is resolved by the coordinated theme overhaul: TTU purple palette replaces navy, `--status-*` semantic variables cover the six hardcoded hex values in Dashboard.css, rgba() gold channels updated throughout, and `--text-muted`/`--gold`/`--gold-light` carry per-theme overrides that pass AA in light mode. A toggleable dark/light mode with localStorage persistence and `prefers-color-scheme` fallback is included. Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 5  |
+| Medium   | 4  |
 | Low      | 4  |
-| **Total** | **10** |
+| **Total** | **9** |
 
 ---
 
@@ -248,37 +250,6 @@ handlers.
 
 **Confidence:** Medium — the root cause is plausible but unconfirmed without
 devtools profiling. May be entirely a CSS transition timing issue.
-
----
-
-### BUG-38: Site-wide low contrast (accessibility regression)
-
-**Severity:** Medium
-**File(s):** `src/components/Dashboard.css` (primary surface), `src/index.css`
-(theme variables — `--muted`, `--gold`, `--danger`, `--bg`, etc.),
-`src/pages/Auth.css`
-
-**Description:** Multiple text-on-background pairings across the planner do
-not meet WCAG 2.1 AA contrast (4.5:1 for normal text, 3:1 for large/UI). Most
-visibly: `var(--muted)` body text on the dark navy background, the modal
-status badges (`.modal-status-badge.taken`, `.locked`), credit-bar fills
-against the track, and small metadata such as the eyebrow/sub text in modal
-headers.
-
-**Impact:** Accessibility — fails legal/compliance baselines that TTU is
-likely to require for an officially-deployed planner. Practical: students with
-mild visual impairment or in bright lighting struggle to read the grid.
-
-**Suspected fix:** Audit every foreground/background pair via a contrast tool;
-adjust theme variables (`--muted`, `--gold`, `--danger`, the body
-`background`/`color`) so the AA bar is met. Likely needs a coordinated theme
-pass rather than spot fixes — change one variable, ripple through all consumers.
-Coordinate with the TTU-purple recolor (see `feat/branding` scope expansion in
-`BRANCH_QUEUE.md`) since the new accent color will set the contrast budget for
-all gold/purple pairs.
-
-**Confidence:** High that the bug exists; Medium on the exact remediation
-because it spans a theme rework.
 
 ---
 

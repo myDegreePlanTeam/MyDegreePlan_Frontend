@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-04-30
+> Last updated: 2026-05-02
 
 ---
 
@@ -112,30 +112,6 @@ _None._
 - Multi-step undo (currently only undoes most recent action)
 **Prompt:** Not yet written
 
-### feat/branding
-**Targets:**
-- MyDegreePlan icon/logo on app
-- **TTU purple** as the primary accent throughout the planner, replacing
-  the current navy blue. Reflects Tennessee Tech's brand colors. Coordinate
-  with **BUG-38** (contrast audit) so the new palette meets WCAG AA against
-  the dark surface from the start.
-- No design asset exists yet — icon must be created or sourced first
-**Prompt:** Not yet written
-
-### feat/dark-mode
-**Targets:**
-- Toggleable light/dark mode (today the app is dark-only).
-- Persist preference to `localStorage` minimum, `student_profiles.theme`
-  ideal.
-- Default to system preference via `prefers-color-scheme`.
-**Notes:**
-- Coordinate with `feat/branding` (TTU purple is the primary accent in both
-  modes) and **BUG-38** (contrast must hold in both modes — likely the
-  light theme drives different `--muted` and `--gold` values).
-- Dark theme stays the current visual reference; light theme is new and
-  needs design alignment.
-**Prompt:** Not yet written
-
 ### feat/exemption-gating
 **Targets:**
 - Identify courses that require advisor/instructor approval (data flag on
@@ -197,6 +173,11 @@ _None._
 
 ## Deferred Data Tasks
 
+### feat/branding-icon
+- App icon / logo for MyDegreePlan
+- No design asset exists yet — icon must be created or sourced before implementation
+- Deferred from `feat/theme-pass` which handled palette and dark mode but not the icon
+
 ### data/strip-course-descriptions-coursesFile
 - Same as BUG-32 fix but for `coursesFile.json` (30,000 lines)
 - Separate session, separate branch, after `prototype.json` strip is validated
@@ -229,3 +210,4 @@ _None._
 | `fix/gen-ed-sub-pool-surfacing` | 2026-04-30 | BUG-43 |
 | `fix/prereq-display` | 2026-05-02 | BUG-31 |
 | `fix/semester-card-css-polish` | 2026-05-02 | BUG-40, BUG-41 |
+| `feat/theme-pass` | 2026-05-02 | BUG-38, feat/branding (palette), feat/dark-mode |
