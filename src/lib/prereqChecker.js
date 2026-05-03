@@ -109,12 +109,22 @@ export function checkPrereqs(
   }
 
   // ── Placement / consent classification ───────────────────────────
-  // If the course itself is placement-gated or consent-gated, suppress ALL
-  // prereq warnings for it.  The planner cannot verify ACT scores or
-  // instructor approvals, so emitting warnings would undermine user trust.
+  // consent: planner cannot verify instructor approval → always suppress.
+  // placement: suppress ONLY if the student has recorded a matching
+  //   act_placement prior credit (satisfies_course_code === courseCode,
+  //   credits_awarded === 0).  Without one, fall through to normal prereq
+  //   group checking so the standard "Needs: MATH1730 or …" warning appears.
   const classification = classifyPrereq(courseCode, null, courseMap)
-  if (classification === 'placement' || classification === 'consent') {
+  if (classification === 'consent') {
     return { satisfied: true }
+  }
+  if (classification === 'placement') {
+    const hasPlacement = (priorCredits ?? []).some(
+      pc => pc.credit_type === 'act_placement'
+         && pc.satisfies_course_code === courseCode
+    )
+    if (hasPlacement) return { satisfied: true }
+    // No recorded placement — fall through to evaluate course prereqs
   }
 
   // ── Enhance satisfiedCodes with prior credits ─────────────────────

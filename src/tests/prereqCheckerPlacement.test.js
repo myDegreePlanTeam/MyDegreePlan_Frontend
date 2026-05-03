@@ -172,30 +172,36 @@ describe('checkPrereqs — priorCredits satisfies prereqs', () => {
 // ── ACT / placement classification ──────────────────────────────────────────
 
 describe('checkPrereqs — placement-only classification (ACT text in description)', () => {
-  it('returns satisfied: true for a placement-gated course even with no satisfiedCodes', () => {
+  it('returns satisfied: true for a placement-gated course when act_placement prior credit is present', () => {
     // MATH1910 description says "ACT Math score of 27 or higher"
+    const priorCredits = [
+      { credit_type: 'act_placement', satisfies_course_code: 'MATH1910', credits_awarded: 0 },
+    ]
     const result = checkPrereqs(
       'MATH1910',
       MATH1910_PREREQ_MAP,
       new Set(),          // nothing satisfied in plan
-      [],                 // no prior credits
+      priorCredits,
       COURSE_MAP_ACT      // description has ACT text
     )
     expect(result).toEqual({ satisfied: true })
   })
 
-  it('returns satisfied: true for a placement course even with empty priorCredits', () => {
+  it('returns satisfied: true for a placement course when act_placement score is recorded', () => {
+    const priorCredits = [
+      { credit_type: 'act_placement', satisfies_course_code: 'MATH1910', credits_awarded: 0 },
+    ]
     const result = checkPrereqs(
       'MATH1910',
       MATH1910_PREREQ_MAP,
       new Set(),
-      [],
+      priorCredits,
       COURSE_MAP_ACT
     )
     expect(result).toEqual({ satisfied: true })
   })
 
-  it('ACT classification suppresses ALL prereq groups, not just one', () => {
+  it('act_placement suppresses ALL prereq groups, not just one', () => {
     // Fake a course with both AND and OR groups but ACT text in description
     const map = {
       FAKE1111: {
@@ -206,7 +212,10 @@ describe('checkPrereqs — placement-only classification (ACT text in descriptio
     const courseMap = {
       FAKE1111: { description: 'Some course. ACT Math score 26 or equivalent.' },
     }
-    const result = checkPrereqs('FAKE1111', map, new Set(), [], courseMap)
+    const priorCredits = [
+      { credit_type: 'act_placement', satisfies_course_code: 'FAKE1111', credits_awarded: 0 },
+    ]
+    const result = checkPrereqs('FAKE1111', map, new Set(), priorCredits, courseMap)
     expect(result).toEqual({ satisfied: true })
   })
 
@@ -222,12 +231,15 @@ describe('checkPrereqs — placement-only classification (ACT text in descriptio
     expect(result.missing).toContain('MATH1730')
   })
 
-  it('courseMap with "ACT mathematics score" pattern also classifies as placement', () => {
+  it('courseMap with "ACT mathematics score" pattern classifies as placement; suppressed when act_placement present', () => {
     const courseMap = {
       CHEM1110: { description: 'General Chemistry. ACT mathematics score of 26 required or MATH1710.' },
     }
     const prereqMap = { CHEM1110: { 0: { logic: 'AND', codes: ['MATH1710'] } } }
-    const result = checkPrereqs('CHEM1110', prereqMap, new Set(), [], courseMap)
+    const priorCredits = [
+      { credit_type: 'act_placement', satisfies_course_code: 'CHEM1110', credits_awarded: 0 },
+    ]
+    const result = checkPrereqs('CHEM1110', prereqMap, new Set(), priorCredits, courseMap)
     expect(result).toEqual({ satisfied: true })
   })
 })
@@ -309,6 +321,66 @@ describe('checkPrereqs — edge cases with new parameters', () => {
       MATH1910_PREREQ_MAP,
       new Set(),
       priorCredits
+    )
+    expect(result).toEqual({ satisfied: true })
+  })
+})
+
+// ── BUG-31 fix: act_placement guard ─────────────────────────────────────────
+// Placement-classified courses now fall through to normal prereq evaluation
+// unless the student has a recorded act_placement prior credit for that course.
+
+describe('checkPrereqs — BUG-31: act_placement guard for placement-classified courses', () => {
+  it('returns satisfied: true when student has a matching act_placement prior credit', () => {
+    const priorCredits = [
+      { credit_type: 'act_placement', satisfies_course_code: 'MATH1910', credits_awarded: 0 },
+    ]
+    const result = checkPrereqs(
+      'MATH1910',
+      MATH1910_PREREQ_MAP,
+      new Set(),
+      priorCredits,
+      COURSE_MAP_ACT
+    )
+    expect(result).toEqual({ satisfied: true })
+  })
+
+  it('returns satisfied: false with missing prereqs when no act_placement prior credit exists', () => {
+    const result = checkPrereqs(
+      'MATH1910',
+      MATH1910_PREREQ_MAP,
+      new Set(),
+      [],
+      COURSE_MAP_ACT
+    )
+    expect(result.satisfied).toBe(false)
+    expect(result.missing).toContain('MATH1730')
+  })
+
+  it('returns satisfied: false when act_placement is for a different course code', () => {
+    // CHEM1110 is not a prereq of MATH1910, so this placement entry does not
+    // trigger the guard (wrong courseCode) and does not satisfy MATH1730.
+    const priorCredits = [
+      { credit_type: 'act_placement', satisfies_course_code: 'CHEM1110', credits_awarded: 0 },
+    ]
+    const result = checkPrereqs(
+      'MATH1910',
+      MATH1910_PREREQ_MAP,
+      new Set(),
+      priorCredits,
+      COURSE_MAP_ACT
+    )
+    expect(result.satisfied).toBe(false)
+    expect(result.missing).toContain('MATH1730')
+  })
+
+  it('returns satisfied: true via normal prereq path when prereq course is in satisfiedCodes (no act_placement needed)', () => {
+    const result = checkPrereqs(
+      'MATH1910',
+      MATH1910_PREREQ_MAP,
+      new Set(['MATH1730']),
+      [],
+      COURSE_MAP_ACT
     )
     expect(result).toEqual({ satisfied: true })
   })
