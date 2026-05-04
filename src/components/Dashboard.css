@@ -95,7 +95,7 @@
 
 .concentration-card.selected {
   border-color: var(--gold);
-  background: rgba(255, 221, 0, 0.06);
+  background: rgba(var(--gold-rgb), 0.06);
 }
 
 .concentration-name {
@@ -196,8 +196,8 @@
   font-size: 0.8rem;
   color: var(--danger);
   padding: 0.75rem 1rem;
-  background: rgba(224, 92, 92, 0.08);
-  border: 1px solid rgba(224, 92, 92, 0.2);
+  background: rgba(var(--danger-rgb), 0.08);
+  border: 1px solid rgba(var(--danger-rgb), 0.2);
   border-radius: 6px;
 }
 
@@ -538,7 +538,7 @@
 }
 
 .modal-course-row.selected {
-  background: rgba(255, 221, 0, 0.08);
+  background: rgba(var(--gold-rgb), 0.08);
 }
 
 .modal-course-row.selected .modal-course-code {
@@ -643,12 +643,12 @@
 }
 
 .modal-status-badge.taken {
-  background: rgba(138, 155, 176, 0.15);
+  background: rgba(var(--muted-rgb), 0.15);
   color: var(--muted);
 }
 
 .modal-status-badge.locked {
-  background: rgba(224, 92, 92, 0.12);
+  background: rgba(var(--danger-rgb), 0.12);
   color: var(--danger);
 }
 
@@ -663,7 +663,7 @@
   padding: 0.75rem 1.5rem;
   font-size: 0.75rem;
   color: var(--gold);
-  background: rgba(255, 221, 0, 0.06);
+  background: rgba(var(--gold-rgb), 0.06);
   border-bottom: 1px solid var(--navy-light);
 }
 
@@ -713,13 +713,13 @@
 .slot-row.status-in_progress {
   border-left: 2px solid var(--status-progress);
   padding-left: calc(1.25rem - 2px);
-  background: rgba(107, 155, 210, 0.04);
+  background: rgba(var(--status-progress-rgb), 0.04);
 }
 
 .slot-row.status-completed {
   border-left: 2px solid var(--status-done);
   padding-left: calc(1.25rem - 2px);
-  background: rgba(76, 175, 125, 0.04);
+  background: rgba(var(--status-done-rgb), 0.04);
 }
 
 /* slot-right holds the status badge + credit count side by side */
@@ -751,20 +751,20 @@
 
 .status-badge-planned {
   color: var(--gold);
-  background: rgba(255, 221, 0, 0.12);
-  border-color: rgba(255, 221, 0, 0.25);
+  background: rgba(var(--gold-rgb), 0.12);
+  border-color: rgba(var(--gold-rgb), 0.25);
 }
 
 .status-badge-in_progress {
   color: var(--status-progress);
-  background: rgba(107, 155, 210, 0.12);
-  border-color: rgba(107, 155, 210, 0.25);
+  background: rgba(var(--status-progress-rgb), 0.12);
+  border-color: rgba(var(--status-progress-rgb), 0.25);
 }
 
 .status-badge-completed {
   color: var(--status-done);
-  background: rgba(76, 175, 125, 0.12);
-  border-color: rgba(76, 175, 125, 0.25);
+  background: rgba(var(--status-done-rgb), 0.12);
+  border-color: rgba(var(--status-done-rgb), 0.25);
 }
 
 /* ── Credit progress bar ─────────────────────────────────────────── */
@@ -876,8 +876,8 @@
   padding: 0.75rem 1rem;
   font-size: 0.78rem;
   color: var(--gold);
-  background: rgba(255, 221, 0, 0.08);
-  border: 1px solid rgba(255, 221, 0, 0.25);
+  background: rgba(var(--gold-rgb), 0.08);
+  border: 1px solid rgba(var(--gold-rgb), 0.25);
   border-radius: 6px;
   line-height: 1.6;
 }
@@ -888,7 +888,7 @@
   text-transform: uppercase;
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
-  background: rgba(255, 221, 0, 0.15);
+  background: rgba(var(--gold-rgb), 0.15);
   color: var(--gold);
   font-weight: 500;
   align-self: flex-start;
@@ -954,29 +954,29 @@
 /* Empty — nothing selected yet, still on track */
 .gen-ed-chip-empty {
   color: var(--muted);
-  background: rgba(138, 155, 176, 0.08);
-  border-color: rgba(138, 155, 176, 0.18);
+  background: rgba(var(--muted-rgb), 0.08);
+  border-color: rgba(var(--muted-rgb), 0.18);
 }
 
 /* In progress — some credits filled, still achievable */
 .gen-ed-chip-progress {
   color: var(--gold);
-  background: rgba(255, 221, 0, 0.08);
-  border-color: rgba(255, 221, 0, 0.22);
+  background: rgba(var(--gold-rgb), 0.08);
+  border-color: rgba(var(--gold-rgb), 0.22);
 }
 
 /* Satisfied — 6+ credits filled */
 .gen-ed-chip-satisfied {
   color: var(--status-done);
-  background: rgba(76, 175, 125, 0.08);
-  border-color: rgba(76, 175, 125, 0.22);
+  background: rgba(var(--status-done-rgb), 0.08);
+  border-color: rgba(var(--status-done-rgb), 0.22);
 }
 
 /* At risk — can't reach 6 hrs given remaining empty slots */
 .gen-ed-chip-risk {
   color: var(--danger);
-  background: rgba(224, 92, 92, 0.08);
-  border-color: rgba(224, 92, 92, 0.22);
+  background: rgba(var(--danger-rgb), 0.08);
+  border-color: rgba(var(--danger-rgb), 0.22);
 }
 
 /* ── Graduation projection ───────────────────────────────────────── */
@@ -1008,14 +1008,14 @@
 
 .semester-credit-warning-low {
   color: var(--gold);
-  background: rgba(255, 221, 0, 0.06);
+  background: rgba(var(--gold-rgb), 0.06);
   border-left-color: var(--gold);
   opacity: 0.9;
 }
 
 .semester-credit-warning-high {
   color: var(--danger);
-  background: rgba(224, 92, 92, 0.06);
+  background: rgba(var(--danger-rgb), 0.06);
   border-left-color: var(--danger);
   opacity: 0.9;
 }
@@ -1165,9 +1165,9 @@
 .semester-notes-input {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(255, 221, 0, 0.04);
+  background: rgba(var(--gold-rgb), 0.04);
   border: none;
-  border-top: 1px solid rgba(255, 221, 0, 0.15);
+  border-top: 1px solid rgba(var(--gold-rgb), 0.15);
   padding: 0.6rem 1.25rem;
   color: var(--white);
   font-family: var(--font-mono);
@@ -1184,7 +1184,7 @@
 }
 
 .semester-notes-input:focus {
-  background: rgba(255, 221, 0, 0.07);
+  background: rgba(var(--gold-rgb), 0.07);
 }
 
 /* ── Remove selection button ─────────────────────────────────────── */
@@ -1193,7 +1193,7 @@
   padding: 0.85rem 1rem;
   background: transparent;
   color: var(--danger);
-  border: 1px solid rgba(224, 92, 92, 0.3);
+  border: 1px solid rgba(var(--danger-rgb), 0.3);
   border-radius: 6px;
   font-family: var(--font-mono);
   font-size: 0.875rem;
@@ -1204,7 +1204,7 @@
 
 .modal-remove-btn:hover:not(:disabled) {
   border-color: var(--danger);
-  background: rgba(224, 92, 92, 0.06);
+  background: rgba(var(--danger-rgb), 0.06);
 }
 
 .modal-remove-btn:disabled {
@@ -1407,8 +1407,8 @@
   display: flex;
   align-items: center;
   gap: 0.875rem;
-  background: rgba(224, 92, 92, 0.12);
-  border: 1px solid rgba(224, 92, 92, 0.35);
+  background: rgba(var(--danger-rgb), 0.12);
+  border: 1px solid rgba(var(--danger-rgb), 0.35);
   border-radius: 8px;
   padding: 0.75rem 0.875rem 0.75rem 1.125rem;
   color: var(--danger);
@@ -1466,10 +1466,10 @@
   width: 100%;
   background: linear-gradient(
     135deg,
-    rgba(255, 221, 0, 0.18) 0%,
-    rgba(255, 232, 77, 0.10) 100%
+    rgba(var(--gold-rgb), 0.18) 0%,
+    rgba(var(--gold-light-rgb), 0.10) 100%
   );
-  border: 1px solid rgba(255, 221, 0, 0.45);
+  border: 1px solid rgba(var(--gold-rgb), 0.45);
   border-radius: 10px;
   padding: 1rem 1.5rem;
   margin-bottom: 1.5rem;
@@ -1596,7 +1596,7 @@
    student sees where they'll land. */
 
 .semester-card-drag-over {
-  outline: 2px solid rgba(255, 221, 0, 0.55);
+  outline: 2px solid rgba(var(--gold-rgb), 0.55);
   outline-offset: -2px;
 }
 
@@ -1628,7 +1628,7 @@
 
 .semester-add-course-btn:hover {
   color: var(--gold);
-  background: rgba(255, 221, 0, 0.04);
+  background: rgba(var(--gold-rgb), 0.04);
 }
 
 /* ── Free-add slot row ───────────────────────────────────────────────
@@ -1636,9 +1636,9 @@
    and a subtle tint. The "Added" badge labels it as self-placed. */
 
 .slot-free-add {
-  border-left: 2px dashed rgba(138, 155, 176, 0.35);
+  border-left: 2px dashed rgba(var(--muted-rgb), 0.35);
   padding-left: calc(1.25rem - 2px);
-  background: rgba(138, 155, 176, 0.02);
+  background: rgba(var(--muted-rgb), 0.02);
 }
 
 .slot-free-add-top {
@@ -1653,7 +1653,7 @@
   text-transform: uppercase;
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
-  background: rgba(138, 155, 176, 0.12);
+  background: rgba(var(--muted-rgb), 0.12);
   color: var(--muted);
   font-weight: 500;
 }
@@ -1697,8 +1697,8 @@
 .slot-prereq-warning {
   font-size: 0.63rem;
   color: var(--status-warn);
-  background: rgba(232, 184, 75, 0.08);
-  border: 1px solid rgba(232, 184, 75, 0.2);
+  background: rgba(var(--status-warn-rgb), 0.08);
+  border: 1px solid rgba(var(--status-warn-rgb), 0.2);
   border-radius: 3px;
   padding: 0.1rem 0.35rem;
   margin-top: 0.15rem;
@@ -1716,7 +1716,7 @@
   text-transform: uppercase;
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
-  background: rgba(138, 155, 176, 0.12);
+  background: rgba(var(--muted-rgb), 0.12);
   color: var(--muted);
   font-weight: 500;
 }
@@ -1736,12 +1736,12 @@
 }
 
 .prior-credits-panel-drag-over {
-  border-color: rgba(255, 221, 0, 0.65);
-  box-shadow: 0 0 0 2px rgba(255, 221, 0, 0.18);
+  border-color: rgba(var(--gold-rgb), 0.65);
+  box-shadow: 0 0 0 2px rgba(var(--gold-rgb), 0.18);
 }
 
 .prior-credits-panel-placement {
-  border-color: rgba(138, 155, 176, 0.3);
+  border-color: rgba(var(--muted-rgb), 0.3);
 }
 
 .prior-credits-panel-header {
@@ -1780,7 +1780,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  background: rgba(255, 221, 0, 0.2);
+  background: rgba(var(--gold-rgb), 0.2);
   color: var(--gold);
   border-radius: 10px;
   font-size: 0.6rem;
@@ -1789,7 +1789,7 @@
 }
 
 .prior-credits-panel-placement .prior-credits-count {
-  background: rgba(138, 155, 176, 0.15);
+  background: rgba(var(--muted-rgb), 0.15);
   color: var(--muted);
 }
 
@@ -1950,7 +1950,7 @@
 .prior-credits-add-btn {
   align-self: flex-start;
   background: transparent;
-  border: 1px dashed rgba(255, 221, 0, 0.3);
+  border: 1px dashed rgba(var(--gold-rgb), 0.3);
   border-radius: 5px;
   color: var(--gold);
   opacity: 0.75;
@@ -1963,7 +1963,7 @@
 
 .prior-credits-add-btn:hover {
   opacity: 1;
-  border-color: rgba(255, 221, 0, 0.7);
+  border-color: rgba(var(--gold-rgb), 0.7);
 }
 
 /* ── Credit type chips ───────────────────────────────────────────────
@@ -1983,32 +1983,32 @@
 }
 
 .credit-type-ap_credit {
-  background: rgba(107, 155, 210, 0.15);
+  background: rgba(var(--status-progress-rgb), 0.15);
   color: var(--status-progress);
 }
 
 .credit-type-transfer_credit {
-  background: rgba(255, 221, 0, 0.15);
+  background: rgba(var(--gold-rgb), 0.15);
   color: var(--gold);
 }
 
 .credit-type-dual_enrollment {
-  background: rgba(76, 175, 125, 0.15);
+  background: rgba(var(--status-done-rgb), 0.15);
   color: var(--status-done);
 }
 
 .credit-type-test_out {
-  background: rgba(176, 107, 210, 0.15);
+  background: rgba(var(--status-purple-rgb), 0.15);
   color: var(--status-purple);
 }
 
 .credit-type-ib_credit {
-  background: rgba(210, 140, 76, 0.15);
+  background: rgba(var(--status-orange-rgb), 0.15);
   color: var(--status-orange);
 }
 
 .credit-type-act_placement {
-  background: rgba(138, 155, 176, 0.15);
+  background: rgba(var(--muted-rgb), 0.15);
   color: var(--muted);
 }
 
@@ -2020,8 +2020,8 @@
 .slot-standing-warning {
   font-size: 0.63rem;
   color: var(--status-progress);
-  background: rgba(107, 155, 210, 0.1);
-  border: 1px solid rgba(107, 155, 210, 0.25);
+  background: rgba(var(--status-progress-rgb), 0.1);
+  border: 1px solid rgba(var(--status-progress-rgb), 0.25);
   border-radius: 3px;
   padding: 0.1rem 0.35rem;
   margin-top: 0.15rem;
@@ -2034,9 +2034,9 @@
    green left border (similar to "completed") to signal they're covered. */
 
 .slot-transfer-filled {
-  border-left: 2px solid rgba(76, 175, 125, 0.6);
+  border-left: 2px solid rgba(var(--status-done-rgb), 0.6);
   padding-left: calc(1.25rem - 2px);
-  background: rgba(76, 175, 125, 0.03);
+  background: rgba(var(--status-done-rgb), 0.03);
   opacity: 0.85;
 }
 
@@ -2049,7 +2049,7 @@
   font-weight: 600;
   padding: 0.08rem 0.35rem;
   border-radius: 3px;
-  background: rgba(76, 175, 125, 0.15);
+  background: rgba(var(--status-done-rgb), 0.15);
   color: var(--status-done);
   vertical-align: middle;
   margin-left: 0.3rem;
@@ -2236,8 +2236,8 @@
   margin-top: 0.25rem;
   margin-left: 1.5rem;
   padding: 0.75rem;
-  background: rgba(255, 221, 0, 0.04);
-  border: 1px solid rgba(255, 221, 0, 0.18);
+  background: rgba(var(--gold-rgb), 0.04);
+  border: 1px solid rgba(var(--gold-rgb), 0.18);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -2311,7 +2311,7 @@
 
 /* Completed semester border accent */
 .semester-card-done {
-  border-color: rgba(76, 175, 125, 0.25) !important;
+  border-color: rgba(var(--status-done-rgb), 0.25) !important;
 }
 
 /* Mark Complete button */
@@ -2336,19 +2336,19 @@
   cursor: not-allowed;
 }
 .semester-complete-btn-undo {
-  border-color: rgba(76, 175, 125, 0.4);
+  border-color: rgba(var(--status-done-rgb), 0.4);
   color: var(--status-done);
 }
 .semester-complete-btn-undo:hover {
-  border-color: var(--danger-light, #f87171) !important;
-  color: var(--danger-light, #f87171) !important;
+  border-color: var(--danger-light) !important;
+  color: var(--danger-light) !important;
 }
 
 /* Warning gate message */
 .semester-warning-gate {
   font-size: 0.75rem;
   color: var(--gold);
-  background: rgba(255, 221, 0, 0.06);
+  background: rgba(var(--gold-rgb), 0.06);
   border-left: 2px solid var(--gold);
   padding: 0.4rem 0.75rem;
   margin: 0 1rem 0.5rem;
@@ -2426,7 +2426,7 @@
 }
 .wizard-type-btn:hover {
   border-color: var(--gold);
-  background: rgba(255, 221, 0, 0.06);
+  background: rgba(var(--gold-rgb), 0.06);
 }
 
 .wizard-type-btn-disabled,
@@ -2450,7 +2450,7 @@
   font-weight: 600;
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
-  background: rgba(255, 221, 0, 0.18);
+  background: rgba(var(--gold-rgb), 0.18);
   color: var(--gold);
   vertical-align: middle;
 }
@@ -2473,7 +2473,7 @@
   font-weight: 600;
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
-  background: rgba(255, 221, 0, 0.18);
+  background: rgba(var(--gold-rgb), 0.18);
   color: var(--gold);
   vertical-align: middle;
 }
@@ -2504,7 +2504,7 @@
 .wizard-exam-btn:hover,
 .wizard-score-btn:hover {
   border-color: var(--gold);
-  background: rgba(255, 221, 0, 0.05);
+  background: rgba(var(--gold-rgb), 0.05);
 }
 
 .wizard-score-btn {

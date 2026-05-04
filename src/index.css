@@ -1,46 +1,94 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Semantic names — dark theme (default) */
-  --bg:         #0D0717;
-  --bg-mid:     #1A1030;
-  --bg-light:   #2D1E52;
-  --text:       #f0ede6;
-  --text-muted: #8a9bb0;
+  /* ── Surfaces — TTU Purple tonal ramp ── */
+  --bg:         #15092A;
+  --bg-mid:     #241541;
+  --bg-light:   #3A2566;
 
-  /* Backward-compat aliases (Dashboard.css/Auth.css use these; keep them) */
+  /* ── Text ── */
+  --text:       #F2EEE6;
+  --text-muted: #A99CC4;
+
+  /* ── Backward-compat aliases (DO NOT REMOVE) ── */
   --navy:       var(--bg);
   --navy-mid:   var(--bg-mid);
   --navy-light: var(--bg-light);
   --white:      var(--text);
   --muted:      var(--text-muted);
 
-  /* Gold — TTU brand gold */
-  --gold:       #FFDD00;
-  --gold-light: #FFE84D;
-  --danger:     #e05c5c;
+  /* ── Brand accent — TTU Gold ── */
+  --gold:       #F3A51C;
+  --gold-light: #F8BF54;
 
-  /* Status semantics — replaces hardcoded hex in Dashboard.css */
-  --status-progress: #6b9bd2;
-  --status-done:     #4caf7d;
-  --status-warn:     #e8b84b;
-  --status-info:     #93c5fd;
-  --status-purple:   #b06bd2;
-  --status-orange:   #d28c4c;
+  /* ── Feedback ── */
+  --danger:       #E06B6B;
+  --danger-light: #F0A0A0;
+
+  /* ── Status semantics ── */
+  --status-progress: #7AB0E0;
+  --status-done:     #5BC089;
+  --status-warn:     #EFC25E;
+  --status-info:     #A3CFFF;
+  --status-purple:   #C385E0;
+  --status-orange:   #E59B5C;
+
+  /* ── RGB channel splits — for rgba(var(--*-rgb), .x) ── */
+  --bg-rgb:              21, 9, 42;
+  --bg-mid-rgb:          36, 21, 65;
+  --bg-light-rgb:        58, 37, 102;
+  --text-rgb:            242, 238, 230;
+  --muted-rgb:           169, 156, 196;
+  --gold-rgb:            243, 165, 28;
+  --gold-light-rgb:      248, 191, 84;
+  --danger-rgb:          224, 107, 107;
+  --danger-light-rgb:    240, 160, 160;
+  --status-progress-rgb: 122, 176, 224;
+  --status-done-rgb:     91, 192, 137;
+  --status-warn-rgb:     239, 194, 94;
+  --status-info-rgb:     163, 207, 255;
+  --status-purple-rgb:   195, 133, 224;
+  --status-orange-rgb:   229, 155, 92;
+  --ttu-purple-rgb:      79, 45, 127;
 
   --font-display: 'DM Serif Display', serif;
   --font-mono:    'DM Mono', monospace;
 }
 
 :root[data-theme="light"] {
-  --bg:         #f5f2fb;
-  --bg-mid:     #ede8f5;
-  --bg-light:   #c9bde0;
-  --text:       #1a1030;
-  --text-muted: #6B5B8A; /* darkened from #7A6B9A; original yields 4.32:1 on --bg (fails 4.5:1) */
-  /* Gold must be dark in light mode — bright #FFDD00 is invisible on light surfaces */
-  --gold:       #7A5500;
-  --gold-light: #8B6100;
+  /* ── Surfaces — light purple-tinted neutrals ── */
+  --bg:         #F7F4FB;
+  --bg-mid:     #EDE6F5;
+  --bg-light:   #C9BDE0;
+
+  /* ── Text ── */
+  --text:       #1A0F30;
+  --text-muted: #5B4A7A;
+
+  /* ── Brand accent — gold darkened for legibility on light bg ── */
+  --gold:       #7A4A00;
+  --gold-light: #8E5A0C;
+
+  /* ── Feedback ── */
+  --danger:       #A02828;
+  --danger-light: #C04848;
+
+  /* ── Status (re-tuned for light bg, all ≥4.5:1) ── */
+  --status-progress: #1F5C99;
+  --status-done:     #1F7A47;
+  --status-warn:     #8A5A00;
+  --status-info:     #2A6BB8;
+  --status-purple:   #7A3D9E;
+  --status-orange:   #9A5A1A;
+
+  /* ── RGB channel splits — light overrides ── */
+  --bg-rgb:       247, 244, 251;
+  --bg-mid-rgb:   237, 230, 245;
+  --bg-light-rgb: 201, 189, 224;
+  --text-rgb:     26, 15, 48;
+  --muted-rgb:    91, 74, 122;
+  --gold-rgb:     122, 74, 0;
+  --danger-rgb:   160, 40, 40;
 }
 
 body {
