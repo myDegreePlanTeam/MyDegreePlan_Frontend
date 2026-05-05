@@ -992,6 +992,21 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const wouldStillArchive = resolveTransferCredits(newCreditsWithout, planSlots, slots)
       const freedSlots        = slots.filter(s => planArchived[s.id] && !wouldStillArchive[s.id])
 
+      // Atomicity guard (BUG-44): if handleAddCourse would be called but would
+      // immediately fail (course already in plan), block the entire drag before
+      // any DB write rather than deleting the prior credit and leaving no record.
+      // act_placement entries (credits_awarded = 0) are excluded from takenCodes
+      // Pass 1, so takenCodes reflects only requirement-slot and free-add coverage.
+      if (
+        freedSlots.length === 0 &&
+        pc.satisfies_course_code &&
+        courses[pc.satisfies_course_code] &&
+        takenCodes.has(pc.satisfies_course_code)
+      ) {
+        showSaveError(`${pc.satisfies_course_code} is already in your plan.`)
+        return
+      }
+
       await handleRemovePriorCredit(priorCreditId)
 
       if (freedSlots.length === 0 && pc.satisfies_course_code && courses[pc.satisfies_course_code]) {
