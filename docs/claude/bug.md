@@ -56,6 +56,8 @@
 
 > **2026-05-04 update:** `fix/drag-to-prior-coursework-flicker` merged. BUG-36 (visual flicker when dragging a course to Prior Coursework) is fixed by moving `setPlanArchived`/`setPlanSlots` optimistic state updates to before the `handleAddPriorCredit` await chain in `handleDragEnd`. Added `prevArchived`/`prevPlanSlots` rollback variables to restore state on `archErr`. UI timing only; no test changes (count held at 266). Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-05-05 update:** BUG-44 found and fixed in the same session. When a user dragged an `act_placement` prior credit (e.g. ACT Math 27+, `credits_awarded = 0`) back to a semester card, `handleRemovePriorCredit` deleted the record from the DB before the guard in `handleAddCourse` fired — the student permanently lost the placement credit with no compensating free-add created. Root cause: `act_placement` entries never archive a slot (`credits_awarded = 0` is excluded from `resolveTransferCredits`), so `freedSlots` is always empty for them; `handleAddCourse` then fires and fails because the course (e.g. MATH1910) is already in `takenCodes` via Pass 2 (requirement slot). Fix: add an atomicity guard in the `prior_credit` drag-back path that checks whether `handleAddCourse` would fail before any DB write, and blocks the drag with the same error message if so. Tests held at 266. Entry deleted below; bug counts unchanged (found and fixed in same session).
+
 ## Bug counts by severity
 
 | Severity | Count |

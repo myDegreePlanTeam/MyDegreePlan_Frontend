@@ -211,4 +211,4 @@ _None._
 | `fix/prereq-display` | 2026-05-02 | BUG-31 |
 | `fix/semester-card-css-polish` | 2026-05-02 | BUG-40, BUG-41 |
 | `feat/theme-pass` | 2026-05-02 | BUG-38, feat/branding (palette), feat/dark-mode |
-| `fix/drag-to-prior-coursework-flicker` | 2026-05-04 | BUG-36 |
+| `fix/drag-to-prior-coursework-flicker` | 2026-05-05 | BUG-36, BUG-44 |

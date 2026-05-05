@@ -30,6 +30,8 @@
 
 > **2026-05-04 update:** Package M merged as `fix/drag-to-prior-coursework-flicker`. BUG-36 (visual flicker on drag-to-Prior-Coursework) fixed by moving `setPlanArchived`/`setPlanSlots` optimistic state updates before the `handleAddPriorCredit` await chain in `handleDragEnd`; rollback restores on `archErr`. UI timing only; no test changes (count held at 266). **8 open bugs** — 0 Critical, 1 High, 4 Medium, 3 Low. Recommended next: `data/strip-course-descriptions-prototype` (BUG-32, queued in `BRANCH_QUEUE.md`).
 
+> **2026-05-05 update:** BUG-44 found and fixed in the Package M session before merge. Atomicity guard added to the `prior_credit` drag-back path in `handleDragEnd`: if the course being un-prior-credited is already in the plan (via `takenCodes`), the drag blocks before any DB write. Previously, `handleRemovePriorCredit` deleted the record first, then `handleAddCourse` silently failed — data loss for `act_placement` entries (ACT Math 27+). Tests held at 266; bug counts unchanged (found and fixed in same session).
+
 ---
 
 ## Standing procedure (every package)
@@ -143,6 +145,8 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
   `setPlanSlots` optimistic updates to before the `await handleAddPriorCredit(...)` call. Rollback
   to `prevArchived`/`prevPlanSlots` fires only on `archErr`. No test changes; count held at 266.
   Matches the `handleSave`/`handleStatusChange` optimistic pattern already in the codebase.
+  Also fixed BUG-44 (found in same session): atomicity guard added to prior-credit drag-back
+  path — blocks before any DB write if the course is already in the plan.
 
 ### Package N — `feat/theme-pass` ✅ COMPLETE (merged 2026-05-02)
 - **Bug:** BUG-38 (Medium) — fixed (coordinated with `feat/branding` + `feat/dark-mode`)
