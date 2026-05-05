@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-05-02
+> Last updated: 2026-05-04
 
 ---
 
@@ -211,3 +211,4 @@ _None._
 | `fix/prereq-display` | 2026-05-02 | BUG-31 |
 | `fix/semester-card-css-polish` | 2026-05-02 | BUG-40, BUG-41 |
 | `feat/theme-pass` | 2026-05-02 | BUG-38, feat/branding (palette), feat/dark-mode |
+| `fix/drag-to-prior-coursework-flicker` | 2026-05-04 | BUG-36 |

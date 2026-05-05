@@ -54,6 +54,8 @@
 
 > **2026-05-02 update:** `feat/theme-pass` merged. BUG-38 (site-wide low contrast, WCAG 2.1 AA failures) is resolved by the coordinated theme overhaul: TTU purple palette replaces navy, `--status-*` semantic variables cover the six hardcoded hex values in Dashboard.css, rgba() gold channels updated throughout, and `--text-muted`/`--gold`/`--gold-light` carry per-theme overrides that pass AA in light mode. A toggleable dark/light mode with localStorage persistence and `prefers-color-scheme` fallback is included. Entry deleted below; remaining bug numbering is unchanged.
 
+> **2026-05-04 update:** `fix/drag-to-prior-coursework-flicker` merged. BUG-36 (visual flicker when dragging a course to Prior Coursework) is fixed by moving `setPlanArchived`/`setPlanSlots` optimistic state updates to before the `handleAddPriorCredit` await chain in `handleDragEnd`. Added `prevArchived`/`prevPlanSlots` rollback variables to restore state on `archErr`. UI timing only; no test changes (count held at 266). Entry deleted below; remaining bug numbering is unchanged.
+
 ## Bug counts by severity
 
 | Severity | Count |
@@ -61,8 +63,8 @@
 | Critical | 0  |
 | High     | 1  |
 | Medium   | 4  |
-| Low      | 4  |
-| **Total** | **9** |
+| Low      | 3  |
+| **Total** | **8** |
 
 ---
 
@@ -220,36 +222,6 @@ with the mark-complete behavior fix (Phase 2, `fix/mark-complete-behavior`) sinc
 that branch will overhaul how completion credits are tracked.
 
 **Confidence:** High
-
----
-
-### BUG-36: Visual flicker when dragging a course to Prior Coursework
-
-**Severity:** Low
-**File(s):** `src/components/DegreePlan.jsx` (`handleDragEnd` —
-drag-to-prior-coursework path), `src/components/Semester.jsx` (slot row
-remove transition)
-
-**Description:** Dragging a course from a semester onto the Prior Coursework
-panel briefly snaps the slot back to its original semester, then immediately
-re-renders with the slot removed. The user perceives a "snap-back-then-remove"
-flicker rather than a clean transfer. Likely caused by the optimistic state
-update path: the drag-end handler creates the prior credit row (which arrives
-asynchronously), and `syncArchivedSlots` only fires once the new credit lands
-in state, leaving a render frame where the slot is unchanged before the
-archive flag flips.
-
-**Impact:** Low — the final state is correct. UX is jarring and can leave a
-student briefly uncertain whether the drag worked.
-
-**Suspected fix:** In the `prior_credit` drag-end branch of `handleDragEnd`,
-optimistically mark the slot archived in local state before awaiting the
-Supabase insert. Roll the optimistic flag back if the insert errors. Mirrors
-the optimistic patterns already used in `handleAddCourse` and the move
-handlers.
-
-**Confidence:** Medium — the root cause is plausible but unconfirmed without
-devtools profiling. May be entirely a CSS transition timing issue.
 
 ---
 

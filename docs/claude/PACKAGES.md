@@ -28,6 +28,8 @@
 
 > **2026-05-02 update (3):** Package N merged as `feat/theme-pass` (coordinated with `feat/branding` and `feat/dark-mode`). BUG-38 (site-wide WCAG AA contrast failures) resolved by: TTU purple palette in `index.css` (dark default + light theme via `data-theme` attribute), backward-compat aliases so Dashboard.css/Auth.css need zero variable-name edits, 16 hardcoded hex values replaced with `--status-*` vars in Dashboard.css, rgba() gold channels updated, `--text-muted`/`--gold`/`--gold-light` darkened in light theme for AA compliance, and a dark-mode toggle with localStorage + `prefers-color-scheme` fallback. Tests held at 266. **9 open bugs** — 0 Critical, 1 High, 4 Medium, 4 Low. Recommended next: Package M.
 
+> **2026-05-04 update:** Package M merged as `fix/drag-to-prior-coursework-flicker`. BUG-36 (visual flicker on drag-to-Prior-Coursework) fixed by moving `setPlanArchived`/`setPlanSlots` optimistic state updates before the `handleAddPriorCredit` await chain in `handleDragEnd`; rollback restores on `archErr`. UI timing only; no test changes (count held at 266). **8 open bugs** — 0 Critical, 1 High, 4 Medium, 3 Low. Recommended next: `data/strip-course-descriptions-prototype` (BUG-32, queued in `BRANCH_QUEUE.md`).
+
 ---
 
 ## Standing procedure (every package)
@@ -130,17 +132,17 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
   from action controls without affecting the collapsed-row view. No JS changes,
   no test changes; count held at 266.
 
-### Package M — `fix/drag-to-prior-coursework-flicker`
-- **Bug:** BUG-36 (Low)
-- **Files:** `src/components/DegreePlan.jsx` (`handleDragEnd`,
-  `prior_credit` drag branch), possibly `src/components/Semester.jsx`
-- **Why:** Dragging a course → Prior Coursework snaps the slot back to its
-  original semester briefly before disappearing. Likely an optimistic-state
-  ordering issue around `syncArchivedSlots`.
-- **Preflight:** profile with React devtools first to confirm root cause
-  before applying — the audit suspects it could be a CSS transition timing
-  issue rather than a React state issue.
-- **Diff size:** Small once the cause is confirmed.
+### Package M — `fix/drag-to-prior-coursework-flicker` ✅ COMPLETE (merged 2026-05-04)
+- **Bug:** BUG-36 (Low) — fixed
+- **Files:** `src/components/DegreePlan.jsx` (`handleDragEnd`, `requirement_slot → transfer_credits` path)
+- **Why:** Dragging a course → Prior Coursework snapped the slot back to its original semester briefly
+  before disappearing. Root cause confirmed as stale `planArchived` state: dnd-kit dismisses the
+  DragOverlay and re-renders the source element before the async `handleAddPriorCredit` chain
+  completes. No CSS transition issue.
+- **Resolution:** Added `prevArchived`/`prevPlanSlots` captures and moved `setPlanArchived`/
+  `setPlanSlots` optimistic updates to before the `await handleAddPriorCredit(...)` call. Rollback
+  to `prevArchived`/`prevPlanSlots` fires only on `archErr`. No test changes; count held at 266.
+  Matches the `handleSave`/`handleStatusChange` optimistic pattern already in the codebase.
 
 ### Package N — `feat/theme-pass` ✅ COMPLETE (merged 2026-05-02)
 - **Bug:** BUG-38 (Medium) — fixed (coordinated with `feat/branding` + `feat/dark-mode`)
@@ -183,7 +185,7 @@ generate planning artifacts via the meta-prompt:
 
 ## Recommended near-term sequence
 
-**~~J~~ → ~~I~~ → ~~K~~ → ~~L~~ → M → ~~N~~** (N landed as `feat/theme-pass`).
+**~~J~~ → ~~I~~ → ~~K~~ → ~~L~~ → ~~M~~ → ~~N~~** (N landed as `feat/theme-pass`).
 
 Rationale:
 - **J** first because it's a real correctness bug with a small bounded fix.
