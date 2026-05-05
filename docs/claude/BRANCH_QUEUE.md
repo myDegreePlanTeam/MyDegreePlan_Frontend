@@ -21,7 +21,7 @@ _None._
 - Claude Code writes a stripping script, previews diff, then applies on approval.
 - Re-seed Supabase after applying.
 - `coursesFile.json` strip is a separate future task — do not scope-creep.
-**Prompt:** Not yet written
+**Prompt:** `docs/claude/PROMPT_strip-course-descriptions-prototype.md`
 
 ---
 
