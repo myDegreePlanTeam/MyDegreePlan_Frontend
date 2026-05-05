@@ -863,6 +863,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
         const creditsAwarded = course?.credits ?? 3
         const semLabel       = planSemesterOverrides[slotId] ?? slot.semester_number
 
+        // Optimistic archive: hide slot immediately so the dnd-kit snap-back frame
+        // shows the slot already gone rather than the original position.
+        const prevArchived  = planArchived
+        const prevPlanSlots = planSlots
+        setPlanArchived(prev => ({ ...prev, [slot.id]: true }))
+        if (slot.is_pool) {
+          setPlanSlots(prev => { const n = { ...prev }; delete n[slot.id]; return n })
+        }
+
         await handleAddPriorCredit({
           credit_type:           'transfer_credit',
           satisfies_course_code: courseCode,
@@ -886,12 +895,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
           archived:             true,
           archive_reason:       'prior_credit',
         }, { onConflict: 'student_id, requirement_slot_id' })
-        if (!archErr) {
-          setPlanArchived(prev => ({ ...prev, [slot.id]: true }))
-          if (slot.is_pool) {
-            setPlanSlots(prev => { const n = { ...prev }; delete n[slot.id]; return n })
-          }
+        if (archErr) {
+          // Both the prior-credit insert and the belt-and-suspenders upsert failed.
+          // Roll back the optimistic hide so the slot reappears rather than silently
+          // staying hidden with no DB record.
+          setPlanArchived(prevArchived)
+          if (slot.is_pool) setPlanSlots(prevPlanSlots)
         }
+        // On success: no further setPlanArchived call needed — already done optimistically.
 
       } else if (type === 'free_add') {
         const fa = freeAddSlots.find(f => f.id === slotId)
