@@ -64,9 +64,9 @@
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 4  |
+| Medium   | 3  |
 | Low      | 3  |
-| **Total** | **8** |
+| **Total** | **7** |
 
 ---
 
@@ -168,37 +168,6 @@
 > onboarding session review. Identified through live testing of the merged
 > fix/onboarding-prior-credit branch. Severity counts updated: High +3, Medium +3,
 > Low +1, Total +7. New totals: Critical 1, High 13, Medium 11, Low 6, Total 32.
-
----
-
-### BUG-32: Course descriptions contain redundant prerequisite, corequisite, and placement text
-
-**Severity:** Medium
-**File(s):** `MyDegreePlan_Prototype/prototype.json` (immediate scope),
-`MyDegreePlan_Prototype/coursesFile.json` (deferred — 30,000 lines, separate task)
-
-**Description:** Course `description` fields in the catalog JSON include prerequisite,
-corequisite, and placement requirement text that the planner already parses and
-displays in dedicated sections. This makes descriptions bloated and repetitive —
-a student sees the same information twice, with the description version being less
-structured and harder to read.
-
-**Impact:** Every course detail view is noisier than necessary. For courses with
-complex prereq chains (e.g. MATH1910, CSC3350), the description is dominated by
-prerequisite text rather than actual course content. Descriptions are the student's
-primary signal for whether a course is relevant to their interests.
-
-**Interim fix (prototype scope):** Programmatically strip prerequisite, corequisite,
-and placement language from `description` fields in `prototype.json`. Re-seed
-`MyDegreePlan_Prototype/` after stripping. Claude Code should write a script to
-perform the strip and preview the diff before applying.
-
-**Full fix (post-prototype):** Apply the same stripping logic to `coursesFile.json`
-once the catalog data task is in scope. `coursesFile.json` is 30,000 lines and is
-a separate, larger data task — do not attempt in the same session as `prototype.json`.
-
-**Confidence:** High for the stripping approach; Medium for the exact regex/pattern
-needed (descriptions are inconsistently formatted across courses).
 
 ---
 

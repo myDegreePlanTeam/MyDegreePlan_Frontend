@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-05-04
+> Last updated: 2026-05-05
 
 ---
 
@@ -13,15 +13,7 @@ _None._
 
 ## Queued Branches
 
-### data/strip-course-descriptions-prototype
-**Targets:**
-- BUG-32 — Redundant prereq/coreq/placement text in course descriptions
-**Scope:** `prototype.json` only. `coursesFile.json` is explicitly deferred.
-**Notes:**
-- Claude Code writes a stripping script, previews diff, then applies on approval.
-- Re-seed Supabase after applying.
-- `coursesFile.json` strip is a separate future task — do not scope-creep.
-**Prompt:** `docs/claude/PROMPT_strip-course-descriptions-prototype.md`
+_None._
 
 ---
 
@@ -212,3 +204,4 @@ _None._
 | `fix/semester-card-css-polish` | 2026-05-02 | BUG-40, BUG-41 |
 | `feat/theme-pass` | 2026-05-02 | BUG-38, feat/branding (palette), feat/dark-mode |
 | `fix/drag-to-prior-coursework-flicker` | 2026-05-05 | BUG-36, BUG-44 |
+| `data/strip-course-descriptions-prototype` | 2026-05-05 | BUG-32 |
