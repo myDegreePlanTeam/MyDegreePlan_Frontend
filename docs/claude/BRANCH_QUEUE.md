@@ -13,12 +13,7 @@ _None._
 
 ## Queued Branches
 
-### fix/credits-and-concentration
-**Targets:**
-- BUG-46 — Heavy-load threshold off by one (`Semester.jsx:66, 163`)
-- BUG-47 — `handleConcentrationSwitch` deletes prior credits (`DegreePlan.jsx:1036, 1041`)
-**Notes:** Two independent one-liner fixes; commit separately. No schema changes. No new tests needed.
-**Prompt:** `docs/claude/PROMPT_credits-and-concentration.md`
+_None._
 
 ---
 
@@ -211,3 +206,4 @@ _None._
 | `fix/drag-to-prior-coursework-flicker` | 2026-05-05 | BUG-36, BUG-44 |
 | `data/strip-course-descriptions-prototype` | 2026-05-05 | BUG-32 |
 | `fix/gen-ed-prior-credit-tracking` | 2026-05-06 | BUG-45 |
+| `fix/credits-and-concentration` | 2026-05-07 | BUG-46, BUG-47 |
