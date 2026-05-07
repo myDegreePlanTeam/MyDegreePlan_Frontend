@@ -228,7 +228,7 @@ export default function Semester({
             Remove semester
           </button>
         )}
-        {isCompleted ? (
+        {(slots.length > 0 || freeAddSlots.length > 0) && isCompleted ? (
           <button
             className="semester-complete-btn semester-complete-btn-undo"
             onClick={() => onMarkComplete(false)}
@@ -236,7 +236,7 @@ export default function Semester({
           >
             Undo Completion
           </button>
-        ) : (
+        ) : (slots.length > 0 || freeAddSlots.length > 0) ? (
           <button
             className="semester-complete-btn"
             onClick={() => !hasWarnings && !hasUnfilledPool && priorSemestersAllComplete && onMarkComplete(true)}
@@ -253,7 +253,7 @@ export default function Semester({
           >
             Mark Complete
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   )
