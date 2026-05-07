@@ -841,6 +841,52 @@
   color: var(--white);
 }
 
+.degreeplan-reset {
+  background: transparent;
+  border: 1px solid rgba(var(--danger-rgb), 0.35);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.degreeplan-reset:hover {
+  border-color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.06);
+}
+
+.degreeplan-modal-danger {
+  background: rgba(var(--danger-rgb), 0.12);
+  border: 1px solid rgba(var(--danger-rgb), 0.4);
+  border-radius: 6px;
+  padding: 0.6rem 1.25rem;
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.degreeplan-modal-danger:hover:not(:disabled) {
+  background: rgba(var(--danger-rgb), 0.22);
+  border-color: var(--danger);
+}
+
+.degreeplan-modal-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modal-reset-body {
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
 /* ── Undo button ─────────────────────────────────────────────────── */
 /* Same visual language as the other header buttons, but with a proper
    disabled state so the student can see at a glance whether there is

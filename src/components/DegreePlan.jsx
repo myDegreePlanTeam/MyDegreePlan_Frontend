@@ -51,6 +51,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [semesterNotes, setSemesterNotes]         = useState({})
   const [showSwitchModal, setShowSwitchModal]     = useState(false)
   const [switching, setSwitching]                 = useState(false)
+  const [showResetModal, setShowResetModal]       = useState(false)
+  const [resetting, setResetting]                 = useState(false)
+  const [resetKey, setResetKey]                   = useState(0)
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -287,7 +290,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     loadPlan()
-  }, [profile.concentration_id])
+  }, [profile.concentration_id, resetKey])
 
   // ── One-shot archive sync after initial load (BUG-23) ─────────────
   // Prior credits inserted during onboarding bypass handleAddPriorCredit,
@@ -1015,6 +1018,27 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
   }
 
+  // ── clearPlanData ─────────────────────────────────────────────────
+  async function clearPlanData() {
+    const { error } = await supabase
+      .from('student_plan_slots').delete().eq('student_id', profile.id)
+    if (error) return error
+    await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
+    await supabase.from('student_semester_notes').delete().eq('student_id', profile.id)
+    return null
+  }
+
+  // ── Reset plan ────────────────────────────────────────────────────
+  async function handleResetPlan() {
+    setResetting(true)
+    const err = await clearPlanData()
+    if (err) { setResetting(false); return }
+    setLastSelection(null)
+    setResetting(false)
+    setShowResetModal(false)
+    setResetKey(k => k + 1)
+  }
+
   // ── Concentration switch ──────────────────────────────────────────
   async function handleConcentrationSwitch(newConc) {
     setSwitching(true)
@@ -1025,14 +1049,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
       .eq('id', profile.id)
     if (updateErr) { setSwitching(false); return }
 
-    const { error: deleteErr } = await supabase
-      .from('student_plan_slots')
-      .delete()
-      .eq('student_id', profile.id)
+    const deleteErr = await clearPlanData()
     if (deleteErr) { setSwitching(false); return }
-
-    await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
-    await supabase.from('student_semester_notes').delete().eq('student_id', profile.id)
 
     setSwitching(false)
     setShowSwitchModal(false)
@@ -1117,6 +1135,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
               title={lastSelection ? `Undo: remove ${lastSelection.courseCode}` : 'Nothing to undo'}
             >
               ↩ Undo
+            </button>
+            <button
+              className="degreeplan-reset"
+              onClick={() => setShowResetModal(true)}
+            >
+              Reset plan
             </button>
             <button
               className="degreeplan-settings"
@@ -1288,6 +1312,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
         />
       )}
 
+
+      {showResetModal && (
+        <ResetModal
+          onConfirm={handleResetPlan}
+          onClose={() => setShowResetModal(false)}
+          resetting={resetting}
+        />
+      )}
 
       {showSwitchModal && (
         <ConcentrationModal
@@ -1533,6 +1565,48 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
               disabled={!isDifferent || switching}
             >
               {switching ? 'Switching...' : 'Switch concentration'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── ResetModal ─────────────────────────────────────────────────────────────────
+
+function ResetModal({ onConfirm, onClose, resetting }) {
+  function handleBackdropClick(e) {
+    if (e.target === e.currentTarget) onClose()
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-card">
+        <div className="modal-header">
+          <div>
+            <p className="modal-eyebrow">Plan settings</p>
+            <h3 className="modal-title">Reset this plan?</h3>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="modal-course-list" style={{ padding: '1.25rem 1.5rem' }}>
+          <p className="modal-reset-body">
+            This will clear all your course selections, free-add courses, and semester notes
+            for this concentration. Prior credits and placement scores are kept.
+          </p>
+        </div>
+        <div className="modal-footer">
+          <div className="modal-footer-btns">
+            <button className="onboarding-btn-secondary" onClick={onClose} disabled={resetting}>
+              Cancel
+            </button>
+            <button
+              className="degreeplan-modal-danger"
+              onClick={onConfirm}
+              disabled={resetting}
+            >
+              {resetting ? 'Resetting...' : 'Reset plan'}
             </button>
           </div>
         </div>
