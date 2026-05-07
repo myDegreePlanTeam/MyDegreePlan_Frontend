@@ -79,7 +79,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // Initialized from planSemesterCompleted (completed = collapsed by default).
   const [semesterExpanded, setSemesterExpanded]   = useState({})
 
-  const [lastSelection, setLastSelection]         = useState(null)
+  const [undoStack, setUndoStack]                 = useState([])
   const [saveError, setSaveError]                 = useState(null)
   const saveErrorTimerRef                         = useRef(null)
 
@@ -87,6 +87,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setSaveError(msg)
     if (saveErrorTimerRef.current) clearTimeout(saveErrorTimerRef.current)
     saveErrorTimerRef.current = setTimeout(() => setSaveError(null), 5000)
+  }
+
+  function pushUndo(record) {
+    setUndoStack(prev => [...prev.slice(-19), record])
   }
 
   // ── syncArchivedSlots ─────────────────────────────────────────────
@@ -557,11 +561,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const prevStatuses         = planStatuses
     const prevCreditsRemaining = planCreditsRemaining
 
+    pushUndo({
+      type: 'pool_select', slotId: slot.id,
+      prevCourseCode: planSlots[slot.id] ?? null,
+      prevStatus: planStatuses[slot.id] ?? null,
+      prevCreditsRemaining: planCreditsRemaining[slot.id] ?? 0,
+    })
     setPlanSlots(prev          => ({ ...prev, [slot.id]: course.code }))
     setPlanStatuses(prev       => ({ ...prev, [slot.id]: existingStatus }))
     setPlanCreditsRemaining(prev => ({ ...prev, [slot.id]: creditsRemaining }))
     setActiveSlot(null)
-    setLastSelection({ slot, courseCode: course.code })
 
     supabase
       .from('student_plan_slots')
@@ -578,7 +587,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
           setPlanSlots(prevSlots)
           setPlanStatuses(prevStatuses)
           setPlanCreditsRemaining(prevCreditsRemaining)
-          setLastSelection(null)
           showSaveError('Course selection could not be saved. Please try again.')
         }
       })
@@ -592,6 +600,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const courseCode = slot.is_pool ? planSlots[slot.id] : slot.class_code
     if (slot.is_pool && !courseCode) return
 
+    pushUndo({ type: 'slot_status', slotId: slot.id, prevStatus: planStatuses[slot.id] ?? 'planned' })
     const prevStatuses = planStatuses
     setPlanStatuses(prev => ({ ...prev, [slot.id]: newStatus }))
 
@@ -615,6 +624,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Cycle a free-add slot's status ───────────────────────────────
   function handleFreeAddStatusChange(freeAdd, newStatus) {
+    pushUndo({ type: 'free_status', freeAddId: freeAdd.id, prevStatus: freeAdd.status })
     const prev = freeAddSlots
     setFreeAddSlots(list =>
       list.map(f => f.id === freeAdd.id ? { ...f, status: newStatus } : f)
@@ -647,11 +657,99 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
   }
 
-  // ── Undo the most recent pool slot selection ──────────────────────
+  // ── Undo the most recent action ───────────────────────────────────
   async function handleUndo() {
-    if (!lastSelection) return
-    await handleRemove(lastSelection.slot)
-    setLastSelection(null)
+    if (!undoStack.length) return
+    const record = undoStack[undoStack.length - 1]
+    setUndoStack(prev => prev.slice(0, -1))
+
+    if (record.type === 'pool_select') {
+      if (record.prevCourseCode === null) {
+        await handleRemove(slots.find(s => s.id === record.slotId))
+      } else {
+        setPlanSlots(prev => ({ ...prev, [record.slotId]: record.prevCourseCode }))
+        setPlanStatuses(prev => ({ ...prev, [record.slotId]: record.prevStatus ?? 'planned' }))
+        setPlanCreditsRemaining(prev => ({ ...prev, [record.slotId]: record.prevCreditsRemaining ?? 0 }))
+        await supabase.from('student_plan_slots').upsert({
+          student_id: profile.id, requirement_slot_id: record.slotId,
+          selected_course_code: record.prevCourseCode,
+          status: record.prevStatus ?? 'planned',
+          semester_number: planSemesterOverrides[record.slotId] ?? null,
+          credits_remaining: record.prevCreditsRemaining ?? 0,
+        }, { onConflict: 'student_id, requirement_slot_id' })
+      }
+
+    } else if (record.type === 'slot_status') {
+      setPlanStatuses(prev => ({ ...prev, [record.slotId]: record.prevStatus }))
+      const slot = slots.find(s => s.id === record.slotId)
+      const courseCode = slot?.is_pool ? planSlots[record.slotId] : slot?.class_code
+      if (courseCode) {
+        await supabase.from('student_plan_slots').upsert({
+          student_id: profile.id, requirement_slot_id: record.slotId,
+          selected_course_code: courseCode, status: record.prevStatus,
+          semester_number: planSemesterOverrides[record.slotId] ?? null,
+          credits_remaining: planCreditsRemaining[record.slotId] ?? 0,
+        }, { onConflict: 'student_id, requirement_slot_id' })
+      }
+
+    } else if (record.type === 'free_status') {
+      setFreeAddSlots(list => list.map(f => f.id === record.freeAddId ? { ...f, status: record.prevStatus } : f))
+      await supabase.from('student_free_add_slots').update({ status: record.prevStatus }).eq('id', record.freeAddId)
+
+    } else if (record.type === 'free_add') {
+      const fa = freeAddSlots.find(f => f.id === record.freeAddId)
+      if (fa) handleRemoveFreeAdd(fa)
+
+    } else if (record.type === 'sem_complete') {
+      setPlanSemesterCompleted(prev => ({ ...prev, [record.semNum]: record.prevCompleted }))
+      setSemesterExpanded(prev => ({ ...prev, [record.semNum]: record.prevCompleted ? false : true }))
+      setPlanStatuses(prev => ({ ...prev, ...record.prevStatuses }))
+      setFreeAddSlots(list => list.map(f => {
+        const saved = record.prevFreeAdds.find(pf => pf.id === f.id)
+        return saved ? { ...f, status: saved.status } : f
+      }))
+      await supabase.from('student_semester_notes').upsert({
+        student_id: profile.id, concentration_id: profile.concentration_id,
+        semester_number: record.semNum, note_text: semesterNotes[record.semNum] ?? '',
+        updated_at: new Date().toISOString(), completed_by_student: record.prevCompleted,
+      }, { onConflict: 'student_id, concentration_id, semester_number' })
+      const semSlotIds = Object.keys(record.prevStatuses)
+      if (semSlotIds.length > 0) {
+        for (const slotId of semSlotIds) {
+          await supabase.from('student_plan_slots')
+            .update({ status: record.prevStatuses[slotId] })
+            .eq('student_id', profile.id)
+            .eq('requirement_slot_id', Number(slotId))
+        }
+      }
+      for (const pf of record.prevFreeAdds) {
+        await supabase.from('student_free_add_slots').update({ status: pf.status }).eq('id', pf.id)
+      }
+
+    } else if (record.type === 'note') {
+      setSemesterNotes(prev => ({ ...prev, [record.semNum]: record.prevNote }))
+      await supabase.from('student_semester_notes').upsert({
+        student_id: profile.id, concentration_id: profile.concentration_id,
+        semester_number: record.semNum, note_text: record.prevNote,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'student_id, concentration_id, semester_number' })
+
+    } else if (record.type === 'drag_slot') {
+      const prevSem = record.prevSemester
+      setPlanSemesterOverrides(prev => ({ ...prev, [record.slotId]: prevSem }))
+      const slot = slots.find(s => s.id === record.slotId)
+      await supabase.from('student_plan_slots').upsert({
+        student_id: profile.id, requirement_slot_id: record.slotId,
+        selected_course_code: slot?.is_pool ? planSlots[record.slotId] ?? null : slot?.class_code ?? null,
+        status: planStatuses[record.slotId] ?? 'planned',
+        semester_number: prevSem,
+        credits_remaining: planCreditsRemaining[record.slotId] ?? 0,
+      }, { onConflict: 'student_id, requirement_slot_id' })
+
+    } else if (record.type === 'drag_free') {
+      setFreeAddSlots(list => list.map(f => f.id === record.freeAddId ? { ...f, semester_number: record.prevSemester } : f))
+      await supabase.from('student_free_add_slots').update({ semester_number: record.prevSemester }).eq('id', record.freeAddId)
+    }
   }
 
   // ── Add a free-add course to a semester ──────────────────────────
@@ -686,6 +784,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     setFreeAddSlots(prev => [...prev, data])
+    if (data) pushUndo({ type: 'free_add', freeAddId: data.id })
   }
 
   // ── Remove a free-add slot ────────────────────────────────────────
@@ -760,6 +859,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     const newStatus    = value ? 'completed' : 'planned'
     const semSlotIds   = (semesterMap[semNum] ?? []).map(s => s.id)
+
+    const undoPrevStatuses = Object.fromEntries(semSlotIds.map(id => [id, planStatuses[id] ?? 'planned']))
+    const undoPrevFreeAdds = freeAddSlots
+      .filter(f => f.semester_number === semNum)
+      .map(f => ({ id: f.id, status: f.status }))
+    pushUndo({
+      type: 'sem_complete', semNum,
+      prevCompleted: planSemesterCompleted[semNum] ?? false,
+      prevStatuses: undoPrevStatuses,
+      prevFreeAdds: undoPrevFreeAdds,
+    })
 
     // Optimistic updates
     setPlanSemesterCompleted(prev => ({ ...prev, [semNum]: value }))
@@ -864,6 +974,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Semester notes ────────────────────────────────────────────────
   function handleNoteSave(semesterNumber, noteText) {
+    pushUndo({ type: 'note', semNum: semesterNumber, prevNote: semesterNotes[semesterNumber] ?? '' })
     const prevNotes = semesterNotes
     setSemesterNotes(prev => ({ ...prev, [semesterNumber]: noteText }))
 
@@ -994,6 +1105,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const currentSemester = planSemesterOverrides[slotId] ?? slot.semester_number
       if (currentSemester === newSemester) return
 
+      pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester })
       const prevOverrides = planSemesterOverrides
       setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
 
@@ -1019,6 +1131,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const fa = freeAddSlots.find(f => f.id === slotId)
       if (!fa || fa.semester_number === newSemester) return
 
+      pushUndo({ type: 'drag_free', freeAddId: slotId, prevSemester: fa.semester_number })
       const prevFreeAdds = freeAddSlots
       setFreeAddSlots(list =>
         list.map(f => f.id === slotId ? { ...f, semester_number: newSemester } : f)
@@ -1086,7 +1199,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setResetting(true)
     const err = await clearPlanData()
     if (err) { setResetting(false); return }
-    setLastSelection(null)
+    setUndoStack([])
     setExtraSemesters([])
     setResetting(false)
     setShowResetModal(false)
@@ -1108,7 +1221,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     setSwitching(false)
     setShowSwitchModal(false)
-    setLastSelection(null)
+    setUndoStack([])
     setExtraSemesters([])
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
@@ -1186,8 +1299,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
             <button
               className="degreeplan-undo"
               onClick={handleUndo}
-              disabled={!lastSelection}
-              title={lastSelection ? `Undo: remove ${lastSelection.courseCode}` : 'Nothing to undo'}
+              disabled={!undoStack.length}
+              title={undoStack.length ? `Undo last action (${undoStack.length} available)` : 'Nothing to undo'}
             >
               ↩ Undo
             </button>
