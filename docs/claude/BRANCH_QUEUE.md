@@ -205,3 +205,4 @@ _None._
 | `feat/theme-pass` | 2026-05-02 | BUG-38, feat/branding (palette), feat/dark-mode |
 | `fix/drag-to-prior-coursework-flicker` | 2026-05-05 | BUG-36, BUG-44 |
 | `data/strip-course-descriptions-prototype` | 2026-05-05 | BUG-32 |
+| `fix/gen-ed-prior-credit-tracking` | 2026-05-06 | BUG-45 |
