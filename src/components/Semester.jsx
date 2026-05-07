@@ -55,15 +55,18 @@ export default function Semester({
   // Completion / collapse props
   isExpanded         = true,
   onToggleExpand,
-  isCompleted        = false,
+  isCompleted                = false,
   onMarkComplete,
-  hasWarnings        = false,
+  hasWarnings                = false,
+  priorSemestersAllComplete  = true,
 }) {
   // ── Droppable ─────────────────────────────────────────────────────
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
 
   const totalCr      = calculateCredits(slots, freeAddSlots, courseMap, planSlots)
   const creditWarning = totalCr < 12 ? 'low' : totalCr > 18 ? 'high' : null
+
+  const hasUnfilledPool = slots.some(s => s.is_pool && !planSlots[s.id])
 
   // ── Notes local state ─────────────────────────────────────────────
   const [noteOpen, setNoteOpen] = useState(false)
@@ -143,6 +146,12 @@ export default function Semester({
         </div>
       )}
 
+      {hasUnfilledPool && !isCompleted && (
+        <div className="semester-warning-gate">
+          Select a course for all pool slots before marking this semester complete.
+        </div>
+      )}
+
       {noteOpen && (
         <div className="semester-notes-wrap">
           <textarea
@@ -219,12 +228,16 @@ export default function Semester({
         ) : (
           <button
             className="semester-complete-btn"
-            onClick={() => !hasWarnings && onMarkComplete(true)}
-            disabled={hasWarnings}
+            onClick={() => !hasWarnings && !hasUnfilledPool && priorSemestersAllComplete && onMarkComplete(true)}
+            disabled={hasWarnings || hasUnfilledPool || !priorSemestersAllComplete}
             title={
-              hasWarnings
-                ? 'Resolve warnings before marking this semester complete'
-                : 'Mark this semester as complete'
+              !priorSemestersAllComplete
+                ? 'Complete earlier semesters first'
+                : hasUnfilledPool
+                  ? 'Select a course for all pool slots before marking complete'
+                  : hasWarnings
+                    ? 'Resolve warnings before marking this semester complete'
+                    : 'Mark this semester as complete'
             }
           >
             Mark Complete

@@ -743,16 +743,33 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Semester completion toggle ────────────────────────────────────
   // Concept 1: semester-level completion toggled by student.
-  // No individual slot archiving — the whole semester card collapses.
-  function handleSemesterComplete(semNum, value) {
+  // Rule B: completing also batch-sets all slot statuses to 'completed';
+  // undoing reverts to 'planned'.
+  async function handleSemesterComplete(semNum, value) {
     const prevCompleted = planSemesterCompleted
     const prevExpanded  = semesterExpanded
+    const prevStatuses  = planStatuses
+    const prevFreeAdds  = freeAddSlots
 
+    const newStatus    = value ? 'completed' : 'planned'
+    const semSlotIds   = (semesterMap[semNum] ?? []).map(s => s.id)
+
+    // Optimistic updates
     setPlanSemesterCompleted(prev => ({ ...prev, [semNum]: value }))
-    // Completing collapses the semester; undoing expands it
     setSemesterExpanded(prev => ({ ...prev, [semNum]: !value }))
+    if (semSlotIds.length > 0) {
+      setPlanStatuses(prev => {
+        const next = { ...prev }
+        for (const id of semSlotIds) next[id] = newStatus
+        return next
+      })
+    }
+    setFreeAddSlots(list =>
+      list.map(f => f.semester_number === semNum ? { ...f, status: newStatus } : f)
+    )
 
-    supabase
+    // Persist semester completion flag
+    const { error: noteErr } = await supabase
       .from('student_semester_notes')
       .upsert({
         student_id:           profile.id,
@@ -762,13 +779,42 @@ export default function DegreePlan({ profile, onProfileChange }) {
         updated_at:           new Date().toISOString(),
         completed_by_student: value,
       }, { onConflict: 'student_id, concentration_id, semester_number' })
-      .then(({ error }) => {
-        if (error) {
-          setPlanSemesterCompleted(prevCompleted)
-          setSemesterExpanded(prevExpanded)
-          showSaveError('Semester completion could not be saved. Please try again.')
-        }
-      })
+
+    if (noteErr) {
+      setPlanSemesterCompleted(prevCompleted)
+      setSemesterExpanded(prevExpanded)
+      setPlanStatuses(prevStatuses)
+      setFreeAddSlots(prevFreeAdds)
+      showSaveError('Semester completion could not be saved. Please try again.')
+      return
+    }
+
+    // Rule B: batch update template slot statuses
+    if (semSlotIds.length > 0) {
+      const { error: slotErr } = await supabase
+        .from('student_plan_slots')
+        .update({ status: newStatus })
+        .eq('student_id', profile.id)
+        .in('requirement_slot_id', semSlotIds)
+
+      if (slotErr) {
+        setPlanStatuses(prevStatuses)
+        showSaveError('Slot statuses could not be updated. Please try again.')
+        return
+      }
+    }
+
+    // Rule B: batch update free-add slot statuses
+    const { error: faErr } = await supabase
+      .from('student_free_add_slots')
+      .update({ status: newStatus })
+      .eq('student_id', profile.id)
+      .eq('semester_number', semNum)
+
+    if (faErr) {
+      setFreeAddSlots(prevFreeAdds)
+      showSaveError('Some free-add slot statuses could not be updated.')
+    }
   }
 
   // ── Global collapse / expand controls ────────────────────────────
@@ -1212,41 +1258,47 @@ export default function DegreePlan({ profile, onProfileChange }) {
           </div>
 
           <div className="degreeplan-grid">
-            {semesterNumbers.map(semNum => (
-              <Semester
-                key={semNum}
-                semesterNumber={semNum}
-                slots={semesterMap[semNum] ?? []}
-                freeAddSlots={freeAddBySemester[semNum] ?? []}
-                courseMap={courses}
-                planSlots={planSlots}
-                planStatuses={planStatuses}
-                planCreditsRemaining={planCreditsRemaining}
-                onSlotClick={handleSlotClick}
-                onStatusChange={handleStatusChange}
-                onFreeAddStatusChange={handleFreeAddStatusChange}
-                onRemoveFreeAdd={handleRemoveFreeAdd}
-                onAddCourse={() => setAddCourseTarget(semNum)}
-                scienceWarnings={scienceWarnings}
-                prereqWarnings={prereqWarnings}
-                coreqWarnings={coreqWarnings}
-                standingWarnings={standingWarnings}
-                transferFilled={transferFilled}
-                transferDetails={transferDetails}
-                note={semesterNotes[semNum] ?? ''}
-                onNoteSave={handleNoteSave}
-                isExpanded={semesterExpanded[semNum] !== false}
-                onToggleExpand={() =>
-                  setSemesterExpanded(prev => ({
-                    ...prev,
-                    [semNum]: !(prev[semNum] !== false),
-                  }))
-                }
-                isCompleted={!!planSemesterCompleted[semNum]}
-                onMarkComplete={value => handleSemesterComplete(semNum, value)}
-                hasWarnings={!!semesterHasWarnings[semNum]}
-              />
-            ))}
+            {semesterNumbers.map((semNum, idx) => {
+              const priorComplete = semesterNumbers
+                .slice(0, idx)
+                .every(n => planSemesterCompleted[n])
+              return (
+                <Semester
+                  key={semNum}
+                  semesterNumber={semNum}
+                  slots={semesterMap[semNum] ?? []}
+                  freeAddSlots={freeAddBySemester[semNum] ?? []}
+                  courseMap={courses}
+                  planSlots={planSlots}
+                  planStatuses={planStatuses}
+                  planCreditsRemaining={planCreditsRemaining}
+                  onSlotClick={handleSlotClick}
+                  onStatusChange={handleStatusChange}
+                  onFreeAddStatusChange={handleFreeAddStatusChange}
+                  onRemoveFreeAdd={handleRemoveFreeAdd}
+                  onAddCourse={() => setAddCourseTarget(semNum)}
+                  scienceWarnings={scienceWarnings}
+                  prereqWarnings={prereqWarnings}
+                  coreqWarnings={coreqWarnings}
+                  standingWarnings={standingWarnings}
+                  transferFilled={transferFilled}
+                  transferDetails={transferDetails}
+                  note={semesterNotes[semNum] ?? ''}
+                  onNoteSave={handleNoteSave}
+                  isExpanded={semesterExpanded[semNum] !== false}
+                  onToggleExpand={() =>
+                    setSemesterExpanded(prev => ({
+                      ...prev,
+                      [semNum]: !(prev[semNum] !== false),
+                    }))
+                  }
+                  isCompleted={!!planSemesterCompleted[semNum]}
+                  onMarkComplete={value => handleSemesterComplete(semNum, value)}
+                  hasWarnings={!!semesterHasWarnings[semNum]}
+                  priorSemestersAllComplete={priorComplete}
+                />
+              )
+            })}
           </div>
 
           <DragOverlay>
