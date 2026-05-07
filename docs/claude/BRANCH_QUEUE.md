@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-05-07
+> Last updated: 2026-05-07 (schema/semester-terms merged)
 
 ---
 
@@ -19,20 +19,6 @@ _None._
 
 ## Phase 2 Branches (after all fix/* above are merged)
 
-### schema/semester-terms
-**Targets:**
-- Add Fall/Spring/Summer term to every semester (rendered in the semester
-  card header instead of "Semester N")
-- Onboarding: ask start term, default to nearest upcoming semester
-  (Fall if before Aug 1, Spring if before Jan 1)
-- Summer semesters are opt-in (toggle lives in the rules/filters sidebar
-  once `feat/rules-filter-sidebar` lands)
-- Migration required — touches `requirement_slots`, `student_plan_slots`, grid rendering
-**Notes:**
-- Pairs with `feat/dynamic-semester-count` since the existing 8-semester hardcode
-  must come down before terms (especially summers) make sense to add/remove.
-**Prompt:** Not yet written
-
 ### feat/dynamic-semester-count
 **Targets:**
 - Remove the 8-semester template assumption; the grid renders whatever
@@ -43,13 +29,12 @@ _None._
 - Persist explicit student-added semesters separately from
   template-defined ones, so unselecting a concentration doesn't wipe them.
 **Notes:**
-- Today, semester count is implicit in the `requirement_slots` rows seeded
-  per concentration. This branch adds a `student_extra_semesters` table or
-  an `extra_count` column on `student_profiles`, plus loader logic to merge
-  template + student-added semesters into the rendered grid.
-- Couples tightly with `schema/semester-terms` (a Sem 9 needs a term name)
-  and `fix/mark-complete-behavior` (completing a semester removes it from
-  the active grid; the count adjusts).
+- Superseded by `feat/plan-controls` (add/remove semester) + `schema/semester-terms`
+  (persistence + term labeling). Extra semester add/remove with persistence and
+  season/year terms are now fully delivered. Remaining scope (auto-extend on
+  free-add overflow) can be scoped into a follow-on branch if needed.
+- Couples tightly with `fix/mark-complete-behavior` (completing a semester removes
+  it from the active grid; the count adjusts).
 **Prompt:** Not yet written
 
 ### feat/rules-filter-sidebar
@@ -216,3 +201,4 @@ _None._
 | `fix/credits-and-concentration` | 2026-05-07 | BUG-46, BUG-47 |
 | `feat/plan-controls` | 2026-05-07 | ITEM-3 (Reset Plan), ITEM-4 (Add/Remove Semester + dynamic numbering), ITEM-5 (Mark Complete enforcement rules) |
 | `feat/undo-stack` | 2026-05-07 | Replace lastSelection with undoStack (cap 20); multi-step undo for 7 handler types; prior credit undo deferred |
+| `schema/semester-terms` | 2026-05-07 | TERM-1 (Fall/Spring labels on semester cards), TERM-3 (fall-only/spring-only enrollment restrictions), TERM-2 (Add Semester wizard with season+year, persisted to student_semester_notes, Tier 14 migration) |

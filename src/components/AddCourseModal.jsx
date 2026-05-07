@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { escapeIlikeValue } from '../lib/postgrestEscape'
+import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import './Dashboard.css'
 
 // ── AddCourseModal ─────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ import './Dashboard.css'
 export default function AddCourseModal({
   semesterNumber,
   takenCodes = new Set(),
+  semesterSeason = null,
   onAdd,
   onClose,
 }) {
@@ -66,6 +68,7 @@ export default function AddCourseModal({
 
   function handleSelect(course) {
     if (takenCodes.has(course.code)) return
+    if (!isEnrollmentAllowed(course.code, semesterSeason)) return
     setSelected(prev => prev?.code === course.code ? null : course)
   }
 
@@ -122,13 +125,17 @@ export default function AddCourseModal({
           )}
 
           {!error && !loading && results.map(course => {
-            const isTaken = takenCodes.has(course.code)
+            const isTaken       = takenCodes.has(course.code)
+            const seasonBlocked = !isEnrollmentAllowed(course.code, semesterSeason)
+            const restriction   = seasonBlocked ? getSeasonRestriction(course.code) : null
+            const isDisabled    = isTaken || seasonBlocked
             return (
               <button
                 key={course.code}
-                className={`modal-course-row ${isTaken ? 'status-taken' : ''} ${selected?.code === course.code ? 'selected' : ''}`}
+                className={`modal-course-row ${isTaken ? 'status-taken' : ''} ${seasonBlocked ? 'season-blocked' : ''} ${selected?.code === course.code ? 'selected' : ''}`}
                 onClick={() => handleSelect(course)}
-                disabled={isTaken}
+                disabled={isDisabled}
+                title={seasonBlocked ? `${restriction}-only — not available in ${semesterSeason}` : undefined}
               >
                 <div className="modal-course-info">
                   <div className="modal-course-top">
@@ -136,6 +143,9 @@ export default function AddCourseModal({
                     <span className="add-course-subject">{course.subject_code}</span>
                     {isTaken && (
                       <span className="modal-status-badge taken">Already in plan</span>
+                    )}
+                    {seasonBlocked && !isTaken && (
+                      <span className="modal-status-badge season-blocked-badge">{restriction}-only</span>
                     )}
                   </div>
                   <span className="modal-course-name">{course.name}</span>

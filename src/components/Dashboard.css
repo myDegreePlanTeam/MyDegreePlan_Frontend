@@ -627,6 +627,11 @@
   cursor: not-allowed;
 }
 
+.modal-course-row.season-blocked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .modal-course-top {
   display: flex;
   align-items: center;
