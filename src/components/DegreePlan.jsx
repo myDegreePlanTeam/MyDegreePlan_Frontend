@@ -58,6 +58,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [resetKey, setResetKey]                   = useState(0)
   const [extraSemesters, setExtraSemesters]         = useState([])
   const [extraSemesterTerms, setExtraSemesterTerms] = useState({})
+  const [showAddSemesterModal, setShowAddSemesterModal] = useState(false)
+  const [addSemSeason, setAddSemSeason]                 = useState('Fall')
+  const [addSemYear,   setAddSemYear]                   = useState(new Date().getFullYear())
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -1230,6 +1233,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (err) { setResetting(false); return }
     setUndoStack([])
     setExtraSemesters([])
+    setExtraSemesterTerms({})
     setResetting(false)
     setShowResetModal(false)
     setResetKey(k => k + 1)
@@ -1252,7 +1256,27 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setShowSwitchModal(false)
     setUndoStack([])
     setExtraSemesters([])
+    setExtraSemesterTerms({})
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
+  }
+
+  // ── Add semester wizard ───────────────────────────────────────────
+  async function handleAddSemesterConfirm() {
+    const newSemNum = allSemesterNumbers.length > 0 ? Math.max(...allSemesterNumbers) + 1 : maxTemplateSem + 1
+    await supabase.from('student_semester_notes').upsert({
+      student_id:           profile.id,
+      concentration_id:     profile.concentration_id,
+      semester_number:      newSemNum,
+      note_text:            '',
+      updated_at:           new Date().toISOString(),
+      completed_by_student: false,
+      term_season:          addSemSeason,
+      term_year:            addSemYear,
+    }, { onConflict: 'student_id, concentration_id, semester_number' })
+
+    setExtraSemesters(prev => [...prev, newSemNum])
+    setExtraSemesterTerms(prev => ({ ...prev, [newSemNum]: { season: addSemSeason, year: addSemYear } }))
+    setShowAddSemesterModal(false)
   }
 
   // ── Render ────────────────────────────────────────────────────────
@@ -1449,7 +1473,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
                   displayNumber={idx + 1}
                   termLabel={formatTermLabel(semesterTerms[semNum])}
                   onDelete={extraSemesters.includes(semNum)
-                    ? () => setExtraSemesters(prev => prev.filter(n => n !== semNum))
+                    ? async () => {
+                        await supabase.from('student_semester_notes')
+                          .delete().eq('student_id', profile.id).eq('semester_number', semNum)
+                        setExtraSemesters(prev => prev.filter(n => n !== semNum))
+                        setExtraSemesterTerms(prev => { const next = { ...prev }; delete next[semNum]; return next })
+                      }
                     : null}
                 />
               )
@@ -1459,10 +1488,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           <div className="degreeplan-add-semester-wrap">
             <button
               className="degreeplan-add-semester-btn"
-              onClick={() => setExtraSemesters(prev => {
-                const base = prev.length > 0 ? Math.max(...prev) : maxTemplateSem
-                return [...prev, base + 1]
-              })}
+              onClick={() => setShowAddSemesterModal(true)}
             >
               + Add semester
             </button>
@@ -1532,6 +1558,32 @@ export default function DegreePlan({ profile, onProfileChange }) {
         />
       )}
 
+
+      {showAddSemesterModal && (
+        <div className="degreeplan-modal-overlay" onClick={() => setShowAddSemesterModal(false)}>
+          <div className="degreeplan-modal" onClick={e => e.stopPropagation()}>
+            <h2 className="degreeplan-modal-title">Add Semester</h2>
+            <div className="degreeplan-modal-body">
+              <label>
+                Season
+                <select value={addSemSeason} onChange={e => setAddSemSeason(e.target.value)}>
+                  <option>Fall</option><option>Spring</option><option>Summer</option>
+                </select>
+              </label>
+              <label>
+                Year
+                <input type="number" value={addSemYear}
+                  onChange={e => setAddSemYear(Number(e.target.value))}
+                  min={2020} max={2040} />
+              </label>
+            </div>
+            <div className="degreeplan-modal-actions">
+              <button className="degreeplan-modal-confirm" onClick={handleAddSemesterConfirm}>Add</button>
+              <button className="degreeplan-modal-cancel" onClick={() => setShowAddSemesterModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showResetModal && (
         <ResetModal
