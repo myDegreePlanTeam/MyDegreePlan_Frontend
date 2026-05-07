@@ -54,7 +54,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [showResetModal, setShowResetModal]       = useState(false)
   const [resetting, setResetting]                 = useState(false)
   const [resetKey, setResetKey]                   = useState(0)
-  const [extraSemesterCount, setExtraSemesterCount] = useState(0)
+  const [extraSemesters, setExtraSemesters]         = useState([])
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -340,12 +340,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const maxTemplateSem = semesterNumbers.length > 0 ? Math.max(...semesterNumbers) : 0
 
   const allSemesterNumbers = useMemo(() => {
-    const extra = Array.from(
-      { length: extraSemesterCount },
-      (_, i) => maxTemplateSem + i + 1
-    )
-    return [...new Set([...semesterNumbers, ...extra])].sort((a, b) => a - b)
-  }, [semesterNumbers, extraSemesterCount, maxTemplateSem])
+    return [...new Set([...semesterNumbers, ...extraSemesters])].sort((a, b) => a - b)
+  }, [semesterNumbers, extraSemesters])
 
   // ── Science sequence warnings ─────────────────────────────────────
   const scienceWarnings = useMemo(
@@ -1091,7 +1087,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const err = await clearPlanData()
     if (err) { setResetting(false); return }
     setLastSelection(null)
-    setExtraSemesterCount(0)
+    setExtraSemesters([])
     setResetting(false)
     setShowResetModal(false)
     setResetKey(k => k + 1)
@@ -1113,7 +1109,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setSwitching(false)
     setShowSwitchModal(false)
     setLastSelection(null)
-    setExtraSemesterCount(0)
+    setExtraSemesters([])
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
 
@@ -1310,6 +1306,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
                   hasWarnings={!!semesterHasWarnings[semNum]}
                   priorSemestersAllComplete={priorComplete}
                   displayNumber={idx + 1}
+                  onDelete={extraSemesters.includes(semNum)
+                    ? () => setExtraSemesters(prev => prev.filter(n => n !== semNum))
+                    : null}
                 />
               )
             })}
@@ -1318,7 +1317,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
           <div className="degreeplan-add-semester-wrap">
             <button
               className="degreeplan-add-semester-btn"
-              onClick={() => setExtraSemesterCount(c => c + 1)}
+              onClick={() => setExtraSemesters(prev => {
+                const base = prev.length > 0 ? Math.max(...prev) : maxTemplateSem
+                return [...prev, base + 1]
+              })}
             >
               + Add semester
             </button>

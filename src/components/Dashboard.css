@@ -2360,6 +2360,25 @@
   border-color: rgba(var(--status-done-rgb), 0.25) !important;
 }
 
+/* Remove empty semester button */
+.semester-delete-btn {
+  font-size: 0.72rem;
+  font-family: inherit;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(var(--danger-rgb), 0.25);
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: border-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+.semester-delete-btn:hover {
+  border-color: var(--danger);
+  opacity: 1;
+}
+
 /* Mark Complete button */
 .semester-complete-btn {
   font-size: 0.72rem;

@@ -60,6 +60,7 @@ export default function Semester({
   hasWarnings                = false,
   priorSemestersAllComplete  = true,
   displayNumber              = null,
+  onDelete                   = null,
 }) {
   // ── Droppable ─────────────────────────────────────────────────────
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
@@ -218,6 +219,15 @@ export default function Semester({
         <button className="semester-add-course-btn" onClick={onAddCourse}>
           + Add course
         </button>
+        {onDelete && slots.length === 0 && freeAddSlots.length === 0 && (
+          <button
+            className="semester-delete-btn"
+            onClick={onDelete}
+            title="Remove this empty semester"
+          >
+            Remove semester
+          </button>
+        )}
         {isCompleted ? (
           <button
             className="semester-complete-btn semester-complete-btn-undo"
