@@ -51,6 +51,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [semesterNotes, setSemesterNotes]         = useState({})
   const [showSwitchModal, setShowSwitchModal]     = useState(false)
   const [switching, setSwitching]                 = useState(false)
+  const [showResetModal, setShowResetModal]       = useState(false)
+  const [resetting, setResetting]                 = useState(false)
+  const [resetKey, setResetKey]                   = useState(0)
+  const [extraSemesters, setExtraSemesters]         = useState([])
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -287,7 +291,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     loadPlan()
-  }, [profile.concentration_id])
+  }, [profile.concentration_id, resetKey])
 
   // ── One-shot archive sync after initial load (BUG-23) ─────────────
   // Prior credits inserted during onboarding bypass handleAddPriorCredit,
@@ -332,6 +336,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
     ])
     return [...all].sort((a, b) => a - b)
   }, [semesterMap, freeAddBySemester])
+
+  const maxTemplateSem = semesterNumbers.length > 0 ? Math.max(...semesterNumbers) : 0
+
+  const allSemesterNumbers = useMemo(() => {
+    return [...new Set([...semesterNumbers, ...extraSemesters])].sort((a, b) => a - b)
+  }, [semesterNumbers, extraSemesters])
 
   // ── Science sequence warnings ─────────────────────────────────────
   const scienceWarnings = useMemo(
@@ -740,16 +750,33 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Semester completion toggle ────────────────────────────────────
   // Concept 1: semester-level completion toggled by student.
-  // No individual slot archiving — the whole semester card collapses.
-  function handleSemesterComplete(semNum, value) {
+  // Rule B: completing also batch-sets all slot statuses to 'completed';
+  // undoing reverts to 'planned'.
+  async function handleSemesterComplete(semNum, value) {
     const prevCompleted = planSemesterCompleted
     const prevExpanded  = semesterExpanded
+    const prevStatuses  = planStatuses
+    const prevFreeAdds  = freeAddSlots
 
+    const newStatus    = value ? 'completed' : 'planned'
+    const semSlotIds   = (semesterMap[semNum] ?? []).map(s => s.id)
+
+    // Optimistic updates
     setPlanSemesterCompleted(prev => ({ ...prev, [semNum]: value }))
-    // Completing collapses the semester; undoing expands it
     setSemesterExpanded(prev => ({ ...prev, [semNum]: !value }))
+    if (semSlotIds.length > 0) {
+      setPlanStatuses(prev => {
+        const next = { ...prev }
+        for (const id of semSlotIds) next[id] = newStatus
+        return next
+      })
+    }
+    setFreeAddSlots(list =>
+      list.map(f => f.semester_number === semNum ? { ...f, status: newStatus } : f)
+    )
 
-    supabase
+    // Persist semester completion flag
+    const { error: noteErr } = await supabase
       .from('student_semester_notes')
       .upsert({
         student_id:           profile.id,
@@ -759,20 +786,49 @@ export default function DegreePlan({ profile, onProfileChange }) {
         updated_at:           new Date().toISOString(),
         completed_by_student: value,
       }, { onConflict: 'student_id, concentration_id, semester_number' })
-      .then(({ error }) => {
-        if (error) {
-          setPlanSemesterCompleted(prevCompleted)
-          setSemesterExpanded(prevExpanded)
-          showSaveError('Semester completion could not be saved. Please try again.')
-        }
-      })
+
+    if (noteErr) {
+      setPlanSemesterCompleted(prevCompleted)
+      setSemesterExpanded(prevExpanded)
+      setPlanStatuses(prevStatuses)
+      setFreeAddSlots(prevFreeAdds)
+      showSaveError('Semester completion could not be saved. Please try again.')
+      return
+    }
+
+    // Rule B: batch update template slot statuses
+    if (semSlotIds.length > 0) {
+      const { error: slotErr } = await supabase
+        .from('student_plan_slots')
+        .update({ status: newStatus })
+        .eq('student_id', profile.id)
+        .in('requirement_slot_id', semSlotIds)
+
+      if (slotErr) {
+        setPlanStatuses(prevStatuses)
+        showSaveError('Slot statuses could not be updated. Please try again.')
+        return
+      }
+    }
+
+    // Rule B: batch update free-add slot statuses
+    const { error: faErr } = await supabase
+      .from('student_free_add_slots')
+      .update({ status: newStatus })
+      .eq('student_id', profile.id)
+      .eq('semester_number', semNum)
+
+    if (faErr) {
+      setFreeAddSlots(prevFreeAdds)
+      showSaveError('Some free-add slot statuses could not be updated.')
+    }
   }
 
   // ── Global collapse / expand controls ────────────────────────────
   function collapseCompleted() {
     setSemesterExpanded(prev => {
       const next = { ...prev }
-      for (const semNum of semesterNumbers) {
+      for (const semNum of allSemesterNumbers) {
         if (planSemesterCompleted[semNum]) next[semNum] = false
       }
       return next
@@ -781,13 +837,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   function expandAll() {
     const next = {}
-    for (const semNum of semesterNumbers) next[semNum] = true
+    for (const semNum of allSemesterNumbers) next[semNum] = true
     setSemesterExpanded(next)
   }
 
   function collapseAll() {
     const next = {}
-    for (const semNum of semesterNumbers) next[semNum] = false
+    for (const semNum of allSemesterNumbers) next[semNum] = false
     setSemesterExpanded(next)
   }
 
@@ -1015,6 +1071,28 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
   }
 
+  // ── clearPlanData ─────────────────────────────────────────────────
+  async function clearPlanData() {
+    const { error } = await supabase
+      .from('student_plan_slots').delete().eq('student_id', profile.id)
+    if (error) return error
+    await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
+    await supabase.from('student_semester_notes').delete().eq('student_id', profile.id)
+    return null
+  }
+
+  // ── Reset plan ────────────────────────────────────────────────────
+  async function handleResetPlan() {
+    setResetting(true)
+    const err = await clearPlanData()
+    if (err) { setResetting(false); return }
+    setLastSelection(null)
+    setExtraSemesters([])
+    setResetting(false)
+    setShowResetModal(false)
+    setResetKey(k => k + 1)
+  }
+
   // ── Concentration switch ──────────────────────────────────────────
   async function handleConcentrationSwitch(newConc) {
     setSwitching(true)
@@ -1025,18 +1103,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
       .eq('id', profile.id)
     if (updateErr) { setSwitching(false); return }
 
-    const { error: deleteErr } = await supabase
-      .from('student_plan_slots')
-      .delete()
-      .eq('student_id', profile.id)
+    const deleteErr = await clearPlanData()
     if (deleteErr) { setSwitching(false); return }
-
-    await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
-    await supabase.from('student_semester_notes').delete().eq('student_id', profile.id)
 
     setSwitching(false)
     setShowSwitchModal(false)
     setLastSelection(null)
+    setExtraSemesters([])
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
 
@@ -1073,7 +1146,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   })()
 
 
-  const completedSemesterCount = semesterNumbers.filter(n => planSemesterCompleted[n]).length
+  const completedSemesterCount = allSemesterNumbers.filter(n => planSemesterCompleted[n]).length
 
   return (
     <div className="degreeplan-shell">
@@ -1117,6 +1190,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
               title={lastSelection ? `Undo: remove ${lastSelection.courseCode}` : 'Nothing to undo'}
             >
               ↩ Undo
+            </button>
+            <button
+              className="degreeplan-reset"
+              onClick={() => setShowResetModal(true)}
+            >
+              Reset plan
             </button>
             <button
               className="degreeplan-settings"
@@ -1188,41 +1267,63 @@ export default function DegreePlan({ profile, onProfileChange }) {
           </div>
 
           <div className="degreeplan-grid">
-            {semesterNumbers.map(semNum => (
-              <Semester
-                key={semNum}
-                semesterNumber={semNum}
-                slots={semesterMap[semNum] ?? []}
-                freeAddSlots={freeAddBySemester[semNum] ?? []}
-                courseMap={courses}
-                planSlots={planSlots}
-                planStatuses={planStatuses}
-                planCreditsRemaining={planCreditsRemaining}
-                onSlotClick={handleSlotClick}
-                onStatusChange={handleStatusChange}
-                onFreeAddStatusChange={handleFreeAddStatusChange}
-                onRemoveFreeAdd={handleRemoveFreeAdd}
-                onAddCourse={() => setAddCourseTarget(semNum)}
-                scienceWarnings={scienceWarnings}
-                prereqWarnings={prereqWarnings}
-                coreqWarnings={coreqWarnings}
-                standingWarnings={standingWarnings}
-                transferFilled={transferFilled}
-                transferDetails={transferDetails}
-                note={semesterNotes[semNum] ?? ''}
-                onNoteSave={handleNoteSave}
-                isExpanded={semesterExpanded[semNum] !== false}
-                onToggleExpand={() =>
-                  setSemesterExpanded(prev => ({
-                    ...prev,
-                    [semNum]: !(prev[semNum] !== false),
-                  }))
-                }
-                isCompleted={!!planSemesterCompleted[semNum]}
-                onMarkComplete={value => handleSemesterComplete(semNum, value)}
-                hasWarnings={!!semesterHasWarnings[semNum]}
-              />
-            ))}
+            {allSemesterNumbers.map((semNum, idx) => {
+              const priorComplete = allSemesterNumbers
+                .slice(0, idx)
+                .every(n => planSemesterCompleted[n])
+              return (
+                <Semester
+                  key={semNum}
+                  semesterNumber={semNum}
+                  slots={semesterMap[semNum] ?? []}
+                  freeAddSlots={freeAddBySemester[semNum] ?? []}
+                  courseMap={courses}
+                  planSlots={planSlots}
+                  planStatuses={planStatuses}
+                  planCreditsRemaining={planCreditsRemaining}
+                  onSlotClick={handleSlotClick}
+                  onStatusChange={handleStatusChange}
+                  onFreeAddStatusChange={handleFreeAddStatusChange}
+                  onRemoveFreeAdd={handleRemoveFreeAdd}
+                  onAddCourse={() => setAddCourseTarget(semNum)}
+                  scienceWarnings={scienceWarnings}
+                  prereqWarnings={prereqWarnings}
+                  coreqWarnings={coreqWarnings}
+                  standingWarnings={standingWarnings}
+                  transferFilled={transferFilled}
+                  transferDetails={transferDetails}
+                  note={semesterNotes[semNum] ?? ''}
+                  onNoteSave={handleNoteSave}
+                  isExpanded={semesterExpanded[semNum] !== false}
+                  onToggleExpand={() =>
+                    setSemesterExpanded(prev => ({
+                      ...prev,
+                      [semNum]: !(prev[semNum] !== false),
+                    }))
+                  }
+                  isCompleted={!!planSemesterCompleted[semNum]}
+                  onMarkComplete={value => handleSemesterComplete(semNum, value)}
+                  hasWarnings={!!semesterHasWarnings[semNum]}
+                  priorSemestersAllComplete={priorComplete}
+                  displayNumber={idx + 1}
+                  onDelete={extraSemesters.includes(semNum)
+                    ? () => setExtraSemesters(prev => prev.filter(n => n !== semNum))
+                    : null}
+                />
+              )
+            })}
+          </div>
+
+          <div className="degreeplan-add-semester-wrap">
+            <button
+              className="degreeplan-add-semester-btn"
+              onClick={() => setExtraSemesters(prev => {
+                const base = prev.length > 0 ? Math.max(...prev) : maxTemplateSem
+                return [...prev, base + 1]
+              })}
+            >
+              + Add semester
+            </button>
           </div>
 
           <DragOverlay>
@@ -1288,6 +1389,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
         />
       )}
 
+
+      {showResetModal && (
+        <ResetModal
+          onConfirm={handleResetPlan}
+          onClose={() => setShowResetModal(false)}
+          resetting={resetting}
+        />
+      )}
 
       {showSwitchModal && (
         <ConcentrationModal
@@ -1533,6 +1642,48 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
               disabled={!isDifferent || switching}
             >
               {switching ? 'Switching...' : 'Switch concentration'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── ResetModal ─────────────────────────────────────────────────────────────────
+
+function ResetModal({ onConfirm, onClose, resetting }) {
+  function handleBackdropClick(e) {
+    if (e.target === e.currentTarget) onClose()
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-card">
+        <div className="modal-header">
+          <div>
+            <p className="modal-eyebrow">Plan settings</p>
+            <h3 className="modal-title">Reset this plan?</h3>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="modal-course-list" style={{ padding: '1.25rem 1.5rem' }}>
+          <p className="modal-reset-body">
+            This will clear all your course selections, free-add courses, and semester notes
+            for this concentration. Prior credits and placement scores are kept.
+          </p>
+        </div>
+        <div className="modal-footer">
+          <div className="modal-footer-btns">
+            <button className="onboarding-btn-secondary" onClick={onClose} disabled={resetting}>
+              Cancel
+            </button>
+            <button
+              className="degreeplan-modal-danger"
+              onClick={onConfirm}
+              disabled={resetting}
+            >
+              {resetting ? 'Resetting...' : 'Reset plan'}
             </button>
           </div>
         </div>

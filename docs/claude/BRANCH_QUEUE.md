@@ -207,3 +207,4 @@ _None._
 | `data/strip-course-descriptions-prototype` | 2026-05-05 | BUG-32 |
 | `fix/gen-ed-prior-credit-tracking` | 2026-05-06 | BUG-45 |
 | `fix/credits-and-concentration` | 2026-05-07 | BUG-46, BUG-47 |
+| `feat/plan-controls` | 2026-05-07 | ITEM-3 (Reset Plan), ITEM-4 (Add/Remove Semester + dynamic numbering), ITEM-5 (Mark Complete enforcement rules) |

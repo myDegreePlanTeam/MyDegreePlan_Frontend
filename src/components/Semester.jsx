@@ -55,15 +55,20 @@ export default function Semester({
   // Completion / collapse props
   isExpanded         = true,
   onToggleExpand,
-  isCompleted        = false,
+  isCompleted                = false,
   onMarkComplete,
-  hasWarnings        = false,
+  hasWarnings                = false,
+  priorSemestersAllComplete  = true,
+  displayNumber              = null,
+  onDelete                   = null,
 }) {
   // ── Droppable ─────────────────────────────────────────────────────
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
 
   const totalCr      = calculateCredits(slots, freeAddSlots, courseMap, planSlots)
   const creditWarning = totalCr < 12 ? 'low' : totalCr > 18 ? 'high' : null
+
+  const hasUnfilledPool = slots.some(s => s.is_pool && !planSlots[s.id])
 
   // ── Notes local state ─────────────────────────────────────────────
   const [noteOpen, setNoteOpen] = useState(false)
@@ -87,9 +92,9 @@ export default function Semester({
         <button
           className="semester-collapsed-row"
           onClick={onToggleExpand}
-          aria-label={`Expand semester ${semesterNumber}`}
+          aria-label={`Expand semester ${displayNumber ?? semesterNumber}`}
         >
-          <span className="semester-label">Semester {semesterNumber}</span>
+          <span className="semester-label">Semester {displayNumber ?? semesterNumber}</span>
           <span className="semester-collapsed-meta">
             <span className="semester-credits">{totalCr} cr</span>
             {isCompleted && (
@@ -117,7 +122,7 @@ export default function Semester({
           >
             ▲
           </button>
-          <span className="semester-label">Semester {semesterNumber}</span>
+          <span className="semester-label">Semester {displayNumber ?? semesterNumber}</span>
         </div>
         <div className="semester-header-right">
           <span className="semester-credits">{totalCr} cr</span>
@@ -140,6 +145,12 @@ export default function Semester({
       {hasWarnings && !isCompleted && (
         <div className="semester-warning-gate">
           Resolve {countWarnings(slots, freeAddSlots, prereqWarnings, coreqWarnings)} warning(s) before marking this semester complete.
+        </div>
+      )}
+
+      {hasUnfilledPool && !isCompleted && (
+        <div className="semester-warning-gate">
+          Select a course for all pool slots before marking this semester complete.
         </div>
       )}
 
@@ -208,7 +219,16 @@ export default function Semester({
         <button className="semester-add-course-btn" onClick={onAddCourse}>
           + Add course
         </button>
-        {isCompleted ? (
+        {onDelete && slots.length === 0 && freeAddSlots.length === 0 && (
+          <button
+            className="semester-delete-btn"
+            onClick={onDelete}
+            title="Remove this empty semester"
+          >
+            Remove semester
+          </button>
+        )}
+        {(slots.length > 0 || freeAddSlots.length > 0) && isCompleted ? (
           <button
             className="semester-complete-btn semester-complete-btn-undo"
             onClick={() => onMarkComplete(false)}
@@ -216,20 +236,24 @@ export default function Semester({
           >
             Undo Completion
           </button>
-        ) : (
+        ) : (slots.length > 0 || freeAddSlots.length > 0) ? (
           <button
             className="semester-complete-btn"
-            onClick={() => !hasWarnings && onMarkComplete(true)}
-            disabled={hasWarnings}
+            onClick={() => !hasWarnings && !hasUnfilledPool && priorSemestersAllComplete && onMarkComplete(true)}
+            disabled={hasWarnings || hasUnfilledPool || !priorSemestersAllComplete}
             title={
-              hasWarnings
-                ? 'Resolve warnings before marking this semester complete'
-                : 'Mark this semester as complete'
+              !priorSemestersAllComplete
+                ? 'Complete earlier semesters first'
+                : hasUnfilledPool
+                  ? 'Select a course for all pool slots before marking complete'
+                  : hasWarnings
+                    ? 'Resolve warnings before marking this semester complete'
+                    : 'Mark this semester as complete'
             }
           >
             Mark Complete
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   )
