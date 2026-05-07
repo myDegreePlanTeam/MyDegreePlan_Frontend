@@ -3,6 +3,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDropp
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm } from '../lib/semesterTerms'
+import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes } from '../lib/transferCredits'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
@@ -1121,11 +1122,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const currentSemester = planSemesterOverrides[slotId] ?? slot.semester_number
       if (currentSemester === newSemester) return
 
+      const courseCode   = slot.is_pool ? planSlots[slotId] : slot.class_code
+      const targetSeason = semesterTerms[newSemester]?.season
+      if (!isEnrollmentAllowed(courseCode, targetSeason)) {
+        showSaveError(`${courseCode} is ${getSeasonRestriction(courseCode)}-only and cannot be placed in a ${targetSeason} semester.`)
+        return
+      }
+
       pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester })
       const prevOverrides = planSemesterOverrides
       setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
 
-      const courseCode = slot.is_pool ? planSlots[slotId] : slot.class_code
       supabase
         .from('student_plan_slots')
         .upsert({
@@ -1146,6 +1153,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
     } else if (type === 'free_add') {
       const fa = freeAddSlots.find(f => f.id === slotId)
       if (!fa || fa.semester_number === newSemester) return
+
+      const faTargetSeason = semesterTerms[newSemester]?.season
+      if (!isEnrollmentAllowed(fa.course_code, faTargetSeason)) {
+        showSaveError(`${fa.course_code} is ${getSeasonRestriction(fa.course_code)}-only and cannot be placed in a ${faTargetSeason} semester.`)
+        return
+      }
 
       pushUndo({ type: 'drag_free', freeAddId: slotId, prevSemester: fa.semester_number })
       const prevFreeAdds = freeAddSlots
@@ -1504,6 +1517,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         <AddCourseModal
           semesterNumber={addCourseTarget}
           takenCodes={takenCodes}
+          semesterSeason={semesterTerms[addCourseTarget]?.season ?? null}
           onAdd={course => handleAddCourse(addCourseTarget, course)}
           onClose={() => setAddCourseTarget(null)}
         />
