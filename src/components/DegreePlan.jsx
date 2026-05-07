@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
-import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm } from '../lib/semesterTerms'
+import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes } from '../lib/transferCredits'
@@ -1488,7 +1488,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
           <div className="degreeplan-add-semester-wrap">
             <button
               className="degreeplan-add-semester-btn"
-              onClick={() => setShowAddSemesterModal(true)}
+              onClick={() => {
+                const base = extraSemesters.length > 0 ? Math.max(...extraSemesters) : maxTemplateSem
+                const newSemNum = base + 1
+                const lastSemNum = allSemesterNumbers.length > 0 ? Math.max(...allSemesterNumbers) : null
+                const newTerm = advanceTerm(lastSemNum != null ? semesterTerms[lastSemNum] : null)
+                setExtraSemesters(prev => [...prev, newSemNum])
+                if (newTerm) setExtraSemesterTerms(prev => ({ ...prev, [newSemNum]: newTerm }))
+              }}
             >
               + Add semester
             </button>
@@ -1559,6 +1566,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       )}
 
 
+      {/* TERM-2 wizard — commented out pending fix
       {showAddSemesterModal && (
         <div className="degreeplan-modal-overlay" onClick={() => setShowAddSemesterModal(false)}>
           <div className="degreeplan-modal" onClick={e => e.stopPropagation()}>
@@ -1584,6 +1592,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           </div>
         </div>
       )}
+      */}
 
       {showResetModal && (
         <ResetModal

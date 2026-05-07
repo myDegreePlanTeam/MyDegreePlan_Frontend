@@ -28,6 +28,12 @@ export function formatTermLabel(term) {
   return term ? `${term.season} ${term.year}` : null
 }
 
+// Returns the next term in the Fall → Spring → Fall sequence
+export function advanceTerm(term) {
+  if (!term) return null
+  return ADVANCE[term.season](term.year)
+}
+
 // For graduation display: last non-Summer semester in the sorted list
 export function lastNonSummerTerm(termMap, allSemNums) {
   const candidates = allSemNums.filter(n => termMap[n]?.season !== 'Summer')
