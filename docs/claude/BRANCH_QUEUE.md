@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-05-05
+> Last updated: 2026-05-07
 
 ---
 
@@ -99,10 +99,25 @@ _None._
   AP/transfer credits do.
 **Prompt:** Not yet written
 
-### fix/undo-stack
+### feat/undo-stack
 **Targets:**
-- Multi-step undo (currently only undoes most recent action)
-**Prompt:** Not yet written
+- Replace `lastSelection` (line 82 of `DegreePlan.jsx`) with `undoStack: UndoRecord[]` (cap 20)
+- Undo support: pool slot selections, free-add additions, drag-moves, note saves,
+  slot status changes, semester completion toggles
+- Prior credit undo deferred to a follow-on branch
+**Prompt:** `docs/claude/PROMPT_undo-stack.md`
+
+### feat/plan-balancer
+**Targets:**
+- "Rebalance Plan" button that runs a constrained two-pass backfill algorithm
+- New pure function `src/lib/planBalancer.js` + unit tests
+- Pass 1: pull eligible courses into semesters < 12 credits; Pass 2: < 15 credits
+- Respects prereqs, coreqs, and science sequence pairs
+- Entire rebalance is one undoable step (requires `feat/undo-stack` first)
+**Notes:**
+- Depends on `feat/undo-stack` — the `rebalance` undo record type extends that branch's dispatch.
+  Do not start until `feat/undo-stack` is merged.
+**Prompt:** `docs/claude/PROMPT_plan-balancer.md`
 
 ### feat/exemption-gating
 **Targets:**
