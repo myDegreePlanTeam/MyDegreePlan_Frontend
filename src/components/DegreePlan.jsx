@@ -1033,12 +1033,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
     await supabase.from('student_semester_notes').delete().eq('student_id', profile.id)
-    await supabase.from('prior_credits').delete().eq('plan_id', profile.id)
 
     setSwitching(false)
     setShowSwitchModal(false)
     setLastSelection(null)
-    setPriorCredits([])
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
 
@@ -1519,8 +1517,8 @@ function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
           )}
           {isDifferent && (
             <div className="concentration-switch-warning">
-              Switching to <strong>{selected.name}</strong> will clear all your
-              current course selections. This cannot be undone.
+              Switching to <strong>{selected.name}</strong> will clear your
+              current course selections. Prior credits and placement scores are kept.
             </div>
           )}
         </div>
