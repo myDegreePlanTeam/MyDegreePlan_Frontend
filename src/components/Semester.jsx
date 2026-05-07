@@ -63,7 +63,7 @@ export default function Semester({
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
 
   const totalCr      = calculateCredits(slots, freeAddSlots, courseMap, planSlots)
-  const creditWarning = totalCr < 12 ? 'low' : totalCr > 19 ? 'high' : null
+  const creditWarning = totalCr < 12 ? 'low' : totalCr > 18 ? 'high' : null
 
   // ── Notes local state ─────────────────────────────────────────────
   const [noteOpen, setNoteOpen] = useState(false)
@@ -160,7 +160,7 @@ export default function Semester({
         <div className={`semester-credit-warning semester-credit-warning-${creditWarning}`}>
           {creditWarning === 'low'
             ? 'Below full-time — fewer than 12 credits'
-            : 'Heavy load — more than 19 credits'}
+            : 'Heavy load — more than 18 credits'}
         </div>
       )}
 
