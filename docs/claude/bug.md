@@ -67,10 +67,10 @@
 | Severity | Count |
 |---|---|
 | Critical | 0  |
-| High     | 1  |
+| High     | 2  |
 | Medium   | 3  |
-| Low      | 3  |
-| **Total** | **7** |
+| Low      | 4  |
+| **Total** | **9** |
 
 ---
 
@@ -195,6 +195,54 @@ works correctly after BUG-5.
 sum, consistent with how `computePlanCredits` handles completion state. Coordinate
 with the mark-complete behavior fix (Phase 2, `fix/mark-complete-behavior`) since
 that branch will overhaul how completion credits are tracked.
+
+**Confidence:** High
+
+---
+
+> **2026-05-07 update:** BUG-46 and BUG-47 added from developer code audit. Both identified
+> in `fix/credits-and-concentration` planning. New severity additions: High +1, Low +1.
+> New totals: Critical 0, High 2, Medium 3, Low 4, Total 9.
+
+---
+
+### BUG-46: Heavy-load credit warning threshold off by one
+
+**Severity:** Low
+**File(s):** `src/components/Semester.jsx:66, 163`
+
+**Description:** The credit-overload warning fires when `totalCr > 19`. The correct
+threshold is `totalCr > 18` (i.e. ≥ 19 triggers the warning). The display string on
+line 163 also reads "more than 19 credits" and must be updated to match.
+
+**Impact:** A 19-credit semester (which is a heavy load by the intended rule) shows no
+warning. Students can build overloaded semesters without feedback.
+
+**Suspected fix:** Change `totalCr > 19` → `totalCr > 18` on line 66. Update display
+string on line 163 from "more than 19 credits" → "more than 18 credits".
+
+**Confidence:** High
+
+---
+
+### BUG-47: `handleConcentrationSwitch` deletes prior credits
+
+**Severity:** High
+**File(s):** `src/components/DegreePlan.jsx:1036, 1041`
+
+**Description:** `handleConcentrationSwitch` calls
+`supabase.from('prior_credits').delete().eq('plan_id', profile.id)` (line 1036) and
+then `setPriorCredits([])` (line 1041). Prior credits are student-level data — AP scores,
+transfer credits, placement gates — not tied to any specific concentration plan. Switching
+concentrations permanently destroys them from the database.
+
+**Impact:** A student who switches concentrations (including switching back) silently loses
+all prior credits. They must re-enter them manually. This is data loss.
+
+**Suspected fix:** Remove line 1036 (the Supabase delete) and line 1041 (the local state
+clear) entirely. Also update the concentration-switch warning copy (lines 1522–1523) to
+clarify that prior credits are retained. `resolveTransferCredits` already re-evaluates
+archiving against the new concentration's slots on load — no other changes needed.
 
 **Confidence:** High
 

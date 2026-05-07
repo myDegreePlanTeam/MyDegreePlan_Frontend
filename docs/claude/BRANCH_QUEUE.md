@@ -13,7 +13,12 @@ _None._
 
 ## Queued Branches
 
-_None._
+### fix/credits-and-concentration
+**Targets:**
+- BUG-46 — Heavy-load threshold off by one (`Semester.jsx:66, 163`)
+- BUG-47 — `handleConcentrationSwitch` deletes prior credits (`DegreePlan.jsx:1036, 1041`)
+**Notes:** Two independent one-liner fixes; commit separately. No schema changes. No new tests needed.
+**Prompt:** `docs/claude/PROMPT_credits-and-concentration.md`
 
 ---
 
