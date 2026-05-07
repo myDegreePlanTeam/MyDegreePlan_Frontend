@@ -545,3 +545,72 @@ describe('resolveTransferDetails — empty / placement-only inputs', () => {
     expect(resolveTransferDetails([PLACEMENT_ONLY], {}, [SLOT_ENGL1010])).toEqual({})
   })
 })
+
+// ── GEN_ED sub-pool saturation (BUG-45 — Facet 3) ────────────────────────────
+
+const SLOT_GENED_3 = { id: 7, class_code: 'GEN_ED', is_pool: true }
+const SLOT_GENED_4 = { id: 8, class_code: 'GEN_ED', is_pool: true }
+
+// Humanities credits (HIST2310 / HIST2320 are Humanities in GEN_ED_CATEGORIES)
+function humanitiesPc(id, code) {
+  return { id, satisfies_course_code: code, satisfies_pool: 'GEN_ED', credits_awarded: 3 }
+}
+// History credit
+function historyPc(id, code) {
+  return { id, satisfies_course_code: code, satisfies_pool: 'GEN_ED', credits_awarded: 3 }
+}
+
+describe('Rule 2 — GEN_ED sub-pool saturation (BUG-45)', () => {
+  it('third Humanities credit does NOT archive a third GEN_ED slot when Humanities is at 6/6', () => {
+    const slots = [SLOT_GENED_1, SLOT_GENED_2, SLOT_GENED_3]
+    // Two Humanities credits saturate at 6 hrs; third should be skipped
+    const priorCredits = [
+      humanitiesPc('h1', 'HIST2310'),
+      humanitiesPc('h2', 'HIST2320'),
+      humanitiesPc('h3', 'HIST2210'), // another Humanities — sub-pool full
+    ]
+    const result = resolveTransferCredits(priorCredits, {}, slots)
+    expect(Object.keys(result).length).toBe(2)
+    expect(result[SLOT_GENED_1.id]).toBe(true)
+    expect(result[SLOT_GENED_2.id]).toBe(true)
+    expect(result[SLOT_GENED_3.id]).toBeUndefined()
+  })
+
+  it('Social-Science credit IS matched when Humanities is saturated and a slot remains', () => {
+    const slots = [SLOT_GENED_1, SLOT_GENED_2, SLOT_GENED_3]
+    // Two Humanities credits fill slots 1+2; ECON2010 (Social) should fill slot 3
+    const priorCredits = [
+      humanitiesPc('h1', 'HIST2310'),
+      humanitiesPc('h2', 'HIST2320'),
+      { id: 's1', satisfies_course_code: 'ECON2010', satisfies_pool: 'GEN_ED', credits_awarded: 3 },
+    ]
+    const result = resolveTransferCredits(priorCredits, {}, slots)
+    expect(Object.keys(result).length).toBe(3)
+    expect(result[SLOT_GENED_3.id]).toBe(true)
+  })
+
+  it('two sub-pools each archive their own GEN_ED slots independently', () => {
+    const slots = [SLOT_GENED_1, SLOT_GENED_2, SLOT_GENED_3, SLOT_GENED_4]
+    // 2 History + 2 Humanities → should archive 4 slots
+    const priorCredits = [
+      historyPc('hi1', 'HIST2010'),
+      historyPc('hi2', 'HIST2020'),
+      humanitiesPc('hu1', 'HIST2310'),
+      humanitiesPc('hu2', 'HIST2320'),
+    ]
+    const result = resolveTransferCredits(priorCredits, {}, slots)
+    expect(Object.keys(result).length).toBe(4)
+  })
+
+  it('resolveTransferDetails inherits sub-pool saturation fix via shared helper', () => {
+    const slots = [SLOT_GENED_1, SLOT_GENED_2, SLOT_GENED_3]
+    const priorCredits = [
+      humanitiesPc('h1', 'HIST2310'),
+      humanitiesPc('h2', 'HIST2320'),
+      humanitiesPc('h3', 'HIST2210'), // saturated — should not archive slot 3
+    ]
+    const result = resolveTransferDetails(priorCredits, {}, slots)
+    expect(Object.keys(result).length).toBe(2)
+    expect(result[SLOT_GENED_3.id]).toBeUndefined()
+  })
+})

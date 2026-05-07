@@ -1,4 +1,5 @@
 // transferCredits.js
+import { GEN_ED_CATEGORIES } from './poolResolver.js'
 //
 // Pure helpers — no side effects, no Supabase calls.
 //
@@ -99,18 +100,39 @@ function matchPriorCreditsToSlots(priorCredits, planSlots, slots) {
   // intentionally NOT a guard: pool credit beats student selection (BUG-42).
   // The student's planSlots[slot.id] is preserved on the upserted DB row by
   // syncArchivedSlots so an unarchive restores it within the session.
+  //
+  // GEN_ED sub-pool saturation check (BUG-45): credits whose sub-pool already
+  // has ≥ 6 hrs are skipped inside find() so credits from unsatisfied sub-pools
+  // get a chance to match the slot instead.
+  const codeToGenEdCategory = {}
+  for (const [cat, codes] of Object.entries(GEN_ED_CATEGORIES)) {
+    for (const code of codes) codeToGenEdCategory[code] = cat
+  }
+  const genEdSubPoolCredits = { History: 0, Humanities: 0, Social: 0 }
+  const GEN_ED_SUB_REQUIRED = 6
+
   for (const slot of slotList) {
     if (!slot.is_pool) continue
     if (!SATISFIABLE_POOLS.has(slot.class_code)) continue
 
-    const match = creditBearing.find(
-      pc => pc.satisfies_pool === slot.class_code &&
-            !usedPriorCreditIds.has(pc.id)
-    )
-    if (match) {
-      matches.push({ slotId: slot.id, priorCredit: match })
-      usedPriorCreditIds.add(match.id)
+    const match = creditBearing.find(pc => {
+      if (pc.satisfies_pool !== slot.class_code) return false
+      if (usedPriorCreditIds.has(pc.id)) return false
+      if (slot.class_code === 'GEN_ED') {
+        const cat = codeToGenEdCategory[pc.satisfies_course_code]
+        if (cat && genEdSubPoolCredits[cat] >= GEN_ED_SUB_REQUIRED) return false
+      }
+      return true
+    })
+    if (!match) continue
+
+    if (slot.class_code === 'GEN_ED') {
+      const cat = codeToGenEdCategory[match.satisfies_course_code]
+      if (cat) genEdSubPoolCredits[cat] += match.credits_awarded ?? 0
     }
+
+    matches.push({ slotId: slot.id, priorCredit: match })
+    usedPriorCreditIds.add(match.id)
   }
 
   return matches
