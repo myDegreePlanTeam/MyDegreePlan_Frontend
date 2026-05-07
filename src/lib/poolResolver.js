@@ -423,7 +423,7 @@ const GEN_ED_CATEGORY_LABELS = {
   Social:    'Social Science',
 }
 
-export function getGenEdStatus(planSlots, slots, courseMap) {
+export function getGenEdStatus(planSlots, slots, courseMap, priorCredits = []) {
   const genEdSlots  = slots.filter(s => s.is_pool && s.class_code === 'GEN_ED')
   const emptySlots  = genEdSlots.filter(s => !planSlots[s.id]).length
 
@@ -442,6 +442,14 @@ export function getGenEdStatus(planSlots, slots, courseMap) {
     if (cat) {
       creditsByCategory[cat] += courseMap[code]?.credits ?? 3
     }
+  }
+
+  // Sum credits per category from prior credits (BUG-45)
+  for (const pc of (priorCredits ?? [])) {
+    if ((pc.credits_awarded ?? 0) <= 0) continue
+    if (!pc.satisfies_course_code) continue
+    const cat = codeToCategory[pc.satisfies_course_code]
+    if (cat) creditsByCategory[cat] += pc.credits_awarded
   }
 
   const REQUIRED = 6

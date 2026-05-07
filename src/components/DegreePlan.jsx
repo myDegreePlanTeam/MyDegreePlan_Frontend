@@ -341,8 +341,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── GEN_ED sub-requirement status ─────────────────────────────────
   const genEdStatus = useMemo(
-    () => getGenEdStatus(planSlots, slots, courses),
-    [planSlots, slots, courses]
+    () => getGenEdStatus(planSlots, slots, courses, priorCredits),
+    [planSlots, slots, courses, priorCredits]
   )
 
   // ── Codes already in the plan (BUG-34) ─────────────────────────────

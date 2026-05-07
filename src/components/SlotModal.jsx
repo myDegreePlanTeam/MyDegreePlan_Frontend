@@ -236,7 +236,7 @@ export default function SlotModal({
   // Satisfied sub-pools are greyed and non-clickable (like "Already selected").
   // Sub-category grouping is preserved during search.
   function renderGenEdSections(annotated) {
-    const status = getGenEdStatus(planSlots, slots, courseMap)
+    const status = getGenEdStatus(planSlots, slots, courseMap, priorCredits)
     const codeToCategory = {}
     for (const [cat, codes] of Object.entries(GEN_ED_CATEGORIES)) {
       for (const code of codes) codeToCategory[code] = cat
