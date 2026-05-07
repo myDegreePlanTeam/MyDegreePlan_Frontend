@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
+import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm } from '../lib/semesterTerms'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes } from '../lib/transferCredits'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
@@ -55,6 +56,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [resetting, setResetting]                 = useState(false)
   const [resetKey, setResetKey]                   = useState(0)
   const [extraSemesters, setExtraSemesters]         = useState([])
+  const [extraSemesterTerms, setExtraSemesterTerms] = useState({})
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -246,15 +248,18 @@ export default function DegreePlan({ profile, onProfileChange }) {
       // Step 7 — semester notes + completion state
       const { data: notesData } = await supabase
         .from('student_semester_notes')
-        .select('semester_number, note_text, completed_by_student')
+        .select('semester_number, note_text, completed_by_student, term_season, term_year')
         .eq('student_id', profile.id)
         .eq('concentration_id', profile.concentration_id)
 
       const semNotesMap     = {}
       const semCompletedMap = {}
+      const extraTermsMap   = {}
       for (const row of notesData ?? []) {
         semNotesMap[row.semester_number] = row.note_text
         if (row.completed_by_student) semCompletedMap[row.semester_number] = true
+        if (row.term_season && row.term_year)
+          extraTermsMap[row.semester_number] = { season: row.term_season, year: row.term_year }
       }
 
       // Step 7.5 — prior credits (placement gates + transfer/AP credits)
@@ -291,6 +296,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setPlanSemesterCompleted(semCompletedMap)
       setSemesterExpanded(expandedMap)
       setPriorCredits(priorCreditsData ?? [])
+      setExtraSemesterTerms(extraTermsMap)
       setLoading(false)
     }
 
@@ -346,6 +352,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const allSemesterNumbers = useMemo(() => {
     return [...new Set([...semesterNumbers, ...extraSemesters])].sort((a, b) => a - b)
   }, [semesterNumbers, extraSemesters])
+
+  const templateSemNums = useMemo(
+    () => [...new Set(slots.map(s => s.semester_number))].sort((a, b) => a - b),
+    [slots]
+  )
+
+  const semesterTerms = useMemo(
+    () => computeSemesterTerms(profile.start_season, profile.start_year, templateSemNums, extraSemesterTerms),
+    [profile.start_season, profile.start_year, templateSemNums, extraSemesterTerms]
+  )
 
   // ── Science sequence warnings ─────────────────────────────────────
   const scienceWarnings = useMemo(
@@ -1242,8 +1258,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const completedPct = Math.min((creditTotals.completed / totalHours) * 100, 100)
   const plannedPct   = Math.min((creditTotals.planned   / totalHours) * 100, 100 - completedPct)
 
-  const maxSemester  = semesterNumbers.length > 0 ? Math.max(...semesterNumbers) : 0
-  const graduation   = projectGraduation(profile.start_season, profile.start_year, maxSemester)
+  const graduation   = lastNonSummerTerm(semesterTerms, allSemesterNumbers)
 
   const draggedLabel = (() => {
     if (!draggedSlotId) return null
@@ -1419,6 +1434,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                   hasWarnings={!!semesterHasWarnings[semNum]}
                   priorSemestersAllComplete={priorComplete}
                   displayNumber={idx + 1}
+                  termLabel={formatTermLabel(semesterTerms[semNum])}
                   onDelete={extraSemesters.includes(semNum)
                     ? () => setExtraSemesters(prev => prev.filter(n => n !== semNum))
                     : null}

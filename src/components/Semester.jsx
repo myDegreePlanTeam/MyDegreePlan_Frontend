@@ -60,6 +60,7 @@ export default function Semester({
   hasWarnings                = false,
   priorSemestersAllComplete  = true,
   displayNumber              = null,
+  termLabel                  = null,
   onDelete                   = null,
 }) {
   // ── Droppable ─────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ export default function Semester({
           onClick={onToggleExpand}
           aria-label={`Expand semester ${displayNumber ?? semesterNumber}`}
         >
-          <span className="semester-label">Semester {displayNumber ?? semesterNumber}</span>
+          <span className="semester-label">{termLabel ?? `Semester ${displayNumber ?? semesterNumber}`}</span>
           <span className="semester-collapsed-meta">
             <span className="semester-credits">{totalCr} cr</span>
             {isCompleted && (
@@ -122,7 +123,7 @@ export default function Semester({
           >
             ▲
           </button>
-          <span className="semester-label">Semester {displayNumber ?? semesterNumber}</span>
+          <span className="semester-label">{termLabel ?? `Semester ${displayNumber ?? semesterNumber}`}</span>
         </div>
         <div className="semester-header-right">
           <span className="semester-credits">{totalCr} cr</span>
