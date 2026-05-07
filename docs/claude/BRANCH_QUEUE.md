@@ -99,14 +99,6 @@ _None._
   AP/transfer credits do.
 **Prompt:** Not yet written
 
-### feat/undo-stack
-**Targets:**
-- Replace `lastSelection` (line 82 of `DegreePlan.jsx`) with `undoStack: UndoRecord[]` (cap 20)
-- Undo support: pool slot selections, free-add additions, drag-moves, note saves,
-  slot status changes, semester completion toggles
-- Prior credit undo deferred to a follow-on branch
-**Prompt:** `docs/claude/PROMPT_undo-stack.md`
-
 ### feat/plan-balancer
 **Targets:**
 - "Rebalance Plan" button that runs a constrained two-pass backfill algorithm
@@ -223,3 +215,4 @@ _None._
 | `fix/gen-ed-prior-credit-tracking` | 2026-05-06 | BUG-45 |
 | `fix/credits-and-concentration` | 2026-05-07 | BUG-46, BUG-47 |
 | `feat/plan-controls` | 2026-05-07 | ITEM-3 (Reset Plan), ITEM-4 (Add/Remove Semester + dynamic numbering), ITEM-5 (Mark Complete enforcement rules) |
+| `feat/undo-stack` | 2026-05-07 | Replace lastSelection with undoStack (cap 20); multi-step undo for 7 handler types; prior credit undo deferred |
