@@ -59,6 +59,7 @@ export default function Semester({
   onMarkComplete,
   hasWarnings                = false,
   priorSemestersAllComplete  = true,
+  displayNumber              = null,
 }) {
   // ── Droppable ─────────────────────────────────────────────────────
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
@@ -90,9 +91,9 @@ export default function Semester({
         <button
           className="semester-collapsed-row"
           onClick={onToggleExpand}
-          aria-label={`Expand semester ${semesterNumber}`}
+          aria-label={`Expand semester ${displayNumber ?? semesterNumber}`}
         >
-          <span className="semester-label">Semester {semesterNumber}</span>
+          <span className="semester-label">Semester {displayNumber ?? semesterNumber}</span>
           <span className="semester-collapsed-meta">
             <span className="semester-credits">{totalCr} cr</span>
             {isCompleted && (
@@ -120,7 +121,7 @@ export default function Semester({
           >
             ▲
           </button>
-          <span className="semester-label">Semester {semesterNumber}</span>
+          <span className="semester-label">Semester {displayNumber ?? semesterNumber}</span>
         </div>
         <div className="semester-header-right">
           <span className="semester-credits">{totalCr} cr</span>

@@ -2428,6 +2428,33 @@
   color: var(--white);
 }
 
+/* ── Add Semester button ─────────────────────────────────────────────────── */
+
+.degreeplan-add-semester-wrap {
+  max-width: 1200px;
+  margin: 0.75rem auto 0;
+  padding: 0 0.5rem;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.degreeplan-add-semester-btn {
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  padding: 0.4rem 0.875rem;
+  border-radius: 6px;
+  border: 1px dashed rgba(255,255,255,0.18);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.degreeplan-add-semester-btn:hover {
+  border-color: rgba(255,255,255,0.4);
+  color: var(--white);
+}
+
 /* ── Coreq warning (distinct from prereq) ────────────────────────────────── */
 
 .slot-coreq-warning {

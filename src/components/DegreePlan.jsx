@@ -54,6 +54,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [showResetModal, setShowResetModal]       = useState(false)
   const [resetting, setResetting]                 = useState(false)
   const [resetKey, setResetKey]                   = useState(0)
+  const [extraSemesterCount, setExtraSemesterCount] = useState(0)
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -335,6 +336,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
     ])
     return [...all].sort((a, b) => a - b)
   }, [semesterMap, freeAddBySemester])
+
+  const maxTemplateSem = semesterNumbers.length > 0 ? Math.max(...semesterNumbers) : 0
+
+  const allSemesterNumbers = useMemo(() => {
+    const extra = Array.from(
+      { length: extraSemesterCount },
+      (_, i) => maxTemplateSem + i + 1
+    )
+    return [...new Set([...semesterNumbers, ...extra])].sort((a, b) => a - b)
+  }, [semesterNumbers, extraSemesterCount, maxTemplateSem])
 
   // ── Science sequence warnings ─────────────────────────────────────
   const scienceWarnings = useMemo(
@@ -821,7 +832,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   function collapseCompleted() {
     setSemesterExpanded(prev => {
       const next = { ...prev }
-      for (const semNum of semesterNumbers) {
+      for (const semNum of allSemesterNumbers) {
         if (planSemesterCompleted[semNum]) next[semNum] = false
       }
       return next
@@ -830,13 +841,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   function expandAll() {
     const next = {}
-    for (const semNum of semesterNumbers) next[semNum] = true
+    for (const semNum of allSemesterNumbers) next[semNum] = true
     setSemesterExpanded(next)
   }
 
   function collapseAll() {
     const next = {}
-    for (const semNum of semesterNumbers) next[semNum] = false
+    for (const semNum of allSemesterNumbers) next[semNum] = false
     setSemesterExpanded(next)
   }
 
@@ -1080,6 +1091,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const err = await clearPlanData()
     if (err) { setResetting(false); return }
     setLastSelection(null)
+    setExtraSemesterCount(0)
     setResetting(false)
     setShowResetModal(false)
     setResetKey(k => k + 1)
@@ -1101,6 +1113,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setSwitching(false)
     setShowSwitchModal(false)
     setLastSelection(null)
+    setExtraSemesterCount(0)
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
 
@@ -1137,7 +1150,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   })()
 
 
-  const completedSemesterCount = semesterNumbers.filter(n => planSemesterCompleted[n]).length
+  const completedSemesterCount = allSemesterNumbers.filter(n => planSemesterCompleted[n]).length
 
   return (
     <div className="degreeplan-shell">
@@ -1258,8 +1271,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           </div>
 
           <div className="degreeplan-grid">
-            {semesterNumbers.map((semNum, idx) => {
-              const priorComplete = semesterNumbers
+            {allSemesterNumbers.map((semNum, idx) => {
+              const priorComplete = allSemesterNumbers
                 .slice(0, idx)
                 .every(n => planSemesterCompleted[n])
               return (
@@ -1296,9 +1309,19 @@ export default function DegreePlan({ profile, onProfileChange }) {
                   onMarkComplete={value => handleSemesterComplete(semNum, value)}
                   hasWarnings={!!semesterHasWarnings[semNum]}
                   priorSemestersAllComplete={priorComplete}
+                  displayNumber={idx + 1}
                 />
               )
             })}
+          </div>
+
+          <div className="degreeplan-add-semester-wrap">
+            <button
+              className="degreeplan-add-semester-btn"
+              onClick={() => setExtraSemesterCount(c => c + 1)}
+            >
+              + Add semester
+            </button>
           </div>
 
           <DragOverlay>
