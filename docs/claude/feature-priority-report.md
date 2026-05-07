@@ -71,7 +71,7 @@ undone" — update that copy to clarify prior coursework is retained.
 
 ## P1 — Core UX (Implement in Order)
 
-### 3. Reset Plan Button
+### ~~3. Reset Plan Button~~ ✓ DONE — merged 2026-05-07
 
 **Type:** Feature  
 **Effort:** S–M
@@ -98,7 +98,7 @@ a direct "Reset Plan" button.
 
 ---
 
-### 4. Add Semester Button + Dynamic Semester Numbering
+### ~~4. Add Semester Button + Dynamic Semester Numbering~~ ✓ DONE — merged 2026-05-07
 
 **Type:** Feature  
 **Effort:** M
@@ -134,7 +134,7 @@ longer degree plans also have no way to extend beyond the template.
 
 ---
 
-### 5. Mark Semester Complete — Three Enforcement Rules
+### ~~5. Mark Semester Complete — Three Enforcement Rules~~ ✓ DONE — merged 2026-05-07
 
 **Type:** Feature (enhancing existing behavior)  
 **Effort:** M
@@ -262,9 +262,9 @@ moving courses from later semesters earlier to rebalance.
 |---|------|----------|--------|-------------|
 | ~~1~~ | ~~Heavy-load threshold fix~~ | P0 | S | ✓ Done |
 | ~~2~~ | ~~Concentration switch retains prior credits~~ | P0 | S | ✓ Done |
-| 3 | Reset plan button | P1 | S–M | After P0s |
-| 5 | Mark complete — 3 rules | P1 | M | After reset plan |
-| 4 | Add semester + dynamic numbering | P1 | M | Parallel with #5 or after |
+| ~~3~~ | ~~Reset plan button~~ | P1 | S–M | ✓ Done |
+| ~~5~~ | ~~Mark complete — 3 rules~~ | P1 | M | ✓ Done |
+| ~~4~~ | ~~Add semester + dynamic numbering~~ | P1 | M | ✓ Done |
 | 6 | Full undo stack | P2 | L | Own session |
 | 7 | Auto-fill holes | P2 | L | Own session; do after undo |
 
