@@ -286,7 +286,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
       }
 
       // Step 8 — commit all state at once
-      setSlots(slotData)
+      // New students (incoming_freshman or transfer) follow the Fall 2026+ CS curriculum:
+      // MATH1920 (Calculus II) is not required. student_type is the proxy for curriculum version.
+      const isNewStudent = profile.student_type === 'incoming_freshman'
+        || profile.student_type === 'transfer'
+      const filteredSlots = isNewStudent
+        ? slotData.filter(s => s.class_code !== 'MATH1920')
+        : slotData
+      setSlots(filteredSlots)
       setCourses(courseMap)
       setPrereqMap(prereqMapBuilt)
       setCoreqMap(coreqMapBuilt)
