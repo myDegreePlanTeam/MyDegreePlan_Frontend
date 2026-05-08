@@ -34,12 +34,12 @@ import './Dashboard.css'
 // DB type that should appear in the Step 2 exam list.
 const CREDIT_TYPES = [
   { value: 'ap_credit',       label: 'AP Exam',                  hasScore: true  },
-  { value: 'act',             label: 'ACT Score',                hasScore: true,
-    testTypes: ['act_credit', 'act_placement'] },
   { value: 'test_out',        label: 'CLEP Exam',                hasScore: true  },
   { value: 'ib_credit',       label: 'IB Exam',                  hasScore: true  },
   { value: 'cambridge',       label: 'Cambridge International',  hasScore: false },
   { value: 'transfer_credit', label: 'Transfer Credit',          hasScore: false, disabled: true },
+  { value: 'dual_credit',     label: 'Dual Credit',              disabled: true  },
+  { value: 'dual_enrollment', label: 'Dual Enrollment',          disabled: true  },
 ]
 
 // Human-readable labels for display, keyed by both category value and raw
@@ -64,7 +64,7 @@ function effectiveTestType(selectedExam, creditType) {
   return selectedExam?.test_type ?? creditType
 }
 
-export default function PriorCreditWizard({ onSave, onClose, planSlots, slots }) {
+export default function PriorCreditWizard({ onSave, onClose, planSlots, slots, studentType = null }) {
   const [step, setStep]           = useState(1)
   const [creditType, setCreditType] = useState(null)
   const [selectedExam, setSelectedExam] = useState(null) // { test_name, ... } or course object
@@ -375,20 +375,26 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots })
           {/* Step 1 — Credit type */}
           {step === 1 && (
             <div className="wizard-type-grid">
-              {CREDIT_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  className={`wizard-type-btn${t.disabled ? ' wizard-type-btn-disabled' : ''}`}
-                  onClick={() => !t.disabled && handleTypeSelect(t.value)}
-                  disabled={t.disabled}
-                  aria-disabled={t.disabled ? 'true' : undefined}
-                >
-                  <span className="wizard-type-btn-label">{t.label}</span>
-                  {t.disabled && (
-                    <span className="wizard-type-btn-pill">Coming soon</span>
-                  )}
-                </button>
-              ))}
+              {CREDIT_TYPES
+                .filter(t => {
+                  if (t.value === 'transfer_credit' && studentType === 'incoming_freshman') return false
+                  return true
+                })
+                .map(t => (
+                  <button
+                    key={t.value}
+                    className={`wizard-type-btn${t.disabled ? ' wizard-type-btn-disabled' : ''}`}
+                    onClick={() => !t.disabled && handleTypeSelect(t.value)}
+                    disabled={t.disabled}
+                    aria-disabled={t.disabled ? 'true' : undefined}
+                  >
+                    <span className="wizard-type-btn-label">{t.label}</span>
+                    {t.disabled && (
+                      <span className="wizard-type-btn-pill">Coming soon</span>
+                    )}
+                  </button>
+                ))
+              }
             </div>
           )}
 

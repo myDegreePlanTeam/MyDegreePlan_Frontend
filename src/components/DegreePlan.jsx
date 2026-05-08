@@ -1562,6 +1562,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           onClose={() => setShowWizard(false)}
           planSlots={planSlots}
           slots={slots}
+          studentType={profile?.student_type ?? null}
         />
       )}
 
