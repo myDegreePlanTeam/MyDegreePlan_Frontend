@@ -235,6 +235,7 @@ export default function Onboarding({ profileId, onComplete }) {
         {/* ── Step 1: Student type + start date ── */}
         {step === 1 && (
           <div className="onboarding-body">
+            <p className="onboarding-toggle-prompt">What best describes you?</p>
             <div className="onboarding-toggle-row">
               {STUDENT_TYPES.map(t => (
                 <button
