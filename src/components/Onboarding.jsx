@@ -15,7 +15,22 @@ const CONCENTRATION_DESCS = {
 const SEASONS = ['Fall', 'Spring', 'Summer']
 
 const CURRENT_YEAR = new Date().getFullYear()
-const YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - 5 + i)
+
+// Returning students started before Fall 2026 (old curriculum)
+const RETURNING_YEARS = Array.from({ length: 11 }, (_, i) => 2016 + i) // 2016–2026
+
+// Incoming/transfer students start Fall 2026 or later (new curriculum)
+const NEW_STUDENT_YEARS = Array.from({ length: 7 }, (_, i) => 2026 + i) // 2026–2032
+
+function getAvailableYears(type) {
+  return type === 'returning' ? RETURNING_YEARS : NEW_STUDENT_YEARS
+}
+
+function getAvailableSeasons(type, year) {
+  if (type === 'returning' && Number(year) === 2026) return ['Spring', 'Summer']
+  if (type !== 'returning' && Number(year) === 2026) return ['Fall']
+  return SEASONS
+}
 
 const STUDENT_TYPES = [
   { value: 'incoming_freshman', label: 'Incoming Freshman' },
@@ -32,10 +47,10 @@ function validateActScore(val) {
 
 export default function Onboarding({ profileId, onComplete }) {
   const [step, setStep]                   = useState(1)
-  const [studentType, setStudentType]     = useState('incoming_freshman')
+  const [studentType, setStudentType]     = useState(null)
   const [selectedCode, setSelectedCode]   = useState(null)
-  const [startSeason, setStartSeason]     = useState('Fall')
-  const [startYear, setStartYear]         = useState(CURRENT_YEAR)
+  const [startSeason, setStartSeason]     = useState('')
+  const [startYear, setStartYear]         = useState('')
   const [actScores, setActScores]         = useState({ math: '', english: '', science: '', reading: '', composite: '' })
   const [actErrors, setActErrors]         = useState({})
   const [loading, setLoading]             = useState(false)
@@ -76,8 +91,14 @@ export default function Onboarding({ profileId, onComplete }) {
     setSelectedCode(code)
   }
 
-  // Step 1 → Step 2: no guard needed (studentType always has a default)
+  function handleStudentTypeChange(type) {
+    setStudentType(type)
+    setStartSeason('')
+    setStartYear('')
+  }
+
   function handleGoToStep2() {
+    if (!studentType || !startSeason || !startYear) return
     setStep(2)
   }
 
@@ -241,44 +262,55 @@ export default function Onboarding({ profileId, onComplete }) {
                 <button
                   key={t.value}
                   className={`onboarding-toggle-btn ${studentType === t.value ? 'selected' : ''}`}
-                  onClick={() => setStudentType(t.value)}
+                  onClick={() => handleStudentTypeChange(t.value)}
                 >
                   {t.label}
                 </button>
               ))}
             </div>
 
-            <div className="season-year-row">
-              <div className="onboarding-field">
-                <label className="onboarding-label">{startDateLabel}</label>
-                <select
-                  className="onboarding-select"
-                  value={startSeason}
-                  onChange={e => setStartSeason(e.target.value)}
-                >
-                  {SEASONS.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
+            {studentType && (
+              <div className="season-year-row">
+                <div className="onboarding-field">
+                  <label className="onboarding-label">{startDateLabel}</label>
+                  <select
+                    className="onboarding-select"
+                    value={startSeason}
+                    onChange={e => setStartSeason(e.target.value)}
+                  >
+                    <option value="">Select season</option>
+                    {getAvailableSeasons(studentType, startYear).map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="onboarding-field">
-                <label className="onboarding-label">Year</label>
-                <select
-                  className="onboarding-select"
-                  value={startYear}
-                  onChange={e => setStartYear(Number(e.target.value))}
-                >
-                  {YEARS.map(y => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
+                <div className="onboarding-field">
+                  <label className="onboarding-label">Year</label>
+                  <select
+                    className="onboarding-select"
+                    value={startYear}
+                    onChange={e => {
+                      setStartYear(e.target.value ? Number(e.target.value) : '')
+                      setStartSeason('')
+                    }}
+                  >
+                    <option value="">Select year</option>
+                    {getAvailableYears(studentType).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
 
             {error && <p className="onboarding-error">{error}</p>}
 
-            <button className="onboarding-btn" onClick={handleGoToStep2}>
+            <button
+              className="onboarding-btn"
+              onClick={handleGoToStep2}
+              disabled={!studentType || !startSeason || !startYear}
+            >
               Continue
             </button>
           </div>
@@ -297,7 +329,7 @@ export default function Onboarding({ profileId, onComplete }) {
                   Could not load concentrations: {concsError}
                 </p>
               ) : (
-                // DSAI hidden for non-returning students (Fall 2026+ curriculum)
+                // DSAI is no longer available for new students (Fall 2026+ curriculum)
                 concentrations
                   .filter(c => studentType === 'returning' || c.code !== 'dsai')
                   .map(c => (
