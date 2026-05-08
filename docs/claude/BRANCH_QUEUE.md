@@ -1,7 +1,7 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-05-07 (schema/semester-terms merged)
+> Last updated: 2026-05-08 (feat/plan-balancer merged)
 
 ---
 
@@ -83,18 +83,6 @@ _None._
   semesters now in Prior Coursework should pre-qualify prereqs the same way
   AP/transfer credits do.
 **Prompt:** Not yet written
-
-### feat/plan-balancer
-**Targets:**
-- "Rebalance Plan" button that runs a constrained two-pass backfill algorithm
-- New pure function `src/lib/planBalancer.js` + unit tests
-- Pass 1: pull eligible courses into semesters < 12 credits; Pass 2: < 15 credits
-- Respects prereqs, coreqs, and science sequence pairs
-- Entire rebalance is one undoable step (requires `feat/undo-stack` first)
-**Notes:**
-- Depends on `feat/undo-stack` — the `rebalance` undo record type extends that branch's dispatch.
-  Do not start until `feat/undo-stack` is merged.
-**Prompt:** `docs/claude/PROMPT_plan-balancer.md`
 
 ### feat/exemption-gating
 **Targets:**
@@ -202,3 +190,6 @@ _None._
 | `feat/plan-controls` | 2026-05-07 | ITEM-3 (Reset Plan), ITEM-4 (Add/Remove Semester + dynamic numbering), ITEM-5 (Mark Complete enforcement rules) |
 | `feat/undo-stack` | 2026-05-07 | Replace lastSelection with undoStack (cap 20); multi-step undo for 7 handler types; prior credit undo deferred |
 | `schema/semester-terms` | 2026-05-07 | TERM-1 (Fall/Spring labels on semester cards), TERM-3 (fall-only/spring-only enrollment restrictions), TERM-2 (Add Semester wizard with season+year, persisted to student_semester_notes, Tier 14 migration) |
+| `data/math-sequence-2026` | 2026-05-08 | Remove MATH1920 from all four concentration templates; move MATH2010 to Semester 2; re-seed |
+| `feat/math-placement-gateway` | 2026-05-08 | ACT/SAT math placement entry in wizard; stored as act_placement prior credit; Math Placement group in Prior Coursework panel |
+| `feat/plan-balancer` | 2026-05-08 | Two-pass constrained backfill (< 12 / < 15 credits); auto-trigger on load + priorCredits change; Rebalance Plan button; rebalance undo record; math placement chain gate; science pair integrity |
