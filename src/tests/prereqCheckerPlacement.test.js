@@ -33,7 +33,7 @@ const CSC3100_PREREQ_MAP = {
 const COURSE_MAP_ACT = {
   MATH1910: {
     code: 'MATH1910',
-    description: 'Calculus I. Prereq: MATH1730 or ACT Math score of 27 or higher.',
+    description: 'Calculus I. Prereq: MATH1730 or ACT Math score of 29 or higher.',
   },
 }
 
@@ -357,7 +357,7 @@ describe('checkPrereqs — BUG-31: act_placement guard for placement-classified 
     // Missing is combined into one OR group with the ACT score as an alternative
     expect(result.missing).toHaveLength(1)
     expect(result.missing[0]).toContain('MATH1730')
-    expect(result.missing[0]).toContain('ACT Math 27+')
+    expect(result.missing[0]).toContain('ACT Math 29+')
   })
 
   it('returns satisfied: false when act_placement is for a different course code', () => {
@@ -376,7 +376,7 @@ describe('checkPrereqs — BUG-31: act_placement guard for placement-classified 
     expect(result.satisfied).toBe(false)
     expect(result.missing).toHaveLength(1)
     expect(result.missing[0]).toContain('MATH1730')
-    expect(result.missing[0]).toContain('ACT Math 27+')
+    expect(result.missing[0]).toContain('ACT Math 29+')
   })
 
   it('returns satisfied: true via normal prereq path when prereq course is in satisfiedCodes (no act_placement needed)', () => {

@@ -22,6 +22,7 @@
 //     cannot verify placement or consent, so no warning is appropriate.
 
 import { classifyPrereq } from './classifyPrereq.js'
+import { getActMathThreshold } from './actScoreResolver.js'
 
 // ── checkCoreqs ───────────────────────────────────────────────────────────────
 // Checks whether corequisites for a course are satisfied by availableCodes.
@@ -173,9 +174,8 @@ export function checkPrereqs(
     // append the score so the display reads "Needs: (MATH1730 or ACT Math 27+)"
     // rather than listing them as separate comma-joined requirements.
     if (classification === 'placement') {
-      const desc = courseMap[courseCode]?.description ?? ''
-      const scoreMatch = desc.match(/act math(?:ematics)?\s+score of (\d+)/i)
-      const actHint = scoreMatch ? `ACT Math ${scoreMatch[1]}+` : 'ACT placement score'
+      const actThreshold = getActMathThreshold(courseCode)
+      const actHint = actThreshold != null ? `ACT Math ${actThreshold}+` : 'ACT placement score'
       const allCodes = missing.flatMap(entry => {
         const orMatch = entry.match(/^\((.+)\)$/)
         return orMatch ? orMatch[1].split(' or ').map(s => s.trim()) : [entry]
