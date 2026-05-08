@@ -2703,3 +2703,194 @@
   margin-left: auto;
   white-space: nowrap;
 }
+
+/* ── Onboarding Step 1: student type toggle ───────────────────────────────── */
+
+.onboarding-toggle-prompt {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.onboarding-toggle-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.onboarding-toggle-btn {
+  flex: 1;
+  padding: 0.75rem 0.75rem;
+  background: var(--navy);
+  border: 1px solid var(--navy-light);
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.onboarding-toggle-btn:hover {
+  border-color: var(--muted);
+  color: var(--white);
+}
+
+.onboarding-toggle-btn.selected {
+  border-color: var(--gold);
+  background: rgba(var(--gold-rgb), 0.08);
+  color: var(--white);
+}
+
+/* ── Onboarding Step 3: ACT score inputs ─────────────────────────────────── */
+
+.onboarding-act-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* Last field (Composite) spans full width for visual balance */
+.onboarding-act-grid .onboarding-field:last-child {
+  grid-column: span 2;
+}
+
+.onboarding-input {
+  background: var(--navy);
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+  padding: 0.6rem 0.875rem;
+  color: var(--white);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.onboarding-input:focus {
+  border-color: var(--gold);
+}
+
+.onboarding-input::placeholder {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.onboarding-input.onboarding-input-error {
+  border-color: var(--danger);
+}
+
+/* Hide number-input spinners so it looks like the course search bar */
+.onboarding-input[type="number"]::-webkit-outer-spin-button,
+.onboarding-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.onboarding-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.onboarding-field-error {
+  font-size: 0.7rem;
+  color: var(--danger);
+  line-height: 1.4;
+  margin-top: -0.15rem;
+}
+
+/* ── Onboarding Step 4: pending prior credits list ───────────────────────── */
+/* Mirrors .prior-credit-row / .prior-credits-group visual language from the
+   dashboard Prior Coursework panel so the list looks consistent. */
+
+.onboarding-readonly-value {
+  font-size: 0.8rem;
+  color: var(--muted);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.onboarding-pending-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.onboarding-pending-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.onboarding-pending-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--navy-light);
+  border-radius: 6px;
+}
+
+.onboarding-pending-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--white);
+  min-width: 72px;
+}
+
+.onboarding-pending-note {
+  font-size: 0.72rem;
+  color: var(--muted);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.onboarding-pending-cr {
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.onboarding-pending-remove {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+  padding: 0.1rem 0.25rem;
+  opacity: 0.4;
+  flex-shrink: 0;
+  transition: opacity 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.onboarding-pending-remove:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+/* ── Onboarding responsive (≤ 480px) ────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .onboarding-toggle-row {
+    flex-direction: column;
+  }
+
+  .onboarding-act-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-act-grid .onboarding-field:last-child {
+    grid-column: span 1;
+  }
+}
