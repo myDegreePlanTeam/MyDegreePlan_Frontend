@@ -232,7 +232,7 @@ export function resolvePool(poolCode, courseMap) {
 
 // ── resolveScience ────────────────────────────────────────────────────────────
 
-export const SCIENCE_SEQUENCES = [
+const SCIENCE_SEQUENCES = [
   { courses: ['CHEM1110', 'CHEM1120'] },
   { courses: ['PHYS2010', 'PHYS2020'] },
   { courses: ['PHYS2110', 'PHYS2120'] },

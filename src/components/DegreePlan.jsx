@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
-import { balancePlan } from '../lib/planBalancer'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
@@ -334,62 +333,24 @@ export default function DegreePlan({ profile, onProfileChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, slots, priorCredits, planArchived])
 
-  // ── Auto-balance: run after initial load and after priorCredits change ───────
-  // Fires when there are actual moves OR when any active slot has no saved
-  // semester position in student_plan_slots (first-load guarantee: every active
-  // slot must have its position persisted so requirement_slots.semester_number
-  // is not the long-term source of truth).
-  // Skips if a rebalance undo record is at the top of the stack — prevents
-  // re-triggering immediately after the user undoes an auto-balance.
+  // ── Seed student_plan_slots on first load ───────────────────────────────────
+  // Every active slot with a course assigned but no saved semester override must
+  // have its position written to student_plan_slots so requirement_slots.semester_number
+  // is not the long-term source of truth.
   useEffect(() => {
     if (loading) return
     if (!slots.length || !priorCredits) return
 
-    if (undoStack.length > 0 && undoStack[undoStack.length - 1].type === 'rebalance') return
-
-    const moves = balancePlan({
-      slots, planSlots, planSemesterOverrides, planArchived,
-      priorCredits, courses, prereqMap, coreqMap,
-    })
-
-    // Slots with a course assigned but no saved semester override need their
-    // effective position written to student_plan_slots on this run.
     const unwritten = slots.filter(s =>
       !planArchived[s.id] &&
       (s.is_pool ? planSlots[s.id] : s.class_code) &&
-      planSemesterOverrides[s.id] == null &&
-      !moves[s.id]
+      planSemesterOverrides[s.id] == null
     )
 
-    if (!Object.keys(moves).length && !unwritten.length) return
-
-    if (Object.keys(moves).length > 0) {
-      const prevOverrides = Object.fromEntries(
-        Object.keys(moves).map(id => [id,
-          planSemesterOverrides[id] ?? slots.find(s => s.id === Number(id))?.semester_number
-        ])
-      )
-      setPlanSemesterOverrides(prev => ({ ...prev, ...moves }))
-      pushUndo({ type: 'rebalance', prevOverrides })
-    }
+    if (!unwritten.length) return
 
     // Persist asynchronously — effect must return void or cleanup fn, not a Promise.
     ;(async () => {
-      // Write moved slots (algorithm-assigned new positions).
-      for (const [slotId, newSem] of Object.entries(moves)) {
-        const slot = slots.find(s => s.id === Number(slotId))
-        const courseCode = slot?.is_pool ? planSlots[slotId] ?? null : slot?.class_code ?? null
-        await supabase.from('student_plan_slots').upsert({
-          student_id: profile.id, requirement_slot_id: Number(slotId),
-          selected_course_code: courseCode,
-          status: planStatuses[slotId] ?? 'planned',
-          semester_number: newSem,
-          credits_remaining: planCreditsRemaining[slotId] ?? 0,
-        }, { onConflict: 'student_id, requirement_slot_id' })
-      }
-      // Write unwritten slots using the template hint as their initial position.
-      // This seeds student_plan_slots so future loads read from there rather
-      // than falling back to requirement_slots.semester_number.
       for (const slot of unwritten) {
         const sem = slot.semester_number
         if (sem == null) continue
@@ -861,20 +822,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
     } else if (record.type === 'drag_free') {
       setFreeAddSlots(list => list.map(f => f.id === record.freeAddId ? { ...f, semester_number: record.prevSemester } : f))
       await supabase.from('student_free_add_slots').update({ semester_number: record.prevSemester }).eq('id', record.freeAddId)
-
-    } else if (record.type === 'rebalance') {
-      setPlanSemesterOverrides(prev => ({ ...prev, ...record.prevOverrides }))
-      for (const [slotId, prevSem] of Object.entries(record.prevOverrides)) {
-        const slot = slots.find(s => s.id === Number(slotId))
-        const courseCode = slot?.is_pool ? planSlots[slotId] ?? null : slot?.class_code ?? null
-        await supabase.from('student_plan_slots').upsert({
-          student_id: profile.id, requirement_slot_id: Number(slotId),
-          selected_course_code: courseCode,
-          status: planStatuses[slotId] ?? 'planned',
-          semester_number: prevSem,
-          credits_remaining: planCreditsRemaining[slotId] ?? 0,
-        }, { onConflict: 'student_id, requirement_slot_id' })
-      }
     }
   }
 
@@ -1366,39 +1313,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
     onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
   }
 
-  // ── Rebalance plan (manual button) ───────────────────────────────
-  async function handleRebalance() {
-    const moves = balancePlan({
-      slots, planSlots, planSemesterOverrides, planArchived,
-      priorCredits, courses, prereqMap, coreqMap,
-    })
-    if (!Object.keys(moves).length) {
-      showSaveError('Plan is already balanced — no moves needed.')
-      return
-    }
-
-    const prevOverrides = Object.fromEntries(
-      Object.keys(moves).map(id => [id,
-        planSemesterOverrides[id] ?? slots.find(s => s.id === Number(id))?.semester_number
-      ])
-    )
-
-    setPlanSemesterOverrides(prev => ({ ...prev, ...moves }))
-    pushUndo({ type: 'rebalance', prevOverrides })
-
-    for (const [slotId, newSem] of Object.entries(moves)) {
-      const slot = slots.find(s => s.id === Number(slotId))
-      const courseCode = slot?.is_pool ? planSlots[slotId] ?? null : slot?.class_code ?? null
-      await supabase.from('student_plan_slots').upsert({
-        student_id: profile.id, requirement_slot_id: Number(slotId),
-        selected_course_code: courseCode,
-        status: planStatuses[slotId] ?? 'planned',
-        semester_number: newSem,
-        credits_remaining: planCreditsRemaining[slotId] ?? 0,
-      }, { onConflict: 'student_id, requirement_slot_id' })
-    }
-  }
-
   // ── Add semester wizard ───────────────────────────────────────────
   async function handleAddSemesterConfirm() {
     const newSemNum = allSemesterNumbers.length > 0 ? Math.max(...allSemesterNumbers) + 1 : maxTemplateSem + 1
@@ -1500,13 +1414,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
               onClick={() => setShowResetModal(true)}
             >
               Reset plan
-            </button>
-            <button
-              className="degreeplan-rebalance"
-              onClick={handleRebalance}
-              disabled={loading || resetting}
-            >
-              Rebalance Plan
             </button>
             <button
               className="degreeplan-settings"
