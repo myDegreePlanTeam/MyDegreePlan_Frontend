@@ -56,39 +56,45 @@
 }
 
 :root[data-theme="light"] {
-  /* ── Surfaces — light purple-tinted neutrals ── */
-  --bg:         #F7F4FB;
-  --bg-mid:     #EDE6F5;
-  --bg-light:   #C9BDE0;
+  /* ───── Surfaces — lavender mist (v2, low-glare) ───── */
+  /* bg luminance ≈74% — not paper-white. Comfortable for long planning sessions. */
+  --bg:             #E4DCEE;  /* page bg     · text 13.21:1 ✓ */
+  --bg-mid:         #D6CAE3;  /* card        · text 11.24:1 ✓ */
+  --bg-light:       #8A6FB0;  /* border      · 3.17:1 on bg ✓ (was 1.24:1) */
 
-  /* ── Text ── */
-  --text:       #1A0F30;
-  --text-muted: #5B4A7A;
+  /* ───── Text ───── */
+  --text:           #1F0F3D;  /* deep TTU-purple ink            */
+  --text-muted:     #564275;  /* muted on bg 6.49:1 ✓           */
 
-  /* ── Brand accent — gold darkened for legibility on light bg ── */
-  --gold:       #7A4A00;
-  --gold-light: #8E5A0C;
+  /* ───── Brand accent — gold darkened for legibility on light bg ───── */
+  --gold:           #6E3F00;  /* dark amber · 6.64:1 on bg ✓    */
+  --gold-light:     #8A5400;  /* hover                           */
+  /* NB: when --gold is used as a button BACKGROUND in light mode,
+     keep the bright #F3A51C surface and put --text on top (8.55:1 ✓).
+     The dark --gold above is for FOREGROUND use (text, icons, borders). */
 
-  /* ── Feedback ── */
-  --danger:       #A02828;
-  --danger-light: #C04848;
+  /* ───── Feedback ───── */
+  --danger:         #982020;  /* 6.15:1 on bg ✓ */
+  --danger-light:   #B23838;  /* 4.49:1 on bg ✓ */
 
-  /* ── Status (re-tuned for light bg, all ≥4.5:1) ── */
-  --status-progress: #1F5C99;
-  --status-done:     #1F7A47;
-  --status-warn:     #8A5A00;
-  --status-info:     #2A6BB8;
-  --status-purple:   #7A3D9E;
-  --status-orange:   #9A5A1A;
+  /* ───── Status (re-tuned for lavender bg, all ≥4.5:1) ───── */
+  --status-progress: #1F5C99;  /* 5.17:1 ✓ */
+  --status-done:     #1B6E3E;  /* 4.71:1 ✓ */
+  --status-warn:     #7A5000;  /* 5.30:1 ✓ */
+  --status-info:     #1F4E8F;  /* 6.20:1 ✓ */
+  --status-purple:   #6B3590;  /* 6.22:1 ✓ */
+  --status-orange:   #8A4F15;  /* 4.91:1 ✓ */
 
-  /* ── RGB channel splits — light overrides ── */
-  --bg-rgb:       247, 244, 251;
-  --bg-mid-rgb:   237, 230, 245;
-  --bg-light-rgb: 201, 189, 224;
-  --text-rgb:     26, 15, 48;
-  --muted-rgb:    91, 74, 122;
-  --gold-rgb:     122, 74, 0;
-  --danger-rgb:   160, 40, 40;
+  /* ───── RGB channel splits — light overrides ───── */
+  --bg-rgb:             228, 220, 238;
+  --bg-mid-rgb:         214, 202, 227;
+  --bg-light-rgb:       138, 111, 176;
+  --text-rgb:           31, 15, 61;
+  --muted-rgb:          86, 66, 117;
+  --gold-rgb:           110, 63, 0;
+  --danger-rgb:         152, 32, 32;
+  --status-done-rgb:    27, 110, 62;
+  --status-warn-rgb:    122, 80, 0;
 }
 
 body {
