@@ -5,12 +5,24 @@ import { resolveActMathPlacement, resolveActEnglishCredit } from '../lib/actScor
 import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
-const MATH_CHAINS = {
+// New-curriculum chains (incoming_freshman / transfer): MATH1920 not required.
+const MATH_CHAINS_NEW = {
   MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
   MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
   MATH1730: ['MATH1730', 'MATH1910', 'MATH2010'],
   MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
   MATH1910: ['MATH1910', 'MATH2010'],
+}
+// Old-curriculum chains (returning students): MATH1920 sits between MATH1910 and MATH2010.
+const MATH_CHAINS_RETURNING = {
+  MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH1920', 'MATH2010'],
+  MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH1920', 'MATH2010'],
+  MATH1730: ['MATH1730', 'MATH1910', 'MATH1920', 'MATH2010'],
+  MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
+  MATH1910: ['MATH1910', 'MATH1920', 'MATH2010'],
+}
+function getMathChains(type) {
+  return type === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
 }
 const MATH_FORK_CODES = ['MATH3070', 'MATH3470']
 
@@ -173,7 +185,7 @@ export default function Onboarding({ profileId, onComplete }) {
     const score = Number(actScores.math)
     const placement = resolveActMathPlacement(score)
     if (!placement) return
-    const chainCodes = MATH_CHAINS[placement.satisfies_course_code] ?? []
+    const chainCodes = getMathChains(studentType)[placement.satisfies_course_code] ?? []
     const allCodes = [...chainCodes, ...MATH_FORK_CODES]
     setMathChainLoading(true)
     supabase
@@ -184,7 +196,7 @@ export default function Onboarding({ profileId, onComplete }) {
         setMathChainData(data ?? [])
         setMathChainLoading(false)
       })
-  }, [step])
+  }, [step, studentType])
 
   // ── Final save — persists concentration, start term, student type,
   // ACT columns, and flushes locally accumulated prior_credits in one insert.
@@ -477,7 +489,7 @@ export default function Onboarding({ profileId, onComplete }) {
         {step === 4 && (() => {
           const placement = resolveActMathPlacement(Number(actScores.math))
           const startCode = placement?.satisfies_course_code
-          const chainCodes = startCode ? (MATH_CHAINS[startCode] ?? []) : []
+          const chainCodes = startCode ? (getMathChains(studentType)[startCode] ?? []) : []
           const courseMap = {}
           for (const c of mathChainData) courseMap[c.code] = c
           return (
