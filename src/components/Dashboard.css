@@ -2879,6 +2879,80 @@
   color: var(--danger);
 }
 
+/* ── Math chain display (Onboarding Step 4) ─────────────────────────────── */
+
+.math-chain-scroll {
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.math-chain {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-width: max-content;
+}
+
+.math-chain-segment {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.math-chain-arrow {
+  font-size: 18px;
+  color: var(--ttu-purple, #4F2984);
+  padding: 0 8px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.math-chain-node {
+  background: #fff;
+  border: 2px solid var(--ttu-purple, #4F2984);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+  min-width: 110px;
+  max-width: 140px;
+}
+
+.math-chain-code {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ttu-purple, #4F2984);
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+
+.math-chain-name {
+  font-size: 11px;
+  color: var(--text-secondary, #555);
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.math-chain-credits {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary, #111);
+}
+
+.math-chain-fork {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.math-chain-or {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-secondary, #888);
+  text-align: center;
+}
+
 /* ── Onboarding responsive (≤ 480px) ────────────────────────────────────── */
 
 @media (max-width: 480px) {

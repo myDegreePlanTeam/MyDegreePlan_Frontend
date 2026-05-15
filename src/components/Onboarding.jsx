@@ -5,6 +5,15 @@ import { resolveActMathPlacement, resolveActEnglishCredit } from '../lib/actScor
 import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
+const MATH_CHAINS = {
+  MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
+  MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
+  MATH1730: ['MATH1730', 'MATH1910', 'MATH2010'],
+  MATH1904: ['MATH1904', 'MATH1906', 'MATH1910', 'MATH2010'],
+  MATH1910: ['MATH1910', 'MATH2010'],
+}
+const MATH_FORK_CODES = ['MATH3070', 'MATH3470']
+
 const CONCENTRATION_DESCS = {
   core:          'A broad foundation across all areas of computer science.',
   cybersecurity: 'Security, networking, cryptography, and systems defense.',
@@ -56,7 +65,11 @@ export default function Onboarding({ profileId, onComplete }) {
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState(null)
 
-  // Step 4: every student enters prior credits through the unified wizard.
+  // Step 4: math chain display (only when ACT Math score was entered)
+  const [mathChainData, setMathChainData]       = useState([])
+  const [mathChainLoading, setMathChainLoading] = useState(false)
+
+  // Step 5: every student enters prior credits through the unified wizard.
   // Entries accumulate locally and are batch-inserted on completion, so
   // abandoning onboarding leaves no stray prior_credits rows.
   const [pendingRecords, setPendingRecords] = useState([])
@@ -108,7 +121,7 @@ export default function Onboarding({ profileId, onComplete }) {
     setStep(3)
   }
 
-  // Step 3 → Step 4: validate ACT fields, then load slots
+  // Step 3 → Step 4 (chain) or Step 5 (prior credits if no math score)
   async function handleGoToStep4() {
     const fields = ['math', 'english', 'science', 'reading', 'composite']
     const errors = {}
@@ -121,16 +134,26 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
     setActErrors({})
-    await loadConcSlots()
-    setStep(4)
+    if (actScores.math !== '') {
+      setStep(4)
+    } else {
+      await loadConcSlots()
+      setStep(5)
+    }
   }
 
-  // Skip ACT step entirely → go straight to Step 4
+  // Skip ACT step entirely → go straight to Step 5 (skip chain)
   async function handleSkipAct() {
     setActScores({ math: '', english: '', science: '', reading: '', composite: '' })
     setActErrors({})
     await loadConcSlots()
-    setStep(4)
+    setStep(5)
+  }
+
+  // Step 4 (chain) → Step 5 (prior credits)
+  async function handleGoToStep5() {
+    await loadConcSlots()
+    setStep(5)
   }
 
   async function loadConcSlots() {
@@ -143,6 +166,25 @@ export default function Onboarding({ profileId, onComplete }) {
       setConcSlots(data ?? [])
     }
   }
+
+  // ── Step 4: fetch course data for math chain display ─────────────
+  useEffect(() => {
+    if (step !== 4 || actScores.math === '') return
+    const score = Number(actScores.math)
+    const placement = resolveActMathPlacement(score)
+    if (!placement) return
+    const chainCodes = MATH_CHAINS[placement.satisfies_course_code] ?? []
+    const allCodes = [...chainCodes, ...MATH_FORK_CODES]
+    setMathChainLoading(true)
+    supabase
+      .from('courses')
+      .select('code, name, credits')
+      .in('code', allCodes)
+      .then(({ data }) => {
+        setMathChainData(data ?? [])
+        setMathChainLoading(false)
+      })
+  }, [step])
 
   // ── Final save — persists concentration, start term, student type,
   // ACT columns, and flushes locally accumulated prior_credits in one insert.
@@ -228,13 +270,15 @@ export default function Onboarding({ profileId, onComplete }) {
     1: 'Tell us about yourself',
     2: 'Choose your concentration',
     3: 'ACT Scores',
-    4: 'Any prior credits or placement scores?',
+    4: 'Your Math Sequence',
+    5: 'Any prior credits or placement scores?',
   }
   const STEP_SUBS = {
     1: 'This helps us tailor your degree plan.',
     2: 'This determines your required courses and recommended plan.',
     3: "Enter your ACT scores. Skip if you haven't taken the ACT.",
-    4: "We'll use these to pre-fill your plan and skip false prereq warnings.",
+    4: 'Based on your ACT Math score, here are the courses in your math sequence.',
+    5: "We'll use these to pre-fill your plan and skip false prereq warnings.",
   }
 
   return (
@@ -428,8 +472,75 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 4: Prior credits (skippable) ── */}
-        {step === 4 && (
+        {/* ── Step 4: Math chain display ── */}
+        {step === 4 && (() => {
+          const placement = resolveActMathPlacement(Number(actScores.math))
+          const startCode = placement?.satisfies_course_code
+          const chainCodes = startCode ? (MATH_CHAINS[startCode] ?? []) : []
+          const courseMap = {}
+          for (const c of mathChainData) courseMap[c.code] = c
+          return (
+            <div className="onboarding-body">
+              {mathChainLoading ? (
+                <p className="wizard-loading">Loading your math sequence…</p>
+              ) : (
+                <div className="math-chain-scroll">
+                  <div className="math-chain">
+                    {chainCodes.map((code, i) => {
+                      const course = courseMap[code]
+                      return (
+                        <span key={code} className="math-chain-segment">
+                          {i > 0 && <span className="math-chain-arrow" aria-hidden="true">→</span>}
+                          <div className="math-chain-node">
+                            <div className="math-chain-code">{code.replace('MATH', 'MATH ')}</div>
+                            <div className="math-chain-name">{course?.name ?? '—'}</div>
+                            <div className="math-chain-credits">{course?.credits ?? '?'} cr</div>
+                          </div>
+                        </span>
+                      )
+                    })}
+                    <span className="math-chain-segment">
+                      <span className="math-chain-arrow" aria-hidden="true">→</span>
+                      <div className="math-chain-fork">
+                        {MATH_FORK_CODES.map((code, i) => {
+                          const course = courseMap[code]
+                          return (
+                            <span key={code}>
+                              {i > 0 && <div className="math-chain-or">or</div>}
+                              <div className="math-chain-node">
+                                <div className="math-chain-code">{code.replace('MATH', 'MATH ')}</div>
+                                <div className="math-chain-name">{course?.name ?? '—'}</div>
+                                <div className="math-chain-credits">{course?.credits ?? '?'} cr</div>
+                              </div>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="onboarding-btn-row">
+                <button
+                  className="onboarding-btn-secondary"
+                  onClick={() => setStep(3)}
+                >
+                  Back
+                </button>
+                <button
+                  className="onboarding-btn"
+                  onClick={handleGoToStep5}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* ── Step 5: Prior credits (skippable) ── */}
+        {step === 5 && (
           <div className="onboarding-body">
             <p className="onboarding-sub">
               Add each AP exam, CLEP score, or other prior credit.
@@ -496,7 +607,7 @@ export default function Onboarding({ profileId, onComplete }) {
             <div className="onboarding-btn-row">
               <button
                 className="onboarding-btn-secondary"
-                onClick={() => setStep(3)}
+                onClick={() => setStep(actScores.math !== '' ? 4 : 3)}
                 disabled={loading}
               >
                 Back

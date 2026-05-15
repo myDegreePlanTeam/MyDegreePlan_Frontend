@@ -193,3 +193,4 @@ _None._
 | `data/math-sequence-2026` | 2026-05-08 | Remove MATH1920 from all four concentration templates; move MATH2010 to Semester 2; re-seed |
 | `feat/math-placement-gateway` | 2026-05-08 | ACT/SAT math placement entry in wizard; stored as act_placement prior credit; Math Placement group in Prior Coursework panel |
 | `feat/plan-balancer` | 2026-05-08 | Two-pass constrained backfill (< 12 / < 15 credits); auto-trigger on load + priorCredits change; Rebalance Plan button; rebalance undo record; math placement chain gate; science pair integrity |
+| `feat/act-math-chain-display` | 2026-05-14 | New Onboarding Step 4: left-to-right math sequence chain display driven by ACT Math score; shows course code, name, credits; MATH3070/MATH3470 fork with "or" indicator; display-only, no DB writes |
