@@ -9,7 +9,7 @@ const MATH_CHAINS = {
   MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
   MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
   MATH1730: ['MATH1730', 'MATH1910', 'MATH2010'],
-  MATH1904: ['MATH1904', 'MATH1906', 'MATH1910', 'MATH2010'],
+  MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
   MATH1910: ['MATH1910', 'MATH2010'],
 }
 const MATH_FORK_CODES = ['MATH3070', 'MATH3470']
@@ -271,7 +271,7 @@ export default function Onboarding({ profileId, onComplete }) {
     2: 'Choose your concentration',
     3: 'ACT Scores',
     4: 'Your Math Sequence',
-    5: 'Any prior credits or placement scores?',
+    5: 'Any prior credits?',
   }
   const STEP_SUBS = {
     1: 'This helps us tailor your degree plan.',
@@ -294,6 +294,7 @@ export default function Onboarding({ profileId, onComplete }) {
             <div className={`onboarding-step ${step >= 2 ? 'active' : ''}`} />
             <div className={`onboarding-step ${step >= 3 ? 'active' : ''}`} />
             <div className={`onboarding-step ${step >= 4 ? 'active' : ''}`} />
+            <div className={`onboarding-step ${step >= 5 ? 'active' : ''}`} />
           </div>
         </div>
 
