@@ -276,9 +276,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       if (pcError) { setError(pcError.message); setLoading(false); return }
 
-      // Build initial expanded state: completed semesters start collapsed
+      // Build initial expanded state: completed semesters start collapsed.
+      // Use the student's saved position (planSemesterOverridesMap) when available;
+      // fall back to the template hint (s.semester_number) for slots not yet
+      // written by the algorithm.
       const allSemNums = [...new Set([
-        ...slotData.map(s => s.semester_number),
+        ...slotData.map(s => planSemesterOverridesMap[s.id] ?? s.semester_number),
         ...(freeAdds ?? []).map(f => f.semester_number),
       ])]
       const expandedMap = {}
@@ -332,7 +335,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }, [loading, slots, priorCredits, planArchived])
 
   // ── Auto-balance: run after initial load and after priorCredits change ───────
-  // Only fires when there are actual moves to make (balancePlan returns non-empty).
+  // Fires when there are actual moves OR when any active slot has no saved
+  // semester position in student_plan_slots (first-load guarantee: every active
+  // slot must have its position persisted so requirement_slots.semester_number
+  // is not the long-term source of truth).
   // Skips if a rebalance undo record is at the top of the stack — prevents
   // re-triggering immediately after the user undoes an auto-balance.
   useEffect(() => {
@@ -345,19 +351,31 @@ export default function DegreePlan({ profile, onProfileChange }) {
       slots, planSlots, planSemesterOverrides, planArchived,
       priorCredits, courses, prereqMap, coreqMap,
     })
-    if (!Object.keys(moves).length) return
 
-    const prevOverrides = Object.fromEntries(
-      Object.keys(moves).map(id => [id,
-        planSemesterOverrides[id] ?? slots.find(s => s.id === Number(id))?.semester_number
-      ])
+    // Slots with a course assigned but no saved semester override need their
+    // effective position written to student_plan_slots on this run.
+    const unwritten = slots.filter(s =>
+      !planArchived[s.id] &&
+      (s.is_pool ? planSlots[s.id] : s.class_code) &&
+      planSemesterOverrides[s.id] == null &&
+      !moves[s.id]
     )
 
-    setPlanSemesterOverrides(prev => ({ ...prev, ...moves }))
-    pushUndo({ type: 'rebalance', prevOverrides })
+    if (!Object.keys(moves).length && !unwritten.length) return
+
+    if (Object.keys(moves).length > 0) {
+      const prevOverrides = Object.fromEntries(
+        Object.keys(moves).map(id => [id,
+          planSemesterOverrides[id] ?? slots.find(s => s.id === Number(id))?.semester_number
+        ])
+      )
+      setPlanSemesterOverrides(prev => ({ ...prev, ...moves }))
+      pushUndo({ type: 'rebalance', prevOverrides })
+    }
 
     // Persist asynchronously — effect must return void or cleanup fn, not a Promise.
     ;(async () => {
+      // Write moved slots (algorithm-assigned new positions).
       for (const [slotId, newSem] of Object.entries(moves)) {
         const slot = slots.find(s => s.id === Number(slotId))
         const courseCode = slot?.is_pool ? planSlots[slotId] ?? null : slot?.class_code ?? null
@@ -367,6 +385,21 @@ export default function DegreePlan({ profile, onProfileChange }) {
           status: planStatuses[slotId] ?? 'planned',
           semester_number: newSem,
           credits_remaining: planCreditsRemaining[slotId] ?? 0,
+        }, { onConflict: 'student_id, requirement_slot_id' })
+      }
+      // Write unwritten slots using the template hint as their initial position.
+      // This seeds student_plan_slots so future loads read from there rather
+      // than falling back to requirement_slots.semester_number.
+      for (const slot of unwritten) {
+        const sem = slot.semester_number
+        if (sem == null) continue
+        const courseCode = slot.is_pool ? planSlots[slot.id] ?? null : slot.class_code
+        await supabase.from('student_plan_slots').upsert({
+          student_id: profile.id, requirement_slot_id: slot.id,
+          selected_course_code: courseCode,
+          status: planStatuses[slot.id] ?? 'planned',
+          semester_number: sem,
+          credits_remaining: planCreditsRemaining[slot.id] ?? 0,
         }, { onConflict: 'student_id, requirement_slot_id' })
       }
     })()
@@ -409,9 +442,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return [...new Set([...semesterNumbers, ...extraSemesters])].sort((a, b) => a - b)
   }, [semesterNumbers, extraSemesters])
 
+  // Derive the canonical semester list from algorithm-assigned positions
+  // (planSemesterOverrides) with the template hint as fallback for slots not
+  // yet written by the balancer.  This ensures semester term labels track the
+  // algorithm's output rather than the static seed-data layout.
   const templateSemNums = useMemo(
-    () => [...new Set(slots.map(s => s.semester_number))].sort((a, b) => a - b),
-    [slots]
+    () => {
+      const effective = slots.map(s => planSemesterOverrides[s.id] ?? s.semester_number)
+      return [...new Set(effective)].filter(n => n != null).sort((a, b) => a - b)
+    },
+    [slots, planSemesterOverrides]
   )
 
   const semesterTerms = useMemo(
