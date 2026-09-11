@@ -285,6 +285,24 @@ If matched, `checkPrereqs` suppresses all warnings for that course (planner cann
 placement scores or instructor approval). `prereqCode` parameter is included in the signature
 for future use but is currently unused — do not remove it.
 
+### `src/lib/requirementMap.js`
+
+**`buildRequirementMap(rows)`** → `{ [courseCode]: { [groupIndex]: { logic, codes } } }`
+
+The only place prereq/coreq maps are built from `prerequisite_entries` / `corequisite_entries`
+rows — `DegreePlan.jsx`, `Onboarding.jsx`, and `ProfileSettings.jsx` all call it. Any new
+loader must too. It applies `REQUIREMENT_SUBSTITUTES`: `MATH1910 → ['MATH1906']` (catalog:
+MATH1904 + MATH1906 equals MATH1910; MATH1906 requires MATH1904). OR groups gain the
+substitute; an AND member with a substitute becomes its own OR group. `withSubstitutes(map)`
+does the same for an already-built map (used by tests). The DB rows themselves are unchanged.
+
+### `src/lib/removedPrereqs.js`
+
+`getRemovedPrereqs(courseCode, prereqMap, planCodes, removedCodes)` — for a locked course
+option, the prereqs that only a course the student's math placement removed (`archive_reason =
+'not_applicable'`) can satisfy. `SlotModal` shows these as a note (PHYS2110 / MATH3470 →
+MATH1920). `getPlanCodes` / `getRemovedCodes` derive the inputs from plan state.
+
 ### `src/lib/degreeBuilder.js`
 
 **`buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile })`**

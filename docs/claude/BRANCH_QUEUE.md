@@ -17,6 +17,14 @@ BUG-49 (ACT-change re-run without `standing_req`), BUG-50 (ACT change wipes pool
 Statistics and Communications course, change ACT Math in Profile Settings → picks survive,
 CSC3040 stays after COMM_REQ.
 
+### fix/math-track-prereqs
+**Targets:** BUG-51 (MATH1906 not accepted for MATH1910 prereqs), plus the MATH1920 note on
+PHYS2110 / MATH3470 in the course picker.
+**Manual verification:** ACT Math 27 — MATH2010 and CSC2700 land after MATH1906, CSC1300 with
+it; course detail shows "MATH1910 or MATH1906". ACT Math 30 — open Natural Science and
+Statistics: PHYS2110 / MATH3470 show the "MATH1920 isn't in your plan" note; add MATH1920 as a
+free-add in an earlier semester → note disappears and the course unlocks.
+
 ---
 
 ## Queued Branches
