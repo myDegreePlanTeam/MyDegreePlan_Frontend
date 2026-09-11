@@ -1,5 +1,5 @@
 // transferCredits.js
-import { GEN_ED_CATEGORIES } from './poolResolver.js'
+import { GEN_ED_CATEGORIES, POOL_CREDIT_ESTIMATES } from './poolResolver.js'
 //
 // Pure helpers — no side effects, no Supabase calls.
 //
@@ -316,4 +316,77 @@ export function getTakenCodes(planSlots, slots, priorCredits, freeAddSlots = [])
   }
 
   return taken
+}
+
+// ── creditsBeforeSemester ─────────────────────────────────────────────────────
+
+/**
+ * Credit hours a student will have earned before `targetSem` — the number
+ * junior (60) and senior (90) standing is checked against. Positional: counts
+ * prior credits plus everything planned in semesters strictly earlier.
+ *
+ * Rules:
+ *   - Every credit-bearing prior credit counts; a course code contributes
+ *     once, prior credits first (same dedup as computePlanCredits).
+ *   - Archived slots are skipped: a prior credit covering one is already
+ *     counted, and 'not_applicable' slots are not part of the plan.
+ *   - A filled pool slot counts its chosen course. An unfilled pool slot
+ *     counts its expected hours (flex_credits, else POOL_CREDIT_ESTIMATES):
+ *     the requirement is still taken in that semester.
+ *   - Slots with no semester are not "before" anything.
+ *
+ * Shared by DegreePlan's standing warnings and SlotModal's course picker so
+ * the two can't disagree.
+ *
+ * @param {number} targetSem
+ * @param {Object} plan
+ * @param {Array}  plan.slots                 – requirement_slots rows
+ * @param {Object} plan.planSlots             – { [slotId]: selectedCourseCode }
+ * @param {Object} plan.planSemesterOverrides – { [slotId]: semesterNumber }
+ * @param {Object} plan.planArchived          – { [slotId]: truthy when archived }
+ * @param {Array}  plan.priorCredits          – prior_credits rows
+ * @param {Object} plan.courses               – { [courseCode]: { credits, ... } }
+ * @param {Array}  plan.freeAddSlots          – student_free_add_slots rows
+ * @returns {number}
+ */
+export function creditsBeforeSemester(targetSem, {
+  slots = [], planSlots = {}, planSemesterOverrides = {}, planArchived = {},
+  priorCredits = [], courses = {}, freeAddSlots = [],
+} = {}) {
+  const seen = new Set()
+  let total = 0
+
+  for (const pc of priorCredits ?? []) {
+    const credits = pc.credits_awarded ?? 0
+    if (credits <= 0) continue
+    const code = pc.satisfies_course_code
+    if (code) {
+      if (seen.has(code)) continue
+      seen.add(code)
+    }
+    total += credits
+  }
+
+  for (const slot of slots ?? []) {
+    if (planArchived?.[slot.id]) continue
+    const sem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
+    if (sem == null || !(sem < targetSem)) continue
+    const code = slot.is_pool ? planSlots?.[slot.id] : slot.class_code
+    if (!code) {
+      total += slot.flex_credits ?? POOL_CREDIT_ESTIMATES[slot.class_code] ?? 3
+      continue
+    }
+    if (seen.has(code)) continue
+    seen.add(code)
+    total += courses?.[code]?.credits ?? (slot.is_pool ? (slot.flex_credits ?? 3) : 0)
+  }
+
+  for (const fa of freeAddSlots ?? []) {
+    if (!fa?.course_code || fa.semester_number == null || !(fa.semester_number < targetSem)) continue
+    if (seen.has(fa.course_code)) continue
+    seen.add(fa.course_code)
+    total += courses?.[fa.course_code]?.credits ?? 0
+  }
+
+  return total
 }

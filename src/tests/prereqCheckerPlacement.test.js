@@ -390,3 +390,32 @@ describe('checkPrereqs — BUG-31: act_placement guard for placement-classified 
     expect(result).toEqual({ satisfied: true })
   })
 })
+
+// ── "ACT Math sub-score" wording (MATH1710) ─────────────────────────────────
+// MATH1710's catalog text says "sub-score", which the placement patterns
+// missed, so an ACT 19–24 student placed into MATH1710 was told they needed
+// MATH1000 once archived math-chain slots stopped counting as completed.
+
+describe('checkPrereqs — MATH1710 "ACT Math sub-score" placement', () => {
+  const prereqMap = { MATH1710: { 0: { logic: 'AND', codes: ['MATH1000'] } } }
+  const courseMap = {
+    MATH1710: {
+      description: 'Prerequisites: A minimum ACT Math sub-score of 19, or completion of Learning '
+        + 'Competencies 1 through 5, or a minimum grade of C in MATH 1000.',
+    },
+  }
+
+  it('is satisfied by a matching act_placement prior credit', () => {
+    const priorCredits = [
+      { credit_type: 'act_placement', satisfies_course_code: 'MATH1710', credits_awarded: 0 },
+    ]
+    expect(checkPrereqs('MATH1710', prereqMap, new Set(), priorCredits, courseMap))
+      .toEqual({ satisfied: true })
+  })
+
+  it('offers the ACT score as an alternative when no placement is recorded', () => {
+    const result = checkPrereqs('MATH1710', prereqMap, new Set(), [], courseMap)
+    expect(result.satisfied).toBe(false)
+    expect(result.missing).toEqual(['(MATH1000 or ACT Math 19+)'])
+  })
+})

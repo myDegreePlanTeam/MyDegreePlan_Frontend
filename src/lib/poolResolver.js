@@ -187,6 +187,25 @@ export const POOL_LABELS = {
   FREE_ELECTIVE:      'Free Elective',
 }
 
+// ── Pool slot credit estimates ────────────────────────────────────────────────
+// Expected hours for a pool slot the student hasn't filled yet (a slot's own
+// flex_credits takes precedence). Shared by the degree builder, which balances
+// semesters with them, and standing checks, which count an unfilled slot as
+// the hours it will carry.
+
+export const POOL_CREDIT_ESTIMATES = {
+  GEN_ED:             3,
+  ENG_LIT:            3,
+  SCIENCE:            4,
+  COMM_REQ:           3,
+  MATH_STATS:         3,
+  CSC_LOWER_ELECTIVE: 3,
+  CSC_UPPER_ELECTIVE: 3,
+  CSC_ELECTIVE:       3,
+  CSC_HPC_ELECTIVE:   3,
+  FREE_ELECTIVE:      3,
+}
+
 // ── Helper function ───────────────────────────────────────────────────────────
 // Given a pool code and the full course catalog (as the courseMap object
 // from DegreePlan), returns an array of course objects valid for that slot.

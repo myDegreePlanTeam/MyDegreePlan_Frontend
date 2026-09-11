@@ -6,7 +6,7 @@ import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
-import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes } from '../lib/transferCredits'
+import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import Semester from './Semester'
@@ -462,21 +462,23 @@ export default function DegreePlan({ profile, onProfileChange }) {
     [planSlots, slots, courses, priorCredits]
   )
 
-  // ── Codes already in the plan (BUG-34) ─────────────────────────────
-  // Mirrors computePlanCredits dedup keyspace. Passed to AddCourseModal so
-  // the picker greys out duplicates of template, pool, free-add, or
-  // credit-bearing prior_credits entries.
-  const takenCodes = useMemo(
-    () => getTakenCodes(planSlots, slots, priorCredits, freeAddSlots),
-    [planSlots, slots, priorCredits, freeAddSlots]
-  )
-
   // ── Plan completeness (non-archived slots only) ───────────────────
   const activeSlots = useMemo(
     () => slots.filter(s => !planArchived[s.id]),
     [slots, planArchived]
   )
   const { isComplete } = usePlanCompleteness(activeSlots, planSlots, genEdStatus)
+
+  // ── Codes already in the plan (BUG-34) ─────────────────────────────
+  // Mirrors computePlanCredits dedup keyspace. Passed to AddCourseModal so
+  // the picker greys out duplicates of template, pool, free-add, or
+  // credit-bearing prior_credits entries. Archived slots don't count: a
+  // prior credit covering one is caught by the prior-credit pass, and a
+  // 'not_applicable' course isn't in the plan, so it may be added freely.
+  const takenCodes = useMemo(
+    () => getTakenCodes(planSlots, activeSlots, priorCredits, freeAddSlots),
+    [planSlots, activeSlots, priorCredits, freeAddSlots]
+  )
 
   // ── Transfer credit slot satisfaction ────────────────────────────
   const transferFilled = useMemo(
@@ -529,13 +531,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // (collapse the card); it does not feed satisfaction into the prereq
   // checker. BUG-13: previously a later completed semester satisfied
   // prereqs of earlier-semester courses regardless of direction.
+  // Archived and unplaced slots are left out: their semester is null, and
+  // `null < n` is true, so they used to count as completed before everything.
+  // Prior-credit courses still satisfy prereqs through priorCredits.
   const prereqWarnings = useMemo(() => {
     const placed = []
 
-    for (const slot of slots) {
+    for (const slot of activeSlots) {
       const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
       const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
-      if (code) placed.push({ key: slot.id, code, sem })
+      if (code && sem != null) placed.push({ key: slot.id, code, sem })
     }
     for (const fa of freeAddSlots) {
       placed.push({ key: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
@@ -552,20 +557,21 @@ export default function DegreePlan({ profile, onProfileChange }) {
       if (!result.satisfied) warnings[item.key] = result.missing
     }
     return warnings
-  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses, coreqMap])
+  }, [activeSlots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses, coreqMap])
 
   // ── Reactive corequisite warnings (Bug 4 fix) ────────────────────
   // availableCodes = completedCodes (strictly earlier) + same-semester codes
   // Corequisites check against availableCodes (same-semester enrollment counts).
   // BUG-13: the completion toggle does not feed satisfaction in either
-  // direction; only positional ordering does.
+  // direction; only positional ordering does. Archived and unplaced slots are
+  // left out, as in prereqWarnings.
   const coreqWarnings = useMemo(() => {
     const placed = []
 
-    for (const slot of slots) {
+    for (const slot of activeSlots) {
       const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
       const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
-      if (code) placed.push({ key: slot.id, code, sem })
+      if (code && sem != null) placed.push({ key: slot.id, code, sem })
     }
     for (const fa of freeAddSlots) {
       placed.push({ key: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
@@ -595,19 +601,19 @@ export default function DegreePlan({ profile, onProfileChange }) {
       if (!result.satisfied) warnings[item.key] = result.missing
     }
     return warnings
-  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, coreqMap, priorCredits])
+  }, [activeSlots, planSlots, freeAddSlots, planSemesterOverrides, coreqMap, priorCredits])
 
   // ── Standing requirement warnings ────────────────────────────────
+  // creditsBeforeSemester skips archived slots and counts unfilled pool slots
+  // at their expected hours (shared with SlotModal's course picker).
   const standingWarnings = useMemo(() => {
-    const priorCreditHrs = priorCredits.reduce(
-      (sum, pc) => sum + (pc.credits_awarded ?? 0), 0
-    )
+    const plan = { slots, planSlots, planSemesterOverrides, planArchived, priorCredits, courses, freeAddSlots }
     const warnings = {}
 
-    for (const slot of slots) {
+    for (const slot of activeSlots) {
       const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
       const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
-      if (!code) continue
+      if (!code || sem == null) continue
 
       const course = courses[code]
       if (!course?.standing_req) continue
@@ -615,29 +621,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const threshold = STANDING_THRESHOLDS[course.standing_req]
       if (!threshold) continue
 
-      let creditsBefore = priorCreditHrs
-      for (const s of slots) {
-        const sSem = planSemesterOverrides[s.id] ?? s.semester_number
-        if (sSem >= sem) continue
-        if (s.is_pool) {
-          const c = planSlots[s.id]
-          creditsBefore += c ? (courses[c]?.credits ?? 0) : 0
-        } else {
-          creditsBefore += courses[s.class_code]?.credits ?? 0
-        }
-      }
-      for (const fa of freeAddSlots) {
-        if (fa.semester_number < sem) {
-          creditsBefore += courses[fa.course_code]?.credits ?? 0
-        }
-      }
-
-      if (creditsBefore < threshold) {
+      if (creditsBeforeSemester(sem, plan) < threshold) {
         warnings[slot.id] = course.standing_req
       }
     }
     return warnings
-  }, [slots, planSlots, freeAddSlots, planSemesterOverrides, courses, priorCredits])
+  }, [slots, activeSlots, planSlots, planArchived, freeAddSlots, planSemesterOverrides, courses, priorCredits])
 
   // ── Per-semester warning gate ─────────────────────────────────────
   // A semester cannot be marked complete if it has unresolved prereq/coreq warnings.
@@ -1800,6 +1789,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           coreqMap={coreqMap}
           priorCredits={priorCredits}
           planSemesterOverrides={planSemesterOverrides}
+          planArchived={planArchived}
+          freeAddSlots={freeAddSlots}
           onSave={handleSave}
           onRemove={handleRemove}
           onClose={() => setActiveSlot(null)}
@@ -1843,6 +1834,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           planSlots={planSlots}
           slots={slots}
           studentType={profile?.student_type ?? null}
+          planSemesterOverrides={planSemesterOverrides}
+          planArchived={planArchived}
         />
       )}
 

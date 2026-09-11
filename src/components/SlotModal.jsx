@@ -5,6 +5,7 @@ import {
   GEN_ED_CATEGORIES, getGenEdStatus,
 } from '../lib/poolResolver'
 import { checkPrereqs } from '../lib/prereqChecker'
+import { creditsBeforeSemester } from '../lib/transferCredits'
 import './Dashboard.css'
 
 export default function SlotModal({
@@ -16,6 +17,8 @@ export default function SlotModal({
   coreqMap,
   priorCredits,
   planSemesterOverrides,
+  planArchived = {},
+  freeAddSlots = [],
   onSave,
   onRemove,
   onClose,
@@ -92,13 +95,16 @@ export default function SlotModal({
   // Prereqs are "completed codes in prior semesters only" — strictly < targetSem.
   // Coreqs (same-semester enrollment) are handled inside checkPrereqs via
   // isCoreqForCourse. Prior credits are not added here; checkPrereqs enhances
-  // the set internally from the priorCredits argument.
+  // the set internally from the priorCredits argument. Archived and unplaced
+  // slots have no semester and are skipped (a null semester would otherwise
+  // pass as "earlier" than everything).
   const satisfiedCodes = useMemo(() => {
     const targetSem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
     const codes = new Set()
     for (const s of slots) {
+      if (planArchived[s.id]) continue
       const sSem = planSemesterOverrides?.[s.id] ?? s.semester_number
-      if (sSem >= targetSem) continue
+      if (sSem == null || !(sSem < targetSem)) continue
       if (s.is_pool) {
         const code = planSlots[s.id]
         if (code) codes.add(code)
@@ -107,57 +113,34 @@ export default function SlotModal({
       }
     }
     return codes
-  }, [slots, planSlots, planSemesterOverrides, slot.id, slot.semester_number])
+  }, [slots, planSlots, planArchived, planSemesterOverrides, slot.id, slot.semester_number])
 
   const takenCodes = useMemo(() => {
     // Exclude this slot's own selection — otherwise re-opening a filled slot
     // would show the current course as "Already selected" and unclickable.
+    // Archived slots aren't in the plan ('not_applicable' math courses keep
+    // their class_code in planSlots), so their codes stay selectable.
     const currentSlotId = String(slot.id)
     return new Set(
       Object.entries(planSlots)
-        .filter(([id]) => id !== currentSlotId)
+        .filter(([id]) => id !== currentSlotId && !planArchived[id])
         .map(([, code]) => code)
     )
-  }, [planSlots, slot.id])
+  }, [planSlots, planArchived, slot.id])
 
   // ── Credit hours accumulated before this semester (positional) ───────
   // Used to determine whether junior/senior standing is met at this slot.
-  // Mirrors computePlanCredits dedup: prior credits first (authoritative,
-  // win over plan slots for the same code), then plan slots in semesters
-  // strictly before the target. planSemesterOverrides is honored on both
-  // sides so drag-moved courses resolve to their current semester.
+  // Same computation as DegreePlan's standing warnings (see
+  // creditsBeforeSemester): prior credits first, then active slots and
+  // free-adds in strictly earlier semesters, unfilled pools at their
+  // expected hours.
   const creditsBefore = useMemo(() => {
     const targetSem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
-    const seen = new Set()
-    let total = 0
-
-    for (const pc of (priorCredits ?? [])) {
-      if ((pc.credits_awarded ?? 0) <= 0) continue
-      if (!pc.satisfies_course_code) continue
-      if (seen.has(pc.satisfies_course_code)) continue
-      seen.add(pc.satisfies_course_code)
-      total += pc.credits_awarded
-    }
-
-    for (const s of slots) {
-      const sSem = planSemesterOverrides?.[s.id] ?? s.semester_number
-      if (sSem >= targetSem) continue
-      let code, credits
-      if (s.is_pool) {
-        code = planSlots[s.id]
-        if (!code) continue
-        credits = courseMap[code]?.credits ?? s.flex_credits ?? 3
-      } else {
-        code = s.class_code
-        credits = courseMap[code]?.credits ?? 0
-      }
-      if (seen.has(code)) continue
-      seen.add(code)
-      total += credits
-    }
-
-    return total
-  }, [slots, planSlots, courseMap, priorCredits, planSemesterOverrides, slot.id, slot.semester_number])
+    return creditsBeforeSemester(targetSem, {
+      slots, planSlots, planSemesterOverrides, planArchived,
+      priorCredits, courses: courseMap, freeAddSlots,
+    })
+  }, [slots, planSlots, courseMap, priorCredits, planSemesterOverrides, planArchived, freeAddSlots, slot.id, slot.semester_number])
 
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
@@ -347,7 +330,7 @@ export default function SlotModal({
             <h3 className="modal-title">
               {POOL_LABELS[slot.class_code] ?? slot.class_code}
             </h3>
-            <p className="modal-sub">Semester {slot.semester_number}</p>
+            <p className="modal-sub">Semester {planSemesterOverrides?.[slot.id] ?? slot.semester_number}</p>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>

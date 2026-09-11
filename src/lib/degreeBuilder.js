@@ -16,6 +16,7 @@
 
 import { resolveTransferCredits } from './transferCredits'
 import { resolveActMathPlacement } from './actScoreResolver'
+import { POOL_CREDIT_ESTIMATES } from './poolResolver'
 
 // ─── Math chain data ──────────────────────────────────────────────────────────
 
@@ -39,23 +40,6 @@ const ALL_MATH_CHAIN_CODES = new Set([
   'MATH1000', 'MATH1710', 'MATH1720', 'MATH1730',
   'MATH1904', 'MATH1906', 'MATH1910', 'MATH1920', 'MATH2010',
 ])
-
-// ─── Credit estimates for pool slots ─────────────────────────────────────────
-// Used when the student hasn't filled the pool yet. The algorithm needs a
-// credit-hour estimate to balance semesters.
-
-const POOL_CREDIT_ESTIMATES = {
-  GEN_ED:              3,
-  ENG_LIT:             3,
-  SCIENCE:             4,
-  COMM_REQ:            3,
-  MATH_STATS:          3,
-  CSC_LOWER_ELECTIVE:  3,
-  CSC_UPPER_ELECTIVE:  3,
-  CSC_ELECTIVE:        3,
-  CSC_HPC_ELECTIVE:    3,
-  FREE_ELECTIVE:       3,
-}
 
 // ─── Semester credit targets ──────────────────────────────────────────────────
 

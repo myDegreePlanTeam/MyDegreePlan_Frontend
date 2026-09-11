@@ -20,7 +20,7 @@
 // prerequisite_entries rows).  Currently unused.
 
 const ACT_PATTERNS = [
-  /act math(ematics)?\s+score/i,
+  /act math(ematics)?\s+(sub-?)?score/i,   // MATH1710: "ACT Math sub-score of 19"
   /act mathematics score/i,
   /act score of/i,
   /sat math/i,

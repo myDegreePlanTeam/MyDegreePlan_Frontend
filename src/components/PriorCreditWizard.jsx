@@ -64,7 +64,10 @@ function effectiveTestType(selectedExam, creditType) {
   return selectedExam?.test_type ?? creditType
 }
 
-export default function PriorCreditWizard({ onSave, onClose, planSlots, slots, studentType = null }) {
+export default function PriorCreditWizard({
+  onSave, onClose, planSlots, slots, studentType = null,
+  planSemesterOverrides = {}, planArchived = {},
+}) {
   const [step, setStep]           = useState(1)
   const [creditType, setCreditType] = useState(null)
   const [selectedExam, setSelectedExam] = useState(null) // { test_name, ... } or course object
@@ -346,9 +349,11 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots, s
     return `${label}: ${examName}`
   }
 
+  // Archived slots (prior credit or 'not_applicable') aren't in the plan, so
+  // an award for one of those courses doesn't remove anything.
   function slotForCode(code) {
     if (!code || !slots) return null
-    return slots.find(s => s.class_code === code)
+    return slots.find(s => s.class_code === code && !planArchived[s.id])
   }
 
   // ── Backdrop click ────────────────────────────────────────────────
@@ -496,7 +501,7 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots, s
               {awards.map((award, i) => {
                 const slot = slotForCode(award.awarded_course_code)
                 const slotSem = slot
-                  ? (slot.semester_number ?? '?')
+                  ? (planSemesterOverrides[slot.id] ?? slot.semester_number)
                   : null
                 const alreadyInPlan = !!slot
                 const isPlacementOnly = (award.credits_awarded ?? 0) === 0
@@ -519,8 +524,8 @@ export default function PriorCreditWizard({ onSave, onClose, planSlots, slots, s
                       </p>
                     ) : alreadyInPlan ? (
                       <p className="wizard-award-effect">
-                        This removes <strong>{award.awarded_course_code}</strong> from
-                        Semester {slotSem} of your plan.
+                        This removes <strong>{award.awarded_course_code}</strong> from{' '}
+                        {slotSem != null ? `Semester ${slotSem} of your plan.` : 'your plan.'}
                       </p>
                     ) : (
                       <p className="wizard-award-effect wizard-award-effect-no-slot">

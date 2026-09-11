@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildDegreePlan } from '../lib/degreeBuilder'
+import { POOL_CREDIT_ESTIMATES } from '../lib/poolResolver'
 
 // ── Fixture: CSC Core concentration, from the live catalog (2026-09-11) ─────
 // Flat template (no semester hints) exactly as seeded, including every
@@ -64,10 +65,7 @@ const COREQS = {
   CSC1310: { 0: { logic: 'AND', codes: ['MATH1910'] } },
 }
 
-// Mirrors POOL_CREDIT_ESTIMATES in degreeBuilder.js (credits for unfilled pools).
-const POOL_ESTIMATES = { SCIENCE: 4 }
-const POOL_CODES = new Set(['GEN_ED', 'ENG_LIT', 'SCIENCE', 'COMM_REQ', 'MATH_STATS',
-  'CSC_LOWER_ELECTIVE', 'CSC_UPPER_ELECTIVE', 'FREE_ELECTIVE'])
+const POOL_CODES = new Set(Object.keys(POOL_CREDIT_ESTIMATES))
 
 function makeSlots(entries) {
   return entries.map((entry, i) => {
@@ -78,7 +76,7 @@ function makeSlots(entries) {
 
 function credits(slot, courses) {
   if (slot.flex_credits) return slot.flex_credits
-  if (slot.is_pool) return POOL_ESTIMATES[slot.class_code] ?? 3
+  if (slot.is_pool) return POOL_CREDIT_ESTIMATES[slot.class_code] ?? 3
   return courses[slot.class_code]?.credits ?? 3
 }
 
