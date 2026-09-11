@@ -15,6 +15,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { resolveTransferCredits, resolveTransferDetails } from '../lib/transferCredits'
+import { getGenEdStatus } from '../lib/poolResolver'
 
 // ── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -634,5 +635,64 @@ describe('Rule 2 — GEN_ED sub-pool saturation (BUG-45)', () => {
     const result = resolveTransferDetails(priorCredits, {}, slots)
     expect(Object.keys(result).length).toBe(2)
     expect(result[SLOT_GENED_3.id]).toBeUndefined()
+  })
+})
+
+// ── BUG-54: reported student — AP/ACT load leaves room for US History ────────
+// Reported plan: AP Macro, AP Eng Lit, AP Human Geography, AP Eng Lang (ENGL1010
+// + ENGL1020), AP World History (HIST2310 + HIST2320), ACT Math gate, and ACT
+// English re-awarding ENGL1010/ENGL1020.  Humanities and Social both reach 6 hrs
+// from prior credit, so four GEN_ED slots archive — the remaining two must stay
+// open for the 6 hrs of US History (HIST2010 + HIST2020) the student still owes.
+describe('GEN_ED capacity for the reported AP/ACT student (BUG-54)', () => {
+  const SLOT_ENGL1010 = { id: 101, class_code: 'ENGL1010', is_pool: false }
+  const SLOT_ENGL1020 = { id: 102, class_code: 'ENGL1020', is_pool: false }
+  const SLOT_ENG_LIT  = { id: 201, class_code: 'ENG_LIT',  is_pool: true }
+  const GEN_ED_SLOTS  = [301, 302, 303, 304, 305, 306].map(
+    id => ({ id, class_code: 'GEN_ED', is_pool: true })
+  )
+  const REPORTED_SLOTS = [SLOT_ENGL1010, SLOT_ENGL1020, SLOT_ENG_LIT, ...GEN_ED_SLOTS]
+
+  // satisfies_pool values mirror test_equivalencies.sql exactly.
+  const REPORTED_CREDITS = [
+    { id: 1,  credit_type: 'ap_credit',     satisfies_course_code: 'ECON2020', credits_awarded: 3, satisfies_pool: 'GEN_ED'  },
+    { id: 2,  credit_type: 'ap_credit',     satisfies_course_code: 'ENGL2235', credits_awarded: 3, satisfies_pool: 'ENG_LIT' },
+    { id: 3,  credit_type: 'ap_credit',     satisfies_course_code: 'GEOG1012', credits_awarded: 3, satisfies_pool: 'GEN_ED'  },
+    { id: 4,  credit_type: 'ap_credit',     satisfies_course_code: 'ENGL1010', credits_awarded: 3, satisfies_pool: null      },
+    { id: 5,  credit_type: 'ap_credit',     satisfies_course_code: 'ENGL1020', credits_awarded: 3, satisfies_pool: null      },
+    { id: 6,  credit_type: 'ap_credit',     satisfies_course_code: 'HIST2310', credits_awarded: 3, satisfies_pool: 'GEN_ED'  },
+    { id: 7,  credit_type: 'ap_credit',     satisfies_course_code: 'HIST2320', credits_awarded: 3, satisfies_pool: 'GEN_ED'  },
+    { id: 8,  credit_type: 'act_placement', satisfies_course_code: 'MATH1910', credits_awarded: 0, satisfies_pool: null      },
+    { id: 9,  credit_type: 'act_credit',    satisfies_course_code: 'ENGL1010', credits_awarded: 3, satisfies_pool: null      },
+    { id: 10, credit_type: 'act_credit',    satisfies_course_code: 'ENGL1020', credits_awarded: 3, satisfies_pool: null      },
+  ]
+
+  it('archives four of six GEN_ED slots, leaving two for US History', () => {
+    const archived     = resolveTransferCredits(REPORTED_CREDITS, {}, REPORTED_SLOTS)
+    const genEdLeft    = GEN_ED_SLOTS.filter(s => !archived[s.id])
+    expect(GEN_ED_SLOTS.filter(s => archived[s.id]).length).toBe(4)
+    expect(genEdLeft.length).toBe(2)   // 2 slots × 3 hrs = the 6 hrs of History owed
+  })
+
+  it('duplicate ACT English credits do not spill into the GEN_ED pool', () => {
+    // ENGL1010/ENGL1020 are awarded twice (AP and ACT). Only one of each can
+    // archive its fixed slot; the leftovers carry satisfies_pool = null, so
+    // Rule 2 must never let them consume a GEN_ED seat.
+    const archived = resolveTransferCredits(REPORTED_CREDITS, {}, REPORTED_SLOTS)
+    expect(archived[SLOT_ENGL1010.id]).toBe(true)
+    expect(archived[SLOT_ENGL1020.id]).toBe(true)
+    expect(archived[SLOT_ENG_LIT.id]).toBe(true)
+  })
+
+  it('History is unsatisfied but not at risk once two slots remain', () => {
+    const archived = resolveTransferCredits(REPORTED_CREDITS, {}, REPORTED_SLOTS)
+    const status   = getGenEdStatus({}, REPORTED_SLOTS, {}, REPORTED_CREDITS, archived)
+    const byCat    = Object.fromEntries(status.map(s => [s.category, s]))
+
+    expect(byCat.Humanities.satisfied).toBe(true)
+    expect(byCat.Social.satisfied).toBe(true)
+    expect(byCat.History.satisfied).toBe(false)
+    expect(byCat.History.filled).toBe(0)
+    expect(byCat.History.atRisk).toBe(false)
   })
 })

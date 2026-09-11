@@ -86,6 +86,36 @@
 > them to clear a standing flag the student would otherwise have hit, none flagged after. Tests
 > grew 397 → 402. Bug counts unchanged (found and fixed in the same session).
 
+> **2026-09-11 update (4):** BUG-54 found and fixed in the same session on
+> `fix/gen-ed-slot-capacity` (both repos), from a reported plan whose General Education
+> requirement collapsed to a single slot while the student still owed 6 hrs of US History.
+> BUG-54 (High): the flat concentration templates added in `migration: tiers 18-20` under-provision
+> the GEN_ED pool. `GEN_ED_CATEGORIES` requires 6 hrs each of History, Humanities & Arts and
+> Social Science — 18 hrs, six slots — but `csc_core`, `csc_cybersecurity` and `csc_dsai` shipped
+> five and `csc_hpc` four. This is a regression of the original BUG-1 (see the 2026-04-17 update):
+> the HPC slot restored by `migration_tier12.sql` was lost when the templates were rewritten flat,
+> and the same shortfall spread to the other three. Every template was exactly 3 hrs (or 6 for HPC)
+> under its own declared 120; all four now total 120 exactly with six GEN_ED slots.
+> The reported student (AP Macro + AP Human Geography = Social 6/6, AP World History ×2 =
+> Humanities 6/6) legitimately archived four slots, leaving one seat for HIST2010 + HIST2020.
+> Second facet: `getGenEdStatus` counted archived slots as open capacity, so `overallAtRisk`
+> measured the shortfall against seats that no longer exist and the student saw no warning at all.
+> It now takes `planArchived` as an optional fifth parameter and filters archived slots out of
+> `genEdSlots`; `DegreePlan.genEdStatus` and `SlotModal.renderGenEdSections` pass it. The same
+> filter stops a selection preserved on an archived slot (BUG-42) from counting toward a sub-pool.
+> `matchPriorCreditsToSlots` is unchanged — its BUG-45 saturation guard caps each sub-pool at
+> 6 hrs, which is exactly two slots, so six slots make over-archiving impossible.
+> Real seed data, 4 concentrations: the reported student leaves 2 GEN_ED slots in every one, and
+> History reads 0/6 not-at-risk. 84 built plans (4 concentrations x ACT 15-33 x 3 student types):
+> every slot placed, heaviest semester 17 credits. Tests grew 402 -> 409. Bug counts unchanged
+> (found and fixed in the same session).
+>
+> **Deploy:** re-run `seed.js` from `MyDegreePlan_Prototype/`. `planSlotSync` matches by
+> (class_code, nth occurrence), so the five existing GEN_ED rows keep their ids and only the new
+> one is inserted — no student plan is wiped. The inserted slot has a null position, so
+> `DegreePlan`'s Step 7.5 unplaced-slot pass places it on each student's next load. No migration
+> file is needed.
+
 ## Bug counts by severity
 
 | Severity | Count |

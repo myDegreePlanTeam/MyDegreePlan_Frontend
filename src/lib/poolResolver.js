@@ -434,6 +434,13 @@ export const GEN_ED_CATEGORIES = {
 // exceeds the capacity of the remaining empty GEN_ED slots.  When the overall
 // plan becomes infeasible every unsatisfied category is flagged.
 //
+// Archived slots are NOT capacity (BUG-54).  A slot archived by a prior credit
+// is gone from the grid, so counting it as an open seat overstates how much
+// room is left and silences the at-risk warning exactly when it matters most:
+// a student whose prior credits saturate two sub-pools has fewer seats left
+// than unarchived-slot arithmetic suggests.  Callers pass the same
+// planArchived map the grid filters on.
+//
 // Shape: [{ category, label, filled, required, satisfied, atRisk }, ...]
 
 const GEN_ED_CATEGORY_LABELS = {
@@ -442,8 +449,10 @@ const GEN_ED_CATEGORY_LABELS = {
   Social:    'Social Science',
 }
 
-export function getGenEdStatus(planSlots, slots, courseMap, priorCredits = []) {
-  const genEdSlots  = slots.filter(s => s.is_pool && s.class_code === 'GEN_ED')
+export function getGenEdStatus(planSlots, slots, courseMap, priorCredits = [], planArchived = {}) {
+  const genEdSlots  = slots.filter(
+    s => s.is_pool && s.class_code === 'GEN_ED' && !planArchived?.[s.id]
+  )
   const emptySlots  = genEdSlots.filter(s => !planSlots[s.id]).length
 
   // Build a reverse lookup: courseCode → category

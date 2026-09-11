@@ -84,3 +84,60 @@ describe('getGenEdStatus — prior credits', () => {
     expect(result.find(r => r.category === 'History').filled).toBe(0)
   })
 })
+
+// ── BUG-54: archived slots are not remaining capacity ────────────────────────
+// A slot archived by a prior credit is gone from the grid. Counting it as an
+// open seat overstates how much GEN_ED room is left, which silenced the
+// at-risk warning for the student whose prior credits saturate two sub-pools.
+describe('getGenEdStatus — archived slots (BUG-54)', () => {
+  it('archived GEN_ED slots do not count as remaining capacity', () => {
+    // Humanities + Social satisfied by prior credits; History still needs 6 hrs.
+    const priorCredits = [
+      pc(1, 'HIST2310', 3), pc(2, 'HIST2320', 3),   // Humanities 6
+      pc(3, 'ECON2010', 3), pc(4, 'GEOG1012', 3),   // Social 6
+    ]
+    // Those four credits archived four of the six GEN_ED slots.
+    const planArchived = { 1: 'prior_credit', 2: 'prior_credit', 3: 'prior_credit', 4: 'prior_credit' }
+
+    const result = getGenEdStatus({}, ALL_SLOTS, courseMap, priorCredits, planArchived)
+    const history = result.find(r => r.category === 'History')
+
+    // Two live slots × 3 hrs exactly covers the 6-hr History shortfall.
+    expect(history.filled).toBe(0)
+    expect(history.satisfied).toBe(false)
+    expect(history.atRisk).toBe(false)
+  })
+
+  it('flags at risk when archiving leaves too few slots for the shortfall', () => {
+    // Same student, but a template with only five GEN_ED slots: four archived
+    // leaves one seat for a 6-hr History requirement.
+    const FIVE_SLOTS = [[1, 2, 3, 4, 5].map(SLOT_GEN_ED), SLOT_OTHER(99)].flat()
+    const priorCredits = [
+      pc(1, 'HIST2310', 3), pc(2, 'HIST2320', 3),
+      pc(3, 'ECON2010', 3), pc(4, 'GEOG1012', 3),
+    ]
+    const planArchived = { 1: 'prior_credit', 2: 'prior_credit', 3: 'prior_credit', 4: 'prior_credit' }
+
+    const result = getGenEdStatus({}, FIVE_SLOTS, courseMap, priorCredits, planArchived)
+    const history = result.find(r => r.category === 'History')
+
+    expect(history.satisfied).toBe(false)
+    expect(history.atRisk).toBe(true)
+  })
+
+  it('does not count a preserved selection on an archived slot', () => {
+    // BUG-42 preserves the student's pick on an archived slot's DB row so an
+    // unarchive restores it — but the course is not in the plan any more.
+    const planSlots    = { 1: 'HIST2310' }             // Humanities pick, slot archived
+    const planArchived = { 1: 'prior_credit' }
+    const result = getGenEdStatus(planSlots, ALL_SLOTS, courseMap, [], planArchived)
+    expect(result.find(r => r.category === 'Humanities').filled).toBe(0)
+  })
+
+  it('omitting planArchived (default {}) behaves identically to the 4-arg signature', () => {
+    const priorCredits = [pc(1, 'HIST2010', 3)]
+    const withDefault  = getGenEdStatus({}, ALL_SLOTS, courseMap, priorCredits)
+    const withExplicit = getGenEdStatus({}, ALL_SLOTS, courseMap, priorCredits, {})
+    expect(withDefault).toEqual(withExplicit)
+  })
+})
