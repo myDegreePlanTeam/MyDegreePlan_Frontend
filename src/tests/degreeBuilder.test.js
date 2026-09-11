@@ -209,6 +209,85 @@ describe('buildDegreePlan — ordering', () => {
   })
 })
 
+// ── Pool prerequisites (regression: CSC3220 placed before MATH_STATS, ───────
+// CSC3040 before COMM_REQ). Prereqs from the live catalog; a pool option's
+// own prereqs decide how early its slot can go.
+
+const STATS_OPTIONS = { logic: 'OR', codes: ['MATH3070', 'MATH3470', 'MATH4470'] }
+
+const POOL_OPTION_PREREQS = {
+  MATH3070: { 0: { logic: 'OR', codes: ['MATH1130', 'MATH1710', 'MATH1910'] } },
+  MATH3470: { 0: { logic: 'AND', codes: ['MATH1920'] } },
+  PC2500:   { 0: { logic: 'AND', codes: ['ENGL1020'] } },
+  CHEM1120: { 0: { logic: 'AND', codes: ['CHEM1110'] } },
+}
+
+// CSC Core plus DSAI's statistics courses. CSC3220 lists statistics as both
+// a prereq and a coreq, so it may share the semester.
+const WITH_STATS_COURSES = {
+  slotEntries: [...CORE_SLOTS, 'CSC2220', 'CSC3220', 'CSC4220'],
+  courses: { ...COURSES, CSC2220: { credits: 3 }, CSC3220: { credits: 3 }, CSC4220: { credits: 3 } },
+  prereqs: {
+    ...PREREQS, ...POOL_OPTION_PREREQS,
+    CSC3220: { 0: { logic: 'AND', codes: ['CSC2220'] }, 1: { logic: 'AND', codes: ['CSC1310'] }, 2: STATS_OPTIONS },
+    CSC4220: {
+      0: { logic: 'AND', codes: ['MATH2010'] }, 1: { logic: 'AND', codes: ['CSC2310'] },
+      2: { logic: 'OR', codes: ['CSC2700', 'MATH2610', 'MATH3400'] }, 3: STATS_OPTIONS,
+    },
+  },
+  coreqs: { ...COREQS, CSC3220: { 0: STATS_OPTIONS } },
+}
+
+// ProfileSettings once ran the builder without standing_req, which let
+// CSC3040 jump ahead of COMM_REQ. Pool ordering must hold without it.
+const NO_STANDING = Object.fromEntries(Object.entries(COURSES).map(([c, v]) => [c, { credits: v.credits }]))
+
+describe('buildDegreePlan — pool prerequisites', () => {
+  const poolSems = (r, code) => r.active.filter(s => s.class_code === code).map(s => r.assignments[s.id])
+
+  it('places MATH_STATS before CSC4220 and no later than CSC3220', () => {
+    for (const act_math of [20, 25, 29, 33]) {
+      const r = plan({ act_math }, WITH_STATS_COURSES)
+      expect(r.semOf('MATH_STATS'), `ACT ${act_math}`).toBeLessThan(r.semOf('CSC4220'))
+      expect(r.semOf('MATH_STATS'), `ACT ${act_math}`).toBeLessThanOrEqual(r.semOf('CSC3220'))
+    }
+  })
+
+  it('places COMM_REQ before CSC3040, even without standing data', () => {
+    for (const courses of [COURSES, NO_STANDING]) {
+      for (const act_math of [15, 20, 25, 29]) {
+        const r = plan({ act_math }, { courses })
+        expect(r.semOf('COMM_REQ'), `ACT ${act_math}`).toBeLessThan(r.semOf('CSC3040'))
+      }
+    }
+  })
+
+  it('keeps MATH_STATS after the calculus its options require', () => {
+    const withOptions = { prereqs: { ...PREREQS, ...POOL_OPTION_PREREQS } }
+    const low = plan({ act_math: 20 }, withOptions)
+    expect(low.semOf('MATH_STATS')).toBeGreaterThan(low.semOf('MATH1710'))
+    const high = plan({ act_math: 29 }, withOptions)
+    expect(high.semOf('MATH_STATS')).toBeGreaterThan(high.semOf('MATH1910'))
+  })
+
+  it('places a course needing a science sequel after both SCIENCE slots', () => {
+    // No CSC template has one yet — this guards future degree-plan imports.
+    const r = plan({}, {
+      slotEntries: [...CORE_SLOTS, 'XSCI3000'],
+      courses: { ...COURSES, XSCI3000: { credits: 3 } },
+      prereqs: { ...PREREQS, ...POOL_OPTION_PREREQS, XSCI3000: { 0: { logic: 'AND', codes: ['CHEM1120'] } } },
+    })
+    expect(r.semOf('XSCI3000')).toBeGreaterThan(Math.max(...poolSems(r, 'SCIENCE')))
+  })
+
+  it('never ties a course to an elective pool (no cycle on the MATH1904 track)', () => {
+    // At ACT 27 MATH1910 is archived, leaving CSC1200 — a CSC_ELECTIVE option
+    // — as CSC1300's only listed prereq, and that pool must follow CSC1310.
+    const r = plan({ act_math: 27 }, { slotEntries: [...CORE_SLOTS, 'CSC_ELECTIVE'] })
+    expect(r.maxSem).toBeLessThanOrEqual(9)
+  })
+})
+
 // ── Math chain archiving ─────────────────────────────────────────────────────
 
 describe('buildDegreePlan — math chain', () => {
