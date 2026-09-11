@@ -8,7 +8,7 @@
 ## Active Branches (not yet merged)
 
 Stacked — merge in this order: `fix/pool-prereq-placement` → `fix/math-track-prereqs` →
-`feat/gen-ed-interleaving`.
+`feat/gen-ed-interleaving` → `fix/builder-prior-credit-accounting`.
 
 ### fix/pool-prereq-placement
 **Targets:** BUG-48 (courses placed before the pool slot that satisfies their prereq),
@@ -34,6 +34,15 @@ semester.
 SCIENCE pair in the first ~3 semesters, COMM_REQ in S1, MATH_STATS right after MATH1910, a
 gen-ed in each of S1–S4, electives and CSC4615 at the end, no semester above 18 credits.
 Existing students' saved positions don't move until they reset or change their ACT score.
+
+### fix/builder-prior-credit-accounting
+**Targets:** BUG-52 (onboarding archived only one prior-credit slot because the rows it places
+the plan with have no id yet), BUG-53 (builder summed `credits_awarded` for standing while the
+grid counts each course code once, so two exams awarding the same course inflated standing).
+**Manual verification:** DSAI (or Core), ACT Math 32 and ACT English 34, with AP English
+Language and AP credit for ENG_LIT plus four GEN_EDs. Finish onboarding → every covered slot is
+already in Prior Coursework on the first load and no semester has a hole where one used to be;
+CSC4610 carries no senior-standing warning. Reset Plan produces the same grid as onboarding did.
 
 ---
 

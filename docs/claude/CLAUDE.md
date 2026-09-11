@@ -239,7 +239,9 @@ Three strict matching rules (Bug 3 fix — do not relax these):
   credits count toward total degree hours. They archive nothing.
 - Only credit-bearing entries (`credits_awarded > 0`) participate. Placement-only entries
   (`credits_awarded === 0`) never match.
-- One prior credit archives at most one slot (first match wins; tracked via `usedPriorCreditIds`).
+- One prior credit archives at most one slot (first match wins; tracked via `usedCredits`, keyed
+  on `pc.id ?? pc` — `Onboarding` places the plan with rows it has not INSERTed yet, and keying
+  on `id` alone made every id-less row the same credit, so only one slot was archived (BUG-52)).
 
 **`resolveTransferDetails(priorCredits, planSlots, slots)`** → `{ [slotId]: { creditType, priorCreditId } }`
 Same matching logic as `resolveTransferCredits` but returns richer info for UI badge labels.
@@ -313,6 +315,10 @@ change), and `DegreePlan.jsx` (first load with unplaced slots, Reset Plan). Call
 result to `student_plan_slots` with `position_source = 'algorithm'`.
 - `courseMap` **must include `standing_req`** — without it junior/senior gates are skipped
   silently (BUG-49).
+- **Prior hours come from `creditsBeforeSemester(1, { priorCredits })`**, the same helper the
+  grid's standing warnings use, so a course two exams award (AP English Language and ACT
+  English 27+ both award ENGL1010) counts once. Summing `credits_awarded` placed senior
+  courses on hours the student did not have and the grid then flagged them (BUG-53).
 - Archives math-chain courses outside the student's ACT track (`not_applicable`) and slots
   covered by prior credit. Required courses pack first (15 cr target, 18 max), then pools
   backfill.

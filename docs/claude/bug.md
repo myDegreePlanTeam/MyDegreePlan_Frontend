@@ -66,6 +66,26 @@
 
 > **2026-09-11 update (2):** BUG-51 found and fixed in the same session on `fix/math-track-prereqs`. BUG-51 (Medium): students on the MATH1904 → MATH1906 track (ACT 27–28) never satisfied a MATH1910 prerequisite — the planner put MATH2010 and CSC2700 in their first semester beside MATH1904, and MATH3070 / CSC1300 / CSC1310 had no reachable calculus prereq. The catalog lists MATH1904 + MATH1906 as equivalent to MATH1910; new `src/lib/requirementMap.js` applies `REQUIREMENT_SUBSTITUTES` (`MATH1910 → MATH1906`) to every prereq and coreq map as it is built, replacing three hand-rolled loaders. Same branch: the course picker now notes when an option's prereq is a course the student's math placement removed (PHYS2110 / MATH3470 → MATH1920). Tests grew 370 → 393. Bug counts unchanged (found and fixed in the same session).
 
+> **2026-09-11 update (3):** BUG-52 and BUG-53 found and fixed in the same session on
+> `fix/builder-prior-credit-accounting`, from a reported DSAI plan (AP English Language + ACT
+> English 34 + four AP GEN_EDs) with 10-credit semesters, CSC3220 placed before the statistics
+> pool, and CSC4610 flagged for senior standing. BUG-52 (High): `matchPriorCreditsToSlots`
+> tracked spent credits by `pc.id`, but `Onboarding.handleComplete` places the plan with the
+> rows it is *about to* INSERT, which have no id yet — every one keyed as `undefined`, so the
+> first match consumed them all and exactly one slot was archived. The builder then planned the
+> student's other covered courses (ENGL1020, ENG_LIT and four GEN_EDs for the reported student)
+> as courses still to take; the load-time sync (BUG-23) archived them on first load, and since
+> nothing re-places a slot after archiving, their semesters kept the holes. Identity now falls
+> back to the row itself when it has no id. BUG-53 (High): the builder summed `credits_awarded`
+> for prior hours while the grid counts a course code once (`creditsBeforeSemester`) — two exams
+> awarding the same course inflated standing by 6 hours, placing CSC4610 where the grid then
+> flagged it (89 of 90 hours). The builder now calls `creditsBeforeSemester`, so placement and
+> warning read from one function. Real seed data, 4 concentrations × ACT 15–33 × 3 student types
+> × 3 start seasons × both entry points (2016 plans): standing flags 179 → 0, slots
+> planned-then-archived 1512 → 0, no semester over 18 credits; 54 plans gain a semester, 48 of
+> them to clear a standing flag the student would otherwise have hit, none flagged after. Tests
+> grew 397 → 402. Bug counts unchanged (found and fixed in the same session).
+
 ## Bug counts by severity
 
 | Severity | Count |
