@@ -285,6 +285,27 @@ If matched, `checkPrereqs` suppresses all warnings for that course (planner cann
 placement scores or instructor approval). `prereqCode` parameter is included in the signature
 for future use but is currently unused — do not remove it.
 
+### `src/lib/degreeBuilder.js`
+
+**`buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile })`**
+→ `{ assignments: { [slotId]: semester }, archived: { [slotId]: 'not_applicable' | 'prior_credit' } }`
+
+Pure placement algorithm. Called from `Onboarding.jsx`, `ProfileSettings.jsx` (ACT-score
+change), and `DegreePlan.jsx` (first load with unplaced slots, Reset Plan). Callers write the
+result to `student_plan_slots` with `position_source = 'algorithm'`.
+- `courseMap` **must include `standing_req`** — without it junior/senior gates are skipped
+  silently (BUG-49).
+- Archives math-chain courses outside the student's ACT track (`not_applicable`) and slots
+  covered by prior credit. Required courses pack first (15 cr target, 18 max), then pools
+  backfill.
+- **Pool prerequisites:** a prereq group no fixed course or prior credit can satisfy resolves to
+  the requirement pool that provides it (`REQUIREMENT_POOLS`: SCIENCE, COMM_REQ, MATH_STATS,
+  ENG_LIT, GEN_ED) — CSC3040 waits for COMM_REQ, DSAI's CSC4220 for MATH_STATS. A sequel
+  (CHEM1120) waits for as many of the pool's slots as its in-pool chain is long. Elective pools
+  never gate (CSC1200 in CSC1300's prereqs would form a cycle). A pool slot can't precede its
+  options' own prereqs (`poolEarliest`).
+- Tests: `src/tests/degreeBuilder.test.js` (live-catalog fixtures).
+
 ### `src/lib/usePlanCompleteness.js`
 
 React hook that computes plan completeness metrics (total slots, filled slots, credits earned vs.

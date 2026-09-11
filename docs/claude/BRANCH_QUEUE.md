@@ -7,7 +7,15 @@
 
 ## Active Branches (not yet merged)
 
-_None._
+Stacked — merge in this order: `fix/pool-prereq-placement` → `fix/math-track-prereqs` →
+`feat/gen-ed-interleaving`.
+
+### fix/pool-prereq-placement
+**Targets:** BUG-48 (courses placed before the pool slot that satisfies their prereq),
+BUG-49 (ACT-change re-run without `standing_req`), BUG-50 (ACT change wipes pool selections).
+**Manual verification:** DSAI, ACT 30 — MATH_STATS lands before CSC3220/CSC4220. Pick a
+Statistics and Communications course, change ACT Math in Profile Settings → picks survive,
+CSC3040 stays after COMM_REQ.
 
 ---
 

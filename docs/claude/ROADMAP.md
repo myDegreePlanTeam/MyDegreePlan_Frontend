@@ -20,6 +20,12 @@ not yet decided; likely driven by which departments request it or have clean cat
 - A concentration template ingestion pipeline (currently hand-authored `csc_*.json` per concentration).
 - Catalog-wide validation: pool definitions in `poolResolver.js` currently encode CSC-specific pools (`CSC_LOWER_ELECTIVE`, `CSC_HPC_ELECTIVE`, etc.). Expanding beyond CSC means either per-department pool tables or moving pool membership into the DB.
 - GEN_ED sub-requirement enforcement (see below) — CSC currently tolerates loose GEN_ED handling; other colleges may not.
+- **Template import check — pool prerequisites.** No CSC template has a required course whose
+  prereq is satisfiable only through a pool other than COMM_REQ / MATH_STATS, but other
+  programs will (e.g. a course requiring a lab science). `degreeBuilder` handles these for the
+  requirement pools (`REQUIREMENT_POOLS`, including SCIENCE sequels) — for each new template,
+  run the builder across ACT scores and confirm no course lands before its pool. Elective
+  pools are deliberately excluded from gating; a template that needs one would need new logic.
 
 ### Banner / university SIS integration
 Import transcripts directly so students don't hand-enter prior coursework. The schema is
