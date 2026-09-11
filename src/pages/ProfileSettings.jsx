@@ -100,14 +100,18 @@ export default function ProfileSettings() {
     // ── 3. Fetch data for algorithm re-run ─────────────────────────────────
     const [slotsRes, coursesRes, prereqRes, coreqRes, priorRes, studentSlotsRes] = await Promise.all([
       supabase.from('requirement_slots').select('id, class_code, is_pool, flex_credits').eq('concentration_id', profile.concentration_id),
-      supabase.from('courses').select('code, credits'),
+      // standing_req drives the builder's junior/senior placement — without it
+      // CSC3040 jumped ahead of COMM_REQ and the pool front-fill never ran.
+      supabase.from('courses').select('code, credits, standing_req'),
       supabase.from('prerequisite_entries').select('course_code, group_index, logic, required_code'),
       supabase.from('corequisite_entries').select('course_code, group_index, logic, required_code'),
       supabase.from('prior_credits').select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded').eq('plan_id', profile.id),
-      supabase.from('student_plan_slots').select('requirement_slot_id, position_source').eq('student_id', profile.id),
+      supabase.from('student_plan_slots').select('requirement_slot_id, position_source, selected_course_code, status, credits_remaining').eq('student_id', profile.id),
     ])
 
-    if (slotsRes.error || coursesRes.error) {
+    // The existing rows are needed to keep the student's selections below;
+    // recalculating without them would wipe those and overwrite dragged slots.
+    if (slotsRes.error || coursesRes.error || prereqRes.error || coreqRes.error || priorRes.error || studentSlotsRes.error) {
       setError('Failed to reload degree data. Please refresh the page.')
       setSaving(false)
       return
@@ -137,6 +141,17 @@ export default function ProfileSettings() {
         .map(r => r.requirement_slot_id)
     )
 
+    // The re-run only moves slots. Keep each row's course choice, status, and
+    // remaining credits — it used to write selected_course_code: null to every
+    // pool slot, wiping the student's picks on each ACT change.
+    const existingRows = {}
+    for (const r of studentSlotsRes.data ?? []) existingRows[r.requirement_slot_id] = r
+    const keptFields = slot => ({
+      selected_course_code: existingRows[slot.id]?.selected_course_code ?? (slot.is_pool ? null : slot.class_code),
+      status:               existingRows[slot.id]?.status ?? 'planned',
+      credits_remaining:    existingRows[slot.id]?.credits_remaining ?? 0,
+    })
+
     // ── 4. Re-run algorithm ────────────────────────────────────────────────
     const { assignments, archived } = buildDegreePlan({
       slots,
@@ -158,16 +173,14 @@ export default function ProfileSettings() {
       const archiveReason = archived[slot.id]
       if (archiveReason) {
         planSlotRows.push({
-          student_id: profile.id, requirement_slot_id: slot.id,
-          selected_course_code: slot.is_pool ? null : slot.class_code,
-          status: 'planned', semester_number: null, credits_remaining: 0,
+          student_id: profile.id, requirement_slot_id: slot.id, ...keptFields(slot),
+          semester_number: null,
           archived: true, archive_reason: archiveReason, position_source: null,
         })
       } else if (assignments[slot.id] != null) {
         planSlotRows.push({
-          student_id: profile.id, requirement_slot_id: slot.id,
-          selected_course_code: slot.is_pool ? null : slot.class_code,
-          status: 'planned', semester_number: assignments[slot.id], credits_remaining: 0,
+          student_id: profile.id, requirement_slot_id: slot.id, ...keptFields(slot),
+          semester_number: assignments[slot.id],
           archived: false, archive_reason: null, position_source: 'algorithm',
         })
       }
