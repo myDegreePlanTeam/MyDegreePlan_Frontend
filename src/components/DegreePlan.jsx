@@ -73,9 +73,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // showWizard: true when the guided prior credit wizard is open
   const [showWizard, setShowWizard]               = useState(false)
 
-  // planArchived: { [slotId]: true } — slots removed from grid by a prior credit
-  // (Concept 2 / Bug 2). Persisted as archived=true, archive_reason='prior_credit'
-  // in student_plan_slots.
+  // planArchived: { [slotId]: archiveReason | true } — slots removed from grid by
+  // a prior credit (Concept 2 / Bug 2) or by the degree builder
+  // ('not_applicable' math-chain courses). Persisted as archived=true plus
+  // archive_reason in student_plan_slots. Always truthy when archived.
   //
   // TODO: individual course completion status will be driven by Banner transcript
   // data on university integration. Do not add manual per-course completion
@@ -113,8 +114,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     const newTransferFilled = resolveTransferCredits(newPriorCredits, planSlots, slots)
 
+    // Only prior-credit archives are ours to undo. 'not_applicable' slots were
+    // archived by the degree builder (math chain) and no prior credit covers them.
     const toArchive   = slots.filter(s => newTransferFilled[s.id] && !planArchived[s.id])
-    const toUnarchive = slots.filter(s => planArchived[s.id]       && !newTransferFilled[s.id])
+    const toUnarchive = slots.filter(s =>
+      planArchived[s.id] && planArchived[s.id] !== 'not_applicable' && !newTransferFilled[s.id]
+    )
 
     if (toArchive.length > 0) {
       await Promise.all(toArchive.map(slot =>
@@ -191,7 +196,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         if (row.credits_remaining > 0)
           planCreditsRemainingMap[row.requirement_slot_id] = row.credits_remaining
         if (row.archived)
-          planArchivedMap[row.requirement_slot_id] = true
+          planArchivedMap[row.requirement_slot_id] = row.archive_reason || true
       }
 
       // Step 3 — free-add slots
@@ -280,6 +285,62 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       if (pcError) { setError(pcError.message); setLoading(false); return }
 
+      // Step 7.6 — place slots that have no semester.
+      // requirement_slots.semester_number is NULL under the flat templates, so a
+      // slot's position lives only in student_plan_slots. When those rows are
+      // missing (plan wiped by a re-seed, concentration switch, onboarding
+      // before the degree builder existed) every slot resolves to no semester
+      // and the grid renders empty. Run the degree builder and persist its
+      // placement for just those slots; saved positions are left alone.
+      const unplaced = slotData.filter(s =>
+        !planArchivedMap[s.id] &&
+        (planSemesterOverridesMap[s.id] ?? s.semester_number) == null
+      )
+      if (unplaced.length > 0) {
+        const { assignments, archived } = buildDegreePlan({
+          slots:        slotData,
+          courseMap,
+          prereqMap:    prereqMapBuilt,
+          coreqMap:     coreqMapBuilt,
+          priorCredits: priorCreditsData ?? [],
+          studentProfile: {
+            student_type: profile.student_type,
+            act_math:     profile.act_math,
+            start_season: profile.start_season,
+          },
+        })
+
+        const placedRows = []
+        for (const slot of unplaced) {
+          const row = {
+            student_id:           profile.id,
+            requirement_slot_id:  slot.id,
+            selected_course_code: planSlotsMap[slot.id] ?? (slot.is_pool ? null : slot.class_code),
+            status:               planStatusesMap[slot.id] ?? 'planned',
+            credits_remaining:    planCreditsRemainingMap[slot.id] ?? 0,
+          }
+          if (archived[slot.id]) {
+            planArchivedMap[slot.id] = archived[slot.id]
+            placedRows.push({ ...row, semester_number: null, archived: true,
+              archive_reason: archived[slot.id], position_source: null })
+          } else if (assignments[slot.id] != null) {
+            planSemesterOverridesMap[slot.id] = assignments[slot.id]
+            placedRows.push({ ...row, semester_number: assignments[slot.id], archived: false,
+              archive_reason: null, position_source: 'algorithm' })
+          }
+        }
+
+        const { error: placeError } = await supabase
+          .from('student_plan_slots')
+          .upsert(placedRows, { onConflict: 'student_id, requirement_slot_id' })
+        if (placeError) {
+          // The grid still renders from the computed positions; they are
+          // recomputed on the next load until the save succeeds.
+          console.error('[loadPlan] student_plan_slots upsert failed:', placeError)
+          showSaveError(`Couldn't save your plan layout: ${placeError.message}`)
+        }
+      }
+
       // Build initial expanded state: completed semesters start collapsed.
       // Use the student's saved position (planSemesterOverridesMap) when available;
       // fall back to the template hint (s.semester_number) for slots not yet
@@ -335,47 +396,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, slots, priorCredits, planArchived])
 
-  // ── Seed student_plan_slots on first load ───────────────────────────────────
-  // Every active slot with a course assigned but no saved semester override must
-  // have its position written to student_plan_slots so requirement_slots.semester_number
-  // is not the long-term source of truth.
-  useEffect(() => {
-    if (loading) return
-    if (!slots.length || !priorCredits) return
-
-    const unwritten = slots.filter(s =>
-      !planArchived[s.id] &&
-      (s.is_pool ? planSlots[s.id] : s.class_code) &&
-      planSemesterOverrides[s.id] == null
-    )
-
-    if (!unwritten.length) return
-
-    // Persist asynchronously — effect must return void or cleanup fn, not a Promise.
-    ;(async () => {
-      for (const slot of unwritten) {
-        const sem = slot.semester_number
-        if (sem == null) continue
-        const courseCode = slot.is_pool ? planSlots[slot.id] ?? null : slot.class_code
-        await supabase.from('student_plan_slots').upsert({
-          student_id: profile.id, requirement_slot_id: slot.id,
-          selected_course_code: courseCode,
-          status: planStatuses[slot.id] ?? 'planned',
-          semester_number: sem,
-          credits_remaining: planCreditsRemaining[slot.id] ?? 0,
-        }, { onConflict: 'student_id, requirement_slot_id' })
-      }
-    })()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  // Intentional: only re-trigger on priorCredits change, not every render.
-  // slots/planSlots/etc. are stable references after initial load.
-  }, [loading, priorCredits])
-
   // ── Build semesterMap — archived and unplaced slots excluded ────────────
   // Archived slots (prior credit or not_applicable) are removed from the grid.
-  // Slots with no resolved semester (both planSemesterOverrides and
-  // slot.semester_number are null) are omitted until the algorithm writes a
-  // position for them.
+  // loadPlan places every slot with no resolved semester (Step 7.6); a slot
+  // that still has none is omitted rather than rendered under "null".
   const semesterMap = useMemo(() => {
     return slots.reduce((acc, slot) => {
       if (planArchived[slot.id]) return acc
@@ -464,9 +488,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // computePlanCredits dedups across prior_credits, plan_slots, and
   // free-add slots — a course code contributes once, with prior credits
   // winning over plan slots and plan slots winning over free-add (BUG-6).
+  // Only active slots count: an archived slot is either covered by a prior
+  // credit (counted in pass 1) or not part of this student's degree
+  // (not_applicable math-chain courses).
   const creditTotals = useMemo(() => {
     const { breakdown } = computePlanCredits(
-      planSlots, priorCredits, slots, courses, freeAddSlots
+      planSlots, priorCredits, activeSlots, courses, freeAddSlots
     )
 
     let completed = 0
@@ -488,7 +515,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     return { completed, planned }
-  }, [slots, planSlots, planStatuses, courses, freeAddSlots, priorCredits])
+  }, [activeSlots, planSlots, planStatuses, courses, freeAddSlots, priorCredits])
 
   // ── Transfer details (richer info for badge labels) ───────────────
   const transferDetails = useMemo(

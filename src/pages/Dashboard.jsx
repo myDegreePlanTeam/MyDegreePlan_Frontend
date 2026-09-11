@@ -35,6 +35,8 @@ export default function Dashboard() {
             concentration_id,
             start_season,
             start_year,
+            student_type,
+            act_math,
             concentrations (
             id,
             code,
@@ -55,6 +57,8 @@ export default function Dashboard() {
             concentration_id,
             start_season,
             start_year,
+            student_type,
+            act_math,
             concentrations (
                 id,
                 code,

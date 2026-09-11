@@ -364,6 +364,7 @@ export default function Onboarding({ profileId, onComplete }) {
       start_season:     startSeason,
       start_year:       startYear,
       student_type:     studentType,
+      act_math:         actMathNum,
       concentrations:   concData,
     })
   }
