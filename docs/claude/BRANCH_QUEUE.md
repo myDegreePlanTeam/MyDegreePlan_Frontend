@@ -1,48 +1,36 @@
 # MyDegreePlan — Branch Queue
 
 > Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-05-08 (feat/plan-balancer merged)
+> Last updated: 2026-09-11 (placement stack merged)
 
 ---
 
 ## Active Branches (not yet merged)
 
-Stacked — merge in this order: `fix/pool-prereq-placement` → `fix/math-track-prereqs` →
-`feat/gen-ed-interleaving` → `fix/builder-prior-credit-accounting`.
+_None._
 
-### fix/pool-prereq-placement
-**Targets:** BUG-48 (courses placed before the pool slot that satisfies their prereq),
-BUG-49 (ACT-change re-run without `standing_req`), BUG-50 (ACT change wipes pool selections).
-**Manual verification:** DSAI, ACT 30 — MATH_STATS lands before CSC3220/CSC4220. Pick a
-Statistics and Communications course, change ACT Math in Profile Settings → picks survive,
-CSC3040 stays after COMM_REQ.
+The placement stack (`fix/pool-prereq-placement` → `fix/math-track-prereqs` →
+`feat/gen-ed-interleaving` → `fix/builder-prior-credit-accounting`) merged to `main` as one
+fast-forward on 2026-09-11 and is deployed. **Post-merge verification still owed** — the four
+branches were merged before their manual checks were run in the app:
 
-### fix/math-track-prereqs
-**Targets:** BUG-51 (MATH1906 not accepted for MATH1910 prereqs), plus the MATH1920 note on
-PHYS2110 / MATH3470 in the course picker.
-**Manual verification:** ACT Math 27 — MATH2010 and CSC2700 land after MATH1906, CSC1300 with
-it; course detail shows "MATH1910 or MATH1906". ACT Math 30 — open Natural Science and
-Statistics: PHYS2110 / MATH3470 show the "MATH1920 isn't in your plan" note; add MATH1920 as a
-free-add in an earlier semester → note disappears and the course unlocks.
+- **Placement order (BUG-48):** DSAI, ACT 30 — MATH_STATS lands before CSC3220/CSC4220. Pick a
+  Statistics and Communications course, change ACT Math in Profile Settings → picks survive,
+  CSC3040 stays after COMM_REQ.
+- **Math track (BUG-51):** ACT Math 27 — MATH2010 and CSC2700 land after MATH1906, CSC1300 with
+  it; course detail shows "MATH1910 or MATH1906". ACT Math 30 — open Natural Science and
+  Statistics: PHYS2110 / MATH3470 show the "MATH1920 isn't in your plan" note; add MATH1920 as a
+  free-add in an earlier semester → note disappears and the course unlocks.
+- **Gen-ed interleaving:** Reset Plan (or a new onboarding) at ACT Math 30 for Core and DSAI —
+  SCIENCE pair in the first ~3 semesters, COMM_REQ in S1, MATH_STATS right after MATH1910, a
+  gen-ed in each of S1–S4, electives and CSC4615 at the end, no semester above 18 credits.
+- **Prior-credit accounting (BUG-52, BUG-53):** DSAI (or Core), ACT Math 32 and ACT English 34,
+  with AP English Language and AP credit for ENG_LIT plus four GEN_EDs. Finish onboarding →
+  every covered slot is already in Prior Coursework on the first load and no semester has a hole
+  where one used to be; CSC4610 carries no senior-standing warning. Reset Plan produces the same
+  grid as onboarding did.
 
-### feat/gen-ed-interleaving
-**Targets:** Gen-eds (sciences, statistics, communications) no longer collect in the final
-semesters for high-ACT students — required courses leave a gen-ed seat per regular semester,
-thin semesters are leveled, and the compact layout is used whenever interleaving would add a
-semester.
-**Manual verification:** Reset Plan (or a new onboarding) at ACT Math 30 for Core and DSAI —
-SCIENCE pair in the first ~3 semesters, COMM_REQ in S1, MATH_STATS right after MATH1910, a
-gen-ed in each of S1–S4, electives and CSC4615 at the end, no semester above 18 credits.
 Existing students' saved positions don't move until they reset or change their ACT score.
-
-### fix/builder-prior-credit-accounting
-**Targets:** BUG-52 (onboarding archived only one prior-credit slot because the rows it places
-the plan with have no id yet), BUG-53 (builder summed `credits_awarded` for standing while the
-grid counts each course code once, so two exams awarding the same course inflated standing).
-**Manual verification:** DSAI (or Core), ACT Math 32 and ACT English 34, with AP English
-Language and AP credit for ENG_LIT plus four GEN_EDs. Finish onboarding → every covered slot is
-already in Prior Coursework on the first load and no semester has a hole where one used to be;
-CSC4610 carries no senior-standing warning. Reset Plan produces the same grid as onboarding did.
 
 ---
 
@@ -229,4 +217,8 @@ _None._
 | `feat/math-placement-gateway` | 2026-05-08 | ACT/SAT math placement entry in wizard; stored as act_placement prior credit; Math Placement group in Prior Coursework panel |
 | `feat/plan-balancer` | 2026-05-08 | Two-pass constrained backfill (< 12 / < 15 credits); auto-trigger on load + priorCredits change; Rebalance Plan button; rebalance undo record; math placement chain gate; science pair integrity |
 | `feat/act-math-chain-display` | 2026-05-14 | New Onboarding Step 4: left-to-right math sequence chain display driven by ACT Math score; shows course code, name, credits; MATH3070/MATH3470 fork with "or" indicator; display-only, no DB writes |
+| `fix/pool-prereq-placement` | 2026-09-11 | BUG-48, BUG-49, BUG-50 |
+| `fix/math-track-prereqs` | 2026-09-11 | BUG-51 + MATH1920 note on PHYS2110 / MATH3470 in the picker |
+| `feat/gen-ed-interleaving` | 2026-09-11 | Gen-eds interleaved with the major instead of filling the final semesters |
+| `fix/builder-prior-credit-accounting` | 2026-09-11 | BUG-52, BUG-53 |
 | `migration/requirement-slots-refactor` | 2026-05-14 | Tier 17: drop unique constraint on requirement_slots(concentration_id, semester_number, slot_order); make both columns nullable; seed.js delete-then-insert; DegreePlan derives templateSemNums and expandedMap from algorithm positions; auto-balance seeds student_plan_slots on first load |
