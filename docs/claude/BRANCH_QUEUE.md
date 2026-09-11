@@ -25,6 +25,16 @@ it; course detail shows "MATH1910 or MATH1906". ACT Math 30 — open Natural Sci
 Statistics: PHYS2110 / MATH3470 show the "MATH1920 isn't in your plan" note; add MATH1920 as a
 free-add in an earlier semester → note disappears and the course unlocks.
 
+### feat/gen-ed-interleaving
+**Targets:** Gen-eds (sciences, statistics, communications) no longer collect in the final
+semesters for high-ACT students — required courses leave a gen-ed seat per regular semester,
+thin semesters are leveled, and the compact layout is used whenever interleaving would add a
+semester.
+**Manual verification:** Reset Plan (or a new onboarding) at ACT Math 30 for Core and DSAI —
+SCIENCE pair in the first ~3 semesters, COMM_REQ in S1, MATH_STATS right after MATH1910, a
+gen-ed in each of S1–S4, electives and CSC4615 at the end, no semester above 18 credits.
+Existing students' saved positions don't move until they reset or change their ACT score.
+
 ---
 
 ## Queued Branches

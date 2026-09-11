@@ -322,6 +322,13 @@ result to `student_plan_slots` with `position_source = 'algorithm'`.
   (CHEM1120) waits for as many of the pool's slots as its in-pool chain is long. Elective pools
   never gate (CSC1200 in CSC1300's prereqs would form a cycle). A pool slot can't precede its
   options' own prereqs (`poolEarliest`).
+- **Gen-ed interleaving:** `buildDegreePlan` runs two passes of `placeDegreePlan(opts, reserve)`
+  — interleaved (`GEN_ED_RESERVE` = 3 credits held back from required courses in each regular
+  semester) and compact (reserve 0) — and keeps the interleaved plan unless it is longer.
+  Interleaved: requirement pools front-fill the held seats in `REQUIREMENT_POOLS` order
+  (SCIENCE, COMM_REQ, MATH_STATS, ENG_LIT, GEN_ED) after gating pools; electives take the tail;
+  Step 11b lifts semesters below `FULL_TIME` (12 cr) by moving an elective or GEN_ED/ENG_LIT
+  in, only if every standing threshold that held still holds.
 - Tests: `src/tests/degreeBuilder.test.js` (live-catalog fixtures).
 
 ### `src/lib/usePlanCompleteness.js`
