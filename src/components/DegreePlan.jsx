@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
 import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
@@ -6,6 +7,7 @@ import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm }
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes } from '../lib/transferCredits'
+import { buildDegreePlan } from '../lib/degreeBuilder'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
@@ -32,6 +34,7 @@ const CREDIT_TYPE_LABELS = {
 }
 
 export default function DegreePlan({ profile, onProfileChange }) {
+  const navigate = useNavigate()
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
   const [slots, setSlots]                         = useState([])
   const [courses, setCourses]                     = useState({})
@@ -55,6 +58,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [switching, setSwitching]                 = useState(false)
   const [showResetModal, setShowResetModal]       = useState(false)
   const [resetting, setResetting]                 = useState(false)
+  // conflictModal: { title, reasons: string[] } | null
+  const [conflictModal, setConflictModal]         = useState(null)
   const [resetKey, setResetKey]                   = useState(0)
   const [extraSemesters, setExtraSemesters]         = useState([])
   const [extraSemesterTerms, setExtraSemesterTerms] = useState({})
@@ -289,14 +294,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
       }
 
       // Step 8 — commit all state at once
-      // New students (incoming_freshman or transfer) follow the Fall 2026+ CS curriculum:
-      // MATH1920 (Calculus II) is not required. student_type is the proxy for curriculum version.
-      const isNewStudent = profile.student_type === 'incoming_freshman'
-        || profile.student_type === 'transfer'
-      const filteredSlots = isNewStudent
-        ? slotData.filter(s => s.class_code !== 'MATH1920')
-        : slotData
-      setSlots(filteredSlots)
+      // MATH1920 and other inapplicable math-chain courses are archived by the
+      // degree-builder algorithm at onboarding (archive_reason = 'not_applicable').
+      // They appear in planArchivedMap and are filtered out of the grid via
+      // semesterMap. No separate client-side filter is needed here.
+      setSlots(slotData)
       setCourses(courseMap)
       setPrereqMap(prereqMapBuilt)
       setCoreqMap(coreqMapBuilt)
@@ -369,12 +371,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // slots/planSlots/etc. are stable references after initial load.
   }, [loading, priorCredits])
 
-  // ── Build semesterMap — archived slots excluded ───────────────────
-  // Concept 2: prior-credit archived slots are not in the future plan grid.
+  // ── Build semesterMap — archived and unplaced slots excluded ────────────
+  // Archived slots (prior credit or not_applicable) are removed from the grid.
+  // Slots with no resolved semester (both planSemesterOverrides and
+  // slot.semester_number are null) are omitted until the algorithm writes a
+  // position for them.
   const semesterMap = useMemo(() => {
     return slots.reduce((acc, slot) => {
-      if (planArchived[slot.id]) return acc   // removed from grid by prior credit
+      if (planArchived[slot.id]) return acc
       const sem = planSemesterOverrides[slot.id] ?? slot.semester_number
+      if (sem == null) return acc   // algorithm hasn't placed this slot yet
       if (!acc[sem]) acc[sem] = []
       acc[sem].push(slot)
       return acc
@@ -1074,6 +1080,121 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setDraggedSlotId(active.id)
   }
 
+  // ── Prereq/coreq conflict check for drag moves ──────────────────────────
+  // Returns an array of human-readable reason strings, or [] if the move is
+  // valid.  Checks the moved course against the hypothetical new placement
+  // (prereqs must be in earlier semesters; coreqs in same or earlier;
+  // downstream courses that have this course as a prereq must not be in
+  // semesters <= newSemester).
+  function getDragConflicts(slotId, newSemester) {
+    const slot = slots.find(s => s.id === slotId)
+    if (!slot) return []
+    const courseCode = slot.is_pool ? planSlots[slotId] : slot.class_code
+    if (!courseCode) return []
+
+    const hypothetical = { ...planSemesterOverrides, [slotId]: newSemester }
+
+    // Build a flat list of { code, sem } for all placed courses under the
+    // hypothetical assignment.
+    const placed = []
+    for (const s of slots) {
+      if (planArchived[s.id]) continue
+      const sem  = hypothetical[s.id] ?? s.semester_number
+      const code = s.is_pool ? planSlots[s.id] : s.class_code
+      if (code && sem != null) placed.push({ slotId: s.id, code, sem })
+    }
+    for (const fa of freeAddSlots) {
+      if (fa.semester_number != null)
+        placed.push({ slotId: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
+    }
+
+    const priorCodes = new Set(
+      priorCredits.filter(pc => pc.satisfies_course_code).map(pc => pc.satisfies_course_code)
+    )
+
+    const reasons = []
+
+    // ── Check 1: prereqs of the moved course ──────────────────────────────
+    const prereqGroups = prereqMap[courseCode] ?? {}
+    for (const group of Object.values(prereqGroups)) {
+      // If prior credits satisfy this group entirely, skip.
+      const satByPrior = group.logic === 'OR'
+        ? group.codes.some(c => priorCodes.has(c))
+        : group.codes.every(c => priorCodes.has(c))
+      if (satByPrior) continue
+
+      // Check if the group is satisfied by placed courses in earlier semesters.
+      const satByPlan = group.logic === 'OR'
+        ? group.codes.some(c => placed.some(p => p.code === c && p.sem < newSemester))
+        : group.codes.every(c =>
+            priorCodes.has(c) || placed.some(p => p.code === c && p.sem < newSemester)
+          )
+
+      if (!satByPlan) {
+        const missing = group.codes
+          .filter(c => !priorCodes.has(c))
+          .filter(c => !placed.some(p => p.code === c && p.sem < newSemester))
+        if (missing.length > 0) {
+          const label = group.logic === 'OR'
+            ? `Requires one of: ${missing.join(', ')} in an earlier semester`
+            : `Requires ${missing.join(', ')} in an earlier semester`
+          if (!reasons.includes(label)) reasons.push(label)
+        }
+      }
+    }
+
+    // ── Check 2: coreqs of the moved course ───────────────────────────────
+    const coreqGroups = coreqMap[courseCode] ?? {}
+    for (const group of Object.values(coreqGroups)) {
+      const satByPrior = group.logic === 'OR'
+        ? group.codes.some(c => priorCodes.has(c))
+        : group.codes.every(c => priorCodes.has(c))
+      if (satByPrior) continue
+
+      const satByPlan = group.logic === 'OR'
+        ? group.codes.some(c => placed.some(p => p.code === c && p.sem <= newSemester))
+        : group.codes.every(c =>
+            priorCodes.has(c) || placed.some(p => p.code === c && p.sem <= newSemester)
+          )
+
+      if (!satByPlan) {
+        const missing = group.codes
+          .filter(c => !priorCodes.has(c))
+          .filter(c => !placed.some(p => p.code === c && p.sem <= newSemester))
+        if (missing.length > 0) {
+          const label = group.logic === 'OR'
+            ? `Requires one of: ${missing.join(', ')} in the same or earlier semester`
+            : `Requires ${missing.join(', ')} in the same or earlier semester`
+          if (!reasons.includes(label)) reasons.push(label)
+        }
+      }
+    }
+
+    // ── Check 3: downstream courses that have courseCode as a prereq ──────
+    // If moving to a later semester, courses already placed before or in the
+    // new semester might depend on this course being available earlier.
+    for (const p of placed) {
+      if (p.slotId === slotId) continue
+      const pGroups = prereqMap[p.code] ?? {}
+      for (const group of Object.values(pGroups)) {
+        if (!group.codes.includes(courseCode)) continue
+        // This course's prereq group includes our moved course.
+        // If the placed course is in a semester <= newSemester, the prereq is violated.
+        if (p.sem > newSemester) continue  // placed later → fine
+        // Check if the group has another satisfied option
+        const otherSat = group.codes
+          .filter(c => c !== courseCode)
+          .some(c => priorCodes.has(c) || placed.some(p2 => p2.code === c && p2.sem < p.sem))
+        if (!otherSat) {
+          const label = `Moving here would leave ${p.code} (Semester ${p.sem}) without its prerequisite`
+          if (!reasons.includes(label)) reasons.push(label)
+        }
+      }
+    }
+
+    return reasons
+  }
+
   async function handleDragEnd({ active, over }) {
     setDraggedSlotId(null)
     if (!over) return
@@ -1185,6 +1306,18 @@ export default function DegreePlan({ profile, onProfileChange }) {
         return
       }
 
+      // ── Hard-block prereq/coreq conflicts ─────────────────────────────────
+      // The move is rejected before any state update. The student must dismiss
+      // the modal before they can try again (atomicity guarantee per Q2).
+      const conflicts = getDragConflicts(slotId, newSemester)
+      if (conflicts.length > 0) {
+        setConflictModal({
+          title: `Cannot move ${courseCode} to Semester ${newSemester}`,
+          reasons: conflicts,
+        })
+        return
+      }
+
       pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester })
       const prevOverrides = planSemesterOverrides
       setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
@@ -1198,6 +1331,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           status:               planStatuses[slotId] ?? 'planned',
           semester_number:      newSemester,
           credits_remaining:    planCreditsRemaining[slotId] ?? 0,
+          position_source:      'student',
         }, { onConflict: 'student_id, requirement_slot_id' })
         .then(({ error }) => {
           if (error) {
@@ -1284,6 +1418,65 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setResetting(true)
     const err = await clearPlanData()
     if (err) { setResetting(false); return }
+
+    // Re-run the placement algorithm so the plan restores to its
+    // algorithm-determined state rather than coming back empty.
+    const { assignments, archived: archivedMap } = buildDegreePlan({
+      slots,
+      courseMap: courses,
+      prereqMap,
+      coreqMap,
+      priorCredits,
+      studentProfile: {
+        student_type: profile.student_type,
+        act_math:     profile.act_math,
+        start_season: profile.start_season,
+      },
+    })
+
+    const planSlotRows = []
+    for (const slot of slots) {
+      const archiveReason = archivedMap[slot.id]
+      if (archiveReason) {
+        planSlotRows.push({
+          student_id:           profile.id,
+          requirement_slot_id:  slot.id,
+          selected_course_code: slot.is_pool ? null : slot.class_code,
+          status:               'planned',
+          semester_number:      null,
+          credits_remaining:    0,
+          archived:             true,
+          archive_reason:       archiveReason,
+          position_source:      null,
+        })
+      } else if (assignments[slot.id] != null) {
+        planSlotRows.push({
+          student_id:           profile.id,
+          requirement_slot_id:  slot.id,
+          selected_course_code: slot.is_pool ? null : slot.class_code,
+          status:               'planned',
+          semester_number:      assignments[slot.id],
+          credits_remaining:    0,
+          archived:             false,
+          archive_reason:       null,
+          position_source:      'algorithm',
+        })
+      }
+    }
+
+    const CHUNK = 100
+    for (let i = 0; i < planSlotRows.length; i += CHUNK) {
+      const { error: upsertErr } = await supabase
+        .from('student_plan_slots')
+        .upsert(planSlotRows.slice(i, i + CHUNK), { onConflict: 'student_id, requirement_slot_id' })
+      if (upsertErr) {
+        console.error('[handleResetPlan] student_plan_slots upsert failed:', upsertErr)
+        setError(`Failed to reset degree plan: ${upsertErr.message}`)
+        setResetting(false)
+        return
+      }
+    }
+
     setUndoStack([])
     setExtraSemesters([])
     setExtraSemesterTerms({})
@@ -1420,6 +1613,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
               onClick={() => setShowSwitchModal(true)}
             >
               Change concentration
+            </button>
+            <button
+              className="degreeplan-settings"
+              onClick={() => navigate('/settings')}
+              title="Update ACT scores and recalculate your degree plan"
+            >
+              ACT scores
             </button>
             <button className="degreeplan-signout" onClick={() => {
               const next = theme === 'dark' ? 'light' : 'dark'
@@ -1675,6 +1875,34 @@ export default function DegreePlan({ profile, onProfileChange }) {
               clearTimeout(saveErrorTimerRef.current)
             }}
           >✕</button>
+        </div>
+      )}
+
+      {conflictModal && (
+        <div className="modal-backdrop" onClick={() => setConflictModal(null)}>
+          <div className="modal-card conflict-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">{conflictModal.title}</h3>
+            </div>
+            <div className="modal-body">
+              <p className="conflict-modal-intro">
+                This move would create a scheduling conflict. Your plan was not changed.
+              </p>
+              <ul className="conflict-modal-list">
+                {conflictModal.reasons.map((reason, i) => (
+                  <li key={i} className="conflict-modal-reason">{reason}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="onboarding-btn"
+                onClick={() => setConflictModal(null)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1487,6 +1487,37 @@
   opacity: 1;
 }
 
+/* ── Conflict modal (drag hard-block) ──────────────────────────────── */
+
+.conflict-modal {
+  max-width: 480px;
+  width: 100%;
+}
+
+.conflict-modal-intro {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.conflict-modal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.conflict-modal-reason {
+  border-left: 3px solid #dc3545;
+  background: rgba(220, 53, 69, 0.08);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+}
+
 /* ── CompletionBadge ─────────────────────────────────────────────────
    Full-width celebratory banner that appears when every slot in the
    degree plan is filled and all GEN_ED sub-requirements are satisfied.

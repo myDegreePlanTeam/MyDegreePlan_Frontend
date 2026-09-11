@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveActMathPlacement, resolveActEnglishCredit } from '../lib/actScoreResolver'
+import { buildDegreePlan } from '../lib/degreeBuilder'
 import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
@@ -133,33 +134,25 @@ export default function Onboarding({ profileId, onComplete }) {
     setStep(3)
   }
 
-  // Step 3 → Step 4 (chain) or Step 5 (prior credits if no math score)
+  // Step 3 → Step 4 (chain). All five ACT fields are required — the algorithm
+  // requires a score before it can run (Q6).
   async function handleGoToStep4() {
     const fields = ['math', 'english', 'science', 'reading', 'composite']
     const errors = {}
     for (const f of fields) {
-      const err = validateActScore(actScores[f])
-      if (err) errors[f] = err
+      if (actScores[f] === '' || actScores[f] === null || actScores[f] === undefined) {
+        errors[f] = 'Required'
+      } else {
+        const err = validateActScore(actScores[f])
+        if (err) errors[f] = err
+      }
     }
     if (Object.keys(errors).length > 0) {
       setActErrors(errors)
       return
     }
     setActErrors({})
-    if (actScores.math !== '') {
-      setStep(4)
-    } else {
-      await loadConcSlots()
-      setStep(5)
-    }
-  }
-
-  // Skip ACT step entirely → go straight to Step 5 (skip chain)
-  async function handleSkipAct() {
-    setActScores({ math: '', english: '', science: '', reading: '', composite: '' })
-    setActErrors({})
-    await loadConcSlots()
-    setStep(5)
+    setStep(4)
   }
 
   // Step 4 (chain) → Step 5 (prior credits)
@@ -198,8 +191,9 @@ export default function Onboarding({ profileId, onComplete }) {
       })
   }, [step, studentType])
 
-  // ── Final save — persists concentration, start term, student type,
-  // ACT columns, and flushes locally accumulated prior_credits in one insert.
+  // ── Final save — persists concentration, start term, student type, ACT columns,
+  // flushes prior_credits, then runs the degree-builder algorithm and writes
+  // student_plan_slots positions.
   async function handleComplete(priorCreditRecords = []) {
     setLoading(true)
     setError(null)
@@ -211,6 +205,13 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
 
+    const actMathNum    = actScores.math      !== '' ? Number(actScores.math)      : null
+    const actEnglishNum = actScores.english   !== '' ? Number(actScores.english)   : null
+    const actScienceNum = actScores.science   !== '' ? Number(actScores.science)   : null
+    const actReadingNum = actScores.reading   !== '' ? Number(actScores.reading)   : null
+    const actComposite  = actScores.composite !== '' ? Number(actScores.composite) : null
+
+    // ── 1. Save profile ──────────────────────────────────────────────────────
     const { error: updateError } = await supabase
       .from('student_profiles')
       .update({
@@ -218,11 +219,11 @@ export default function Onboarding({ profileId, onComplete }) {
         start_season:     startSeason,
         start_year:       startYear,
         student_type:     studentType,
-        act_math:         actScores.math      !== '' ? Number(actScores.math)      : null,
-        act_english:      actScores.english   !== '' ? Number(actScores.english)   : null,
-        act_science:      actScores.science   !== '' ? Number(actScores.science)   : null,
-        act_reading:      actScores.reading   !== '' ? Number(actScores.reading)   : null,
-        act_composite:    actScores.composite !== '' ? Number(actScores.composite) : null,
+        act_math:         actMathNum,
+        act_english:      actEnglishNum,
+        act_science:      actScienceNum,
+        act_reading:      actReadingNum,
+        act_composite:    actComposite,
       })
       .eq('id', profileId)
 
@@ -232,21 +233,129 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
 
-    // Generate ACT-derived prior_credit rows before the batch insert
+    // ── 2. Generate ACT-derived prior_credit rows and insert all ────────────
     let allRecords = [...priorCreditRecords]
 
-    const mathScore = actScores.math !== '' ? Number(actScores.math) : null
-    const mathRow = resolveActMathPlacement(mathScore)
+    const mathRow = resolveActMathPlacement(actMathNum)
     if (mathRow) allRecords = [mathRow, ...allRecords]
 
-    const englishScore = actScores.english !== '' ? Number(actScores.english) : null
-    const englishRows = resolveActEnglishCredit(englishScore)
+    const englishRows = resolveActEnglishCredit(actEnglishNum)
     if (englishRows.length > 0) allRecords = [...englishRows, ...allRecords]
 
     if (allRecords.length > 0) {
       await supabase
         .from('prior_credits')
         .insert(allRecords.map(r => ({ ...r, plan_id: profileId })))
+    }
+
+    // ── 3. Fetch data needed for the degree-builder algorithm ────────────────
+    const [slotsRes, coursesRes, prereqRes, coreqRes] = await Promise.all([
+      supabase
+        .from('requirement_slots')
+        .select('id, class_code, is_pool, flex_credits')
+        .eq('concentration_id', concData.id),
+      supabase
+        .from('courses')
+        .select('code, credits, standing_req'),
+      supabase
+        .from('prerequisite_entries')
+        .select('course_code, group_index, logic, required_code'),
+      supabase
+        .from('corequisite_entries')
+        .select('course_code, group_index, logic, required_code'),
+    ])
+
+    if (slotsRes.error || coursesRes.error || prereqRes.error || coreqRes.error) {
+      setError('Failed to load degree data. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    const slots     = slotsRes.data   ?? []
+    const courseMap = {}
+    for (const c of (coursesRes.data ?? [])) courseMap[c.code] = c
+
+    const prereqMap = {}
+    for (const e of (prereqRes.data ?? [])) {
+      if (!prereqMap[e.course_code]) prereqMap[e.course_code] = {}
+      if (!prereqMap[e.course_code][e.group_index]) {
+        prereqMap[e.course_code][e.group_index] = { logic: e.logic, codes: [] }
+      }
+      prereqMap[e.course_code][e.group_index].codes.push(e.required_code)
+    }
+
+    const coreqMap = {}
+    for (const e of (coreqRes.data ?? [])) {
+      if (!coreqMap[e.course_code]) coreqMap[e.course_code] = {}
+      if (!coreqMap[e.course_code][e.group_index]) {
+        coreqMap[e.course_code][e.group_index] = { logic: e.logic, codes: [] }
+      }
+      coreqMap[e.course_code][e.group_index].codes.push(e.required_code)
+    }
+
+    // ── 4. Run the algorithm ─────────────────────────────────────────────────
+    const { assignments, archived } = buildDegreePlan({
+      slots,
+      courseMap,
+      prereqMap,
+      coreqMap,
+      priorCredits: allRecords.map(r => ({ ...r, plan_id: profileId })),
+      studentProfile: {
+        student_type: studentType,
+        act_math:     actMathNum,
+        start_season: startSeason,
+      },
+    })
+
+    // ── 5. Write student_plan_slots ──────────────────────────────────────────
+    // Archived slots: set archived=true, archive_reason, no semester_number.
+    // Placed slots: set semester_number, position_source='algorithm'.
+    const planSlotRows = []
+
+    for (const slot of slots) {
+      const archiveReason = archived[slot.id]
+      if (archiveReason) {
+        planSlotRows.push({
+          student_id:           profileId,
+          requirement_slot_id:  slot.id,
+          selected_course_code: slot.is_pool ? null : slot.class_code,
+          status:               'planned',
+          semester_number:      null,
+          credits_remaining:    0,
+          archived:             true,
+          archive_reason:       archiveReason,
+          position_source:      null,
+        })
+      } else if (assignments[slot.id] != null) {
+        planSlotRows.push({
+          student_id:           profileId,
+          requirement_slot_id:  slot.id,
+          selected_course_code: slot.is_pool ? null : slot.class_code,
+          status:               'planned',
+          semester_number:      assignments[slot.id],
+          credits_remaining:    0,
+          archived:             false,
+          archive_reason:       null,
+          position_source:      'algorithm',
+        })
+      }
+    }
+
+    if (planSlotRows.length > 0) {
+      // Batch in chunks to stay within Supabase payload limits
+      const CHUNK = 100
+      for (let i = 0; i < planSlotRows.length; i += CHUNK) {
+        const chunk = planSlotRows.slice(i, i + CHUNK)
+        const { error: upsertErr } = await supabase
+          .from('student_plan_slots')
+          .upsert(chunk, { onConflict: 'student_id, requirement_slot_id' })
+        if (upsertErr) {
+          console.error('[Onboarding] student_plan_slots upsert failed:', upsertErr)
+          setError(`Failed to save degree plan: ${upsertErr.message}`)
+          setLoading(false)
+          return
+        }
+      }
     }
 
     onComplete({
@@ -288,7 +397,7 @@ export default function Onboarding({ profileId, onComplete }) {
   const STEP_SUBS = {
     1: 'This helps us tailor your degree plan.',
     2: 'This determines your required courses and recommended plan.',
-    3: "Enter your ACT scores. Skip if you haven't taken the ACT.",
+    3: 'Enter all five ACT scores to continue. All fields are required.',
     4: 'Based on your ACT Math score, here are the courses in your math sequence.',
     5: "We'll use these to pre-fill your plan and skip false prereq warnings.",
   }
@@ -445,6 +554,10 @@ export default function Onboarding({ profileId, onComplete }) {
                     min={1}
                     max={36}
                     placeholder="1–36"
+                    onKeyDown={e => {
+                      // Block e, E, +, - which type="number" normally allows
+                      if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault()
+                    }}
                     onChange={e => {
                       setActScores(prev => ({ ...prev, [key]: e.target.value }))
                       if (actErrors[key]) setActErrors(prev => ({ ...prev, [key]: null }))
@@ -466,13 +579,6 @@ export default function Onboarding({ profileId, onComplete }) {
                 disabled={loading}
               >
                 Back
-              </button>
-              <button
-                className="onboarding-btn-secondary"
-                onClick={handleSkipAct}
-                disabled={loading}
-              >
-                I didn't take the ACT / Skip
               </button>
               <button
                 className="onboarding-btn"
@@ -620,7 +726,7 @@ export default function Onboarding({ profileId, onComplete }) {
             <div className="onboarding-btn-row">
               <button
                 className="onboarding-btn-secondary"
-                onClick={() => setStep(actScores.math !== '' ? 4 : 3)}
+                onClick={() => setStep(4)}
                 disabled={loading}
               >
                 Back

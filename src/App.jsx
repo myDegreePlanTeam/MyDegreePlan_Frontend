@@ -7,9 +7,10 @@ import ErrorBoundary from './components/ErrorBoundary'
 // A logged-in user never fetches Login/Signup JS; an anonymous user never
 // fetches Dashboard JS. React.lazy() returns a component that triggers the
 // dynamic import on first render; Suspense catches the pending state.
-const Login     = lazy(() => import('./pages/Login'))
-const Signup    = lazy(() => import('./pages/Signup'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Login           = lazy(() => import('./pages/Login'))
+const Signup          = lazy(() => import('./pages/Signup'))
+const Dashboard       = lazy(() => import('./pages/Dashboard'))
+const ProfileSettings = lazy(() => import('./pages/ProfileSettings'))
 
 function App() {
   const [session, setSession] = useState(undefined)
@@ -56,6 +57,9 @@ function App() {
           } />
           <Route path="/dashboard" element={
             session ? <ErrorBoundary><Dashboard /></ErrorBoundary> : <Navigate to="/login" replace />
+          } />
+          <Route path="/settings" element={
+            session ? <ErrorBoundary><ProfileSettings /></ErrorBoundary> : <Navigate to="/login" replace />
           } />
           <Route path="*" element={
             <Navigate to={session ? "/dashboard" : "/login"} replace />
