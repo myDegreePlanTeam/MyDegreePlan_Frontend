@@ -58,7 +58,7 @@ const SATISFIABLE_POOLS = new Set([
 //
 // Returns an array of { slotId, priorCredit } pairs in stable Rule 1 → Rule 2
 // order, preserving the "first match wins" + "one credit at most one slot"
-// invariants via a shared usedPriorCreditIds set.
+// invariants via a shared usedCredits set.
 //
 // IMPORTANT — neither rule skips on planSlots[slot.id].
 // For non-pool slots class_code is fixed by the template, so any value in
@@ -78,9 +78,16 @@ function matchPriorCreditsToSlots(priorCredits, planSlots, slots) {
   )
   if (creditBearing.length === 0) return []
 
-  const matches = []
-  const usedPriorCreditIds = new Set()
-  const slotList           = slots ?? []
+  const matches     = []
+  const usedCredits = new Set()
+  const slotList    = slots ?? []
+
+  // Identity for "one prior credit archives at most one slot". Onboarding
+  // places the plan with the rows it is about to INSERT, which carry no id
+  // yet — keyed on id alone every one of them was `undefined`, so the first
+  // match consumed them all and every other credit archived nothing. Fall
+  // back to the row itself when it has no id.
+  const creditKey = pc => pc.id ?? pc
 
   // Rule 1: non-pool exact match.  Do NOT skip on planSlots[slot.id].
   for (const slot of slotList) {
@@ -88,11 +95,11 @@ function matchPriorCreditsToSlots(priorCredits, planSlots, slots) {
 
     const match = creditBearing.find(
       pc => pc.satisfies_course_code === slot.class_code &&
-            !usedPriorCreditIds.has(pc.id)
+            !usedCredits.has(creditKey(pc))
     )
     if (match) {
       matches.push({ slotId: slot.id, priorCredit: match })
-      usedPriorCreditIds.add(match.id)
+      usedCredits.add(creditKey(match))
     }
   }
 
@@ -117,7 +124,7 @@ function matchPriorCreditsToSlots(priorCredits, planSlots, slots) {
 
     const match = creditBearing.find(pc => {
       if (pc.satisfies_pool !== slot.class_code) return false
-      if (usedPriorCreditIds.has(pc.id)) return false
+      if (usedCredits.has(creditKey(pc))) return false
       if (slot.class_code === 'GEN_ED') {
         const cat = codeToGenEdCategory[pc.satisfies_course_code]
         if (cat && genEdSubPoolCredits[cat] >= GEN_ED_SUB_REQUIRED) return false
@@ -132,7 +139,7 @@ function matchPriorCreditsToSlots(priorCredits, planSlots, slots) {
     }
 
     matches.push({ slotId: slot.id, priorCredit: match })
-    usedPriorCreditIds.add(match.id)
+    usedCredits.add(creditKey(match))
   }
 
   return matches

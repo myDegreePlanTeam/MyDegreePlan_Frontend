@@ -18,7 +18,7 @@
 //   assignments : { [slotId]: semesterNumber }  — position_source = 'algorithm'
 //   archived    : { [slotId]: archiveReason }   — 'not_applicable' | 'prior_credit'
 
-import { resolveTransferCredits } from './transferCredits'
+import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
 import { resolveActMathPlacement } from './actScoreResolver'
 import { POOL_COURSES, POOL_CREDIT_ESTIMATES } from './poolResolver'
 
@@ -480,8 +480,13 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
   //
   // We iterate until no more bumps are needed (cascading moves settle).
 
-  // Total hours from prior credits (count toward standing thresholds).
-  const priorHours = priorCredits.reduce((sum, pc) => sum + (pc.credits_awarded ?? 0), 0)
+  // Total hours from prior credits (count toward standing thresholds),
+  // counted the way the grid counts them: a course code contributes once
+  // however many credits award it. Two exams can cover the same course —
+  // AP English Language and ACT English 27+ both award ENGL1010 — and summing
+  // the rows placed senior courses on hours the student doesn't have, leaving
+  // the grid to flag a course the algorithm had just placed.
+  const priorHours = creditsBeforeSemester(1, { priorCredits })
 
   // Credits actually placed before `sem`, plus prior credits.
   function creditsBefore(sem) {

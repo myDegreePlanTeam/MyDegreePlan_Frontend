@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { POOL_CREDIT_ESTIMATES } from '../lib/poolResolver'
 import { withSubstitutes } from '../lib/requirementMap'
+import { creditsBeforeSemester } from '../lib/transferCredits'
 
 // ── Fixture: CSC Core concentration, from the live catalog (2026-09-11) ─────
 // Flat template (no semester hints) exactly as seeded, including every
@@ -93,9 +94,11 @@ function plan(profile = {}, { priorCredits = [], slotEntries = CORE_SLOTS,
   const loads  = {}
   for (const s of active) loads[assignments[s.id]] = (loads[assignments[s.id]] ?? 0) + credits(s, courses)
   const semOf = code => assignments[active.find(s => s.class_code === code)?.id]
-  const priorHours = priorCredits.reduce((sum, pc) => sum + (pc.credits_awarded ?? 0), 0)
-  const creditsBefore = sem => priorHours + Object.entries(loads)
-    .filter(([s]) => Number(s) < sem).reduce((sum, [, c]) => sum + c, 0)
+  // Standing is asserted with the grid's own count (DegreePlan's warnings),
+  // which counts a course code once however many prior credits award it.
+  const creditsBefore = sem => creditsBeforeSemester(sem, {
+    slots, planSemesterOverrides: assignments, planArchived: archived, priorCredits, courses,
+  })
   const maxSem = Math.max(...Object.keys(loads).map(Number))
   return { slots, assignments, archived, active, loads, semOf, creditsBefore, maxSem }
 }
@@ -380,5 +383,88 @@ describe('buildDegreePlan — math chain', () => {
       { id: 'ap1', credit_type: 'ap_credit', satisfies_course_code: 'CSC1300', credits_awarded: 4 },
     ] })
     expect(r.archived[r.slots.find(s => s.class_code === 'CSC1300').id]).toBe('prior_credit')
+  })
+})
+
+// ── Prior credits (regression: onboarding archived only one covered slot, ──
+// and a course two exams award counted twice toward standing)
+
+// CSC Data Science & AI, from the live catalog: the Core courses plus the
+// data-science sequence, with one 5-credit CSC_ELECTIVE for Core's electives.
+const DSAI = {
+  slotEntries: [
+    'ENGL1010', 'ENGL1020', 'MATH1000', 'MATH1710', 'MATH1720', 'MATH1730',
+    'MATH1904', 'MATH1906', 'MATH1910', 'MATH1920', 'MATH2010', 'CSC1020',
+    'CSC1300', 'CSC1310', 'CSC2310', 'CSC2510', 'CSC2700', 'CSC2220',
+    'CSC2400', 'CSC3220', 'CSC3300', 'CSC3410', 'CSC3040', 'CSC3710',
+    'CSC4220', 'CSC4320', 'CSC4100', 'CSC4240', 'CSC4610', 'CSC4200',
+    'CSC4260', 'CSC4615', 'ENG_LIT', 'COMM_REQ', 'MATH_STATS', 'GEN_ED',
+    'GEN_ED', 'GEN_ED', 'GEN_ED', 'GEN_ED', 'SCIENCE', 'SCIENCE',
+    ['CSC_ELECTIVE', 5],
+  ],
+  courses: { ...WITH_STATS_COURSES.courses, CSC4240: { credits: 3 }, CSC4260: { credits: 3 } },
+  prereqs: {
+    ...WITH_STATS_COURSES.prereqs,
+    CSC4240: { 0: { logic: 'AND', codes: ['CSC2400'] } },
+    CSC4260: { 0: { logic: 'AND', codes: ['CSC3220'] }, 1: { logic: 'AND', codes: ['CSC3300'] }, 2: { logic: 'AND', codes: ['MATH2010'] } },
+  },
+  coreqs: WITH_STATS_COURSES.coreqs,
+}
+
+// AP English Language (ENGL1010 + ENGL1020) and ACT English 34, which awards
+// the same two courses, plus AP credit covering ENG_LIT and four GEN_EDs —
+// in the order Onboarding builds them (ACT rows first), before INSERT: no ids.
+const AP_AND_ACT_ENGLISH = [
+  { credit_type: 'act_credit',    satisfies_course_code: 'ENGL1010', satisfies_pool: null,      credits_awarded: 3 },
+  { credit_type: 'act_credit',    satisfies_course_code: 'ENGL1020', satisfies_pool: null,      credits_awarded: 3 },
+  { credit_type: 'act_placement', satisfies_course_code: 'MATH1910', satisfies_pool: null,      credits_awarded: 0 },
+  { credit_type: 'ap_credit',     satisfies_course_code: 'ECON2020', satisfies_pool: 'GEN_ED',  credits_awarded: 3 },
+  { credit_type: 'ap_credit',     satisfies_course_code: 'ENGL2235', satisfies_pool: 'ENG_LIT', credits_awarded: 3 },
+  { credit_type: 'ap_credit',     satisfies_course_code: 'GEOG1012', satisfies_pool: 'GEN_ED',  credits_awarded: 3 },
+  { credit_type: 'ap_credit',     satisfies_course_code: 'ENGL1010', satisfies_pool: null,      credits_awarded: 3 },
+  { credit_type: 'ap_credit',     satisfies_course_code: 'ENGL1020', satisfies_pool: null,      credits_awarded: 3 },
+  { credit_type: 'ap_credit',     satisfies_course_code: 'HIST2310', satisfies_pool: 'GEN_ED',  credits_awarded: 3 },
+  { credit_type: 'ap_credit',     satisfies_course_code: 'HIST2320', satisfies_pool: 'GEN_ED',  credits_awarded: 3 },
+]
+
+// The same rows as DegreePlan / Reset Plan load them back from prior_credits.
+const withIds = rows => rows.map((row, i) => ({ ...row, id: `pc-${i}` }))
+
+describe('buildDegreePlan — prior credits', () => {
+  const profiles = ['incoming_freshman', 'returning'].flatMap(student_type =>
+    ['Fall', 'Summer'].map(start_season => ({ student_type, act_math: 32, start_season })))
+  const label = p => `${p.student_type} ${p.start_season}`
+  const archivedCodes = r => r.slots.filter(s => r.archived[s.id] === 'prior_credit').map(s => s.class_code).sort()
+
+  it('builds the same plan from rows before INSERT (no ids) as from saved rows', () => {
+    for (const p of profiles) {
+      const onboarding = plan(p, { ...DSAI, priorCredits: AP_AND_ACT_ENGLISH })
+      const saved      = plan(p, { ...DSAI, priorCredits: withIds(AP_AND_ACT_ENGLISH) })
+      expect(archivedCodes(onboarding), label(p)).toEqual(
+        ['ENGL1010', 'ENGL1020', 'ENG_LIT', 'GEN_ED', 'GEN_ED', 'GEN_ED', 'GEN_ED'])
+      expect(onboarding.assignments, label(p)).toEqual(saved.assignments)
+    }
+  })
+
+  it('ignores a second exam that awards a course already credited', () => {
+    // ACT English adds ENGL1010 and ENGL1020 again: 6 hours on paper, none
+    // for real. Counted, they placed CSC4610 where the grid then flagged it
+    // for senior standing (89 of 90 hours).
+    const apOnly = AP_AND_ACT_ENGLISH.filter(r => r.credit_type !== 'act_credit')
+    for (const p of profiles) {
+      const both = plan(p, { ...DSAI, priorCredits: withIds(AP_AND_ACT_ENGLISH) })
+      const ap   = plan(p, { ...DSAI, priorCredits: withIds(apOnly) })
+      expect(both.assignments, label(p)).toEqual(ap.assignments)
+    }
+  })
+
+  it('meets junior and senior standing by the grid\'s count', () => {
+    for (const p of profiles) {
+      for (const priorCredits of [AP_AND_ACT_ENGLISH, withIds(AP_AND_ACT_ENGLISH)]) {
+        const r = plan(p, { ...DSAI, priorCredits })
+        expect(r.creditsBefore(r.semOf('CSC3040')), label(p)).toBeGreaterThanOrEqual(60)
+        expect(r.creditsBefore(r.semOf('CSC4610')), label(p)).toBeGreaterThanOrEqual(90)
+      }
+    }
   })
 })

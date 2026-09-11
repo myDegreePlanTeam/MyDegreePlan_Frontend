@@ -427,6 +427,28 @@ describe('resolveTransferCredits — BUG-23 onboarding archival parity', () => {
     const result = resolveTransferCredits([PLACEMENT_ONLY], {}, [SLOT_ENGL1010, SLOT_MATH1910])
     expect(result).toEqual({})
   })
+
+  // Onboarding places the plan with the rows it is about to INSERT, which
+  // have no id yet. Keyed on id, every such row was `undefined`, so only the
+  // first could archive a slot and the rest were planned as courses to take.
+  const withoutId = ({ id, ...row }) => row
+
+  it('archives every covered slot when the rows have no id yet (as Onboarding passes them)', () => {
+    const result = resolveTransferCredits(
+      [AP_ENGL, AP_CALC, HIST_TRANSFER_GEN_ED, AP_ENGL_LIT].map(withoutId),
+      {},
+      [SLOT_ENGL1010, SLOT_MATH1910, SLOT_GENED_1, SLOT_ENG_LIT, SLOT_CSC1300]
+    )
+    expect(result).toEqual({
+      [SLOT_ENGL1010.id]: true, [SLOT_MATH1910.id]: true,
+      [SLOT_GENED_1.id]:  true, [SLOT_ENG_LIT.id]:  true,
+    })
+  })
+
+  it('still lets a row with no id archive only one slot', () => {
+    const result = resolveTransferCredits([withoutId(HIST_TRANSFER_GEN_ED)], {}, [SLOT_GENED_1, SLOT_GENED_2])
+    expect(Object.keys(result)).toEqual([String(SLOT_GENED_1.id)])
+  })
 })
 
 // ── BUG-24 regression: duplicate prior credits archive at most one slot ──────
