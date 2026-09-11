@@ -289,6 +289,51 @@ describe('buildDegreePlan — pool prerequisites', () => {
   })
 })
 
+// ── Gen-ed interleaving (regression: sciences, statistics, and ──────────────
+// communications collected in the final semesters for high-ACT students)
+
+const GEN_ED_POOLS = ['SCIENCE', 'COMM_REQ', 'MATH_STATS', 'ENG_LIT', 'GEN_ED']
+
+describe('buildDegreePlan — gen-ed interleaving', () => {
+  const withOptions = { prereqs: { ...PREREQS, ...POOL_OPTION_PREREQS } }
+
+  it('keeps SCIENCE, COMM_REQ, and MATH_STATS out of the final two semesters', () => {
+    for (const act_math of [20, 25, 29, 33]) {
+      const r = plan({ act_math }, withOptions)
+      for (const s of r.active.filter(s => ['SCIENCE', 'COMM_REQ', 'MATH_STATS'].includes(s.class_code))) {
+        expect(r.assignments[s.id], `ACT ${act_math} ${s.class_code}`).toBeLessThan(r.maxSem - 1)
+      }
+    }
+  })
+
+  it('gives each of the first four semesters a gen-ed alongside the major', () => {
+    for (const act_math of [25, 29, 33]) {
+      const r = plan({ act_math }, withOptions)
+      for (let sem = 1; sem <= 4; sem++) {
+        const genEds = r.active.filter(s => GEN_ED_POOLS.includes(s.class_code) && r.assignments[s.id] === sem)
+        expect(genEds.length, `ACT ${act_math}, semester ${sem}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('does not lengthen the plan to interleave', () => {
+    expect(plan({ act_math: 15 }, withOptions).maxSem).toBeLessThanOrEqual(9)
+    expect(plan({ act_math: 20 }, withOptions).maxSem).toBeLessThanOrEqual(8)
+  })
+
+  it('falls back to the compact layout when interleaving would add a semester', () => {
+    // Six independent 5-credit courses: 15 cr fits three per semester, but a
+    // 12-cr ceiling fits only two — interleaving would need a third semester.
+    const codes = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6']
+    const r = plan({}, {
+      slotEntries: codes,
+      courses: Object.fromEntries(codes.map(c => [c, { credits: 5 }])),
+      prereqs: {}, coreqs: {},
+    })
+    expect(r.maxSem).toBe(2)
+  })
+})
+
 // ── Math chain archiving ─────────────────────────────────────────────────────
 
 describe('buildDegreePlan — math chain', () => {

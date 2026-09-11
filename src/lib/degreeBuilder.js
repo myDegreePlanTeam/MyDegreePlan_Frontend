@@ -5,6 +5,10 @@
 // slots that don't apply to the student (e.g., math chain courses above their
 // ACT placement level, or courses covered by prior credits).
 //
+// Gen-ed pools are interleaved with the major — required courses leave each
+// regular semester a seat for one — unless that would make the plan longer
+// than the compact, required-courses-first layout.
+//
 // The algorithm is pure: it takes JS objects and returns an assignment map.
 // All Supabase I/O is done by the caller (Onboarding.jsx / ProfileSettings.jsx).
 //
@@ -48,6 +52,8 @@ const CREDIT_MAX    = 18   // never exceed this
 const SUMMER_TARGET = 6    // lighter load for summer semesters
 const SUMMER_MAX    = 9
 const SEMESTER_CAP  = 20   // standing checks never push a course past this
+const GEN_ED_RESERVE = 3   // held back from required courses per regular semester
+const FULL_TIME      = 12  // leveling lifts semesters below this where it can
 
 // ─── Standing requirement thresholds ─────────────────────────────────────────
 
@@ -60,6 +66,7 @@ const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
 // provides. Elective pools are left out: a slot that can hold any CSC course
 // isn't a meaningful prerequisite, and CSC1200 (a CSC_ELECTIVE option) in
 // CSC1300's prereqs would tie CSC1300 to a pool that must follow CSC1310.
+// Listed in the order they take open seats when interleaving (Step 11).
 const REQUIREMENT_POOLS = new Set(['SCIENCE', 'COMM_REQ', 'MATH_STATS', 'ENG_LIT', 'GEN_ED'])
 
 // Pools whose every option needs this course first — a floor under the
@@ -114,7 +121,22 @@ function groupSatisfied(group, satisfiedCodes) {
  *   assignments: { [slotId]: semesterNumber }
  *   archived:    { [slotId]: 'not_applicable' | 'prior_credit' }
  */
-export function buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile }) {
+export function buildDegreePlan(opts) {
+  // Interleave gen-eds with the major — required courses leave a seat for one
+  // in each regular semester — unless that makes the plan longer than packing
+  // required courses first. The graduation semester comes first.
+  const interleaved = placeDegreePlan(opts, GEN_ED_RESERVE)
+  const compact     = placeDegreePlan(opts, 0)
+  return planLength(interleaved) <= planLength(compact) ? interleaved : compact
+}
+
+function planLength({ assignments }) {
+  return Math.max(0, ...Object.values(assignments))
+}
+
+// One placement pass. `reserve` = credits per regular semester that required
+// courses leave free for gen-eds; 0 gives the compact, required-first layout.
+function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile }, reserve) {
   const { student_type, act_math, start_season } = studentProfile
 
   // ── Step 1: Archive slots covered by prior credits ──────────────────────
@@ -400,7 +422,8 @@ export function buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCr
   // Required (non-pool) slots are packed first so the math chain and CSC
   // sequence land in their correct semesters. The ceiling is creditTarget (15)
   // rather than creditMax (18) to spread load evenly and leave headroom for
-  // pool backfill. Pool placement happens in Step 11 after the capstone pin.
+  // pool backfill, less `reserve` in regular semesters so each keeps a seat
+  // for a gen-ed. Pool placement happens in Step 11 after the capstone pin.
   const isSummerStart = start_season === 'Summer'
 
   function creditTarget(sem) { return isSummerStart && sem === 1 ? SUMMER_TARGET : CREDIT_TARGET }
@@ -433,8 +456,10 @@ export function buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCr
 
   // Pass 1: required (non-pool) courses — ceiling = creditTarget (15) to spread
   // load evenly across semesters rather than packing each one to 18 first.
+  const requiredCeiling = sem =>
+    creditTarget(sem) - (creditTarget(sem) === CREDIT_TARGET ? reserve : 0)
   for (const slot of sorted) {
-    if (!slot.is_pool) packSlot(slot, creditTarget)
+    if (!slot.is_pool) packSlot(slot, requiredCeiling)
   }
 
   // ── Step 10: Post-pack validation ────────────────────────────────────────
@@ -624,6 +649,8 @@ export function buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCr
   //
   // Pools a required course depends on are placed first, front to back, so
   // the course (pushed after them in Step 12 if needed) keeps its semester.
+  // When interleaving, every requirement pool front-fills the seats Pass 1
+  // left free; electives keep the rule above and take the final semesters.
   const standingSlots = activeSlots.filter(s =>
     !s.is_pool && STANDING_THRESHOLDS[courseMap[s.class_code]?.standing_req]
   )
@@ -646,23 +673,33 @@ export function buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCr
 
     let bestSem = null
 
+    // The other SCIENCE slot, if it's already placed.
+    const partner = slot.class_code === 'SCIENCE'
+      ? activeSlots.find(s =>
+          s.class_code === 'SCIENCE' && s.id !== slot.id && assignments[s.id] !== undefined
+        )
+      : null
+
     // The second SCIENCE slot goes right after the first so the lab sequence
     // lands in consecutive semesters.
-    if (slot.class_code === 'SCIENCE') {
-      const first = activeSlots.find(s =>
-        s.class_code === 'SCIENCE' && s.id !== slot.id && assignments[s.id] !== undefined
-      )
-      const next = first ? assignments[first.id] + 1 : null
-      if (next != null && next >= earliest && next <= maxSemUsed
+    if (partner) {
+      const next = assignments[partner.id] + 1
+      if (next >= earliest && next <= maxSemUsed
           && (semCredits[next] ?? 0) + cr <= creditMax(next)) {
         bestSem = next
       }
     }
 
     // A pool a required course waits on (COMM_REQ for CSC3040) takes the
-    // earliest semester under target so the course isn't pushed back.
-    const gating = gatingPoolIds.has(slot.id)
-    for (let s = earliest; bestSem === null && gating && s <= maxSemUsed; s++) {
+    // earliest semester under target so the course isn't pushed back. When
+    // interleaving, every requirement pool does, filling the seats Pass 1
+    // left free. A SCIENCE slot never shares its partner's semester, and the
+    // first one only goes where the partner fits the semester after.
+    const frontFill = gatingPoolIds.has(slot.id) || (reserve > 0 && REQUIREMENT_POOLS.has(slot.class_code))
+    for (let s = earliest; bestSem === null && frontFill && s <= maxSemUsed; s++) {
+      if (partner && assignments[partner.id] === s) continue
+      if (slot.class_code === 'SCIENCE' && !partner
+          && (semCredits[s + 1] ?? 0) + cr > creditMax(s + 1)) continue
       const current = semCredits[s] ?? 0
       if (current < creditTarget(s) && current + cr <= creditMax(s)) bestSem = s
     }
@@ -697,13 +734,23 @@ export function buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCr
   // earliest semester from poolEarliest is a placement floor, not a queue
   // position (sorting on it sent low-ACT students' MATH_STATS behind every
   // other pool and into the final semester).
+  //
+  // When interleaving, requirement pools follow in REQUIREMENT_POOLS order,
+  // earliest-possible first — the lab science, communications and statistics
+  // take the first open seats — and electives come last, filling the tail.
   const poolFloor = s => {
     const implicit = IMPLICIT_POOL_PREREQ[s.class_code]
     return implicit && codeToSlotId[implicit] ? minSem[codeToSlotId[implicit]] + 1 : 1
   }
+  const requirementOrder = [...REQUIREMENT_POOLS]
+  const fillRank = s => {
+    const i = requirementOrder.indexOf(s.class_code)
+    return i === -1 ? requirementOrder.length : i
+  }
   const poolOrder = activeSlots
     .filter(s => s.is_pool)
     .sort((a, b) => (Number(gatingPoolIds.has(b.id)) - Number(gatingPoolIds.has(a.id)))
+      || (reserve > 0 ? (fillRank(a) - fillRank(b)) || (minSem[a.id] - minSem[b.id]) : 0)
       || (poolFloor(a) - poolFloor(b))
       || a.class_code.localeCompare(b.class_code))
   for (const slot of poolOrder) backfillPoolSlot(slot)
@@ -730,6 +777,63 @@ export function buildDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCr
       }
     }
   }
+
+  // ── Step 11b: Lift semesters below full-time (interleaving only) ────────
+  // Interleaving moves gen-eds out of the final semesters, and junior/senior
+  // standing needs most hours early, so a late semester can end up below
+  // full-time. Move an elective — failing that a GEN_ED or ENG_LIT — into it
+  // from the heaviest semester that stays full-time, keeping every standing
+  // threshold that held. SCIENCE, COMM_REQ, MATH_STATS and gating pools stay.
+  const LEVEL_MOVABLE = new Set(['GEN_ED', 'ENG_LIT'])   // requirement pools it may move
+
+  function moveSlot(slot, from, to) {
+    const cr = slotCredits(slot, courseMap)
+    semCredits[from]     -= cr
+    semCredits[to]        = (semCredits[to] ?? 0) + cr
+    assignments[slot.id]  = to
+  }
+
+  function levelThinSemesters() {
+    const standingMet = () => standingSlots.filter(s =>
+      creditsBefore(assignments[s.id]) >= STANDING_THRESHOLDS[courseMap[s.class_code].standing_req]
+    )
+    const movable = activeSlots.filter(s => s.is_pool && !gatingPoolIds.has(s.id)
+      && (!REQUIREMENT_POOLS.has(s.class_code) || LEVEL_MOVABLE.has(s.class_code)))
+
+    // Each move strictly narrows the gap between two semesters, so this ends.
+    for (let moves = 0; moves < activeSlots.length; moves++) {
+      const thin = Object.keys(semCredits).map(Number)
+        .filter(s => semCredits[s] > 0 && semCredits[s] < FULL_TIME && creditTarget(s) === CREDIT_TARGET)
+        .sort((a, b) => semCredits[a] - semCredits[b])
+      let moved = false
+
+      for (const to of thin) {
+        const candidates = movable
+          .map(slot => ({ slot, from: assignments[slot.id], cr: slotCredits(slot, courseMap) }))
+          .filter(({ slot, from, cr }) => from !== to
+            && semCredits[from] - cr >= FULL_TIME
+            && semCredits[from] > semCredits[to] + cr
+            && semCredits[to] + cr <= creditMax(to)
+            && minSem[slot.id] <= to
+            && poolEarliest(slot, id => assignments[id]) <= to)
+          // Electives before gen-eds, heaviest source semester first.
+          .sort((a, b) => (Number(REQUIREMENT_POOLS.has(a.slot.class_code)) - Number(REQUIREMENT_POOLS.has(b.slot.class_code)))
+            || semCredits[b.from] - semCredits[a.from])
+
+        const metBefore = standingMet()
+        for (const { slot, from } of candidates) {
+          moveSlot(slot, from, to)
+          const metAfter = new Set(standingMet())
+          if (metBefore.every(s => metAfter.has(s))) { moved = true; break }
+          moveSlot(slot, to, from)
+        }
+        if (moved) break
+      }
+      if (!moved) return
+    }
+  }
+
+  if (reserve > 0) levelThinSemesters()
 
   // ── Step 12: Re-check order and standing against actual loads ───────────
   // Step 10 placed standing-gated courses using projected pool credits. Now
