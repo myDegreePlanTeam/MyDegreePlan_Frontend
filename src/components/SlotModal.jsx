@@ -6,6 +6,7 @@ import {
 } from '../lib/poolResolver'
 import { checkPrereqs } from '../lib/prereqChecker'
 import { creditsBeforeSemester } from '../lib/transferCredits'
+import { getPlanCodes, getRemovedCodes, getRemovedPrereqs } from '../lib/removedPrereqs'
 import './Dashboard.css'
 
 export default function SlotModal({
@@ -142,6 +143,15 @@ export default function SlotModal({
     })
   }, [slots, planSlots, courseMap, priorCredits, planSemesterOverrides, planArchived, freeAddSlots, slot.id, slot.semester_number])
 
+  // ── Courses in the plan at any position, and courses it removed ─────────
+  // Used to flag options whose prereq the student's math placement dropped
+  // (PHYS2110 / MATH3470 need MATH1920) — see removedPrereqs.js.
+  const planCodes = useMemo(
+    () => getPlanCodes({ slots, planSlots, planArchived, freeAddSlots, priorCredits }),
+    [slots, planSlots, planArchived, freeAddSlots, priorCredits]
+  )
+  const removedCodes = useMemo(() => getRemovedCodes(slots, planArchived), [slots, planArchived])
+
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
     if (takenCodes.has(course.code)) {
@@ -171,7 +181,13 @@ export default function SlotModal({
       coreqMap,
     )
     if (!result.satisfied) {
-      return { ...course, status: 'locked', missing: result.missing }
+      const removed = getRemovedPrereqs(course.code, prereqMap, planCodes, removedCodes)
+      return {
+        ...course,
+        status: 'locked',
+        missing: result.missing,
+        removedNote: removed.length > 0 ? removedPrereqNote(course.code, removed, courseMap) : null,
+      }
     }
     return { ...course, status: 'available' }
   }
@@ -203,7 +219,7 @@ export default function SlotModal({
         const order = { available: 0, locked: 1, taken: 2 }
         return order[a.status] - order[b.status]
       })
-  }, [courses, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap])
+  }, [courses, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes])
 
   function handleSave() {
     if (!selected || selected.status === 'locked' || selected.status === 'taken') return
@@ -435,8 +451,20 @@ function CourseRow({ course, selected, onSelect, sectionDisabled = false }) {
             Needs: {formatMissingForDisplay(course.missing)}
           </span>
         )}
+        {course.removedNote && (
+          <span className="modal-prereq-hint">{course.removedNote}</span>
+        )}
       </div>
       <span className="modal-course-credits">{course.credits} cr</span>
     </button>
   )
+}
+
+// "MATH1920 (Calculus II) isn't in your plan — your math placement doesn't
+// require it. Add it to an earlier semester to take PHYS2110."
+function removedPrereqNote(courseCode, removed, courseMap) {
+  const names = removed.map(c => (courseMap[c]?.name ? `${c} (${courseMap[c].name})` : c))
+  const [verb, pronoun] = removed.length > 1 ? ["aren't", 'them'] : ["isn't", 'it']
+  return `${names.join(' and ')} ${verb} in your plan — your math placement doesn't require ${pronoun}. `
+    + `Add ${pronoun} to an earlier semester to take ${courseCode}.`
 }
