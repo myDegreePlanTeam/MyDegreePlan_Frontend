@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { POOL_CREDIT_ESTIMATES } from '../lib/poolResolver'
+import { withSubstitutes } from '../lib/requirementMap'
 
 // ── Fixture: CSC Core concentration, from the live catalog (2026-09-11) ─────
 // Flat template (no semester hints) exactly as seeded, including every
@@ -306,6 +307,19 @@ describe('buildDegreePlan — math chain', () => {
     expect(activeMath(r).sort()).toEqual(['MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'])
     expect(r.semOf('MATH1710')).toBeLessThan(r.semOf('MATH1720'))
     expect(r.semOf('MATH1720')).toBeLessThan(r.semOf('MATH1910'))
+  })
+
+  it('ACT 27 (MATH1904 track): MATH1906 stands in for MATH1910 downstream', () => {
+    // Maps go through withSubstitutes exactly as the loaders apply it.
+    const r = plan({ act_math: 27 }, {
+      prereqs: withSubstitutes({ ...PREREQS, ...POOL_OPTION_PREREQS }),
+      coreqs:  withSubstitutes(COREQS),
+    })
+    expect(activeMath(r).sort()).toEqual(['MATH1904', 'MATH1906', 'MATH2010'])
+    expect(r.semOf('MATH2010')).toBeGreaterThan(r.semOf('MATH1906'))
+    expect(r.semOf('CSC2700')).toBeGreaterThan(r.semOf('MATH1906'))
+    expect(r.semOf('MATH_STATS')).toBeGreaterThan(r.semOf('MATH1906'))
+    expect(r.semOf('CSC1300')).toBeGreaterThanOrEqual(r.semOf('MATH1906'))   // concurrent allowed
   })
 
   it('returning student keeps MATH1920', () => {

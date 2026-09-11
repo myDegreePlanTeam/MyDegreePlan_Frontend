@@ -8,6 +8,7 @@ import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestri
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
+import { buildRequirementMap } from '../lib/requirementMap'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import Semester from './Semester'
 import SlotModal from './SlotModal'
@@ -233,14 +234,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       if (prereqError) { setError(prereqError.message); setLoading(false); return }
 
-      const prereqMapBuilt = {}
-      for (const entry of prereqData) {
-        if (!prereqMapBuilt[entry.course_code]) prereqMapBuilt[entry.course_code] = {}
-        if (!prereqMapBuilt[entry.course_code][entry.group_index]) {
-          prereqMapBuilt[entry.course_code][entry.group_index] = { logic: entry.logic, codes: [] }
-        }
-        prereqMapBuilt[entry.course_code][entry.group_index].codes.push(entry.required_code)
-      }
+      // Grouped by group_index, with course substitutes applied (MATH1906
+      // also satisfies MATH1910 requirements — see requirementMap.js).
+      const prereqMapBuilt = buildRequirementMap(prereqData)
 
       // Step 6b — corequisites
       // Fetch group_index and logic so OR groups can short-circuit correctly.
@@ -249,15 +245,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         .select('course_code, required_code, group_index, logic')
         .in('course_code', allCodes)
 
-      const coreqMapBuilt = {}
-      for (const entry of coreqData ?? []) {
-        if (!coreqMapBuilt[entry.course_code]) coreqMapBuilt[entry.course_code] = {}
-        const gi = entry.group_index
-        if (!coreqMapBuilt[entry.course_code][gi]) {
-          coreqMapBuilt[entry.course_code][gi] = { logic: entry.logic, codes: [] }
-        }
-        coreqMapBuilt[entry.course_code][gi].codes.push(entry.required_code)
-      }
+      const coreqMapBuilt = buildRequirementMap(coreqData)
 
       // Step 7 — semester notes + completion state
       const { data: notesData } = await supabase

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveActMathPlacement, resolveActEnglishCredit } from '../lib/actScoreResolver'
 import { buildDegreePlan } from '../lib/degreeBuilder'
+import { buildRequirementMap } from '../lib/requirementMap'
 import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
@@ -275,23 +276,10 @@ export default function Onboarding({ profileId, onComplete }) {
     const courseMap = {}
     for (const c of (coursesRes.data ?? [])) courseMap[c.code] = c
 
-    const prereqMap = {}
-    for (const e of (prereqRes.data ?? [])) {
-      if (!prereqMap[e.course_code]) prereqMap[e.course_code] = {}
-      if (!prereqMap[e.course_code][e.group_index]) {
-        prereqMap[e.course_code][e.group_index] = { logic: e.logic, codes: [] }
-      }
-      prereqMap[e.course_code][e.group_index].codes.push(e.required_code)
-    }
-
-    const coreqMap = {}
-    for (const e of (coreqRes.data ?? [])) {
-      if (!coreqMap[e.course_code]) coreqMap[e.course_code] = {}
-      if (!coreqMap[e.course_code][e.group_index]) {
-        coreqMap[e.course_code][e.group_index] = { logic: e.logic, codes: [] }
-      }
-      coreqMap[e.course_code][e.group_index].codes.push(e.required_code)
-    }
+    // Grouped by group_index, with course substitutes applied (MATH1906
+    // also satisfies MATH1910 requirements — see requirementMap.js).
+    const prereqMap = buildRequirementMap(prereqRes.data)
+    const coreqMap  = buildRequirementMap(coreqRes.data)
 
     // ── 4. Run the algorithm ─────────────────────────────────────────────────
     const { assignments, archived } = buildDegreePlan({
