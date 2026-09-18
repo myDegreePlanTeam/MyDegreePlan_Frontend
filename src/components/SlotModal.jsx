@@ -23,6 +23,9 @@ export default function SlotModal({
   onSave,
   onRemove,
   onClose,
+  // embedded: render inside the course side panel — no backdrop or header,
+  // the panel supplies those. Filtering and selection logic is identical.
+  embedded = false,
 }) {
   const [courses, setCourses]               = useState([])
   const [freeSections, setFreeSections]     = useState(null)
@@ -336,21 +339,8 @@ export default function SlotModal({
     )
   }
 
-  return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-card">
-
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Select a course</p>
-            <h3 className="modal-title">
-              {POOL_LABELS[slot.class_code] ?? slot.class_code}
-            </h3>
-            <p className="modal-sub">Semester {planSemesterOverrides?.[slot.id] ?? slot.semester_number}</p>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-
+  const content = (
+    <>
         {autoFill && (
           <div className="modal-autofill-notice">
             Partner course auto-selected based on your science sequence choice.
@@ -404,7 +394,7 @@ export default function SlotModal({
               </button>
             )}
             <button className="onboarding-btn-secondary" onClick={onClose}>
-              Cancel
+              {embedded ? 'Back' : 'Cancel'}
             </button>
             <button
               className="onboarding-btn"
@@ -416,6 +406,27 @@ export default function SlotModal({
           </div>
         </div>
 
+    </>
+  )
+
+  if (embedded) return <div className="ds-picker">{content}</div>
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-card">
+
+        <div className="modal-header">
+          <div>
+            <p className="modal-eyebrow">Select a course</p>
+            <h3 className="modal-title">
+              {POOL_LABELS[slot.class_code] ?? slot.class_code}
+            </h3>
+            <p className="modal-sub">Semester {planSemesterOverrides?.[slot.id] ?? slot.semester_number}</p>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        {content}
       </div>
     </div>
   )

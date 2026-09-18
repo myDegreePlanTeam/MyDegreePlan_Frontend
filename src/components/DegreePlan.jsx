@@ -1,25 +1,31 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
-import { getScienceWarnings, getGenEdStatus } from '../lib/poolResolver'
-import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm } from '../lib/semesterTerms'
+import { getScienceWarnings, getGenEdStatus, POOL_LABELS } from '../lib/poolResolver'
+import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
+import { buildPlanIssues, countIssuesBySemester, FULL_TIME_MIN, HEAVY_LOAD_MAX } from '../lib/planIssues'
 import Semester from './Semester'
+import { calculateCredits } from '../lib/semesterCredits'
 import SlotModal from './SlotModal'
-import CourseDetailModal from './CourseDetailModal'
+import CoursePanel from './CoursePanel'
 import AddCourseModal from './AddCourseModal'
 import { DegreeplanSkeleton } from './Skeletons'
 import CompletionBadge from './CompletionBadge'
 import usePlanCompleteness from '../lib/usePlanCompleteness'
 import PriorCreditWizard from './PriorCreditWizard'
 import ExportPlanButton from './ExportPlanButton'
+import Sidebar from './shell/Sidebar'
+import IssuesView from './shell/IssuesView'
+import AdvisementView from './shell/AdvisementView'
+import SettingsView, { ConcentrationModal, ResetModal } from './shell/SettingsView'
 import './Dashboard.css'
+import './shell/AppShell.css'
 
 // Credit-hour thresholds for academic standing
 const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
@@ -36,13 +42,17 @@ const CREDIT_TYPE_LABELS = {
 }
 
 export default function DegreePlan({ profile, onProfileChange }) {
-  const navigate = useNavigate()
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
   const [slots, setSlots]                         = useState([])
   const [courses, setCourses]                     = useState({})
   const [loading, setLoading]                     = useState(true)
   const [error, setError]                         = useState(null)
-  const [activeSlot, setActiveSlot]               = useState(null)
+  // view: which sidebar tab is showing
+  const [view, setView]                           = useState('plan')
+  // selection: the course row open in the side panel —
+  //   { kind: 'slot', id: requirementSlotId } | { kind: 'free', id: freeAddId } | null
+  const [selection, setSelection]                 = useState(null)
+  const [lastSavedAt, setLastSavedAt]             = useState(null)
   const [planSlots, setPlanSlots]                 = useState({})
   const [planStatuses, setPlanStatuses]           = useState({})
   const [planCreditsRemaining, setPlanCreditsRemaining] = useState({})
@@ -54,7 +64,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [priorCredits, setPriorCredits]           = useState([])
   const [prereqMap, setPrereqMap]                 = useState({})
   const [coreqMap, setCoreqMap]                   = useState({})
-  const [activeDetail, setActiveDetail]           = useState(null)
   const [semesterNotes, setSemesterNotes]         = useState({})
   const [showSwitchModal, setShowSwitchModal]     = useState(false)
   const [switching, setSwitching]                 = useState(false)
@@ -103,8 +112,20 @@ export default function DegreePlan({ profile, onProfileChange }) {
     saveErrorTimerRef.current = setTimeout(() => setSaveError(null), 5000)
   }
 
+  // Every record carries a `label` — the Undo button reads "Undo — <label>".
   function pushUndo(record) {
     setUndoStack(prev => [...prev.slice(-19), record])
+  }
+
+  function markSaved() {
+    setLastSavedAt(new Date())
+  }
+
+  function slotCode(slot) {
+    if (!slot) return 'course'
+    return slot.is_pool
+      ? (planSlots[slot.id] ?? POOL_LABELS[slot.class_code] ?? slot.class_code)
+      : slot.class_code
   }
 
   // ── syncArchivedSlots ─────────────────────────────────────────────
@@ -646,7 +667,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const prevCreditsRemaining = planCreditsRemaining
 
     pushUndo({
-      type: 'pool_select', slotId: slot.id,
+      type: 'pool_select', slotId: slot.id, label: `Chose ${course.code}`,
       prevCourseCode: planSlots[slot.id] ?? null,
       prevStatus: planStatuses[slot.id] ?? null,
       prevCreditsRemaining: planCreditsRemaining[slot.id] ?? 0,
@@ -654,7 +675,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setPlanSlots(prev          => ({ ...prev, [slot.id]: course.code }))
     setPlanStatuses(prev       => ({ ...prev, [slot.id]: existingStatus }))
     setPlanCreditsRemaining(prev => ({ ...prev, [slot.id]: creditsRemaining }))
-    setActiveSlot(null)
 
     supabase
       .from('student_plan_slots')
@@ -672,6 +692,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           setPlanStatuses(prevStatuses)
           setPlanCreditsRemaining(prevCreditsRemaining)
           showSaveError('Course selection could not be saved. Please try again.')
+        } else {
+          markSaved()
         }
       })
   }
@@ -684,7 +706,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const courseCode = slot.is_pool ? planSlots[slot.id] : slot.class_code
     if (slot.is_pool && !courseCode) return
 
-    pushUndo({ type: 'slot_status', slotId: slot.id, prevStatus: planStatuses[slot.id] ?? 'planned' })
+    pushUndo({
+      type: 'slot_status', slotId: slot.id, prevStatus: planStatuses[slot.id] ?? 'planned',
+      label: `Status of ${courseCode}`,
+    })
     const prevStatuses = planStatuses
     setPlanStatuses(prev => ({ ...prev, [slot.id]: newStatus }))
 
@@ -702,13 +727,18 @@ export default function DegreePlan({ profile, onProfileChange }) {
         if (error) {
           setPlanStatuses(prevStatuses)
           showSaveError('Status change could not be saved. Please try again.')
+        } else {
+          markSaved()
         }
       })
   }
 
   // ── Cycle a free-add slot's status ───────────────────────────────
   function handleFreeAddStatusChange(freeAdd, newStatus) {
-    pushUndo({ type: 'free_status', freeAddId: freeAdd.id, prevStatus: freeAdd.status })
+    pushUndo({
+      type: 'free_status', freeAddId: freeAdd.id, prevStatus: freeAdd.status,
+      label: `Status of ${freeAdd.course_code}`,
+    })
     const prev = freeAddSlots
     setFreeAddSlots(list =>
       list.map(f => f.id === freeAdd.id ? { ...f, status: newStatus } : f)
@@ -721,6 +751,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
         if (error) {
           setFreeAddSlots(prev)
           showSaveError('Status change could not be saved. Please try again.')
+        } else {
+          markSaved()
         }
       })
   }
@@ -737,7 +769,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setPlanSlots(prev    => { const n = { ...prev }; delete n[slot.id]; return n })
       setPlanStatuses(prev => { const n = { ...prev }; delete n[slot.id]; return n })
       setPlanCreditsRemaining(prev => { const n = { ...prev }; delete n[slot.id]; return n })
-      setActiveSlot(null)
+      markSaved()
+    } else {
+      showSaveError('Could not clear the selection. Please try again.')
     }
   }
 
@@ -834,6 +868,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setFreeAddSlots(list => list.map(f => f.id === record.freeAddId ? { ...f, semester_number: record.prevSemester } : f))
       await supabase.from('student_free_add_slots').update({ semester_number: record.prevSemester }).eq('id', record.freeAddId)
     }
+    markSaved()
   }
 
   // ── Add a free-add course to a semester ──────────────────────────
@@ -868,13 +903,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     setFreeAddSlots(prev => [...prev, data])
-    if (data) pushUndo({ type: 'free_add', freeAddId: data.id })
+    if (data) pushUndo({ type: 'free_add', freeAddId: data.id, label: `Added ${course.code}` })
+    markSaved()
   }
 
   // ── Remove a free-add slot ────────────────────────────────────────
   function handleRemoveFreeAdd(freeAdd) {
     const prev = freeAddSlots
     setFreeAddSlots(list => list.filter(f => f.id !== freeAdd.id))
+    setSelection(sel => (sel?.kind === 'free' && sel.id === freeAdd.id ? null : sel))
 
     supabase
       .from('student_free_add_slots')
@@ -884,6 +921,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
         if (error) {
           setFreeAddSlots(prev)
           showSaveError('Could not remove course. Please try again.')
+        } else {
+          markSaved()
         }
       })
   }
@@ -910,6 +949,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const newCredits = [...priorCredits, ...(data ?? [])]
     setPriorCredits(newCredits)
     await syncArchivedSlots(newCredits)
+    markSaved()
   }
 
   async function handleRemovePriorCredit(id) {
@@ -929,6 +969,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     await syncArchivedSlots(newCredits)
+    markSaved()
   }
 
   // ── Semester completion toggle ────────────────────────────────────
@@ -950,6 +991,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       .map(f => ({ id: f.id, status: f.status }))
     pushUndo({
       type: 'sem_complete', semNum,
+      label: `${value ? 'Completed' : 'Reopened'} ${formatTermLabel(semesterTerms[semNum]) ?? `semester ${semNum}`}`,
       prevCompleted: planSemesterCompleted[semNum] ?? false,
       prevStatuses: undoPrevStatuses,
       prevFreeAdds: undoPrevFreeAdds,
@@ -1015,50 +1057,28 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (faErr) {
       setFreeAddSlots(prevFreeAdds)
       showSaveError('Some free-add slot statuses could not be updated.')
+      return
     }
+    markSaved()
   }
 
-  // ── Global collapse / expand controls ────────────────────────────
-  function collapseCompleted() {
-    setSemesterExpanded(prev => {
-      const next = { ...prev }
-      for (const semNum of allSemesterNumbers) {
-        if (planSemesterCompleted[semNum]) next[semNum] = false
-      }
-      return next
-    })
-  }
+  // ── Global collapse / expand control ─────────────────────────────
+  // Undefined means expanded (see isExpanded on Semester), so "any open"
+  // is "any not explicitly false".
+  const anyExpanded = allSemesterNumbers.some(n => semesterExpanded[n] !== false)
 
-  function expandAll() {
+  function toggleAll() {
     const next = {}
-    for (const semNum of allSemesterNumbers) next[semNum] = true
+    for (const semNum of allSemesterNumbers) next[semNum] = !anyExpanded
     setSemesterExpanded(next)
-  }
-
-  function collapseAll() {
-    const next = {}
-    for (const semNum of allSemesterNumbers) next[semNum] = false
-    setSemesterExpanded(next)
-  }
-
-  // ── Route a slot click ────────────────────────────────────────────
-  function handleSlotClick(slot) {
-    if (slot.is_pool && !planSlots[slot.id]) {
-      setActiveSlot(slot)
-    } else {
-      setActiveDetail(slot)
-    }
-  }
-
-  function handleChangeSelection() {
-    const slot = activeDetail
-    setActiveDetail(null)
-    setActiveSlot(slot)
   }
 
   // ── Semester notes ────────────────────────────────────────────────
   function handleNoteSave(semesterNumber, noteText) {
-    pushUndo({ type: 'note', semNum: semesterNumber, prevNote: semesterNotes[semesterNumber] ?? '' })
+    pushUndo({
+      type: 'note', semNum: semesterNumber, prevNote: semesterNotes[semesterNumber] ?? '',
+      label: `Note on ${formatTermLabel(semesterTerms[semesterNumber]) ?? `semester ${semesterNumber}`}`,
+    })
     const prevNotes = semesterNotes
     setSemesterNotes(prev => ({ ...prev, [semesterNumber]: noteText }))
 
@@ -1075,6 +1095,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
         if (error) {
           setSemesterNotes(prevNotes)
           showSaveError('Semester note could not be saved. Please try again.')
+        } else {
+          markSaved()
         }
       })
   }
@@ -1200,6 +1222,92 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return reasons
   }
 
+  // ── Move a course to another semester ─────────────────────────────
+  // Shared by drag-and-drop and the course panel's "Move to term" list.
+  // Season restrictions and prereq/coreq conflicts are checked here, so both
+  // entry points enforce the same rules.
+  function moveToSemester(type, slotId, newSemester) {
+    if (type === 'requirement_slot') {
+      const slot = slots.find(s => s.id === slotId)
+      if (!slot) return
+      if (planArchived[slotId]) return   // archived slots cannot be moved
+      const currentSemester = planSemesterOverrides[slotId] ?? slot.semester_number
+      if (currentSemester === newSemester) return
+
+      const courseCode   = slot.is_pool ? planSlots[slotId] : slot.class_code
+      const targetSeason = semesterTerms[newSemester]?.season
+      if (!isEnrollmentAllowed(courseCode, targetSeason)) {
+        showSaveError(`${courseCode} is ${getSeasonRestriction(courseCode)}-only and cannot be placed in a ${targetSeason} semester.`)
+        return
+      }
+
+      // ── Hard-block prereq/coreq conflicts ─────────────────────────────────
+      // The move is rejected before any state update. The student must dismiss
+      // the modal before they can try again (atomicity guarantee per Q2).
+      const conflicts = getDragConflicts(slotId, newSemester)
+      if (conflicts.length > 0) {
+        setConflictModal({
+          title: `Cannot move ${courseCode} to ${formatTermLabel(semesterTerms[newSemester]) ?? `Semester ${newSemester}`}`,
+          reasons: conflicts,
+        })
+        return
+      }
+
+      pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester, label: `Moved ${courseCode ?? slotCode(slot)}` })
+      const prevOverrides = planSemesterOverrides
+      setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
+
+      supabase
+        .from('student_plan_slots')
+        .upsert({
+          student_id:           profile.id,
+          requirement_slot_id:  slotId,
+          selected_course_code: courseCode ?? null,
+          status:               planStatuses[slotId] ?? 'planned',
+          semester_number:      newSemester,
+          credits_remaining:    planCreditsRemaining[slotId] ?? 0,
+          position_source:      'student',
+        }, { onConflict: 'student_id, requirement_slot_id' })
+        .then(({ error }) => {
+          if (error) {
+            setPlanSemesterOverrides(prevOverrides)
+            showSaveError('Could not move slot. Please try again.')
+          } else {
+            markSaved()
+          }
+        })
+
+    } else if (type === 'free_add') {
+      const fa = freeAddSlots.find(f => f.id === slotId)
+      if (!fa || fa.semester_number === newSemester) return
+
+      const faTargetSeason = semesterTerms[newSemester]?.season
+      if (!isEnrollmentAllowed(fa.course_code, faTargetSeason)) {
+        showSaveError(`${fa.course_code} is ${getSeasonRestriction(fa.course_code)}-only and cannot be placed in a ${faTargetSeason} semester.`)
+        return
+      }
+
+      pushUndo({ type: 'drag_free', freeAddId: slotId, prevSemester: fa.semester_number, label: `Moved ${fa.course_code}` })
+      const prevFreeAdds = freeAddSlots
+      setFreeAddSlots(list =>
+        list.map(f => f.id === slotId ? { ...f, semester_number: newSemester } : f)
+      )
+
+      supabase
+        .from('student_free_add_slots')
+        .update({ semester_number: newSemester })
+        .eq('id', slotId)
+        .then(({ error }) => {
+          if (error) {
+            setFreeAddSlots(prevFreeAdds)
+            showSaveError('Could not move course. Please try again.')
+          } else {
+            markSaved()
+          }
+        })
+    }
+  }
+
   async function handleDragEnd({ active, over }) {
     setDraggedSlotId(null)
     if (!over) return
@@ -1297,80 +1405,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
     // ── Drop on a semester card (normal reorder) ──────────────────────
     const newSemester = over.id
 
-    if (type === 'requirement_slot') {
-      const slot = slots.find(s => s.id === slotId)
-      if (!slot) return
-      if (planArchived[slotId]) return   // archived slots cannot be moved
-      const currentSemester = planSemesterOverrides[slotId] ?? slot.semester_number
-      if (currentSemester === newSemester) return
-
-      const courseCode   = slot.is_pool ? planSlots[slotId] : slot.class_code
-      const targetSeason = semesterTerms[newSemester]?.season
-      if (!isEnrollmentAllowed(courseCode, targetSeason)) {
-        showSaveError(`${courseCode} is ${getSeasonRestriction(courseCode)}-only and cannot be placed in a ${targetSeason} semester.`)
-        return
-      }
-
-      // ── Hard-block prereq/coreq conflicts ─────────────────────────────────
-      // The move is rejected before any state update. The student must dismiss
-      // the modal before they can try again (atomicity guarantee per Q2).
-      const conflicts = getDragConflicts(slotId, newSemester)
-      if (conflicts.length > 0) {
-        setConflictModal({
-          title: `Cannot move ${courseCode} to Semester ${newSemester}`,
-          reasons: conflicts,
-        })
-        return
-      }
-
-      pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester })
-      const prevOverrides = planSemesterOverrides
-      setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
-
-      supabase
-        .from('student_plan_slots')
-        .upsert({
-          student_id:           profile.id,
-          requirement_slot_id:  slotId,
-          selected_course_code: courseCode ?? null,
-          status:               planStatuses[slotId] ?? 'planned',
-          semester_number:      newSemester,
-          credits_remaining:    planCreditsRemaining[slotId] ?? 0,
-          position_source:      'student',
-        }, { onConflict: 'student_id, requirement_slot_id' })
-        .then(({ error }) => {
-          if (error) {
-            setPlanSemesterOverrides(prevOverrides)
-            showSaveError('Could not move slot. Please try again.')
-          }
-        })
-
-    } else if (type === 'free_add') {
-      const fa = freeAddSlots.find(f => f.id === slotId)
-      if (!fa || fa.semester_number === newSemester) return
-
-      const faTargetSeason = semesterTerms[newSemester]?.season
-      if (!isEnrollmentAllowed(fa.course_code, faTargetSeason)) {
-        showSaveError(`${fa.course_code} is ${getSeasonRestriction(fa.course_code)}-only and cannot be placed in a ${faTargetSeason} semester.`)
-        return
-      }
-
-      pushUndo({ type: 'drag_free', freeAddId: slotId, prevSemester: fa.semester_number })
-      const prevFreeAdds = freeAddSlots
-      setFreeAddSlots(list =>
-        list.map(f => f.id === slotId ? { ...f, semester_number: newSemester } : f)
-      )
-
-      supabase
-        .from('student_free_add_slots')
-        .update({ semester_number: newSemester })
-        .eq('id', slotId)
-        .then(({ error }) => {
-          if (error) {
-            setFreeAddSlots(prevFreeAdds)
-            showSaveError('Could not move course. Please try again.')
-          }
-        })
+    if (type === 'requirement_slot' || type === 'free_add') {
+      moveToSemester(type, slotId, newSemester)
 
     } else if (type === 'prior_credit') {
       // ── Drag prior credit row back to a semester ──────────────────
@@ -1547,241 +1583,140 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const plannedPct   = Math.min((creditTotals.planned   / totalHours) * 100, 100 - completedPct)
 
   const graduation   = lastNonSummerTerm(semesterTerms, allSemesterNumbers)
+  const gradSemNum   = [...allSemesterNumbers].reverse().find(n => isSameTerm(semesterTerms[n], graduation))
+  const nowTerm      = termForDate(new Date())
+  const firstTerm    = formatTermLabel(semesterTerms[allSemesterNumbers[0]])
+
+  // ── Per-semester view data ────────────────────────────────────────
+  const semLabels = {}
+  allSemesterNumbers.forEach((n, idx) => {
+    semLabels[n] = formatTermLabel(semesterTerms[n]) ?? `Semester ${idx + 1}`
+  })
+  const semCredits = n =>
+    calculateCredits(semesterMap[n] ?? [], freeAddBySemester[n] ?? [], courses, planSlots)
+  const semItems = n => [
+    ...(semesterMap[n] ?? []).map(slot => ({ key: slot.id, code: slotCode(slot) })),
+    ...(freeAddBySemester[n] ?? []).map(fa => ({ key: `fa_${fa.id}`, code: fa.course_code })),
+  ]
+
+  const issues = buildPlanIssues({
+    semesters: allSemesterNumbers.map(n => ({
+      semNum: n, label: semLabels[n], credits: semCredits(n),
+      completed: !!planSemesterCompleted[n], items: semItems(n),
+    })),
+    prereqWarnings, coreqWarnings, standingWarnings, scienceWarnings,
+  })
+  const issueCounts = countIssuesBySemester(issues)
+
+  const lastUndo = undoStack[undoStack.length - 1]
 
   const draggedLabel = (() => {
     if (!draggedSlotId) return null
     const slot = slots.find(s => s.id === draggedSlotId)
-    if (slot) {
-      const code = slot.is_pool ? (planSlots[slot.id] ?? slot.class_code) : slot.class_code
-      return code
-    }
+    if (slot) return slotCode(slot)
     const fa = freeAddSlots.find(f => f.id === draggedSlotId)
     if (fa) return fa.course_code ?? null
     const pc = priorCredits.find(p => p.id === draggedSlotId)
     return pc?.satisfies_course_code ?? pc?.note ?? null
   })()
 
+  // ── Selected course (side panel) ──────────────────────────────────
+  const selSlot = selection?.kind === 'slot'
+    ? slots.find(s => s.id === selection.id && !planArchived[s.id]) ?? null
+    : null
+  const selFree = selection?.kind === 'free'
+    ? freeAddSlots.find(f => f.id === selection.id) ?? null
+    : null
+  const selKey    = selSlot ? selSlot.id : selFree ? `fa_${selFree.id}` : null
+  const selSem    = selSlot ? (planSemesterOverrides[selSlot.id] ?? selSlot.semester_number) : selFree?.semester_number
+  const selCode   = selSlot ? (selSlot.is_pool ? planSlots[selSlot.id] : selSlot.class_code) : selFree?.course_code
+  const selCourse = selCode ? courses[selCode] : null
+  const selIsEmptyPool = !!selSlot?.is_pool && !planSlots[selSlot.id]
 
-  const completedSemesterCount = allSemesterNumbers.filter(n => planSemesterCompleted[n]).length
+  // Every term, with whether the selected course may move there. Uses the
+  // same rules moveToSemester enforces (season, then prereq/coreq conflicts).
+  const moveTargets = selCode ? allSemesterNumbers.map(n => {
+    const base = { semNum: n, name: semLabels[n] }
+    if (n === selSem) return { ...base, note: 'here', tone: 'here', disabled: true, isHere: true }
+    if (planSemesterCompleted[n]) return { ...base, note: 'completed', tone: null, disabled: true }
+    if (!isEnrollmentAllowed(selCode, semesterTerms[n]?.season)) {
+      return { ...base, note: `${getSeasonRestriction(selCode)} only`, tone: 'bad', disabled: true }
+    }
+    if (selSlot) {
+      const conflicts = getDragConflicts(selSlot.id, n)
+      if (conflicts.length > 0) {
+        return { ...base, note: 'breaks a requisite', tone: 'bad', disabled: true, reason: conflicts.join('\n') }
+      }
+    }
+    const before = semCredits(n)
+    const after  = before + (selCourse?.credits ?? 0)
+    const tone   = after > HEAVY_LOAD_MAX || after < FULL_TIME_MIN ? 'warn' : 'ok'
+    return { ...base, note: `${before} → ${after} cr`, tone, disabled: false }
+  }) : []
 
-  return (
-    <div className="degreeplan-shell">
+  function selectSlot(slot) {
+    setSelection(sel => (sel?.kind === 'slot' && sel.id === slot.id ? null : { kind: 'slot', id: slot.id }))
+  }
+  function selectFreeAdd(fa) {
+    setSelection(sel => (sel?.kind === 'free' && sel.id === fa.id ? null : { kind: 'free', id: fa.id }))
+  }
 
-      <header className="degreeplan-header">
-        <div className="degreeplan-header-inner">
-          <div>
-            <p className="degreeplan-eyebrow">Tennessee Tech University</p>
-            <h1 className="degreeplan-title">{profile.concentrations.name}</h1>
-            <p className="degreeplan-meta">
-              Started {profile.start_season} {profile.start_year}
-              {graduation && (
-                <>
-                  <span className="credit-label-dot"> · </span>
-                  <span className="degreeplan-graduation">
-                    Projected graduation: {graduation.season} {graduation.year}
-                  </span>
-                </>
-              )}
-            </p>
-            <div className="credit-bar-wrap">
-              <div className="credit-bar-track">
-                <div className="credit-bar-completed" style={{ width: `${completedPct}%` }} />
-                <div className="credit-bar-planned"   style={{ width: `${plannedPct}%`   }} />
-              </div>
-              <p className="credit-bar-label">
-                <span className="credit-label-completed">{creditTotals.completed} completed</span>
-                <span className="credit-label-dot">·</span>
-                <span className="credit-label-planned">{creditTotals.planned} planned</span>
-                <span className="credit-label-dot">·</span>
-                {totalHours} total
-              </p>
-            </div>
-            <GenEdTracker categories={genEdStatus} />
-          </div>
-          <div className="degreeplan-header-actions">
-            <button
-              className="degreeplan-undo"
-              onClick={handleUndo}
-              disabled={!undoStack.length}
-              title={undoStack.length ? `Undo last action (${undoStack.length} available)` : 'Nothing to undo'}
-            >
-              ↩ Undo
-            </button>
-            <ExportPlanButton
-              semesterNumbers={allSemesterNumbers}
-              semesterMap={semesterMap}
-              freeAddBySemester={freeAddBySemester}
-              planSlots={planSlots}
-              courses={courses}
-              semesterTerms={semesterTerms}
-              profile={profile}
-              graduation={graduation}
-              semesterCompleted={planSemesterCompleted}
-              priorCredits={priorCredits}
-            />
-            <button
-              className="degreeplan-reset"
-              onClick={() => setShowResetModal(true)}
-            >
-              Reset plan
-            </button>
-            <button
-              className="degreeplan-settings"
-              onClick={() => setShowSwitchModal(true)}
-            >
-              Change concentration
-            </button>
-            <button
-              className="degreeplan-settings"
-              onClick={() => navigate('/settings')}
-              title="Update ACT scores and recalculate your degree plan"
-            >
-              ACT scores
-            </button>
-            <button className="degreeplan-signout" onClick={() => {
-              const next = theme === 'dark' ? 'light' : 'dark'
-              document.documentElement.dataset.theme = next
-              localStorage.setItem('theme', next)
-              setTheme(next)
-            }}>
-              {theme === 'dark' ? '☀ Light' : '☾ Dark'}
-            </button>
-            <button className="degreeplan-signout" onClick={async () => {
-              await supabase.auth.signOut()
-            }}>
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
+  function navigateTo(nextView) {
+    setView(nextView)
+    setSelection(null)
+  }
 
-      <main className="degreeplan-main">
-        <CompletionBadge
-          isComplete={isComplete}
-          concentrationName={profile.concentrations.name}
-        />
+  function openIssue(issue) {
+    setView('plan')
+    setSemesterExpanded(prev => ({ ...prev, [issue.semNum]: true }))
+    if (issue.key == null) { setSelection(null); return }
+    const key = String(issue.key)
+    setSelection(key.startsWith('fa_')
+      ? { kind: 'free', id: freeAddSlots.find(f => `fa_${f.id}` === key)?.id }
+      : { kind: 'slot', id: issue.key })
+  }
 
-        {/* DndContext wraps both panels + grid so the transfer zone receives drops */}
-        <DndContext
-          sensors={sensors}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          {/* ── Prior Coursework panel ── */}
-          <TransferCreditsPanel
-            credits={priorCredits}
-            onRemove={handleRemovePriorCredit}
-            onAddClick={() => setShowWizard(true)}
-          />
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = next
+    localStorage.setItem('theme', next)
+    setTheme(next)
+  }
 
-          {/* ── Global grid controls ── */}
-          <div className="degreeplan-grid-controls">
-            {completedSemesterCount > 0 && (
-              <button
-                className="grid-control-btn"
-                onClick={collapseCompleted}
-                title="Collapse all completed semesters"
-              >
-                Collapse completed
-              </button>
-            )}
-            <button
-              className="grid-control-btn"
-              onClick={expandAll}
-              title="Expand all semesters"
-            >
-              Expand all
-            </button>
-            <button
-              className="grid-control-btn"
-              onClick={collapseAll}
-              title="Collapse all semesters"
-            >
-              Collapse all
-            </button>
-          </div>
-
-          <div className="degreeplan-grid">
-            {allSemesterNumbers.map((semNum, idx) => {
-              const priorComplete = allSemesterNumbers
-                .slice(0, idx)
-                .every(n => planSemesterCompleted[n])
-              return (
-                <Semester
-                  key={semNum}
-                  semesterNumber={semNum}
-                  slots={semesterMap[semNum] ?? []}
-                  freeAddSlots={freeAddBySemester[semNum] ?? []}
-                  courseMap={courses}
-                  planSlots={planSlots}
-                  planStatuses={planStatuses}
-                  planCreditsRemaining={planCreditsRemaining}
-                  onSlotClick={handleSlotClick}
-                  onStatusChange={handleStatusChange}
-                  onFreeAddStatusChange={handleFreeAddStatusChange}
-                  onRemoveFreeAdd={handleRemoveFreeAdd}
-                  onAddCourse={() => setAddCourseTarget(semNum)}
-                  scienceWarnings={scienceWarnings}
-                  prereqWarnings={prereqWarnings}
-                  coreqWarnings={coreqWarnings}
-                  standingWarnings={standingWarnings}
-                  transferFilled={transferFilled}
-                  transferDetails={transferDetails}
-                  note={semesterNotes[semNum] ?? ''}
-                  onNoteSave={handleNoteSave}
-                  isExpanded={semesterExpanded[semNum] !== false}
-                  onToggleExpand={() =>
-                    setSemesterExpanded(prev => ({
-                      ...prev,
-                      [semNum]: !(prev[semNum] !== false),
-                    }))
-                  }
-                  isCompleted={!!planSemesterCompleted[semNum]}
-                  onMarkComplete={value => handleSemesterComplete(semNum, value)}
-                  hasWarnings={!!semesterHasWarnings[semNum]}
-                  priorSemestersAllComplete={priorComplete}
-                  displayNumber={idx + 1}
-                  termLabel={formatTermLabel(semesterTerms[semNum])}
-                  onDelete={extraSemesters.includes(semNum)
-                    ? async () => {
-                        await supabase.from('student_semester_notes')
-                          .delete().eq('student_id', profile.id).eq('semester_number', semNum)
-                        setExtraSemesters(prev => prev.filter(n => n !== semNum))
-                        setExtraSemesterTerms(prev => { const next = { ...prev }; delete next[semNum]; return next })
-                      }
-                    : null}
-                />
-              )
-            })}
-          </div>
-
-          <div className="degreeplan-add-semester-wrap">
-            <button
-              className="degreeplan-add-semester-btn"
-              onClick={() => {
-                const base = extraSemesters.length > 0 ? Math.max(...extraSemesters) : maxTemplateSem
-                const newSemNum = base + 1
-                const lastSemNum = allSemesterNumbers.length > 0 ? Math.max(...allSemesterNumbers) : null
-                const newTerm = advanceTerm(lastSemNum != null ? semesterTerms[lastSemNum] : null)
-                setExtraSemesters(prev => [...prev, newSemNum])
-                if (newTerm) setExtraSemesterTerms(prev => ({ ...prev, [newSemNum]: newTerm }))
-              }}
-            >
-              + Add semester
-            </button>
-          </div>
-
-          <DragOverlay>
-            {draggedLabel && (
-              <div className="slot-drag-overlay">{draggedLabel}</div>
-            )}
-          </DragOverlay>
-        </DndContext>
-      </main>
-
-      {activeSlot && (
+  const coursePanel = view === 'plan' && selKey != null && (
+    <CoursePanel
+      key={`${selKey}:${selCode ?? 'empty'}`}
+      eyebrow={semLabels[selSem] ?? ''}
+      title={selIsEmptyPool ? (POOL_LABELS[selSlot.class_code] ?? selSlot.class_code) : selCode}
+      subtitle={selIsEmptyPool
+        ? `Choose a course · ${selSlot.flex_credits ?? 3} cr`
+        : `${selCourse?.name ?? 'Course not in catalog'}${selCourse ? ` · ${selCourse.credits} cr` : ''}`}
+      course={selCourse}
+      courseMap={courses}
+      prereqMap={prereqMap}
+      coreqMap={coreqMap}
+      status={selSlot ? planStatuses[selSlot.id] : selFree?.status}
+      statusLocked={!!planSemesterCompleted[selSem]}
+      warnings={{
+        prereq:   prereqWarnings[selKey],
+        coreq:    coreqWarnings[selKey],
+        standing: standingWarnings[selKey],
+        science:  scienceWarnings[selKey],
+      }}
+      countsToward={selFree
+        ? 'Added by you · counts toward total degree hours'
+        : selSlot.is_pool
+          ? `${POOL_LABELS[selSlot.class_code] ?? selSlot.class_code} requirement`
+          : `Major requirement · ${profile.concentrations.name}`}
+      moveTargets={moveTargets}
+      isPool={!!selSlot?.is_pool}
+      isFreeAdd={!!selFree}
+      startInPicker={selIsEmptyPool}
+      picker={onBack => selSlot && (
         <SlotModal
-          slot={activeSlot}
+          key={selSlot.id}
+          embedded
+          slot={selSlot}
           courseMap={courses}
           studentId={profile.id}
           planSlots={planSlots}
@@ -1794,29 +1729,267 @@ export default function DegreePlan({ profile, onProfileChange }) {
           freeAddSlots={freeAddSlots}
           onSave={handleSave}
           onRemove={handleRemove}
-          onClose={() => setActiveSlot(null)}
+          onClose={onBack}
         />
       )}
+      onStatusChange={status => selSlot
+        ? handleStatusChange(selSlot, status)
+        : handleFreeAddStatusChange(selFree, status)}
+      onMove={n => moveToSemester(selSlot ? 'requirement_slot' : 'free_add', selSlot?.id ?? selFree.id, n)}
+      onRemove={() => (selFree ? handleRemoveFreeAdd(selFree) : handleRemove(selSlot))}
+      onClose={() => setSelection(null)}
+    />
+  )
 
-      {activeDetail && (() => {
-        const slot   = activeDetail
-        const course = slot.is_pool
-          ? courses[planSlots[slot.id]]
-          : courses[slot.class_code]
-        return (
-          <CourseDetailModal
-            slot={slot}
-            course={course}
-            courseMap={courses}
-            prereqMap={prereqMap}
-            coreqMap={coreqMap}
-            isPool={slot.is_pool}
-            onChangeSelection={handleChangeSelection}
-            onRemove={slot => { handleRemove(slot); setActiveDetail(null) }}
-            onClose={() => setActiveDetail(null)}
+  // ── Advisement data ───────────────────────────────────────────────
+  const advisementTerms = allSemesterNumbers.map(n => {
+    const cr = semCredits(n)
+    const isCurrent = isSameTerm(semesterTerms[n], nowTerm)
+    const [meta, metaTone] = planSemesterCompleted[n]
+      ? [`${cr} cr · complete`, 'done']
+      : issueCounts[n]
+        ? [`${cr} cr · ${issueCounts[n]} ${issueCounts[n] === 1 ? 'issue' : 'issues'}`, 'warn']
+        : [`${cr} cr · ${isCurrent ? 'in progress' : 'planned'}`, null]
+    return {
+      semNum: n, name: semLabels[n], isCurrent, meta, metaTone,
+      courses: [
+        ...(semesterMap[n] ?? []).map(slot => {
+          const code   = slot.is_pool ? planSlots[slot.id] : slot.class_code
+          const course = code ? courses[code] : null
+          return {
+            key: slot.id,
+            code: code ?? (POOL_LABELS[slot.class_code] ?? slot.class_code),
+            title: course?.name ?? 'Choose a course',
+            cr: `${course?.credits ?? slot.flex_credits ?? 3} cr`,
+          }
+        }),
+        ...(freeAddBySemester[n] ?? []).map(fa => ({
+          key: `fa_${fa.id}`, code: fa.course_code,
+          title: courses[fa.course_code]?.name ?? fa.course_code,
+          cr: `${courses[fa.course_code]?.credits ?? '—'} cr`,
+        })),
+      ],
+    }
+  })
+
+  const priorSummary = (() => {
+    if (priorCredits.length === 0) return 'No prior coursework recorded. Add AP, IB, CLEP, ACT, or transfer credit from the Plan tab.'
+    const credit = priorCredits
+      .filter(pc => (pc.credits_awarded ?? 0) > 0)
+      .map(pc => `${CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type} ${pc.satisfies_course_code ?? pc.note ?? ''}`.trim())
+    const placement = priorCredits
+      .filter(pc => (pc.credits_awarded ?? 0) === 0 && pc.satisfies_course_code)
+      .map(pc => `${CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type} placement into ${pc.satisfies_course_code}`)
+    return `Prior coursework: ${[...credit, ...placement].join(', ')}.`
+  })()
+
+  return (
+    <div className="ds-app">
+      <Sidebar
+        view={view}
+        onNavigate={navigateTo}
+        issueCount={issues.length}
+        lastSavedAt={lastSavedAt}
+      />
+
+      <main className="ds-main">
+        {view === 'plan' && (
+          <div className="ds-plan">
+            <div className="ds-plan-header">
+              <div className="ds-plan-heading">
+                <p className="ds-eyebrow">{profile.concentrations.name}</p>
+                <h2 className="ds-h2">{allSemesterNumbers.length <= 8 ? 'Four-Year Plan' : 'Degree Plan'}</h2>
+                <p className="ds-sub" style={{ whiteSpace: 'nowrap' }}>
+                  {firstTerm && graduation
+                    ? `${firstTerm} → ${graduation.season} ${graduation.year}`
+                    : `Started ${profile.start_season} ${profile.start_year}`}
+                  {` · ${totalHours} hours`}
+                </p>
+              </div>
+              <div className="ds-progress">
+                <div
+                  className="ds-progress-track"
+                  role="img"
+                  aria-label={`${creditTotals.completed} credits done, ${creditTotals.planned} planned, of ${totalHours}`}
+                >
+                  <div className="ds-progress-done"    style={{ width: `${completedPct}%` }} />
+                  <div className="ds-progress-planned" style={{ width: `${plannedPct}%` }} />
+                </div>
+                <div className="ds-progress-legend">
+                  <span className="ds-legend-done">{creditTotals.completed} done</span>
+                  <span className="ds-sep">·</span>
+                  <span className="ds-legend-planned">{creditTotals.planned} planned</span>
+                  <span className="ds-sep">·</span>
+                  <span>{totalHours} required</span>
+                  <span className="ds-sep">·</span>
+                  <span>{Math.round(completedPct)}% complete</span>
+                </div>
+              </div>
+              <div className="ds-header-actions">
+                <button className="ds-btn-ghost" onClick={toggleAll}>
+                  {anyExpanded ? 'Collapse all' : 'Expand all'}
+                </button>
+                <button
+                  className="ds-btn-primary ds-undo"
+                  onClick={handleUndo}
+                  disabled={!lastUndo}
+                  title={lastUndo ? `${undoStack.length} action(s) can be undone` : 'Nothing to undo'}
+                >
+                  <span style={{ fontSize: 13, flexShrink: 0 }} aria-hidden="true">↺</span>
+                  <span className="ds-undo-label">
+                    {lastUndo ? `Undo — ${lastUndo.label ?? 'last change'}` : 'Nothing to undo'}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="ds-plan-body">
+              <CompletionBadge
+                isComplete={isComplete}
+                concentrationName={profile.concentrations.name}
+              />
+
+              <DndContext
+                sensors={sensors}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <PriorCourseworkStrip
+                  credits={priorCredits}
+                  onRemove={handleRemovePriorCredit}
+                  onAddClick={() => setShowWizard(true)}
+                  dragActive={!!draggedSlotId}
+                />
+
+                <div className="ds-grid">
+                  {allSemesterNumbers.map((semNum, idx) => {
+                    const priorComplete = allSemesterNumbers
+                      .slice(0, idx)
+                      .every(n => planSemesterCompleted[n])
+                    return (
+                      <Semester
+                        key={semNum}
+                        semesterNumber={semNum}
+                        slots={semesterMap[semNum] ?? []}
+                        freeAddSlots={freeAddBySemester[semNum] ?? []}
+                        courseMap={courses}
+                        planSlots={planSlots}
+                        planStatuses={planStatuses}
+                        planCreditsRemaining={planCreditsRemaining}
+                        onSelectSlot={selectSlot}
+                        onSelectFreeAdd={selectFreeAdd}
+                        selectedKey={selKey}
+                        onAddCourse={() => setAddCourseTarget(semNum)}
+                        scienceWarnings={scienceWarnings}
+                        prereqWarnings={prereqWarnings}
+                        coreqWarnings={coreqWarnings}
+                        standingWarnings={standingWarnings}
+                        transferFilled={transferFilled}
+                        transferDetails={transferDetails}
+                        note={semesterNotes[semNum] ?? ''}
+                        onNoteSave={handleNoteSave}
+                        isExpanded={semesterExpanded[semNum] !== false}
+                        onToggleExpand={() =>
+                          setSemesterExpanded(prev => ({
+                            ...prev,
+                            [semNum]: !(prev[semNum] !== false),
+                          }))
+                        }
+                        isCompleted={!!planSemesterCompleted[semNum]}
+                        onMarkComplete={value => handleSemesterComplete(semNum, value)}
+                        hasWarnings={!!semesterHasWarnings[semNum]}
+                        priorSemestersAllComplete={priorComplete}
+                        termLabel={semLabels[semNum]}
+                        isCurrent={isSameTerm(semesterTerms[semNum], nowTerm)}
+                        isGraduation={semNum === gradSemNum}
+                        issueCount={issueCounts[semNum] ?? 0}
+                        onDelete={extraSemesters.includes(semNum)
+                          ? async () => {
+                              await supabase.from('student_semester_notes')
+                                .delete().eq('student_id', profile.id).eq('semester_number', semNum)
+                              setExtraSemesters(prev => prev.filter(n => n !== semNum))
+                              setExtraSemesterTerms(prev => { const next = { ...prev }; delete next[semNum]; return next })
+                            }
+                          : null}
+                      />
+                    )
+                  })}
+
+                  <button
+                    className="ds-add-sem"
+                    onClick={() => {
+                      const base = extraSemesters.length > 0 ? Math.max(...extraSemesters) : maxTemplateSem
+                      const newSemNum = base + 1
+                      const lastSemNum = allSemesterNumbers.length > 0 ? Math.max(...allSemesterNumbers) : null
+                      const newTerm = advanceTerm(lastSemNum != null ? semesterTerms[lastSemNum] : null)
+                      setExtraSemesters(prev => [...prev, newSemNum])
+                      if (newTerm) setExtraSemesterTerms(prev => ({ ...prev, [newSemNum]: newTerm }))
+                    }}
+                  >
+                    + Add semester
+                  </button>
+                </div>
+
+                <DragOverlay>
+                  {draggedLabel && (
+                    <div className="ds-drag-overlay">{draggedLabel}</div>
+                  )}
+                </DragOverlay>
+              </DndContext>
+            </div>
+          </div>
+        )}
+
+        {view === 'issues' && (
+          <IssuesView issues={issues} onOpenIssue={openIssue} />
+        )}
+
+        {view === 'advising' && (
+          <AdvisementView
+            concentrationName={profile.concentrations.name}
+            completed={creditTotals.completed}
+            planned={creditTotals.planned}
+            totalHours={totalHours}
+            graduation={graduation}
+            terms={advisementTerms}
+            priorSummary={priorSummary}
+            exportButton={
+              <ExportPlanButton
+                className="ds-btn-primary"
+                semesterNumbers={allSemesterNumbers}
+                semesterMap={semesterMap}
+                freeAddBySemester={freeAddBySemester}
+                planSlots={planSlots}
+                courses={courses}
+                semesterTerms={semesterTerms}
+                profile={profile}
+                graduation={graduation}
+                semesterCompleted={planSemesterCompleted}
+                priorCredits={priorCredits}
+              />
+            }
+            genEd={<GenEdTracker categories={genEdStatus} />}
           />
-        )
-      })()}
+        )}
+
+        {view === 'settings' && (
+          <SettingsView
+            profile={profile}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onOpenConcentration={() => setShowSwitchModal(true)}
+            onOpenReset={() => setShowResetModal(true)}
+            onActSaved={numScores => {
+              setUndoStack([])
+              markSaved()
+              onProfileChange({ ...profile, ...numScores })
+              setResetKey(k => k + 1)
+            }}
+          />
+        )}
+      </main>
+
+      {coursePanel}
 
       {addCourseTarget !== null && (
         <AddCourseModal
@@ -1839,35 +2012,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
           planArchived={planArchived}
         />
       )}
-
-
-      {/* TERM-2 wizard — commented out pending fix
-      {showAddSemesterModal && (
-        <div className="degreeplan-modal-overlay" onClick={() => setShowAddSemesterModal(false)}>
-          <div className="degreeplan-modal" onClick={e => e.stopPropagation()}>
-            <h2 className="degreeplan-modal-title">Add Semester</h2>
-            <div className="degreeplan-modal-body">
-              <label>
-                Season
-                <select value={addSemSeason} onChange={e => setAddSemSeason(e.target.value)}>
-                  <option>Fall</option><option>Spring</option><option>Summer</option>
-                </select>
-              </label>
-              <label>
-                Year
-                <input type="number" value={addSemYear}
-                  onChange={e => setAddSemYear(Number(e.target.value))}
-                  min={2020} max={2040} />
-              </label>
-            </div>
-            <div className="degreeplan-modal-actions">
-              <button className="degreeplan-modal-confirm" onClick={handleAddSemesterConfirm}>Add</button>
-              <button className="degreeplan-modal-cancel" onClick={() => setShowAddSemesterModal(false)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-      */}
 
       {showResetModal && (
         <ResetModal
@@ -1900,52 +2044,26 @@ export default function DegreePlan({ profile, onProfileChange }) {
       )}
 
       {conflictModal && (
-        <div className="modal-backdrop" onClick={() => setConflictModal(null)}>
-          <div className="modal-card conflict-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">{conflictModal.title}</h3>
-            </div>
-            <div className="modal-body">
-              <p className="conflict-modal-intro">
+        <div className="ds-modal-backdrop" onClick={() => setConflictModal(null)}>
+          <div className="ds-modal" role="alertdialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+            <div className="ds-modal-head">
+              <p className="ds-eyebrow">Move blocked</p>
+              <h3 className="ds-modal-title">{conflictModal.title}</h3>
+              <p className="ds-sub" style={{ fontSize: 11 }}>
                 This move would create a scheduling conflict. Your plan was not changed.
               </p>
-              <ul className="conflict-modal-list">
-                {conflictModal.reasons.map((reason, i) => (
-                  <li key={i} className="conflict-modal-reason">{reason}</li>
-                ))}
-              </ul>
             </div>
-            <div className="modal-footer">
-              <button
-                className="onboarding-btn"
-                onClick={() => setConflictModal(null)}
-              >
-                OK
-              </button>
+            <ul className="ds-panel-list" style={{ margin: 0, padding: '16px 22px 16px 38px' }}>
+              {conflictModal.reasons.map((reason, i) => <li key={i}>{reason}</li>)}
+            </ul>
+            <div className="ds-modal-foot">
+              <button className="ds-btn-primary" onClick={() => setConflictModal(null)}>OK</button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   )
-}
-
-// ── Graduation timeline projection ────────────────────────────────────────────
-
-function projectGraduation(startSeason, startYear, numSemesters) {
-  if (!startSeason || !startYear || !numSemesters) return null
-  const offset = numSemesters - 1
-  const k      = Math.floor(offset / 2)
-  if (startSeason === 'Fall') {
-    return offset % 2 === 0
-      ? { season: 'Fall',   year: startYear + k }
-      : { season: 'Spring', year: startYear + k + 1 }
-  } else {
-    return offset % 2 === 0
-      ? { season: 'Spring', year: startYear + k }
-      : { season: 'Fall',   year: startYear + k }
-  }
 }
 
 // ── GenEdTracker ───────────────────────────────────────────────────────────────
@@ -1970,9 +2088,12 @@ function GenEdTracker({ categories }) {
   )
 }
 
-// ── PriorCreditDraggableRow ────────────────────────────────────────────────────
+// ── PriorCourseworkStrip ───────────────────────────────────────────────────────
+// Collapsible list of prior credits on the Plan tab. It is also the drop
+// target that turns a dragged course into transfer credit, so it opens a
+// visible drop zone whenever a drag is in progress.
 
-function PriorCreditDraggableRow({ pc, onRemove }) {
+function PriorCreditRow({ pc, onRemove }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id:   pc.id,
     data: { type: 'prior_credit', priorCreditId: pc.id, courseCode: pc.satisfies_course_code },
@@ -1981,32 +2102,20 @@ function PriorCreditDraggableRow({ pc, onRemove }) {
   return (
     <div
       ref={setNodeRef}
-      className={`prior-credit-row${isDragging ? ' prior-credit-row-dragging' : ''}`}
+      className={`ds-prior-row${isDragging ? ' ds-prior-row-dragging' : ''}`}
       {...listeners}
       {...attributes}
     >
-      <span className={`credit-type-chip credit-type-${pc.credit_type}`}>
-        {CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}
-      </span>
-      <span className="prior-credit-code">{pc.satisfies_course_code ?? '—'}</span>
-      {pc.note && (
-        <>
-          <span className="prior-credit-sep" aria-hidden="true">·</span>
-          <span className="prior-credit-note">{pc.note}</span>
-        </>
-      )}
-      <span className="prior-credit-sep" aria-hidden="true">·</span>
-      {isPlacement ? (
-        <span className="prior-credit-hrs prior-credit-hrs-gate">Gate only</span>
-      ) : (
-        <span className="prior-credit-hrs">{pc.credits_awarded} cr</span>
-      )}
+      <span className="ds-row-tag">{CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}</span>
+      <span className="ds-prior-code">{pc.satisfies_course_code ?? '—'}</span>
+      <span className="ds-prior-note">{pc.note ?? ''}</span>
+      <span className="ds-prior-cr">{isPlacement ? 'placement' : `${pc.credits_awarded} cr`}</span>
       <button
-        className="prior-credit-remove"
+        className="ds-prior-remove"
         onPointerDown={e => e.stopPropagation()}
         onClick={() => onRemove(pc.id)}
         title="Remove this credit"
-        aria-label="Remove credit"
+        aria-label={`Remove ${pc.satisfies_course_code ?? 'credit'}`}
       >
         ✕
       </button>
@@ -2014,187 +2123,52 @@ function PriorCreditDraggableRow({ pc, onRemove }) {
   )
 }
 
-// ── TransferCreditsPanel ───────────────────────────────────────────────────────
-
-function TransferCreditsPanel({ credits, onRemove, onAddClick }) {
-  const [open, setOpen] = useState(true)
-
+function PriorCourseworkStrip({ credits, onRemove, onAddClick, dragActive }) {
+  const [open, setOpen] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: 'transfer_credits' })
+
+  const creditHours = credits.reduce((sum, pc) => sum + (pc.credits_awarded ?? 0), 0)
 
   return (
     <div
-      className={`prior-credits-panel${isOver ? ' prior-credits-panel-drag-over' : ''}`}
-      style={{ maxWidth: 1200, margin: '0 auto 1rem' }}
       ref={setNodeRef}
+      className={[
+        'ds-prior',
+        dragActive && 'ds-prior-dropready',
+        isOver && 'ds-prior-over',
+      ].filter(Boolean).join(' ')}
     >
-      <div className="prior-credits-panel-header" onClick={() => setOpen(o => !o)}>
-        <div className="prior-credits-panel-title">
-          <span>Prior Coursework</span>
-          {credits.length > 0 && (
-            <span className="prior-credits-count">{credits.length}</span>
-          )}
-        </div>
-        <div className="prior-credits-panel-right">
-          {isOver && (
-            <span className="prior-credits-drop-hint">Drop to transfer</span>
-          )}
-          <span className="prior-credits-chevron">{open ? '▲' : '▼'}</span>
-        </div>
-      </div>
+      <button className="ds-prior-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span className="ds-prior-title">Prior coursework</span>
+        {dragActive ? (
+          <span className="ds-prior-hint">{isOver ? 'Release to record as transfer credit' : 'Drop here to record as transfer credit'}</span>
+        ) : (
+          <span className="ds-sem-cr">
+            {credits.length === 0 ? 'none' : `${credits.length} ${credits.length === 1 ? 'entry' : 'entries'} · ${creditHours} cr`}
+          </span>
+        )}
+        <span className="ds-sem-caret">{open ? '▲' : '▼'}</span>
+      </button>
 
       {open && (
-        <div className="prior-credits-body">
+        <div className="ds-prior-body">
           {credits.length === 0 ? (
-            <p className="prior-credits-empty">
-              No prior coursework recorded. Drag a filled course here, or use Add Prior Credit.
+            <p className="ds-prior-empty">
+              No prior coursework recorded. Add AP, IB, CLEP, or transfer credit, or drag a course from the grid onto this panel.
             </p>
           ) : (
-            <div className="prior-credits-groups">
-              {groupAndSortPriorCredits(credits).map(group => (
-                <div key={group.type} className="prior-credits-group">
-                  <div className="prior-credits-group-header">{group.label}</div>
-                  <div className="prior-credits-list">
-                    {group.entries.map(pc => (
-                      <PriorCreditDraggableRow key={pc.id} pc={pc} onRemove={onRemove} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            groupAndSortPriorCredits(credits).map(group => (
+              <div key={group.type}>
+                <div className="ds-prior-group">{group.label}</div>
+                {group.entries.map(pc => (
+                  <PriorCreditRow key={pc.id} pc={pc} onRemove={onRemove} />
+                ))}
+              </div>
+            ))
           )}
-          <button className="prior-credits-add-btn" onClick={onAddClick}>
-            + Add Prior Credit
-          </button>
+          <button className="ds-prior-add" onClick={onAddClick}>+ Add prior credit</button>
         </div>
       )}
-    </div>
-  )
-}
-
-// ── ConcentrationModal ─────────────────────────────────────────────────────────
-
-function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
-  const [concentrations, setConcentrations] = useState([])
-  const [selected, setSelected]             = useState(null)
-  const [loadingConcs, setLoadingConcs]     = useState(true)
-  const [fetchError, setFetchError]         = useState(null)
-
-  useEffect(() => {
-    async function fetchConcentrations() {
-      const { data, error } = await supabase
-        .from('concentrations')
-        .select('id, code, name, total_hours')
-        .order('id', { ascending: true })
-      if (error) { setFetchError(error.message); setLoadingConcs(false); return }
-      setConcentrations(data)
-      const current = data.find(c => c.id === currentId)
-      if (current) setSelected(current)
-      setLoadingConcs(false)
-    }
-    fetchConcentrations()
-  }, [])
-
-  const isDifferent = selected && selected.id !== currentId
-
-  function handleBackdropClick(e) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
-  return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-card">
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Settings</p>
-            <h3 className="modal-title">Change concentration</h3>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <div className="modal-course-list" style={{ padding: '1.25rem 1.5rem' }}>
-          {loadingConcs ? (
-            <p className="modal-empty">Loading concentrations...</p>
-          ) : fetchError ? (
-            <p className="modal-empty" style={{ color: 'var(--danger)' }}>{fetchError}</p>
-          ) : (
-            <div className="concentration-grid">
-              {concentrations.map(c => (
-                <button
-                  key={c.id}
-                  className={`concentration-card ${selected?.id === c.id ? 'selected' : ''}`}
-                  onClick={() => setSelected(c)}
-                >
-                  {c.id === currentId && (
-                    <span className="concentration-current-badge">Current</span>
-                  )}
-                  <span className="concentration-name">{c.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {isDifferent && (
-            <div className="concentration-switch-warning">
-              Switching to <strong>{selected.name}</strong> will clear your
-              current course selections. Prior credits and placement scores are kept.
-            </div>
-          )}
-        </div>
-        <div className="modal-footer">
-          <div className="modal-footer-btns">
-            <button className="onboarding-btn-secondary" onClick={onClose} disabled={switching}>
-              Cancel
-            </button>
-            <button
-              className="onboarding-btn"
-              onClick={() => isDifferent && onSwitch(selected)}
-              disabled={!isDifferent || switching}
-            >
-              {switching ? 'Switching...' : 'Switch concentration'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── ResetModal ─────────────────────────────────────────────────────────────────
-
-function ResetModal({ onConfirm, onClose, resetting }) {
-  function handleBackdropClick(e) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
-  return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-card">
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Plan settings</p>
-            <h3 className="modal-title">Reset this plan?</h3>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <div className="modal-course-list" style={{ padding: '1.25rem 1.5rem' }}>
-          <p className="modal-reset-body">
-            This will clear all your course selections, free-add courses, and semester notes
-            for this concentration. Prior credits and placement scores are kept.
-          </p>
-        </div>
-        <div className="modal-footer">
-          <div className="modal-footer-btns">
-            <button className="onboarding-btn-secondary" onClick={onClose} disabled={resetting}>
-              Cancel
-            </button>
-            <button
-              className="degreeplan-modal-danger"
-              onClick={onConfirm}
-              disabled={resetting}
-            >
-              {resetting ? 'Resetting...' : 'Reset plan'}
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
