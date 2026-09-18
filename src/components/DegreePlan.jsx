@@ -18,6 +18,7 @@ import { DegreeplanSkeleton } from './Skeletons'
 import CompletionBadge from './CompletionBadge'
 import usePlanCompleteness from '../lib/usePlanCompleteness'
 import PriorCreditWizard from './PriorCreditWizard'
+import ExportPlanButton from './ExportPlanButton'
 import './Dashboard.css'
 
 // Credit-hour thresholds for academic standing
@@ -1606,6 +1607,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
             >
               ↩ Undo
             </button>
+            <ExportPlanButton
+              semesterNumbers={allSemesterNumbers}
+              semesterMap={semesterMap}
+              freeAddBySemester={freeAddBySemester}
+              planSlots={planSlots}
+              courses={courses}
+              semesterTerms={semesterTerms}
+              profile={profile}
+              graduation={graduation}
+            />
             <button
               className="degreeplan-reset"
               onClick={() => setShowResetModal(true)}
