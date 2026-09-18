@@ -16,8 +16,6 @@ import SlotModal from './SlotModal'
 import CoursePanel from './CoursePanel'
 import AddCourseModal from './AddCourseModal'
 import { DegreeplanSkeleton } from './Skeletons'
-import CompletionBadge from './CompletionBadge'
-import usePlanCompleteness from '../lib/usePlanCompleteness'
 import PriorCreditWizard from './PriorCreditWizard'
 import ExportPlanButton from './ExportPlanButton'
 import Sidebar from './shell/Sidebar'
@@ -472,12 +470,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
     [planSlots, slots, courses, priorCredits]
   )
 
-  // ── Plan completeness (non-archived slots only) ───────────────────
+  // ── Non-archived slots (archived = covered by a prior credit) ──────
   const activeSlots = useMemo(
     () => slots.filter(s => !planArchived[s.id]),
     [slots, planArchived]
   )
-  const { isComplete } = usePlanCompleteness(activeSlots, planSlots, genEdStatus)
 
   // ── Codes already in the plan (BUG-34) ─────────────────────────────
   // Mirrors computePlanCredits dedup keyspace. Passed to AddCourseModal so
@@ -1712,10 +1709,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
       isPool={!!selSlot?.is_pool}
       isFreeAdd={!!selFree}
       startInPicker={selIsEmptyPool}
-      picker={onBack => selSlot && (
+      picker={(onBack, hideBack) => selSlot && (
         <SlotModal
           key={selSlot.id}
           embedded
+          hideBack={hideBack}
           slot={selSlot}
           courseMap={courses}
           studentId={profile.id}
@@ -1844,11 +1842,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
             </div>
 
             <div className="ds-plan-body">
-              <CompletionBadge
-                isComplete={isComplete}
-                concentrationName={profile.concentrations.name}
-              />
-
               <DndContext
                 sensors={sensors}
                 onDragStart={handleDragStart}

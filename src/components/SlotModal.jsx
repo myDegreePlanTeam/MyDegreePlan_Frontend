@@ -26,6 +26,8 @@ export default function SlotModal({
   // embedded: render inside the course side panel — no backdrop or header,
   // the panel supplies those. Filtering and selection logic is identical.
   embedded = false,
+  // hideBack: embedded only — the panel already shows a "← Course details" link
+  hideBack = false,
 }) {
   const [courses, setCourses]               = useState([])
   const [freeSections, setFreeSections]     = useState(null)
@@ -393,9 +395,11 @@ export default function SlotModal({
                 Remove selection
               </button>
             )}
-            <button className="onboarding-btn-secondary" onClick={onClose}>
-              {embedded ? 'Back' : 'Cancel'}
-            </button>
+            {!(embedded && hideBack) && (
+              <button className="onboarding-btn-secondary" onClick={onClose}>
+                {embedded ? 'Back' : 'Cancel'}
+              </button>
+            )}
             <button
               className="onboarding-btn"
               onClick={handleSave}

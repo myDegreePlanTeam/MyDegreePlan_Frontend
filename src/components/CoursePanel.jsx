@@ -65,7 +65,9 @@ export default function CoursePanel({
                 <span>←</span>Course details
               </button>
             )}
-            {picker(startInPicker ? onClose : () => setMode('info'))}
+            {/* Second arg hides the picker's own Back button when the
+                "← Course details" link above already does that job. */}
+            {picker(startInPicker ? onClose : () => setMode('info'), !startInPicker)}
           </>
         )}
 

@@ -568,6 +568,13 @@ button.ds-setting:hover { background: var(--ds-hover); }
   padding: 12px 20px 16px; background: var(--bg-mid);
   border-top: 1px solid var(--bg-light);
 }
+/* Panel is narrow: stack the actions full-width and slim, primary on top */
+.ds-picker .modal-footer-btns { flex-direction: column; gap: 8px; }
+.ds-picker .modal-footer-btns > button {
+  flex: none; width: 100%; margin: 0;
+  padding: 0.55rem 1rem; line-height: 1.2;
+}
+.ds-picker .modal-footer-btns > .onboarding-btn { order: -1; }
 
 /* ── Modal (concentration picker) ────────────────────────────────────── */
 .ds-modal-backdrop {
