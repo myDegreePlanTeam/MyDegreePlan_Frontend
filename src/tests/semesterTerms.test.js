@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm } from '../lib/semesterTerms'
+import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 
 describe('computeSemesterTerms — Fall start', () => {
   const terms = computeSemesterTerms('Fall', 2024, [1, 2, 3, 4])
@@ -96,5 +96,28 @@ describe('lastNonSummerTerm', () => {
 
   it('returns null for empty allSemNums', () => {
     expect(lastNonSummerTerm({}, [])).toBeNull()
+  })
+})
+
+describe('termForDate', () => {
+  it('January through May is Spring', () => {
+    expect(termForDate(new Date(2026, 0, 12))).toEqual({ season: 'Spring', year: 2026 })
+    expect(termForDate(new Date(2026, 4, 31))).toEqual({ season: 'Spring', year: 2026 })
+  })
+  it('June and July are Summer', () => {
+    expect(termForDate(new Date(2026, 5, 1))).toEqual({ season: 'Summer', year: 2026 })
+    expect(termForDate(new Date(2026, 6, 31))).toEqual({ season: 'Summer', year: 2026 })
+  })
+  it('August through December is Fall', () => {
+    expect(termForDate(new Date(2026, 7, 1))).toEqual({ season: 'Fall', year: 2026 })
+    expect(termForDate(new Date(2026, 11, 31))).toEqual({ season: 'Fall', year: 2026 })
+  })
+})
+
+describe('isSameTerm', () => {
+  it('matches season and year', () => {
+    expect(isSameTerm({ season: 'Fall', year: 2026 }, { season: 'Fall', year: 2026 })).toBe(true)
+    expect(isSameTerm({ season: 'Fall', year: 2026 }, { season: 'Fall', year: 2027 })).toBe(false)
+    expect(isSameTerm({ season: 'Fall', year: 2026 }, null)).toBe(false)
   })
 })

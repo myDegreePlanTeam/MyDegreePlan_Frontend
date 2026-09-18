@@ -10,7 +10,7 @@
 // than the compact, required-courses-first layout.
 //
 // The algorithm is pure: it takes JS objects and returns an assignment map.
-// All Supabase I/O is done by the caller (Onboarding.jsx / ProfileSettings.jsx).
+// All Supabase I/O is done by the caller (Onboarding.jsx / lib/actScores.js / DegreePlan.jsx).
 //
 // Exported:
 //   buildDegreePlan(opts) → { assignments, archived }
