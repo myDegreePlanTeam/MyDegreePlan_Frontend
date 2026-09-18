@@ -12,7 +12,12 @@
 // course order is source order, not re-sorted.
 
 import { describe, it, expect } from 'vitest'
-import { buildPlanExportModel, buildPlanExportFilename } from '../lib/planExportModel'
+import {
+  buildPlanExportModel,
+  buildPlanExportFilename,
+  formatCourseCode,
+  deriveCatalogYear,
+} from '../lib/planExportModel'
 
 // ── Shared fixtures ──────────────────────────────────────────────────────────
 
@@ -139,6 +144,7 @@ describe('buildPlanExportModel — course rows', () => {
       credits:     4,
       kind:        'required',
       requirement: null,
+      footnote:    null,
     })
   })
 
@@ -152,6 +158,8 @@ describe('buildPlanExportModel — course rows', () => {
       credits:     3,
       kind:        'pool',
       requirement: 'General Education',
+      poolCode:    'GEN_ED',
+      footnote:    null,
     })
   })
 
@@ -188,6 +196,7 @@ describe('buildPlanExportModel — course rows', () => {
       credits:     3,
       kind:        'free-add',
       requirement: null,
+      footnote:    null,
     })
   })
 
@@ -260,6 +269,108 @@ describe('buildPlanExportModel — credit totals', () => {
   it('sums plannedCredits across every semester', () => {
     const model = buildPlanExportModel(baseInput())
     expect(model.plannedCredits).toBe(15)
+  })
+})
+
+// ── Degree-map layout ────────────────────────────────────────────────────────
+//
+// The export follows the department's Degree Map: year bands of two
+// semesters, legend status per semester, numbered pool footnotes, and the
+// header / score boxes an advisor reads first.
+
+describe('buildPlanExportModel — degree map', () => {
+  it('pairs semesters into year bands in plan order', () => {
+    const model = buildPlanExportModel(baseInput({
+      semesterNumbers: [1, 2, 3],
+      semesterMap:     { 1: [SLOT_CSC1300], 2: [], 3: [] },
+    }))
+    expect(model.years.map(y => y.label)).toEqual(['FIRST YEAR', 'SOPHOMORE YEAR'])
+    expect(model.years[0].semesters.map(s => s.semesterNumber)).toEqual([1, 2])
+    expect(model.years[1].semesters.map(s => s.semesterNumber)).toEqual([3])
+  })
+
+  it('keeps labelling years past the fourth instead of dropping semesters', () => {
+    const nums = Array.from({ length: 10 }, (_, i) => i + 1)
+    const model = buildPlanExportModel(baseInput({ semesterNumbers: nums, semesterMap: {} }))
+    expect(model.years).toHaveLength(5)
+    expect(model.years[4].label).toBe('FIFTH YEAR')
+  })
+
+  it('marks completed semesters and recommends the first incomplete one', () => {
+    const model = buildPlanExportModel(baseInput({
+      semesterNumbers:   [1, 2, 3],
+      semesterMap:       { 1: [], 2: [], 3: [] },
+      semesterCompleted: { 1: true },
+    }))
+    expect(model.semesters.map(s => s.status)).toEqual(['completed', 'recommended', null])
+  })
+
+  it('recommends the first semester when nothing is complete', () => {
+    const model = buildPlanExportModel(baseInput())
+    expect(model.semesters.map(s => s.status)).toEqual(['recommended', null])
+  })
+
+  it('numbers pool footnotes in first-appearance order, once per pool', () => {
+    const model = buildPlanExportModel(baseInput({
+      semesterMap: {
+        1: [SLOT_CSC1300, { id: 5, class_code: 'ENG_LIT', is_pool: true }],
+        2: [SLOT_SCIENCE, { id: 6, class_code: 'SCIENCE', is_pool: true, flex_credits: 4 }],
+      },
+      planSlots: {},
+    }))
+    expect(model.semesters[0].courses[0].footnote).toBeNull()
+    expect(model.semesters[0].courses[1].footnote).toBe(1)
+    expect(model.semesters[1].courses.map(c => c.footnote)).toEqual([2, 2])
+    expect(model.footnotes[0]).toBe('English Literature: ENGL 2130, ENGL 2235, or ENGL 2330.')
+    expect(model.footnotes[1]).toContain('GEOL 1040 and GEOL 1045')
+  })
+
+  it('gives large pools no footnote', () => {
+    const model = buildPlanExportModel(baseInput())   // GEN_ED has 30+ options
+    expect(model.semesters[0].courses[2].footnote).toBeNull()
+  })
+
+  it('carries header fields and ACT scores from the profile', () => {
+    const model = buildPlanExportModel(baseInput({
+      profile: { ...PROFILE, act_composite: 33, act_english: 35, act_math: 32, act_reading: 33, act_science: 34 },
+    }))
+    expect(model.degree).toBe('BS')
+    expect(model.major).toBe('Computer Science')
+    expect(model.catalogYear).toBe('2026-2027')
+    expect(model.actScores).toEqual({ composite: 33, english: 35, math: 32, reading: 33, science: 34 })
+  })
+
+  it('leaves ACT scores null when the student never entered them', () => {
+    const model = buildPlanExportModel(baseInput())
+    expect(model.actScores.english).toBeNull()
+    expect(model.actScores.composite).toBeNull()
+  })
+
+  it('lists credit-bearing prior credits and skips placement rows', () => {
+    const model = buildPlanExportModel(baseInput({
+      priorCredits: [
+        { id: 'a', credit_type: 'ap_credit',     satisfies_course_code: 'ENGL1010', credits_awarded: 3 },
+        { id: 'b', credit_type: 'act_placement', satisfies_course_code: null,       credits_awarded: 0 },
+      ],
+    }))
+    expect(model.priorCredits).toEqual([
+      { code: 'ENGL1010', title: 'English Composition I', credits: 3, source: 'AP' },
+    ])
+  })
+})
+
+describe('formatCourseCode / deriveCatalogYear', () => {
+  it('spaces subject and number', () => {
+    expect(formatCourseCode('CSC1300')).toBe('CSC 1300')
+    expect(formatCourseCode('PC2500')).toBe('PC 2500')
+    expect(formatCourseCode(null)).toBeNull()
+  })
+
+  it('derives the academic year from the start term', () => {
+    expect(deriveCatalogYear('Fall', 2026)).toBe('2026-2027')
+    expect(deriveCatalogYear('Spring', 2027)).toBe('2026-2027')
+    expect(deriveCatalogYear('Summer', 2027)).toBe('2026-2027')
+    expect(deriveCatalogYear(null, 2026)).toBeNull()
   })
 })
 

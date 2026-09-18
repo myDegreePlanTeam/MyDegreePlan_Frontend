@@ -37,6 +37,10 @@ export default function Dashboard() {
             start_year,
             student_type,
             act_math,
+            act_english,
+            act_reading,
+            act_science,
+            act_composite,
             concentrations (
             id,
             code,
@@ -59,6 +63,10 @@ export default function Dashboard() {
             start_year,
             student_type,
             act_math,
+            act_english,
+            act_reading,
+            act_science,
+            act_composite,
             concentrations (
                 id,
                 code,

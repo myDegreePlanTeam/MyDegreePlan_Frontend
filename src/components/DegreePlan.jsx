@@ -1616,6 +1616,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
               semesterTerms={semesterTerms}
               profile={profile}
               graduation={graduation}
+              semesterCompleted={planSemesterCompleted}
+              priorCredits={priorCredits}
             />
             <button
               className="degreeplan-reset"
