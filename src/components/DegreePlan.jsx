@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
-import { getScienceWarnings, getGenEdStatus, POOL_LABELS } from '../lib/poolResolver'
+import { getScienceWarnings, POOL_LABELS } from '../lib/poolResolver'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
@@ -18,6 +18,7 @@ import AddCourseModal from './AddCourseModal'
 import { DegreeplanSkeleton } from './Skeletons'
 import PriorCreditWizard from './PriorCreditWizard'
 import ExportPlanButton from './ExportPlanButton'
+import PlanPdfPreview from './PlanPdfPreview'
 import Sidebar from './shell/Sidebar'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
@@ -465,10 +466,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
   )
 
   // ── GEN_ED sub-requirement status ─────────────────────────────────
-  const genEdStatus = useMemo(
-    () => getGenEdStatus(planSlots, slots, courses, priorCredits),
-    [planSlots, slots, courses, priorCredits]
-  )
 
   // ── Non-archived slots (archived = covered by a prior credit) ──────
   const activeSlots = useMemo(
@@ -1739,47 +1736,20 @@ export default function DegreePlan({ profile, onProfileChange }) {
     />
   )
 
-  // ── Advisement data ───────────────────────────────────────────────
-  const advisementTerms = allSemesterNumbers.map(n => {
-    const cr = semCredits(n)
-    const isCurrent = isSameTerm(semesterTerms[n], nowTerm)
-    const [meta, metaTone] = planSemesterCompleted[n]
-      ? [`${cr} cr · complete`, 'done']
-      : issueCounts[n]
-        ? [`${cr} cr · ${issueCounts[n]} ${issueCounts[n] === 1 ? 'issue' : 'issues'}`, 'warn']
-        : [`${cr} cr · ${isCurrent ? 'in progress' : 'planned'}`, null]
-    return {
-      semNum: n, name: semLabels[n], isCurrent, meta, metaTone,
-      courses: [
-        ...(semesterMap[n] ?? []).map(slot => {
-          const code   = slot.is_pool ? planSlots[slot.id] : slot.class_code
-          const course = code ? courses[code] : null
-          return {
-            key: slot.id,
-            code: code ?? (POOL_LABELS[slot.class_code] ?? slot.class_code),
-            title: course?.name ?? 'Choose a course',
-            cr: `${course?.credits ?? slot.flex_credits ?? 3} cr`,
-          }
-        }),
-        ...(freeAddBySemester[n] ?? []).map(fa => ({
-          key: `fa_${fa.id}`, code: fa.course_code,
-          title: courses[fa.course_code]?.name ?? fa.course_code,
-          cr: `${courses[fa.course_code]?.credits ?? '—'} cr`,
-        })),
-      ],
-    }
-  })
-
-  const priorSummary = (() => {
-    if (priorCredits.length === 0) return 'No prior coursework recorded. Add AP, IB, CLEP, ACT, or transfer credit from the Plan tab.'
-    const credit = priorCredits
-      .filter(pc => (pc.credits_awarded ?? 0) > 0)
-      .map(pc => `${CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type} ${pc.satisfies_course_code ?? pc.note ?? ''}`.trim())
-    const placement = priorCredits
-      .filter(pc => (pc.credits_awarded ?? 0) === 0 && pc.satisfies_course_code)
-      .map(pc => `${CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type} placement into ${pc.satisfies_course_code}`)
-    return `Prior coursework: ${[...credit, ...placement].join(', ')}.`
-  })()
+  // Same inputs feed the Advisement tab's PDF preview and its download button,
+  // so what the student sees is what they export.
+  const pdfExportProps = {
+    semesterNumbers: allSemesterNumbers,
+    semesterMap,
+    freeAddBySemester,
+    planSlots,
+    courses,
+    semesterTerms,
+    profile,
+    graduation,
+    semesterCompleted: planSemesterCompleted,
+    priorCredits,
+  }
 
   return (
     <div className="ds-app">
@@ -1940,28 +1910,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
         {view === 'advising' && (
           <AdvisementView
             concentrationName={profile.concentrations.name}
-            completed={creditTotals.completed}
-            planned={creditTotals.planned}
-            totalHours={totalHours}
-            graduation={graduation}
-            terms={advisementTerms}
-            priorSummary={priorSummary}
-            exportButton={
-              <ExportPlanButton
-                className="ds-btn-primary"
-                semesterNumbers={allSemesterNumbers}
-                semesterMap={semesterMap}
-                freeAddBySemester={freeAddBySemester}
-                planSlots={planSlots}
-                courses={courses}
-                semesterTerms={semesterTerms}
-                profile={profile}
-                graduation={graduation}
-                semesterCompleted={planSemesterCompleted}
-                priorCredits={priorCredits}
-              />
-            }
-            genEd={<GenEdTracker categories={genEdStatus} />}
+            exportButton={<ExportPlanButton className="ds-btn-primary" {...pdfExportProps} />}
+            preview={<PlanPdfPreview {...pdfExportProps} />}
           />
         )}
 
@@ -2055,28 +2005,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-// ── GenEdTracker ───────────────────────────────────────────────────────────────
-
-function GenEdTracker({ categories }) {
-  if (!categories || categories.length === 0) return null
-  return (
-    <div className="gen-ed-tracker">
-      {categories.map(cat => {
-        const state = cat.satisfied ? 'satisfied'
-                    : cat.atRisk   ? 'risk'
-                    : cat.filled > 0 ? 'progress'
-                    : 'empty'
-        return (
-          <div key={cat.category} className={`gen-ed-chip gen-ed-chip-${state}`}>
-            <span className="gen-ed-chip-label">{cat.label}</span>
-            <span className="gen-ed-chip-count">{cat.filled} / {cat.required} hrs</span>
-          </div>
-        )
-      })}
     </div>
   )
 }
