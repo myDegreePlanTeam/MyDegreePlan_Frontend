@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { supabase } from '../lib/supabaseClient'
-import { getScienceWarnings, POOL_LABELS } from '../lib/poolResolver'
+import { getScienceWarnings, POOL_LABELS, POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
@@ -538,29 +538,41 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // Archived and unplaced slots are left out: their semester is null, and
   // `null < n` is true, so they used to count as completed before everything.
   // Prior-credit courses still satisfy prereqs through priorCredits.
-  const prereqWarnings = useMemo(() => {
-    const placed = []
+  // An unfilled requirement-pool slot in an earlier semester provisionally
+  // meets a prereq its pool offers (CSC3040 after an empty Communications
+  // slot); poolReliance records which slots that leaned on, and which courses
+  // leaned on them, for the Issues tab's "incomplete selection" entries.
+  const { prereqWarnings, poolReliance } = useMemo(() => {
+    const placed  = []
+    const pending = []
 
     for (const slot of activeSlots) {
       const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
       const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
-      if (code && sem != null) placed.push({ key: slot.id, code, sem })
+      if (sem == null) continue
+      if (code) placed.push({ key: slot.id, code, sem })
+      else if (slot.is_pool && REQUIREMENT_POOLS.has(slot.class_code)) {
+        pending.push({ key: slot.id, sem, codes: POOL_COURSES[slot.class_code] ?? [] })
+      }
     }
     for (const fa of freeAddSlots) {
       placed.push({ key: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
     }
 
     const warnings = {}
+    const reliance = {}
     for (const item of placed) {
       const completedCodes = new Set(
         placed
           .filter(p => p.sem < item.sem)
           .map(p => p.code)
       )
-      const result = checkPrereqs(item.code, prereqMap, completedCodes, priorCredits, courses, coreqMap)
+      const pendingPools = pending.filter(p => p.sem < item.sem)
+      const result = checkPrereqs(item.code, prereqMap, completedCodes, priorCredits, courses, coreqMap, pendingPools)
       if (!result.satisfied) warnings[item.key] = result.missing
+      for (const key of result.relyingOn ?? []) (reliance[key] ??= []).push(item.code)
     }
-    return warnings
+    return { prereqWarnings: warnings, poolReliance: reliance }
   }, [activeSlots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses, coreqMap])
 
   // ── Reactive corequisite warnings (Bug 4 fix) ────────────────────
@@ -1593,12 +1605,23 @@ export default function DegreePlan({ profile, onProfileChange }) {
     ...(freeAddBySemester[n] ?? []).map(fa => ({ key: `fa_${fa.id}`, code: fa.course_code })),
   ]
 
+  // Pool slots with no course chosen yet. Ones a prerequisite leans on carry
+  // the dependent course codes so the issue can say why it matters.
+  const incompleteSlots = {}
+  for (const slot of activeSlots) {
+    if (!slot.is_pool || planSlots[slot.id]) continue
+    incompleteSlots[slot.id] = {
+      label:      POOL_LABELS[slot.class_code] ?? slot.class_code,
+      dependents: poolReliance[slot.id] ?? [],
+    }
+  }
+
   const issues = buildPlanIssues({
     semesters: allSemesterNumbers.map(n => ({
       semNum: n, label: semLabels[n], credits: semCredits(n),
       completed: !!planSemesterCompleted[n], items: semItems(n),
     })),
-    prereqWarnings, coreqWarnings, standingWarnings, scienceWarnings,
+    prereqWarnings, coreqWarnings, standingWarnings, scienceWarnings, incompleteSlots,
   })
   const issueCounts = countIssuesBySemester(issues)
 

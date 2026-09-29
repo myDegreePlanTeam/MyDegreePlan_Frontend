@@ -6,8 +6,10 @@
 // Severity:
 //   blocker — prerequisite / corequisite unmet (the move would be rejected
 //             by the drag conflict check; registration would be refused)
-//   warning — science sequence problems, under- or over-loaded terms
-//   info    — junior/senior standing not yet reached
+//   warning — science sequence problems, under- or over-loaded terms, and a
+//             pool slot left empty that another course's prerequisite leans on
+//   info    — junior/senior standing not yet reached, and any other pool slot
+//             the student hasn't chosen a course for yet (incomplete selection)
 
 import { formatMissingForDisplay } from './poolResolver'
 
@@ -19,8 +21,12 @@ const SEVERITY_ORDER   = { blocker: 0, warning: 1, info: 2 }
 
 // semesters: [{ semNum, label, credits, completed, items: [{ key, code }] }]
 //   in display order. `key` is the warning-map key (slot id or `fa_<id>`).
+// incompleteSlots: { [slotKey]: { label, dependents: [courseCode, ...] } } —
+//   pool slots with no course chosen yet. `dependents` are courses whose
+//   prerequisites are provisionally met by that slot.
 export function buildPlanIssues({
   semesters,
+  incompleteSlots  = {},
   prereqWarnings   = {},
   coreqWarnings    = {},
   standingWarnings = {},
@@ -48,6 +54,20 @@ export function buildPlanIssues({
           id: `coreq:${item.key}`, key: item.key, severity: 'blocker',
           title: `${item.code} corequisite unmet`,
           body:  `${item.code} needs ${formatMissingForDisplay(coreq)} in the same term or earlier.`,
+        })
+      }
+
+      const incomplete = incompleteSlots[item.key]
+      if (incomplete) {
+        const dependents = incomplete.dependents ?? []
+        push({
+          id: `incomplete:${item.key}`, key: item.key,
+          severity: dependents.length > 0 ? 'warning' : 'info',
+          title: `Incomplete selection: ${incomplete.label}`,
+          body:  `Choose a course for this ${incomplete.label} slot.`
+            + (dependents.length > 0
+              ? ` ${dependents.join(', ')} ${dependents.length === 1 ? 'depends' : 'depend'} on it to meet ${dependents.length === 1 ? 'its' : 'their'} prerequisite.`
+              : ''),
         })
       }
 

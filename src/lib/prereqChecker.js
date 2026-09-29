@@ -93,6 +93,15 @@ function isCoreqForCourse(courseCode, code, coreqMap) {
 }
 
 // ── checkPrereqs ──────────────────────────────────────────────────────────────
+//
+//   pendingPools (default [])
+//     Unfilled requirement-pool slots placed before this course:
+//     [{ key, codes }] — the slot's key and the course codes the slot can hold.
+//     A prerequisite no chosen course meets yet is provisionally met by a
+//     pending slot that offers it (CSC3040 → COMM2025 or PC2500 via the
+//     Communications slot). Each slot covers one requirement. When any were
+//     used the result carries `relyingOn: [key, ...]` so callers can flag the
+//     slot as an incomplete selection.
 
 export function checkPrereqs(
   courseCode,
@@ -100,7 +109,8 @@ export function checkPrereqs(
   satisfiedCodes,
   priorCredits = [],
   courseMap    = {},
-  coreqMap     = {}
+  coreqMap     = {},
+  pendingPools = []
 ) {
   const groups = prereqMap[courseCode]
 
@@ -144,6 +154,15 @@ export function checkPrereqs(
   // ── Check each prerequisite group ────────────────────────────────
   const missing = []
 
+  // A pending pool slot is claimed by at most one requirement.
+  const claimed = new Set()
+  function claimPendingSlot(codes) {
+    const slot = pendingPools.find(p => !claimed.has(p.key) && codes.some(c => p.codes.includes(c)))
+    if (!slot) return false
+    claimed.add(slot.key)
+    return true
+  }
+
   for (const groupIndex of Object.keys(groups)) {
     const group = groups[groupIndex]
 
@@ -154,7 +173,7 @@ export function checkPrereqs(
       // checker already owns it and will warn if co-enrollment is missing.
       const unmet = group.codes.filter(
         code => !enhanced.has(code) && !isCoreqForCourse(courseCode, code, coreqMap)
-      )
+      ).filter(code => !claimPendingSlot([code]))
       if (unmet.length > 0) missing.push(...unmet)
 
     } else if (group.logic === 'OR') {
@@ -163,7 +182,7 @@ export function checkPrereqs(
       // checker verifies actual co-enrollment independently.
       const anyMet = group.codes.some(
         code => enhanced.has(code) || isCoreqForCourse(courseCode, code, coreqMap)
-      )
+      ) || claimPendingSlot(group.codes)
       if (!anyMet) missing.push(`(${group.codes.join(' or ')})`)
     }
   }
@@ -185,5 +204,6 @@ export function checkPrereqs(
     return { satisfied: false, missing }
   }
 
+  if (claimed.size > 0) return { satisfied: true, relyingOn: [...claimed] }
   return { satisfied: true }
 }

@@ -12,7 +12,7 @@ export default function IssuesView({ issues, onOpenIssue }) {
           : `${issues.length} ${issues.length === 1 ? 'issue' : 'issues'} in this plan`}
       </h2>
       <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
-        Checked against prerequisites, corequisites, standing, science sequences, and term load.
+        Checked against prerequisites, corequisites, standing, science sequences, term load, and unfinished course selections.
         {blockers > 0 && ` ${blockers} ${blockers === 1 ? 'is a blocker' : 'are blockers'}; the rest are advisory.`}
         {' '}Select an issue to jump to it on the plan.
       </p>
