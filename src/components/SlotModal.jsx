@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  resolvePool, resolveScience, resolveFreeElective,
+  resolvePool, resolveScience, resolveFreeElective, excludeFreeElectiveCodes,
   POOL_LABELS, formatMissingForDisplay,
   GEN_ED_CATEGORIES, getGenEdStatus,
 } from '../lib/poolResolver'
@@ -23,6 +23,11 @@ export default function SlotModal({
   onSave,
   onRemove,
   onClose,
+  // embedded: render inside the course side panel — no backdrop or header,
+  // the panel supplies those. Filtering and selection logic is identical.
+  embedded = false,
+  // hideBack: embedded only — the panel already shows a "← Course details" link
+  hideBack = false,
 }) {
   const [courses, setCourses]               = useState([])
   const [freeSections, setFreeSections]     = useState(null)
@@ -152,6 +157,15 @@ export default function SlotModal({
   )
   const removedCodes = useMemo(() => getRemovedCodes(slots, planArchived), [slots, planArchived])
 
+  // ── Free elective options: hide anything already in the plan ────────────
+  // The slot's own current pick stays so re-opening a filled slot shows it.
+  const freeOptions = useMemo(() => {
+    if (!freeSections) return null
+    const inPlan = new Set(planCodes)
+    inPlan.delete(planSlots[slot.id])
+    return excludeFreeElectiveCodes(freeSections, inPlan)
+  }, [freeSections, planCodes, planSlots, slot.id])
+
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
     if (takenCodes.has(course.code)) {
@@ -194,9 +208,9 @@ export default function SlotModal({
 
   // ── Filter + sort for non-free-elective search ─────────────────────
   const filtered = useMemo(() => {
-    if (freeSections && search !== '') {
+    if (freeOptions && search !== '') {
       const q = search.toLowerCase()
-      return [...freeSections.suggested, ...freeSections.other]
+      return [...freeOptions.suggested, ...freeOptions.other]
         .map(annotate)
         .filter(c =>
           c.code.toLowerCase().includes(q) ||
@@ -219,7 +233,7 @@ export default function SlotModal({
         const order = { available: 0, locked: 1, taken: 2 }
         return order[a.status] - order[b.status]
       })
-  }, [courses, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes])
+  }, [courses, freeOptions, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes])
 
   function handleSave() {
     if (!selected || selected.status === 'locked' || selected.status === 'taken') return
@@ -301,12 +315,8 @@ export default function SlotModal({
 
   // ── Render free elective sections ──────────────────────────────────
   function renderFreeSections() {
-    const suggested = freeSections.suggested
-      .map(annotate)
-      .filter(c => !takenCodes.has(c.code))
-
-    const other = freeSections.other
-      .map(annotate)
+    const suggested = freeOptions.suggested.map(annotate)
+    const other     = freeOptions.other.map(annotate)
 
     return (
       <>
@@ -336,21 +346,8 @@ export default function SlotModal({
     )
   }
 
-  return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-card">
-
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Select a course</p>
-            <h3 className="modal-title">
-              {POOL_LABELS[slot.class_code] ?? slot.class_code}
-            </h3>
-            <p className="modal-sub">Semester {planSemesterOverrides?.[slot.id] ?? slot.semester_number}</p>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-
+  const content = (
+    <>
         {autoFill && (
           <div className="modal-autofill-notice">
             Partner course auto-selected based on your science sequence choice.
@@ -403,9 +400,11 @@ export default function SlotModal({
                 Remove selection
               </button>
             )}
-            <button className="onboarding-btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
+            {!(embedded && hideBack) && (
+              <button className="onboarding-btn-secondary" onClick={onClose}>
+                {embedded ? 'Back' : 'Cancel'}
+              </button>
+            )}
             <button
               className="onboarding-btn"
               onClick={handleSave}
@@ -416,6 +415,27 @@ export default function SlotModal({
           </div>
         </div>
 
+    </>
+  )
+
+  if (embedded) return <div className="ds-picker">{content}</div>
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-card">
+
+        <div className="modal-header">
+          <div>
+            <p className="modal-eyebrow">Select a course</p>
+            <h3 className="modal-title">
+              {POOL_LABELS[slot.class_code] ?? slot.class_code}
+            </h3>
+            <p className="modal-sub">Semester {planSemesterOverrides?.[slot.id] ?? slot.semester_number}</p>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        {content}
       </div>
     </div>
   )

@@ -10,7 +10,6 @@ import ErrorBoundary from './components/ErrorBoundary'
 const Login           = lazy(() => import('./pages/Login'))
 const Signup          = lazy(() => import('./pages/Signup'))
 const Dashboard       = lazy(() => import('./pages/Dashboard'))
-const ProfileSettings = lazy(() => import('./pages/ProfileSettings'))
 
 function App() {
   const [session, setSession] = useState(undefined)
@@ -58,8 +57,9 @@ function App() {
           <Route path="/dashboard" element={
             session ? <ErrorBoundary><Dashboard /></ErrorBoundary> : <Navigate to="/login" replace />
           } />
+          {/* ACT scores moved to the Settings tab of the dashboard */}
           <Route path="/settings" element={
-            session ? <ErrorBoundary><ProfileSettings /></ErrorBoundary> : <Navigate to="/login" replace />
+            <Navigate to={session ? "/dashboard" : "/login"} replace />
           } />
           <Route path="*" element={
             <Navigate to={session ? "/dashboard" : "/login"} replace />

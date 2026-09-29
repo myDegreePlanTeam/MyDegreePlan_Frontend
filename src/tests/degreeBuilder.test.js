@@ -390,7 +390,7 @@ describe('buildDegreePlan — math chain', () => {
 // and a course two exams award counted twice toward standing)
 
 // CSC Data Science & AI, from the live catalog: the Core courses plus the
-// data-science sequence, with one 5-credit CSC_ELECTIVE for Core's electives.
+// data-science sequence, with a 3-credit CSC_ELECTIVE and a 2-credit FREE_ELECTIVE.
 const DSAI = {
   slotEntries: [
     'ENGL1010', 'ENGL1020', 'MATH1000', 'MATH1710', 'MATH1720', 'MATH1730',
@@ -400,7 +400,7 @@ const DSAI = {
     'CSC4220', 'CSC4320', 'CSC4100', 'CSC4240', 'CSC4610', 'CSC4200',
     'CSC4260', 'CSC4615', 'ENG_LIT', 'COMM_REQ', 'MATH_STATS', 'GEN_ED',
     'GEN_ED', 'GEN_ED', 'GEN_ED', 'GEN_ED', 'SCIENCE', 'SCIENCE',
-    ['CSC_ELECTIVE', 5],
+    ['CSC_ELECTIVE', 3], ['FREE_ELECTIVE', 2],
   ],
   courses: { ...WITH_STATS_COURSES.courses, CSC4240: { credits: 3 }, CSC4260: { credits: 3 } },
   prereqs: {

@@ -26,6 +26,7 @@ import {
   resolvePool,
   resolveScience,
   resolveFreeElective,
+  excludeFreeElectiveCodes,
   resolveSatisfiesPool,
   getScienceWarnings,
   POOL_COURSES,
@@ -572,5 +573,26 @@ describe('resolveSatisfiesPool', () => {
 
   it('returns null for a null courseCode', () => {
     expect(resolveSatisfiesPool(null, cyberSlots)).toBeNull()
+  })
+})
+
+// ── excludeFreeElectiveCodes ──────────────────────────────────────────────────
+
+describe('excludeFreeElectiveCodes', () => {
+  const result = {
+    suggested: [{ code: 'CSC1300' }, { code: 'CSC3600' }],
+    other:     [{ code: 'ART1300' }, { code: 'HIST2300' }],
+  }
+
+  it('removes planned or taken courses from both sections', () => {
+    const out = excludeFreeElectiveCodes(result, new Set(['CSC1300', 'HIST2300']))
+    expect(out.suggested.map(c => c.code)).toEqual(['CSC3600'])
+    expect(out.other.map(c => c.code)).toEqual(['ART1300'])
+  })
+
+  it('returns everything when nothing is excluded', () => {
+    const out = excludeFreeElectiveCodes(result, new Set())
+    expect(out.suggested).toHaveLength(2)
+    expect(out.other).toHaveLength(2)
   })
 })

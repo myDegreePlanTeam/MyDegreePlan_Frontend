@@ -33,6 +33,21 @@ export function getActMathThreshold(courseCode) {
   return tier ? tier.min : null
 }
 
+// Onboarding form state ({ math, english, science, reading, composite } as
+// strings) → the five student_profiles ACT columns as numbers (null if blank).
+// Onboarding uses this for both the DB update and the profile it hands back to
+// Dashboard, so the in-memory profile always has every score.
+export function actScoresToProfileFields(actScores) {
+  const num = v => (v !== '' && v !== null && v !== undefined ? Number(v) : null)
+  return {
+    act_math:      num(actScores.math),
+    act_english:   num(actScores.english),
+    act_science:   num(actScores.science),
+    act_reading:   num(actScores.reading),
+    act_composite: num(actScores.composite),
+  }
+}
+
 export function resolveActEnglishCredit(actEnglishScore) {
   if (!actEnglishScore) return []
   const rows = []

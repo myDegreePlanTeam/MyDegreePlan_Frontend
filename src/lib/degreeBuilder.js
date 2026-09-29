@@ -10,7 +10,7 @@
 // than the compact, required-courses-first layout.
 //
 // The algorithm is pure: it takes JS objects and returns an assignment map.
-// All Supabase I/O is done by the caller (Onboarding.jsx / ProfileSettings.jsx).
+// All Supabase I/O is done by the caller (Onboarding.jsx / lib/actScores.js / DegreePlan.jsx).
 //
 // Exported:
 //   buildDegreePlan(opts) → { assignments, archived }
@@ -20,7 +20,7 @@
 
 import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
 import { resolveActMathPlacement } from './actScoreResolver'
-import { POOL_COURSES, POOL_CREDIT_ESTIMATES } from './poolResolver'
+import { POOL_COURSES, POOL_CREDIT_ESTIMATES, REQUIREMENT_POOLS } from './poolResolver'
 
 // ─── Math chain data ──────────────────────────────────────────────────────────
 
@@ -60,14 +60,6 @@ const FULL_TIME      = 12  // leveling lifts semesters below this where it can
 const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
 
 // ─── Pool prerequisites ──────────────────────────────────────────────────────
-
-// Gen-ed pools whose options are specific courses a required course can
-// depend on — CSC3040 needs COMM2025 or PC2500, which only the COMM_REQ slot
-// provides. Elective pools are left out: a slot that can hold any CSC course
-// isn't a meaningful prerequisite, and CSC1200 (a CSC_ELECTIVE option) in
-// CSC1300's prereqs would tie CSC1300 to a pool that must follow CSC1310.
-// Listed in the order they take open seats when interleaving (Step 11).
-const REQUIREMENT_POOLS = new Set(['SCIENCE', 'COMM_REQ', 'MATH_STATS', 'ENG_LIT', 'GEN_ED'])
 
 // Pools whose every option needs this course first — a floor under the
 // option-by-option check in poolEarliest(). When prior credit covers the

@@ -34,6 +34,18 @@ export function advanceTerm(term) {
   return ADVANCE[term.season](term.year)
 }
 
+// The term a calendar date falls in: Jan–May Spring, Jun–Jul Summer,
+// Aug–Dec Fall. Used to mark the "Now" semester on the plan grid.
+export function termForDate(date) {
+  const month = date.getMonth()   // 0-based
+  const season = month <= 4 ? 'Spring' : month <= 6 ? 'Summer' : 'Fall'
+  return { season, year: date.getFullYear() }
+}
+
+export function isSameTerm(a, b) {
+  return !!a && !!b && a.season === b.season && a.year === b.year
+}
+
 // For graduation display: last non-Summer semester in the sorted list
 export function lastNonSummerTerm(termMap, allSemNums) {
   const candidates = allSemNums.filter(n => termMap[n]?.season !== 'Summer')

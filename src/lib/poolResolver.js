@@ -171,6 +171,15 @@ export const POOL_COURSES = {
   FREE_ELECTIVE: null,
 }
 
+// Gen-ed pools whose options are specific courses a required course can
+// depend on — CSC3040 needs COMM2025 or PC2500, which only the COMM_REQ slot
+// provides. Elective pools are left out: a slot that can hold any CSC course
+// isn't a meaningful prerequisite, and CSC1200 (a CSC_ELECTIVE option) in
+// CSC1300's prereqs would tie CSC1300 to a pool that must follow CSC1310.
+// Listed in the order they take open seats when interleaving (Step 11).
+// Also the pools an unfilled slot can stand in for when checking prereqs.
+export const REQUIREMENT_POOLS = new Set(['SCIENCE', 'COMM_REQ', 'MATH_STATS', 'ENG_LIT', 'GEN_ED'])
+
 // ── Pool slot display labels ──────────────────────────────────────────────────
 // Single source of truth shared by Semester (slot row) and SlotModal (modal title).
 
@@ -251,7 +260,7 @@ export function resolvePool(poolCode, courseMap) {
 
 // ── resolveScience ────────────────────────────────────────────────────────────
 
-const SCIENCE_SEQUENCES = [
+export const SCIENCE_SEQUENCES = [
   { courses: ['CHEM1110', 'CHEM1120'] },
   { courses: ['PHYS2010', 'PHYS2020'] },
   { courses: ['PHYS2110', 'PHYS2120'] },
@@ -599,4 +608,12 @@ export function resolveFreeElective(courseMap, slots, planSlots) {
     .sort((a, b) => a.code.localeCompare(b.code))
 
   return { suggested, other }
+}
+
+// Drops courses already planned or taken (a Set of codes) from a
+// resolveFreeElective result. A free elective can't repeat a course the plan
+// already holds; the picker hides them rather than greying them out.
+export function excludeFreeElectiveCodes({ suggested, other }, excludeCodes) {
+  const keep = c => !excludeCodes.has(c.code)
+  return { suggested: suggested.filter(keep), other: other.filter(keep) }
 }
