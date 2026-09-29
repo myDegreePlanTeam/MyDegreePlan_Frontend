@@ -4,6 +4,7 @@ import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveActMathPlacement, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
+import { isConcentrationSelectable } from '../lib/concentrationAvailability'
 import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
@@ -480,7 +481,7 @@ export default function Onboarding({ profileId, onComplete }) {
               ) : (
                 // DSAI is no longer available for new students (Fall 2026+ curriculum)
                 concentrations
-                  .filter(c => studentType === 'returning' || c.code !== 'dsai')
+                  .filter(c => isConcentrationSelectable(c.code, studentType))
                   .map(c => (
                     <button
                       key={c.code}

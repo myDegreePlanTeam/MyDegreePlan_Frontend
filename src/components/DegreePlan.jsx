@@ -1990,6 +1990,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       {showSwitchModal && (
         <ConcentrationModal
           currentId={profile.concentration_id}
+          studentType={profile.student_type}
           onSwitch={handleConcentrationSwitch}
           onClose={() => setShowSwitchModal(false)}
           switching={switching}

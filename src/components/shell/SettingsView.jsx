@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import {
   ACT_FIELDS, validateActScore, describeActScore, saveActScoresAndRebuild,
 } from '../../lib/actScores'
+import { isConcentrationSelectable } from '../../lib/concentrationAvailability'
 
 export default function SettingsView({
   profile,
@@ -162,7 +163,7 @@ function ActScoresCard({ profile, onSaved }) {
 
 // ── ConcentrationModal ────────────────────────────────────────────────────────
 
-export function ConcentrationModal({ currentId, onSwitch, onClose, switching }) {
+export function ConcentrationModal({ currentId, studentType, onSwitch, onClose, switching }) {
   const [concentrations, setConcentrations] = useState([])
   const [selected, setSelected]             = useState(null)
   const [loading, setLoading]               = useState(true)
@@ -175,11 +176,12 @@ export function ConcentrationModal({ currentId, onSwitch, onClose, switching }) 
       .order('id', { ascending: true })
       .then(({ data, error }) => {
         if (error) { setFetchError(error.message); setLoading(false); return }
-        setConcentrations(data)
+        const currentCode = data.find(c => c.id === currentId)?.code ?? null
+        setConcentrations(data.filter(c => isConcentrationSelectable(c.code, studentType, currentCode)))
         setSelected(data.find(c => c.id === currentId) ?? null)
         setLoading(false)
       })
-  }, [currentId])
+  }, [currentId, studentType])
 
   const isDifferent = selected && selected.id !== currentId
 
