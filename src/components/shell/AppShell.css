@@ -171,11 +171,16 @@
 .ds-plan-body { flex: 1; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 16px; }
 .ds-plan-body .completion-banner { margin: 0; }
 
+/* Semesters sit in pairs (Fall | Spring). Each column's minimum is the larger of
+   330px or half the row, so a row holds exactly two cards when they fit and one
+   when they don't (e.g. with the course panel docked). Never three. The 17px
+   (not 16) keeps sub-pixel rounding from dropping a row to one column. */
 .ds-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(max(330px, calc((100% - 17px) / 2)), 1fr));
   gap: 16px; align-items: start;
 }
+.ds-grid > .ds-add-sem { grid-column: 1 / -1; }
 
 /* ── Semester card ───────────────────────────────────────────────────── */
 .ds-sem {
