@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveActMathPlacement, resolveActEnglishCredit } from '../lib/actScoreResolver'
+import { resolveActMathPlacement, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
 
 // ── resolveActMathPlacement ───────────────────────────────────────────────────
 // Highest-tier-only: returns ONE placement row for the highest tier reached.
@@ -108,5 +108,25 @@ describe('resolveActEnglishCredit', () => {
     const rows = resolveActEnglishCredit(31)
     expect(rows[0].note).toContain('31')
     expect(rows[1].note).toContain('31')
+  })
+})
+
+// ── actScoresToProfileFields ──────────────────────────────────────────────────
+// Regression: onboarding used to hand Dashboard a profile with only act_math,
+// so the Settings ACT card showed the other four scores blank.
+
+describe('actScoresToProfileFields', () => {
+  it('maps all five onboarding scores to numeric profile columns', () => {
+    expect(actScoresToProfileFields({
+      math: '28', english: '30', science: '25', reading: '27', composite: '29',
+    })).toEqual({
+      act_math: 28, act_english: 30, act_science: 25, act_reading: 27, act_composite: 29,
+    })
+  })
+
+  it('maps blank / missing scores to null', () => {
+    expect(actScoresToProfileFields({ math: '', english: null, composite: '20' })).toEqual({
+      act_math: null, act_english: null, act_science: null, act_reading: null, act_composite: 20,
+    })
   })
 })

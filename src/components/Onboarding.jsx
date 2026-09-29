@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
-import { resolveActMathPlacement, resolveActEnglishCredit } from '../lib/actScoreResolver'
+import { resolveActMathPlacement, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import PriorCreditWizard from './PriorCreditWizard'
@@ -206,11 +206,9 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
 
-    const actMathNum    = actScores.math      !== '' ? Number(actScores.math)      : null
-    const actEnglishNum = actScores.english   !== '' ? Number(actScores.english)   : null
-    const actScienceNum = actScores.science   !== '' ? Number(actScores.science)   : null
-    const actReadingNum = actScores.reading   !== '' ? Number(actScores.reading)   : null
-    const actComposite  = actScores.composite !== '' ? Number(actScores.composite) : null
+    const actFields     = actScoresToProfileFields(actScores)
+    const actMathNum    = actFields.act_math
+    const actEnglishNum = actFields.act_english
 
     // ── 1. Save profile ──────────────────────────────────────────────────────
     const { error: updateError } = await supabase
@@ -220,11 +218,7 @@ export default function Onboarding({ profileId, onComplete }) {
         start_season:     startSeason,
         start_year:       startYear,
         student_type:     studentType,
-        act_math:         actMathNum,
-        act_english:      actEnglishNum,
-        act_science:      actScienceNum,
-        act_reading:      actReadingNum,
-        act_composite:    actComposite,
+        ...actFields,
       })
       .eq('id', profileId)
 
@@ -352,7 +346,7 @@ export default function Onboarding({ profileId, onComplete }) {
       start_season:     startSeason,
       start_year:       startYear,
       student_type:     studentType,
-      act_math:         actMathNum,
+      ...actFields,
       concentrations:   concData,
     })
   }
