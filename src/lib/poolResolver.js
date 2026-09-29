@@ -600,3 +600,11 @@ export function resolveFreeElective(courseMap, slots, planSlots) {
 
   return { suggested, other }
 }
+
+// Drops courses already planned or taken (a Set of codes) from a
+// resolveFreeElective result. A free elective can't repeat a course the plan
+// already holds; the picker hides them rather than greying them out.
+export function excludeFreeElectiveCodes({ suggested, other }, excludeCodes) {
+  const keep = c => !excludeCodes.has(c.code)
+  return { suggested: suggested.filter(keep), other: other.filter(keep) }
+}

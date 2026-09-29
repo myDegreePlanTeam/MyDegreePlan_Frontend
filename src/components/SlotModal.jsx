@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  resolvePool, resolveScience, resolveFreeElective,
+  resolvePool, resolveScience, resolveFreeElective, excludeFreeElectiveCodes,
   POOL_LABELS, formatMissingForDisplay,
   GEN_ED_CATEGORIES, getGenEdStatus,
 } from '../lib/poolResolver'
@@ -157,6 +157,15 @@ export default function SlotModal({
   )
   const removedCodes = useMemo(() => getRemovedCodes(slots, planArchived), [slots, planArchived])
 
+  // ── Free elective options: hide anything already in the plan ────────────
+  // The slot's own current pick stays so re-opening a filled slot shows it.
+  const freeOptions = useMemo(() => {
+    if (!freeSections) return null
+    const inPlan = new Set(planCodes)
+    inPlan.delete(planSlots[slot.id])
+    return excludeFreeElectiveCodes(freeSections, inPlan)
+  }, [freeSections, planCodes, planSlots, slot.id])
+
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
     if (takenCodes.has(course.code)) {
@@ -199,9 +208,9 @@ export default function SlotModal({
 
   // ── Filter + sort for non-free-elective search ─────────────────────
   const filtered = useMemo(() => {
-    if (freeSections && search !== '') {
+    if (freeOptions && search !== '') {
       const q = search.toLowerCase()
-      return [...freeSections.suggested, ...freeSections.other]
+      return [...freeOptions.suggested, ...freeOptions.other]
         .map(annotate)
         .filter(c =>
           c.code.toLowerCase().includes(q) ||
@@ -224,7 +233,7 @@ export default function SlotModal({
         const order = { available: 0, locked: 1, taken: 2 }
         return order[a.status] - order[b.status]
       })
-  }, [courses, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes])
+  }, [courses, freeOptions, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes])
 
   function handleSave() {
     if (!selected || selected.status === 'locked' || selected.status === 'taken') return
@@ -306,12 +315,8 @@ export default function SlotModal({
 
   // ── Render free elective sections ──────────────────────────────────
   function renderFreeSections() {
-    const suggested = freeSections.suggested
-      .map(annotate)
-      .filter(c => !takenCodes.has(c.code))
-
-    const other = freeSections.other
-      .map(annotate)
+    const suggested = freeOptions.suggested.map(annotate)
+    const other     = freeOptions.other.map(annotate)
 
     return (
       <>
