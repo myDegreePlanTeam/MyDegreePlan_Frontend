@@ -1,0 +1,130 @@
+/* ── Update banner (local Docker install only) ───────────────────── */
+/* Uses the global tokens from index.css so it follows the light/dark theme. */
+
+.upd-card {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1000;
+  width: min(360px, calc(100vw - 2.5rem));
+  padding: 1rem 2.25rem 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--navy-mid);
+  color: var(--white);
+  border: 1px solid var(--navy-light);
+  border-left: 3px solid var(--gold);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.upd-card--warn { border-left-color: var(--danger); }
+
+.upd-x {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.5rem;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.upd-x:hover { color: var(--white); }
+
+.upd-strong { font-weight: 600; }
+.upd-muted  { color: var(--muted); }
+.upd-error  { color: var(--danger-light); }
+
+.upd-actions { display: flex; align-items: center; gap: 0.9rem; margin-top: 0.25rem; }
+
+.upd-primary {
+  background: var(--gold);
+  color: #1b1030;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.upd-primary:hover { background: var(--gold-light); }
+.upd-primary:focus-visible, .upd-link:focus-visible, .upd-x:focus-visible {
+  outline: 2px solid var(--gold-light);
+  outline-offset: 2px;
+}
+
+.upd-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.upd-actions .upd-link { align-self: center; }
+.upd-link:hover { color: var(--white); }
+
+.upd-auto {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.upd-notes {
+  max-height: 10rem;
+  overflow: auto;
+  padding: 0.6rem 0.75rem;
+  background: rgba(var(--bg-rgb), 0.5);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+/* Full-screen states: required update and in-progress. */
+.upd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(var(--bg-rgb), 0.92);
+}
+.upd-panel {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 2rem;
+  background: var(--navy-mid);
+  color: var(--white);
+  border: 1px solid var(--navy-light);
+  border-radius: 16px;
+}
+.upd-panel h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 400; }
+.upd-eyebrow { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
+.upd-live { font-weight: 600; }
+
+.upd-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--navy-light);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: upd-spin 0.9s linear infinite;
+}
+@keyframes upd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .upd-spinner { animation-duration: 3s; } }

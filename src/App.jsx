@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState, lazy, Suspense } from 'react'
 import { supabase } from './lib/supabaseClient'
 import ErrorBoundary from './components/ErrorBoundary'
+import UpdateBanner from './components/UpdateBanner'
 
 // Route-level code splitting: each page only downloads when first visited.
 // A logged-in user never fetches Login/Signup JS; an anonymous user never
@@ -46,6 +47,8 @@ function App() {
 
   return (
     <BrowserRouter>
+      {/* Local Docker install only: renders nothing on the hosted build. Needs a login token. */}
+      {session && <UpdateBanner />}
       <Suspense fallback={null}>
         <Routes>
           <Route path="/login" element={
