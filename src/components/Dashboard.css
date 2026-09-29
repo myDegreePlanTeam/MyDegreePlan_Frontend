@@ -1281,66 +1281,6 @@
   animation: skeletonPulse 1.5s ease-in-out infinite;
 }
 
-/* ── Degree plan skeleton header ─────────────────────────────────── */
-
-.sk-dp-header {
-  background: var(--navy-mid);
-  border-bottom: 1px solid var(--navy-light);
-  padding: 1.5rem 2rem;
-}
-
-.sk-dp-header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.sk-dp-eyebrow    { height: 10px; width: 180px; }
-.sk-dp-title      { height: 22px; width: 260px; }
-.sk-dp-meta       { height: 11px; width: 210px; }
-
-.sk-dp-credit-bar-wrap { margin-top: 0.35rem; }
-.sk-dp-credit-bar      { height: 4px; width: 260px; }
-
-/* ── Semester card skeleton ──────────────────────────────────────── */
-
-.sk-sem-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.875rem 1.25rem;
-  border-bottom: 1px solid var(--navy-light);
-}
-
-.sk-sem-label   { height: 10px; width: 80px; }
-.sk-sem-credits { height: 10px; width: 45px; }
-
-/* ── Slot row skeleton ───────────────────────────────────────────── */
-
-.sk-slot-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--navy-light);
-}
-
-.sk-slot-row.sk-slot-row-last {
-  border-bottom: none;
-}
-
-.sk-slot-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.sk-slot-code    { height: 11px; width: 68px; }
-.sk-slot-name    { height: 9px;  width: 130px; }
-.sk-slot-credits { height: 9px;  width: 22px; }
-
 /* ── Onboarding skeleton ─────────────────────────────────────────── */
 
 .sk-ob-eyebrow   { height: 10px; width: 200px; }

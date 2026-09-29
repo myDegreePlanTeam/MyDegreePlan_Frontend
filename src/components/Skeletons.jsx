@@ -44,59 +44,117 @@ export function OnboardingSkeleton() {
 
 // ── DegreeplanSkeleton ────────────────────────────────────────────────────────
 // Shown by DegreePlan.jsx while slots, courses, prereqs, and notes are loading.
-// Eight cards approximate the layout of a real 8-semester plan. Each card gets
-// 5 slot-row placeholders — close to the average number of courses per semester.
+// Mirrors the real app shell so nothing shifts when the plan arrives: the
+// sidebar on the left (real .ds-sidebar chrome, static tab labels, placeholder
+// account block) and, on the right, the plan header, the Prior Coursework strip,
+// and the semester grid. Eight cards approximate an 8-semester plan; each gets
+// 6 rows and a footer, close to a typical semester.
 //
-// Reuses .degreeplan-shell, .degreeplan-main, .degreeplan-grid, and
-// .semester-card so the grid layout and card borders match the real plan.
-// The header is a simplified version (no sticky positioning needed since
-// the student can't scroll while loading).
+// Reuses .ds-app, .ds-sidebar, .ds-main, .ds-plan*, .ds-prior, .ds-grid, and
+// .ds-sem, so the two-per-row grid and card borders match the real plan.
+
+// Same order and labels as TABS in shell/Sidebar.jsx (not exported from there).
+const SKELETON_TABS = [
+  { label: 'Plan',       icon: '▤', active: true },
+  { label: 'Issues',     icon: '⚠' },
+  { label: 'Advisement', icon: '◇' },
+  { label: 'Settings',   icon: '◎' },
+]
 
 export function DegreeplanSkeleton() {
   return (
-    <div className="degreeplan-shell">
+    <div className="ds-app" aria-busy="true" aria-label="Loading degree plan">
+      <SkeletonSidebar />
 
-      <div className="sk-dp-header">
-        <div className="sk-dp-header-inner">
-          <div className="sk-pulse sk-dp-eyebrow"    />
-          <div className="sk-pulse sk-dp-title"      />
-          <div className="sk-pulse sk-dp-meta"       />
-          <div className="sk-dp-credit-bar-wrap">
-            <div className="sk-pulse sk-dp-credit-bar" />
+      <main className="ds-main">
+        <div className="ds-plan">
+
+          <div className="ds-plan-header">
+            <div className="ds-plan-heading">
+              <div className="sk-pulse sk-dp-eyebrow" />
+              <div className="sk-pulse sk-dp-title"   />
+              <div className="sk-pulse sk-dp-meta"    />
+            </div>
+            <div className="ds-progress">
+              <div className="sk-pulse sk-dp-credit-bar" />
+              <div className="sk-pulse sk-dp-legend"     />
+            </div>
+            <div className="ds-header-actions">
+              <div className="sk-pulse sk-dp-btn" />
+              <div className="sk-pulse sk-dp-btn sk-dp-btn-wide" />
+            </div>
           </div>
-        </div>
-      </div>
 
-      <main className="degreeplan-main">
-        <div className="degreeplan-grid">
-          {[5, 5, 5, 5, 5, 5, 5, 5].map((rowCount, i) => (
-            <SkeletonSemesterCard key={i} rowCount={rowCount} />
-          ))}
+          <div className="ds-plan-body">
+            <div className="ds-prior">
+              <div className="sk-head">
+                <div className="sk-pulse sk-sem-label" />
+              </div>
+            </div>
+
+            <div className="ds-grid">
+              {[6, 6, 6, 6, 6, 6, 6, 6].map((rowCount, i) => (
+                <SkeletonSemesterCard key={i} rowCount={rowCount} />
+              ))}
+            </div>
+          </div>
+
         </div>
       </main>
+    </div>
+  )
+}
 
+// ── SkeletonSidebar ───────────────────────────────────────────────────────────
+// Static copy of Sidebar.jsx's chrome. Not interactive (divs, not buttons); the
+// account block is placeholder bars because the email loads asynchronously.
+
+function SkeletonSidebar() {
+  return (
+    <div className="ds-sidebar">
+      <div className="ds-brand">
+        <p className="ds-brand-eyebrow">Tennessee Tech</p>
+        <p className="ds-brand-title">Degree Planner</p>
+      </div>
+
+      <div className="ds-tabs">
+        {SKELETON_TABS.map(tab => (
+          <div key={tab.label} className={`ds-tab${tab.active ? ' ds-tab-active' : ''}`}>
+            <span className="ds-tab-icon" aria-hidden="true">{tab.icon}</span>
+            <span className="ds-tab-label">{tab.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="ds-account">
+        <div className="ds-account-row">
+          <div className="sk-pulse sk-avatar" />
+          <div className="sk-pulse sk-account-name" />
+        </div>
+        <div className="sk-pulse sk-account-meta" />
+      </div>
     </div>
   )
 }
 
 // ── SkeletonSemesterCard ──────────────────────────────────────────────────────
-// A single placeholder semester card. Uses .semester-card for the real card
-// shell (border, radius, bg) and replaces the header and slot rows with
-// animated bars. The last row has no bottom border, matching .slot-row:last-child.
+// A single placeholder semester card. Uses .ds-sem for the real card shell
+// (border, radius, bg) and replaces the header and rows with animated bars.
 
 function SkeletonSemesterCard({ rowCount }) {
   return (
-    <div className="semester-card">
+    <div className="ds-sem ds-sem-open">
 
-      <div className="sk-sem-header">
+      <div className="sk-head">
         <div className="sk-pulse sk-sem-label"   />
         <div className="sk-pulse sk-sem-credits" />
       </div>
 
-      <div className="semester-slots">
+      <div className="ds-sem-body">
         {Array.from({ length: rowCount }).map((_, i) => (
-          <div key={i} className={`sk-slot-row${i === rowCount - 1 ? ' sk-slot-row-last' : ''}`}>
-            <div className="sk-slot-info">
+          <div key={i} className="sk-row">
+            <div className="sk-pulse sk-row-dot" />
+            <div className="sk-row-info">
               <div className="sk-pulse sk-slot-code" />
               <div className="sk-pulse sk-slot-name" />
             </div>
@@ -104,6 +162,8 @@ function SkeletonSemesterCard({ rowCount }) {
           </div>
         ))}
       </div>
+
+      <div className="sk-foot" />
 
     </div>
   )
