@@ -10,7 +10,7 @@ import {
   listFlightFoundationsCourses,
 } from '../lib/flightFoundations.js'
 import {
-  fetchRequirementSlots, programForProfile, programForEntryTerm,
+  fetchRequirementSlots, programForProfile, programForEntryTerm, isMissingProgramColumn,
 } from '../lib/requirementSlots.js'
 
 const FF_POOLS = ['FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY']
@@ -318,5 +318,52 @@ describe('program selection', () => {
     expect(programForEntryTerm('Summer', 2026)).toBe('legacy')
     expect(programForEntryTerm('Fall', 2024)).toBe('legacy')
     expect(programForEntryTerm(null, null)).toBe('legacy')
+  })
+})
+
+describe('a database without the tier 21 column', () => {
+  const missing = { code: '42703', message: 'column requirement_slots.gened_program does not exist' }
+
+  // Fails any query that selects or filters on gened_program, like PostgREST does.
+  function oldSchemaClient(rows) {
+    const calls = []
+    return {
+      calls,
+      from() {
+        const call = { filters: {}, order: [] }
+        calls.push(call)
+        const b = {
+          select(cols) { call.select = cols; return b },
+          eq(col, val) { call.filters[col] = val; return b },
+          order(col, opts) { call.order.push([col, opts]); return b },
+          then(resolve) {
+            const touches = /gened_program/.test(call.select ?? '') || 'gened_program' in call.filters
+            return resolve(touches ? { data: null, error: missing } : { data: rows, error: null })
+          },
+        }
+        return b
+      },
+    }
+  }
+
+  it('recognises the missing-column error', () => {
+    expect(isMissingProgramColumn(missing)).toBe(true)
+    expect(isMissingProgramColumn({ code: '42703', message: 'column x.y does not exist' })).toBe(true)
+    expect(isMissingProgramColumn({ code: 'PGRST116', message: 'no rows' })).toBe(false)
+    expect(isMissingProgramColumn(null)).toBe(false)
+  })
+
+  it('loads the unfiltered legacy slots, asking for neither the column nor a program', async () => {
+    const rows = [{ id: 1, class_code: 'GEN_ED' }]
+    const client = oldSchemaClient(rows)
+    const r = await fetchRequirementSlots(client, 4, 'flight_foundations', 'id, class_code',
+      [{ column: 'semester_number' }])
+    expect(r.data).toEqual(rows)
+    expect(r.error).toBeNull()
+    expect(r.program).toBe('legacy')
+    const last = client.calls.at(-1)
+    expect(last.select).toBe('id, class_code')
+    expect(last.filters).toEqual({ concentration_id: 4 })
+    expect(last.order).toEqual([['semester_number', { ascending: true }]])
   })
 })

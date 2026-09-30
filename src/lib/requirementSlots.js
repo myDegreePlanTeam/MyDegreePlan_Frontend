@@ -11,6 +11,15 @@
 
 import { FF_PROGRAM_CODE, LEGACY_PROGRAM_CODE, getGenEdProgram } from './flightFoundations.js'
 
+/**
+ * True when a PostgREST error means the tier 21 column does not exist yet
+ * (Postgres 42703, "column … gened_program does not exist").  Lets the app keep
+ * working, as legacy-only, against a database the migration has not reached.
+ */
+export function isMissingProgramColumn(error) {
+  return !!error && (error.code === '42703' || /gened_program/.test(error.message ?? ''))
+}
+
 /** The program a profile follows; anything unrecognised is legacy. */
 export function programForProfile(profile) {
   return profile?.gened_program === FF_PROGRAM_CODE ? FF_PROGRAM_CODE : LEGACY_PROGRAM_CODE
@@ -48,6 +57,17 @@ export async function fetchRequirementSlots(client, concentrationId, program, co
   const wanted = program === FF_PROGRAM_CODE ? FF_PROGRAM_CODE : LEGACY_PROGRAM_CODE
   let result = await run(wanted)
   let loaded = wanted
+
+  // Database not migrated to tier 21: every slot is legacy and there is no
+  // gened_program column to select or filter on.
+  if (isMissingProgramColumn(result.error)) {
+    let legacyQuery = client
+      .from('requirement_slots')
+      .select(columns.replace(/,?\s*\bgened_program\b/, '').replace(/^\s*,\s*/, ''))
+      .eq('concentration_id', concentrationId)
+    for (const { column, ascending = true } of order) legacyQuery = legacyQuery.order(column, { ascending })
+    return { ...(await legacyQuery), program: LEGACY_PROGRAM_CODE }
+  }
 
   if (!result.error && wanted !== LEGACY_PROGRAM_CODE && (result.data ?? []).length === 0) {
     result = await run(LEGACY_PROGRAM_CODE)

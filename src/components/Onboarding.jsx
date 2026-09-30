@@ -5,7 +5,7 @@ import { resolveActMathPlacement, resolveActEnglishCredit, actScoresToProfileFie
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { isConcentrationSelectable } from '../lib/concentrationAvailability'
-import { fetchRequirementSlots, programForEntryTerm } from '../lib/requirementSlots'
+import { fetchRequirementSlots, programForEntryTerm, isMissingProgramColumn } from '../lib/requirementSlots'
 import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
@@ -216,17 +216,25 @@ export default function Onboarding({ profileId, onComplete }) {
     const actEnglishNum = actFields.act_english
 
     // ── 1. Save profile ──────────────────────────────────────────────────────
-    const { error: updateError } = await supabase
+    const profileFields = {
+      concentration_id: concData.id,
+      start_season:     startSeason,
+      start_year:       startYear,
+      student_type:     studentType,
+      ...actFields,
+    }
+    let { error: updateError } = await supabase
       .from('student_profiles')
-      .update({
-        concentration_id: concData.id,
-        start_season:     startSeason,
-        start_year:       startYear,
-        student_type:     studentType,
-        gened_program:    genEdProgram,
-        ...actFields,
-      })
+      .update({ ...profileFields, gened_program: genEdProgram })
       .eq('id', profileId)
+    // A database the tier 21 migration has not reached has no gened_program column:
+    // save without it (the student stays on the legacy program).
+    if (isMissingProgramColumn(updateError)) {
+      ;({ error: updateError } = await supabase
+        .from('student_profiles')
+        .update(profileFields)
+        .eq('id', profileId))
+    }
 
     if (updateError) {
       setError(updateError.message)

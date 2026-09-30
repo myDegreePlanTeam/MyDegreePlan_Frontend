@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { isMissingProgramColumn } from '../lib/requirementSlots'
 import Onboarding from '../components/Onboarding'
 import DegreePlan from '../components/DegreePlan'
 import { OnboardingSkeleton } from '../components/Skeletons'
@@ -28,7 +29,9 @@ export default function Dashboard() {
         return
         }
 
-        let { data, error } = await supabase
+        // gened_program (tier 21) may not exist yet on an un-migrated database:
+        // read without it then, and the student is treated as legacy.
+        const readProfile = withProgram => supabase
         .from('student_profiles')
         .select(`
             id,
@@ -36,7 +39,7 @@ export default function Dashboard() {
             start_season,
             start_year,
             student_type,
-            gened_program,
+            ${withProgram ? 'gened_program,' : ''}
             act_math,
             act_english,
             act_reading,
@@ -52,6 +55,9 @@ export default function Dashboard() {
         .eq('user_id', user.id)
         .single()
 
+        let { data, error } = await readProfile(true)
+        if (isMissingProgramColumn(error)) ({ data, error } = await readProfile(false))
+
         // PGRST116 means zero rows found — profile is missing
         if (error && error.code === 'PGRST116') {
         const { data: newProfile, error: insertError } = await supabase
@@ -63,7 +69,6 @@ export default function Dashboard() {
             start_season,
             start_year,
             student_type,
-            gened_program,
             act_math,
             act_english,
             act_reading,
