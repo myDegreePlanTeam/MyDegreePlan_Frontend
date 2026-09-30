@@ -293,11 +293,10 @@ category exists and is active in the seeded catalog, and a template invariant te
 (each template totals 120 and its gen-ed categories total exactly 41 given the major's restrictions).
 
 ### H. Docs / housekeeping
-- **CLAUDE.md (root and `docs/claude/`) says "Texas Tech University (TTU)" — wrong.** The data,
-  colors (purple #4F2984 / gold #FFDD00), and catalog are Tennessee Technological University.
-  Fix both copies; update the "GEN_ED" sections, table list, migration "next tier" (currently says
-  after 9; actual next is 21), the "Known Deferred Work" list (GEN_ED enforcement is no longer
-  deferred), and the ROADMAP item that describes Texas-style "Creative Arts (3hr)" sub-requirements.
+- **Done (2026-09-30):** both CLAUDE.md files now name Tennessee Tech (they said Texas Tech), describe the
+  gen-ed program columns, `flightFoundations.js` / `requirementSlots.js`, the new templates and migration
+  tier 21 (next is 22); the ROADMAP gen-ed item was rewritten. The workspace-root CLAUDE.md is outside any
+  git repo, so it is edited in place and not versioned.
 - `SCHEMA_PLAN_dynamic-degree-construction.md` Q8 (GEN_ED sub-requirement enforcement in the
   builder) is now answered: enforce by category.
 - `MyDegreePlan_Site` / `local-deploy`: any copy that describes the legacy program or the wrong

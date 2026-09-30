@@ -6,9 +6,11 @@
 
 ## Project Overview
 
-**MyDegreePlan** is a web-based degree planner for Texas Tech University (TTU) Computer Science
-students. It is a prototype commissioned by the TTU CSC department. The target users are incoming
-and current TTU CSC students who need to map out their remaining coursework across semesters.
+**MyDegreePlan** is a web-based degree planner for Tennessee Technological University
+(Tennessee Tech, abbreviated TTU) Computer Science students. It is a prototype commissioned by the
+TTU CSC department. The target users are incoming and current TTU CSC students who need to map
+out their remaining coursework across semesters. (Not Texas Tech: the catalog, course data and
+brand colors are all Tennessee Tech's.)
 
 **Tech stack**
 - Frontend: React 19 + Vite 8 (uses rolldown as bundler — not classic Rollup)
@@ -52,6 +54,8 @@ MDP/
 │       │   ├── prereqChecker.js       ← checkPrereqs / checkCoreqs (pure logic)
 │       │   ├── classifyPrereq.js      ← placement/consent/completion classification
 │       │   ├── poolResolver.js        ← POOL_COURSES, POOL_LABELS, resolvePool, science helpers
+│       │   ├── flightFoundations.js  ← Flight Foundations gen-ed rules + evaluators (pure)
+│       │   ├── requirementSlots.js    ← program-aware requirement_slots loader
 │       │   ├── transferCredits.js     ← resolveTransferCredits, computePlanCredits
 │       │   ├── validatePriorCredit.js ← prior credit validation before INSERT
 │       │   ├── usePlanCompleteness.js ← React hook for plan-completeness tracking
@@ -82,6 +86,12 @@ MDP/
     │                                     completed_by_student, test_equivalencies table
     ├── migration_tier10.sql           ← act_credit added to test_type and credit_type enums
     ├── migration_tier11.sql           ← remove dual_enrollment; drop zero-credit equivalency rows
+    ├── migration_tier12–20.sql        ← later tiers; see each file's header
+    ├── migration_tier21.sql           ← gened_program on requirement_slots / student_profiles
+    ├── csc_core_ff.json               ← Flight Foundations variants (Core, Cybersecurity, HPC);
+    ├── csc_cybersecurity_ff.json         DSAI has none
+    ├── csc_hpc_ff.json
+    ├── catalog_scrape/                ← Coursedog catalog scraper + Flight Foundations reference data
     ├── test_equivalencies.sql         ← seed data for the test_equivalencies table
     ├── prototype.json                 ← course catalog source data
     ├── csc_core.json                  ← CSC Core degree plan template
@@ -118,6 +128,24 @@ All tables live in a single Supabase project. Connection details are in environm
 | `student_free_add_slots` | Courses the student added outside the degree template |
 | `prior_credits` | Transfer credits, AP/IB/CLEP credit, dual enrollment, placement scores |
 | `test_equivalencies` | Exam-to-TTU-course mappings; drives the PriorCreditWizard |
+
+### Gen-ed programs (tier 21)
+
+`requirement_slots.gened_program` and `student_profiles.gened_program` hold `'legacy'` or
+`'flight_foundations'` (default `'legacy'`). A concentration carries one complete slot set per
+program: `csc_*.json` are the legacy templates; `csc_core_ff.json`, `csc_cybersecurity_ff.json`
+and `csc_hpc_ff.json` are the Flight Foundations variants. Data Science & AI has no Flight
+Foundations set: it is closed to students entering Fall 2026+.
+
+- The program is **stored on the profile at onboarding** (entry Fall 2026 or later →
+  `flight_foundations`; earlier, including every returning student → `legacy`), never derived at
+  read time: a student's `student_plan_slots` reference the slot ids of exactly one set.
+- Flight Foundations templates replace the six `GEN_ED` slots with fixed `HIST2010` + `HIST2020`
+  and the pools `FF_SOCIAL` ×2, `FF_HUMANITIES` ×1 (HPC also `FF_LITERACY`). Everything else
+  (SCIENCE sequences, COMM_REQ, ENG_LIT, the CSC pools) is shared between programs.
+- Apply `migration_tier21.sql` before `seed.js`; deploy a frontend that filters by program before
+  seeding a database that live clients read. The frontend falls back to legacy when the column
+  does not exist yet.
 
 ### Constrained column values
 
@@ -278,6 +306,31 @@ the authoritative list of valid course codes for each pool type. `POOL_LABELS` i
 source of truth for display names. `resolvePool(poolCode, courseMap)` returns filtered course
 objects from the live catalog.
 
+### `src/lib/flightFoundations.js`
+
+Pure module for Tennessee Tech's **Flight Foundations** general education program (41 hrs,
+entering Fall 2026+; legacy stays in effect for earlier entrants). No Supabase calls.
+
+- `FF_CATEGORIES`: Communication (English Composition 6 + Oral 3), Quantitative Reasoning 3,
+  Historical Foundations 6, Social & Behavioral 6 (all fixed), Humanities 6–9, Scientific
+  Reasoning 4–8, Financial/Digital Literacy 3–4. The 4 flex hours exist only inside the three
+  ranged categories.
+- `evaluateFlightFoundations(entries)` / `evaluateFlightFoundationsForPlan(planSlots, priorCredits,
+  slots, courses, freeAddSlots, planArchived)` / `getFlightFoundationsStatus(...)`: per-category
+  hours with "no more, no less" caps; only 4 flex hours count in total, so surplus in one category
+  never covers another's minimum; 3 hrs of introductory foreign language count toward
+  Humanities; ENGL/PC 2600 is one cross-listed course; archived slots are skipped.
+- `getGenEdProgram(season, year)`: program for an entry term.
+- Course lists come from the published gen-ed page (Coursedog has no gen-ed attribute on courses
+  and its internal Flight Foundations course sets lag the page). Re-check them each catalog year.
+
+### `src/lib/requirementSlots.js`
+
+`fetchRequirementSlots(client, concentrationId, program, columns, order)`: every reader of
+`requirement_slots` goes through it so the two programs' slot sets never mix. Falls back to
+legacy when a concentration has no slots for the program (DSAI) and when the tier 21 column is
+missing. `programForProfile` (stored program) and `programForEntryTerm` (onboarding).
+
 ### `src/lib/classifyPrereq.js`
 
 **`classifyPrereq(courseCode, prereqCode, courseMap)`** → `'placement' | 'consent' | 'completion'`
@@ -377,7 +430,7 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 
 1. Read this file
 2. Read the relevant source files before writing any code — do not assume file contents
-3. Check existing migration files before writing new migrations (next tier after 9)
+3. Check existing migration files before writing new migrations (latest is tier 21; next is 22)
 4. Run `npm run test` from `MyDegreePlan_Frontend/` and confirm all tests pass before making changes
 5. Create a branch before starting work — never work directly on main
 6. Do not assume file names or function signatures — use Glob/Grep to find them

@@ -19,7 +19,7 @@ not yet decided; likely driven by which departments request it or have clean cat
 **What this requires before it's a real project, not a goal:**
 - A concentration template ingestion pipeline (currently hand-authored `csc_*.json` per concentration).
 - Catalog-wide validation: pool definitions in `poolResolver.js` currently encode CSC-specific pools (`CSC_LOWER_ELECTIVE`, `CSC_HPC_ELECTIVE`, etc.). Expanding beyond CSC means either per-department pool tables or moving pool membership into the DB.
-- GEN_ED sub-requirement enforcement (see below) — CSC currently tolerates loose GEN_ED handling; other colleges may not.
+- Gen-ed category enforcement (see below) — Flight Foundations is implemented as the campus-wide baseline; per-major restrictions (e.g. the American History exemption for some engineering majors) are not.
 - **Template import check — pool prerequisites.** No CSC template has a required course whose
   prereq is satisfiable only through a pool other than COMM_REQ / MATH_STATS, but other
   programs will (e.g. a course requiring a lab science). `degreeBuilder` handles these for the
@@ -53,12 +53,15 @@ Let students snapshot a plan before major edits and restore it. Likely a
 `student_plan_snapshots` table keyed by `profile_id + created_at` with a JSONB blob of
 `student_plan_slots` + `student_free_add_slots` + `prior_credits` state.
 
-### GEN_ED sub-requirement enforcement
-Today GEN_ED is a single pool. TTU core actually splits it into History (6hr),
-Humanities (6hr), Social/Behavioral (6hr), Creative Arts (3hr), etc. A correct planner
-enforces each sub-requirement separately. This likely means sub-pool codes
-(`GEN_ED_HISTORY`, `GEN_ED_HUMANITIES`, ...) in `POOL_COURSES` and corresponding
-`requirement_slots` rows, plus wizard UX for routing AP/IB credits to the right sub-pool.
+### Gen-ed category enforcement
+Flight Foundations (Tennessee Tech's gen-ed program, entering Fall 2026+) is implemented in
+`flightFoundations.js`: eight requirement areas, the 4 shared flex hours, the introductory-language
+cap, and per-plan evaluation, used by the FF pools and the slot modal. Still open:
+- A dashboard panel for the 41-hour summary (the evaluator and `getFlightFoundationsStatus` exist).
+- Per-major rules on top of the baseline: the American History exemption (Chemical, Civil,
+  Computer, Electrical, General and Mechanical Engineering), other majors' category restrictions,
+  and the minimum-grade rules (C or better in ENGL 1010 before ENGL 1020).
+- The legacy program still tracks only History / Humanities / Social through `getGenEdStatus`.
 
 ### Science sequence auto-pair enforcement
 `getScienceWarnings` in `poolResolver.js` warns when a student picks two non-paired
