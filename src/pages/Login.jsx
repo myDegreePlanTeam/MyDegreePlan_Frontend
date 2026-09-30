@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { getBrand } from '../lib/brand'
 import { Link } from 'react-router-dom'
 import './Auth.css'
 
 export default function Login() {
+  const brand = getBrand()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState(null)
@@ -29,7 +31,7 @@ export default function Login() {
 
       <div className="auth-brand">
         <div className="auth-brand-inner">
-          <p className="auth-brand-eyebrow">Tennessee Tech University</p>
+          <p className="auth-brand-eyebrow">{brand.authEyebrow}</p>
           <h1 className="auth-brand-title">Degree<br />Planner</h1>
           <p className="auth-brand-sub">
             Plan your path. Track your progress.<br />Graduate with confidence.
@@ -52,7 +54,7 @@ export default function Login() {
               <input
                 className="auth-input"
                 type="email"
-                placeholder="you@tntech.edu"
+                placeholder={brand.emailPlaceholder}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required

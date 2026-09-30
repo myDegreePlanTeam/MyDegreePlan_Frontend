@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { getBrand } from '../../lib/brand'
 
 const TABS = [
   { id: 'plan',     label: 'Plan',       icon: '▤' },
@@ -22,7 +23,7 @@ export default function Sidebar({ view, onNavigate, issueCount, lastSavedAt }) {
   return (
     <nav className="ds-sidebar" aria-label="Main">
       <div className="ds-brand">
-        <p className="ds-brand-eyebrow">Tennessee Tech</p>
+        <p className="ds-brand-eyebrow">{getBrand().shellEyebrow}</p>
         <h1 className="ds-brand-title">Degree Planner</h1>
       </div>
 

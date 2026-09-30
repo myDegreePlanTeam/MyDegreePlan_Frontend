@@ -1,4 +1,5 @@
 import './Dashboard.css'
+import { getBrand } from '../lib/brand'
 
 // ── OnboardingSkeleton ────────────────────────────────────────────────────────
 // Shown by Dashboard.jsx while the student_profiles row is being fetched.
@@ -113,7 +114,7 @@ function SkeletonSidebar() {
   return (
     <div className="ds-sidebar">
       <div className="ds-brand">
-        <p className="ds-brand-eyebrow">Tennessee Tech</p>
+        <p className="ds-brand-eyebrow">{getBrand().shellEyebrow}</p>
         <p className="ds-brand-title">Degree Planner</p>
       </div>
 
