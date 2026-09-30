@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabaseClient'
 import { resolveSatisfiesPool, mapSatisfiesPoolForPlan, POOL_LABELS, getGenEdSubCategory } from '../lib/poolResolver'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
 import { escapeIlikeValue } from '../lib/postgrestEscape'
+import { getBrand } from '../lib/brand'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1.
@@ -430,7 +431,7 @@ export default function PriorCreditWizard({
           {step === 2 && creditType === 'transfer_credit' && (
             <div className="wizard-course-search">
               <p className="wizard-step-hint">
-                Search by course name or code from the TTU catalog.
+                Search by course name or code from the {getBrand().catalogName}.
               </p>
               <input
                 className="add-credit-input"

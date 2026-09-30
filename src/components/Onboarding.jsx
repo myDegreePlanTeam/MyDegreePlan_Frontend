@@ -7,6 +7,7 @@ import { buildRequirementMap } from '../lib/requirementMap'
 import { isConcentrationSelectable } from '../lib/concentrationAvailability'
 import { fetchRequirementSlots, programForEntryTerm, isMissingProgramColumn } from '../lib/requirementSlots'
 import PriorCreditWizard from './PriorCreditWizard'
+import { getBrand } from '../lib/brand'
 import './Dashboard.css'
 
 // New-curriculum chains (incoming_freshman / transfer): MATH1920 not required.
@@ -402,7 +403,7 @@ export default function Onboarding({ profileId, onComplete }) {
       <div className="onboarding-card">
 
         <div className="onboarding-header">
-          <p className="onboarding-eyebrow">Welcome to TTU Degree Planner</p>
+          <p className="onboarding-eyebrow">{getBrand().welcomeEyebrow}</p>
           <h2 className="onboarding-title">{STEP_TITLES[step]}</h2>
           <p className="onboarding-sub">{STEP_SUBS[step]}</p>
           <div className="onboarding-steps">
