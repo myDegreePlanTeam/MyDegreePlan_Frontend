@@ -4,6 +4,7 @@ import {
   POOL_LABELS, formatMissingForDisplay,
   GEN_ED_CATEGORIES, getGenEdStatus,
 } from '../lib/poolResolver'
+import { getFlightFoundationsStatus, FF_POOL_CATEGORIES } from '../lib/flightFoundations'
 import { checkPrereqs } from '../lib/prereqChecker'
 import { creditsBeforeSemester } from '../lib/transferCredits'
 import { getPlanCodes, getRemovedCodes, getRemovedPrereqs } from '../lib/removedPrereqs'
@@ -244,6 +245,18 @@ export default function SlotModal({
     if (e.target === e.currentTarget) onClose()
   }
 
+  // ── Flight Foundations category progress ───────────────────────────
+  // FF pool slots each fill one category; show where that category stands
+  // (e.g. "Humanities & Cultural Expression · 3/6–9 hrs").
+  const ffCategory = useMemo(() => {
+    const code = FF_POOL_CATEGORIES[slot.class_code]
+    if (!code) return null
+    const status = getFlightFoundationsStatus(
+      planSlots, priorCredits, slots, courseMap, freeAddSlots, planArchived,
+    )
+    return status.categories.find(c => c.category === code) ?? null
+  }, [slot.class_code, planSlots, priorCredits, slots, courseMap, freeAddSlots, planArchived])
+
   // ── Render GEN_ED sub-category sections ────────────────────────────
   // BUG-43: surface History / Humanities & Arts / Social Science sub-pools.
   // Satisfied sub-pools are greyed and non-clickable (like "Already selected").
@@ -372,6 +385,15 @@ export default function SlotModal({
         </div>
 
         <div className="modal-course-list">
+          {ffCategory && (
+            <p className="modal-section-label">
+              {ffCategory.label}
+              <span className="modal-section-credits">
+                {' · '}{ffCategory.filled}/{ffCategory.required}
+                {ffCategory.max > ffCategory.required ? `–${ffCategory.max}` : ''} hrs
+              </span>
+            </p>
+          )}
           {freeSections && search === '' ? (
             renderFreeSections()
           ) : slot.class_code === 'GEN_ED' ? (

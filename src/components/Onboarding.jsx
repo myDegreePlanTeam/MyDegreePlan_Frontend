@@ -5,6 +5,7 @@ import { resolveActMathPlacement, resolveActEnglishCredit, actScoresToProfileFie
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { isConcentrationSelectable } from '../lib/concentrationAvailability'
+import { fetchRequirementSlots, programForEntryTerm } from '../lib/requirementSlots'
 import PriorCreditWizard from './PriorCreditWizard'
 import './Dashboard.css'
 
@@ -166,10 +167,9 @@ export default function Onboarding({ profileId, onComplete }) {
   async function loadConcSlots() {
     const concData = concentrations.find(c => c.code === selectedCode)
     if (concData) {
-      const { data } = await supabase
-        .from('requirement_slots')
-        .select('id, class_code, is_pool')
-        .eq('concentration_id', concData.id)
+      const { data } = await fetchRequirementSlots(
+        supabase, concData.id, programForEntryTerm(startSeason, startYear), 'id, class_code, is_pool',
+      )
       setConcSlots(data ?? [])
     }
   }
@@ -207,6 +207,10 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
 
+    // Flight Foundations applies to students entering Fall 2026 or later; everyone
+    // earlier (returning students) stays on the legacy gen-ed program.
+    const genEdProgram  = programForEntryTerm(startSeason, startYear)
+
     const actFields     = actScoresToProfileFields(actScores)
     const actMathNum    = actFields.act_math
     const actEnglishNum = actFields.act_english
@@ -219,6 +223,7 @@ export default function Onboarding({ profileId, onComplete }) {
         start_season:     startSeason,
         start_year:       startYear,
         student_type:     studentType,
+        gened_program:    genEdProgram,
         ...actFields,
       })
       .eq('id', profileId)
@@ -246,10 +251,7 @@ export default function Onboarding({ profileId, onComplete }) {
 
     // ── 3. Fetch data needed for the degree-builder algorithm ────────────────
     const [slotsRes, coursesRes, prereqRes, coreqRes] = await Promise.all([
-      supabase
-        .from('requirement_slots')
-        .select('id, class_code, is_pool, flex_credits')
-        .eq('concentration_id', concData.id),
+      fetchRequirementSlots(supabase, concData.id, genEdProgram, 'id, class_code, is_pool, flex_credits'),
       supabase
         .from('courses')
         .select('code, credits, standing_req'),
@@ -347,6 +349,7 @@ export default function Onboarding({ profileId, onComplete }) {
       start_season:     startSeason,
       start_year:       startYear,
       student_type:     studentType,
+      gened_program:    genEdProgram,
       ...actFields,
       concentrations:   concData,
     })

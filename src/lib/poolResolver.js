@@ -8,6 +8,8 @@
 // where is_pool = true.
 // Each value is an array of course codes valid for that slot.
 
+import { listFlightFoundationsCourses } from './flightFoundations.js'
+
 export const POOL_COURSES = {
 
   // ── General Education ─────────────────────────────────────────────
@@ -61,6 +63,19 @@ export const POOL_COURSES = {
     'ENGL2235',
     'ENGL2330',
   ],
+
+  // ── Flight Foundations pools (students entering Fall 2026+) ────────
+  // Templates for the Flight Foundations program use these in place of GEN_ED.
+  // Membership comes from flightFoundations.js, the single source for the
+  // program's course lists.  Historical Foundations has no pool: HIST2010 and
+  // HIST2020 are fixed slots.  ENG_LIT courses are Humanities courses too; the
+  // order of these keys matters to resolveSatisfiesPool, which takes the first
+  // pool on the plan that lists a course — ENG_LIT above claims its three
+  // literature courses before FF_HUMANITIES, and FF_LITERACY comes before the
+  // CSC elective pools so a qualifying CSC2220/CSC2570 fills the literacy slot.
+  FF_SOCIAL:     listFlightFoundationsCourses('SOC'),
+  FF_HUMANITIES: listFlightFoundationsCourses('HUM'),
+  FF_LITERACY:   listFlightFoundationsCourses('LIT'),
 
   // ── Natural Science sequences ─────────────────────────────────────
   // Students need 8 credit hours from one approved sequence.
@@ -178,13 +193,19 @@ export const POOL_COURSES = {
 // CSC1300's prereqs would tie CSC1300 to a pool that must follow CSC1310.
 // Listed in the order they take open seats when interleaving (Step 11).
 // Also the pools an unfilled slot can stand in for when checking prereqs.
-export const REQUIREMENT_POOLS = new Set(['SCIENCE', 'COMM_REQ', 'MATH_STATS', 'ENG_LIT', 'GEN_ED'])
+export const REQUIREMENT_POOLS = new Set([
+  'SCIENCE', 'COMM_REQ', 'MATH_STATS', 'ENG_LIT', 'GEN_ED',
+  'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY',
+])
 
 // ── Pool slot display labels ──────────────────────────────────────────────────
 // Single source of truth shared by Semester (slot row) and SlotModal (modal title).
 
 export const POOL_LABELS = {
   GEN_ED:             'General Education',
+  FF_SOCIAL:          'Social & Behavioral Sciences',
+  FF_HUMANITIES:      'Humanities & Cultural Expression',
+  FF_LITERACY:        'Financial / Digital Literacy',
   ENG_LIT:            'English Literature',
   SCIENCE:            'Natural Science',
   COMM_REQ:           'Communications',
@@ -204,6 +225,9 @@ export const POOL_LABELS = {
 
 export const POOL_CREDIT_ESTIMATES = {
   GEN_ED:             3,
+  FF_SOCIAL:          3,
+  FF_HUMANITIES:      3,
+  FF_LITERACY:        3,
   ENG_LIT:            3,
   SCIENCE:            4,
   COMM_REQ:           3,
@@ -243,6 +267,21 @@ export function resolveSatisfiesPool(courseCode, slots) {
     if (codes?.includes(courseCode)) return poolCode
   }
   return null
+}
+
+// ── mapSatisfiesPoolForPlan ───────────────────────────────────────────────────
+// test_equivalencies rows name the legacy pool an exam credit fills ('GEN_ED').
+// A Flight Foundations plan has no GEN_ED slots — the same course fills
+// FF_SOCIAL / FF_HUMANITIES or a fixed History slot — so the pool is resolved
+// against the pools the plan actually has.  Every other pool (SCIENCE, ENG_LIT,
+// …) exists in both programs and passes through unchanged, as does any pool on a
+// plan that still has GEN_ED slots.
+
+export function mapSatisfiesPoolForPlan(poolCode, courseCode, slots) {
+  if (poolCode !== 'GEN_ED') return poolCode
+  const hasGenEd = (slots ?? []).some(s => s?.is_pool && s.class_code === 'GEN_ED')
+  if (hasGenEd || !slots?.length) return poolCode
+  return resolveSatisfiesPool(courseCode, slots)
 }
 
 export function resolvePool(poolCode, courseMap) {

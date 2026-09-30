@@ -781,7 +781,8 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
   // full-time. Move an elective — failing that a GEN_ED or ENG_LIT — into it
   // from the heaviest semester that stays full-time, keeping every standing
   // threshold that held. SCIENCE, COMM_REQ, MATH_STATS and gating pools stay.
-  const LEVEL_MOVABLE = new Set(['GEN_ED', 'ENG_LIT'])   // requirement pools it may move
+  // requirement pools it may move
+  const LEVEL_MOVABLE = new Set(['GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY', 'ENG_LIT'])
 
   function moveSlot(slot, from, to) {
     const cr = slotCredits(slot, courseMap)

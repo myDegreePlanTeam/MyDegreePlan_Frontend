@@ -8,6 +8,7 @@ import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
+import { fetchRequirementSlots, programForProfile } from '../lib/requirementSlots'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { buildPlanIssues, countIssuesBySemester, FULL_TIME_MIN, HEAVY_LOAD_MAX } from '../lib/planIssues'
 import Semester from './Semester'
@@ -186,12 +187,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     async function loadPlan() {
       // Step 1 — requirement slots (template)
-      const { data: slotData, error: slotError } = await supabase
-        .from('requirement_slots')
-        .select('id, semester_number, slot_order, class_code, is_pool, flex_credits')
-        .eq('concentration_id', profile.concentration_id)
-        .order('semester_number', { ascending: true })
-        .order('slot_order',      { ascending: true })
+      const { data: slotData, error: slotError } = await fetchRequirementSlots(
+        supabase,
+        profile.concentration_id,
+        programForProfile(profile),
+        'id, semester_number, slot_order, class_code, is_pool, flex_credits',
+        [{ column: 'semester_number' }, { column: 'slot_order' }],
+      )
 
       if (slotError) { setError(slotError.message); setLoading(false); return }
 

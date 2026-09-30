@@ -468,3 +468,59 @@ describe('buildDegreePlan — prior credits', () => {
     }
   })
 })
+
+// ── Flight Foundations template (entering Fall 2026+) ────────────────────────
+// CSC Core's Flight Foundations variant: the GEN_ED slots become the two fixed
+// History courses plus FF_SOCIAL x2 and FF_HUMANITIES, and the freed hours move to
+// the free elective (see csc_core_ff.json).
+
+const FF_CORE_SLOTS = [
+  ...CORE_SLOTS.filter(e => e !== 'GEN_ED' && !(Array.isArray(e) && e[0] === 'FREE_ELECTIVE')),
+  'HIST2010', 'HIST2020', 'FF_SOCIAL', 'FF_SOCIAL', 'FF_HUMANITIES',
+  ['FREE_ELECTIVE', 8],
+]
+
+const FF_COURSES = { ...COURSES, HIST2010: { credits: 3 }, HIST2020: { credits: 3 } }
+
+describe('buildDegreePlan — Flight Foundations template', () => {
+  const ffPlan = (profile = {}) => plan(profile, { slotEntries: FF_CORE_SLOTS, courses: FF_COURSES })
+
+  it('places every slot, including the fixed History courses and the new pools', () => {
+    const { active, assignments } = ffPlan()
+    for (const s of active) expect(assignments[s.id], s.class_code).toBeGreaterThanOrEqual(1)
+    const codes = active.map(s => s.class_code)
+    for (const code of ['HIST2010', 'HIST2020', 'FF_SOCIAL', 'FF_HUMANITIES']) expect(codes).toContain(code)
+  })
+
+  it('fits in 8 semesters (9 from the lowest ACT placement, as legacy) without an overloaded or empty semester', () => {
+    // ACT 15 starts in the remedial math chain, which needs a ninth semester on
+    // the legacy template too.
+    for (const act_math of [15, 20, 25, 29]) {
+      const { loads, maxSem } = ffPlan({ act_math })
+      expect(maxSem).toBeLessThanOrEqual(act_math < 19 ? 9 : 8)
+      for (let s = 1; s <= maxSem; s++) {
+        expect(loads[s], `ACT ${act_math} semester ${s}`).toBeGreaterThan(0)
+        expect(loads[s], `ACT ${act_math} semester ${s}`).toBeLessThanOrEqual(18)
+      }
+    }
+  })
+
+  it('keeps the standing-gated courses where the legacy plan does', () => {
+    const { semOf, creditsBefore } = ffPlan()
+    expect(creditsBefore(semOf('CSC3040'))).toBeGreaterThanOrEqual(60)
+    expect(creditsBefore(semOf('CSC4610'))).toBeGreaterThanOrEqual(90)
+  })
+
+  it('needs no more semesters than the legacy template at any ACT placement', () => {
+    for (const act_math of [15, 20, 25, 29]) {
+      expect(ffPlan({ act_math }).maxSem, `ACT ${act_math}`).toBeLessThanOrEqual(plan({ act_math }).maxSem)
+    }
+  })
+
+  it('archives a fixed History slot when a prior credit covers it', () => {
+    const prior = [{ id: 'ap', credit_type: 'ap_credit', satisfies_course_code: 'HIST2010', credits_awarded: 3 }]
+    const { archived, slots } = plan({}, { slotEntries: FF_CORE_SLOTS, courses: FF_COURSES, priorCredits: prior })
+    const hist = slots.find(s => s.class_code === 'HIST2010')
+    expect(archived[hist.id]).toBe('prior_credit')
+  })
+})

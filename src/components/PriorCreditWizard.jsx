@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { resolveSatisfiesPool, POOL_LABELS, getGenEdSubCategory } from '../lib/poolResolver'
+import { resolveSatisfiesPool, mapSatisfiesPoolForPlan, POOL_LABELS, getGenEdSubCategory } from '../lib/poolResolver'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
 import { escapeIlikeValue } from '../lib/postgrestEscape'
 import './Dashboard.css'
@@ -218,7 +218,9 @@ export default function PriorCreditWizard({
       setAwards(data.map(row => ({
         awarded_course_code: row.awarded_course_code,
         credits_awarded:     row.credits_awarded,
-        satisfies_pool:      row.satisfies_pool,
+        // test_equivalencies names the legacy pool ('GEN_ED'); a Flight Foundations
+        // plan has FF_SOCIAL / FF_HUMANITIES slots instead, so resolve against the plan.
+        satisfies_pool:      mapSatisfiesPoolForPlan(row.satisfies_pool, row.awarded_course_code, slots),
         course_name:         courseMap[row.awarded_course_code]?.name ?? row.awarded_course_code,
       })))
     }

@@ -9,12 +9,17 @@
 //   slots       — array of requirement_slot rows from Supabase
 //                 Each row: { id, class_code, is_pool, flex_credits, ... }
 //   planSlots   — { [slotId]: selectedCourseCode } map (student's selections)
-//   genEdStatus — output of getGenEdStatus() — array of three objects:
-//                 [{ category, filled, required, satisfied, atRisk }, ...]
+//   genEdStatus — array of { category, filled, required, satisfied, ... } rows:
+//                 getGenEdStatus() for the legacy program (three rows) or the
+//                 `categories` of getFlightFoundationsStatus() for Flight Foundations
 //
 // Output: { isComplete, totalSlots, filledSlots, genEdSatisfied }
 
 import { useMemo } from 'react'
+
+// Pool codes whose slots carry gen-ed category requirements: the legacy GEN_ED
+// pool and the Flight Foundations pools.
+const GEN_ED_POOL_CODES = new Set(['GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY'])
 
 // ── Pure helper ───────────────────────────────────────────────────────────────
 
@@ -54,7 +59,7 @@ export function computePlanCompleteness(slots, planSlots, genEdStatus) {
   // for concentrations that have no GEN_ED pool slots.
   //
   // Guard: only enforce GEN_ED satisfaction when the plan actually has GEN_ED slots.
-  const hasGenEdSlots = slots.some(s => s.is_pool && s.class_code === 'GEN_ED')
+  const hasGenEdSlots = slots.some(s => s.is_pool && GEN_ED_POOL_CODES.has(s.class_code))
   const genEdSatisfied = !hasGenEdSlots
     || (Array.isArray(genEdStatus) && genEdStatus.length > 0 && genEdStatus.every(cat => cat.satisfied))
 

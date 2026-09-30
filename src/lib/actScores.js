@@ -10,6 +10,7 @@
 import { supabase } from './supabaseClient'
 import { buildDegreePlan } from './degreeBuilder'
 import { buildRequirementMap } from './requirementMap'
+import { fetchRequirementSlots, programForProfile } from './requirementSlots'
 import { resolveActMathPlacement, resolveActEnglishCredit } from './actScoreResolver'
 
 export const ACT_FIELDS = [
@@ -70,7 +71,7 @@ export async function saveActScoresAndRebuild(profile, numScores) {
   }
 
   const [slotsRes, coursesRes, prereqRes, coreqRes, priorRes, studentSlotsRes] = await Promise.all([
-    supabase.from('requirement_slots').select('id, class_code, is_pool, flex_credits').eq('concentration_id', profile.concentration_id),
+    fetchRequirementSlots(supabase, profile.concentration_id, programForProfile(profile), 'id, class_code, is_pool, flex_credits'),
     // standing_req drives the builder's junior/senior placement — without it
     // CSC3040 jumped ahead of COMM_REQ and the pool front-fill never ran.
     supabase.from('courses').select('code, credits, standing_req'),

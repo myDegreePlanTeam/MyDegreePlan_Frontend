@@ -45,7 +45,7 @@ import { GEN_ED_CATEGORIES, POOL_CREDIT_ESTIMATES } from './poolResolver.js'
 // Includes all pool codes used in requirement_slots so that drag-to-prior-credit
 // and wizard entries can archive any pool slot.
 const SATISFIABLE_POOLS = new Set([
-  'GEN_ED', 'ENG_LIT', 'SCIENCE', 'COMM_REQ',
+  'GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY', 'ENG_LIT', 'SCIENCE', 'COMM_REQ',
   'MATH_STATS', 'CSC_LOWER_ELECTIVE', 'CSC_UPPER_ELECTIVE',
   'CSC_ELECTIVE', 'CSC_HPC_ELECTIVE', 'FREE_ELECTIVE',
 ])
