@@ -10,12 +10,16 @@ export const DEFAULT_BRAND = {
   authEyebrow: 'Tennessee Tech University',
   shellEyebrow: 'Tennessee Tech',
   emailPlaceholder: 'you@tntech.edu',
+  welcomeEyebrow: 'Welcome to TTU Degree Planner',
+  catalogName: 'TTU catalog',
 }
 
 export const NEUTRAL_BRAND = {
   authEyebrow: 'Computer Science',
   shellEyebrow: 'Computer Science',
   emailPlaceholder: 'you@university.edu',
+  welcomeEyebrow: 'Welcome to Degree Planner',
+  catalogName: 'course catalog',
 }
 
 export function getBrand(win = typeof window !== 'undefined' ? window : undefined) {
