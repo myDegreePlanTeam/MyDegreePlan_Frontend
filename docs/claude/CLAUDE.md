@@ -141,8 +141,10 @@ Foundations set: it is closed to students entering Fall 2026+.
   `flight_foundations`; earlier, including every returning student → `legacy`), never derived at
   read time: a student's `student_plan_slots` reference the slot ids of exactly one set.
 - Flight Foundations templates replace the six `GEN_ED` slots with fixed `HIST2010` + `HIST2020`
-  and the pools `FF_SOCIAL` ×2, `FF_HUMANITIES` ×1 (HPC also `FF_LITERACY`). Everything else
-  (SCIENCE sequences, COMM_REQ, ENG_LIT, the CSC pools) is shared between programs.
+  and the pools `FF_SOCIAL` ×2 and `FF_HUMANITIES` ×2 (HPC also `FF_LITERACY`). The second
+  Humanities slot is the legacy `ENG_LIT` slot: English Literature is **not** a separate Flight
+  Foundations requirement (ENGL2130/2235/2330 are ordinary Humanities courses), so `ENG_LIT` exists
+  only in legacy templates. SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are shared.
 - Apply `migration_tier21.sql` before `seed.js`; deploy a frontend that filters by program before
   seeding a database that live clients read. The frontend falls back to legacy when the column
   does not exist yet.
@@ -320,6 +322,10 @@ entering Fall 2026+; legacy stays in effect for earlier entrants). No Supabase c
   hours with "no more, no less" caps; only 4 flex hours count in total, so surplus in one category
   never covers another's minimum; 3 hrs of introductory foreign language count toward
   Humanities; ENGL/PC 2600 is one cross-listed course; archived slots are skipped.
+- `getPlanMinimums(slots)`: hours the plan's pool slots commit to ranged categories (each `SCIENCE`
+  slot = 4 hrs, each `FF_*` slot 3). The evaluators use it as the category minimum, which shrinks
+  the shared flex: CSC's 8-hr science sequence leaves none, so Humanities is exactly 6 and
+  Literacy exactly 3 for those plans (the UI shows "6", not "6–9").
 - `getGenEdProgram(season, year)`: program for an entry term.
 - Course lists come from the published gen-ed page (Coursedog has no gen-ed attribute on courses
   and its internal Flight Foundations course sets lag the page). Re-check them each catalog year.

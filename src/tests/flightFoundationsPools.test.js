@@ -24,7 +24,7 @@ const FF_SLOTS = [
   { id: 5,  class_code: 'FF_SOCIAL',     is_pool: true },
   { id: 6,  class_code: 'FF_HUMANITIES', is_pool: true },
   { id: 7,  class_code: 'FF_LITERACY',   is_pool: true },
-  { id: 8,  class_code: 'ENG_LIT',       is_pool: true },
+  { id: 8,  class_code: 'FF_HUMANITIES', is_pool: true },
   { id: 9,  class_code: 'SCIENCE',       is_pool: true },
   { id: 10, class_code: 'CSC_ELECTIVE',  is_pool: true },
 ]
@@ -83,8 +83,18 @@ describe('resolveSatisfiesPool on a Flight Foundations plan', () => {
     expect(resolveSatisfiesPool('PHIL1030', FF_SLOTS)).toBe('FF_HUMANITIES')
   })
 
-  it('gives the three literature courses to ENG_LIT before FF_HUMANITIES', () => {
-    expect(resolveSatisfiesPool('ENGL2130', FF_SLOTS)).toBe('ENG_LIT')
+  it('routes the three literature courses to FF_HUMANITIES: literature is not a separate requirement', () => {
+    for (const code of ['ENGL2130', 'ENGL2235', 'ENGL2330']) {
+      expect(resolveSatisfiesPool(code, FF_SLOTS)).toBe('FF_HUMANITIES')
+    }
+  })
+
+  it('still gives literature courses to ENG_LIT when a plan has both pools (legacy-style ordering)', () => {
+    const both = [
+      { id: 1, class_code: 'FF_HUMANITIES', is_pool: true },
+      { id: 2, class_code: 'ENG_LIT', is_pool: true },
+    ]
+    expect(resolveSatisfiesPool('ENGL2130', both)).toBe('ENG_LIT')
   })
 
   it('gives CSC2220 to the literacy slot ahead of the CSC elective', () => {

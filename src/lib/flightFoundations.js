@@ -207,13 +207,16 @@ export function getGenEdProgram(season, year) {
 //     satisfied,
 //   }
 //
+//   options.minimums  { [categoryCode]: hours } a plan commits to a ranged category
+//                     (see getPlanMinimums); defaults to the program minimums
+//   min / max are the EFFECTIVE range for this plan; catalogMin / catalogMax the program's
 //   raw       hours the student has in the category (before any cap)
 //   earned    hours counted toward the category, capped at max and (Humanities)
 //             the language cap — before the shared flex ceiling is applied
 //   excess    raw − earned
 //   remaining hours still needed to reach the category minimum
 
-export function evaluateFlightFoundations(entries = []) {
+export function evaluateFlightFoundations(entries = [], options = {}) {
   const seen = new Set()
   const byCategory = new Map(FF_CATEGORIES.map(c => [c.code, []]))
   const nonFlightFoundation = []
@@ -243,42 +246,60 @@ export function evaluateFlightFoundations(entries = []) {
     .reduce((sum, c) => sum + c.credits, 0)
   if (languageRaw > FF_INTRO_LANGUAGE_CAP) languageExcess = languageRaw - FF_INTRO_LANGUAGE_CAP
 
+  // A plan can commit hours to a ranged category beyond the program minimum — a
+  // major's required science sequence commits 8 hrs to Scientific Reasoning.  Each
+  // commitment raises that category's minimum (within its range), which shrinks the
+  // shared flex: a plan that commits 8 science hrs has no flex left, so Humanities
+  // and Literacy sit at exactly their minimums.
+  const minimums = options.minimums ?? {}
+  const effectiveMin = Object.fromEntries(FF_CATEGORIES.map(cat => [
+    cat.code, Math.min(cat.max, Math.max(cat.min, minimums[cat.code] ?? 0)),
+  ]))
+  const flexTotal = Math.max(
+    0, FF_TOTAL_HOURS - FF_CATEGORIES.reduce((sum, cat) => sum + effectiveMin[cat.code], 0),
+  )
+
   const categories = FF_CATEGORIES.map(cat => {
     const courses = byCategory.get(cat.code)
     const raw = courses.reduce((sum, c) => sum + c.credits, 0)
     const countable = cat.code === 'HUM' ? raw - languageExcess : raw
-    const earned = Math.min(countable, cat.max)
+    const ranged = cat.min < cat.max
+    const min = effectiveMin[cat.code]
+    const max = ranged ? Math.min(cat.max, min + flexTotal) : cat.max
+    const earned = Math.min(countable, max)
     return {
       code:      cat.code,
       group:     cat.group,
       label:     cat.label,
-      min:       cat.min,
-      max:       cat.max,
+      min,
+      max,
+      catalogMin: cat.min,
+      catalogMax: cat.max,
       raw,
       earned,
       excess:    raw - earned,
-      remaining: Math.max(0, cat.min - earned),
-      satisfied: earned >= cat.min,
+      remaining: Math.max(0, min - earned),
+      satisfied: earned >= min,
       courses,
     }
   })
 
   // Flex: the hours each ranged category holds above its own minimum.
   const flexHeld = categories
-    .filter(c => c.min < c.max)
+    .filter(c => c.catalogMin < c.catalogMax)
     .reduce((sum, c) => sum + Math.max(0, c.earned - c.min), 0)
-  const flexUsed = Math.min(flexHeld, FF_FLEX_HOURS)
+  const flexUsed = Math.min(flexHeld, flexTotal)
 
   const minimumsCounted = categories.reduce((sum, c) => sum + Math.min(c.earned, c.min), 0)
   const totalEarned = minimumsCounted + flexUsed
-  const satisfied = categories.every(c => c.satisfied) && flexUsed === FF_FLEX_HOURS
+  const satisfied = categories.every(c => c.satisfied) && flexUsed === flexTotal
 
   return {
     categories,
     totalRequired:  FF_TOTAL_HOURS,
     totalEarned,
     totalRemaining: FF_TOTAL_HOURS - totalEarned,
-    flex: { total: FF_FLEX_HOURS, used: flexUsed, remaining: FF_FLEX_HOURS - flexUsed },
+    flex: { total: flexTotal, used: flexUsed, remaining: flexTotal - flexUsed },
     languageExcess,
     nonFlightFoundation,
     satisfied,
@@ -301,6 +322,7 @@ export function evaluateFlightFoundations(entries = []) {
 export function evaluateFlightFoundationsForPlan(
   planSlots, priorCredits, slots, courses, freeAddSlots = [], planArchived = {},
 ) {
+  const minimums = getPlanMinimums(slots)
   const entries = []
   const seen = new Set()
   const add = (code, credits) => {
@@ -325,7 +347,29 @@ export function evaluateFlightFoundationsForPlan(
     add(fa?.course_code, courses?.[fa?.course_code]?.credits)
   }
 
-  return evaluateFlightFoundations(entries)
+  return evaluateFlightFoundations(entries, { minimums })
+}
+
+// ── Plan commitments ──────────────────────────────────────────────────────────
+// Hours the plan's template commits to each ranged category, from its pool slots:
+// every SCIENCE slot is a 4-hr lab science (the department sequence), every
+// FF_HUMANITIES / FF_LITERACY slot its own hours (default 3).  Archived slots still
+// count — a slot covered by prior credit is still part of what the plan requires.
+
+const SCIENCE_SLOT_HOURS = 4
+const POOL_SLOT_HOURS    = 3
+
+export function getPlanMinimums(slots) {
+  const minimums = {}
+  for (const slot of slots ?? []) {
+    if (!slot?.is_pool) continue
+    const isScience = slot.class_code === 'SCIENCE'
+    const category = isScience ? 'SCI' : FF_POOL_CATEGORIES[slot.class_code]
+    if (!category) continue
+    const hours = isScience ? SCIENCE_SLOT_HOURS : (slot.flex_credits ?? POOL_SLOT_HOURS)
+    minimums[category] = (minimums[category] ?? 0) + hours
+  }
+  return minimums
 }
 
 // ── Display status ────────────────────────────────────────────────────────────
@@ -334,6 +378,8 @@ export function evaluateFlightFoundationsForPlan(
 //
 //   { program, satisfied, totalEarned, totalRequired, flex, categories: [
 //       { category, label, group, filled, required, max, satisfied, remaining } ] }
+//   required / max are the plan's effective range (a CSC plan's 8-hr science sequence
+//   leaves no flex, so Humanities reads 6, not 6–9).
 //
 // `filled` is the hours counted toward the category (capped at its maximum),
 // `required` its minimum.  Open seats are not modelled here: unlike the legacy

@@ -3,7 +3,7 @@ import {
   FF_CATEGORIES, FF_TOTAL_HOURS, FF_FLEX_HOURS, FF_INTRO_LANGUAGE_COURSES,
   getFlightFoundationsCategory, getFlightFoundationsCategoryInfo,
   listFlightFoundationsCourses, isFlightFoundationsCourse,
-  getGenEdProgram, evaluateFlightFoundations, evaluateFlightFoundationsForPlan,
+  getGenEdProgram, evaluateFlightFoundations, evaluateFlightFoundationsForPlan, getPlanMinimums,
 } from '../lib/flightFoundations.js'
 
 const e = (code, credits) => ({ code, credits })
@@ -334,5 +334,93 @@ describe('evaluateFlightFoundationsForPlan', () => {
     const r = evaluateFlightFoundationsForPlan({}, [], [], {})
     expect(r.totalEarned).toBe(0)
     expect(r.satisfied).toBe(false)
+  })
+})
+
+describe("plan-committed minimums (a major science sequence)", () => {
+  // The CSC shape: 8 science hrs committed, so the 4 flex hours are already spent.
+  const csc = { SCI: 8 }
+
+  it('raises the category minimum and leaves no shared flex', () => {
+    const r = evaluateFlightFoundations([], { minimums: csc })
+    expect(cat(r, 'SCI')).toMatchObject({ min: 8, max: 8, catalogMin: 4, catalogMax: 8 })
+    expect(r.flex).toEqual({ total: 0, used: 0, remaining: 0 })
+  })
+
+  it('pins Humanities and Literacy at their minimums (6 and 3), not 6-9 and 3-4', () => {
+    const r = evaluateFlightFoundations([], { minimums: csc })
+    expect(cat(r, 'HUM')).toMatchObject({ min: 6, max: 6, catalogMax: 9 })
+    expect(cat(r, 'LIT')).toMatchObject({ min: 3, max: 3, catalogMax: 4 })
+  })
+
+  it('does not count a third Humanities course beyond the 6 hrs', () => {
+    const r = evaluateFlightFoundations(
+      ['ART1035', 'ART2000', 'ART2020'].map(c => e(c)), { minimums: csc },
+    )
+    expect(cat(r, 'HUM')).toMatchObject({ raw: 9, earned: 6, excess: 3, satisfied: true })
+  })
+
+  it('reaches exactly 41 with 6 humanities, 8 science and 3 literacy hrs', () => {
+    const r = evaluateFlightFoundations(FULL_PLAN, { minimums: csc })
+    expect(r.satisfied).toBe(true)
+    expect(r.totalEarned).toBe(41)
+    expect(r.flex.total).toBe(0)
+  })
+
+  it('a 4-hr literacy course is not flex for that plan', () => {
+    const plan = [...FULL_PLAN.filter(c => c.code !== 'CSC2220'), e('CSC2220', 3), e('DLED2000', 1)]
+    const r = evaluateFlightFoundations(plan, { minimums: csc })
+    expect(cat(r, 'LIT')).toMatchObject({ raw: 4, earned: 3, excess: 1 })
+    expect(r.totalEarned).toBe(41)
+  })
+
+  it('keeps the program ranges when a plan commits nothing extra', () => {
+    const r = evaluateFlightFoundations([], { minimums: { SCI: 4, HUM: 6 } })
+    expect(cat(r, 'HUM')).toMatchObject({ min: 6, max: 9 })
+    expect(cat(r, 'SCI')).toMatchObject({ min: 4, max: 8 })
+    expect(r.flex.total).toBe(4)
+  })
+
+  it('clamps a commitment to the category range', () => {
+    const r = evaluateFlightFoundations([], { minimums: { SCI: 12, QR: 9 } })
+    expect(cat(r, 'SCI')).toMatchObject({ min: 8, max: 8 })
+    expect(cat(r, 'QR')).toMatchObject({ min: 3, max: 3 })
+  })
+
+  it('shares the remaining flex between categories when only some is committed', () => {
+    // 6 science hrs committed: 2 flex hrs left to spend in Humanities / Literacy / Science.
+    const r = evaluateFlightFoundations([], { minimums: { SCI: 6 } })
+    expect(r.flex.total).toBe(2)
+    expect(cat(r, 'HUM').max).toBe(8)
+    expect(cat(r, 'SCI').max).toBe(8)
+    expect(cat(r, 'LIT').max).toBe(4)
+  })
+})
+
+describe('getPlanMinimums', () => {
+  const pool = (class_code, flex_credits = null) => ({ class_code, is_pool: true, flex_credits })
+
+  it('counts 4 hrs per SCIENCE slot and 3 per Flight Foundations pool slot', () => {
+    expect(getPlanMinimums([
+      pool('SCIENCE'), pool('SCIENCE'), pool('FF_HUMANITIES'), pool('FF_HUMANITIES'),
+      pool('FF_LITERACY'), pool('FF_SOCIAL'),
+    ])).toEqual({ SCI: 8, HUM: 6, LIT: 3, SOC: 3 })
+  })
+
+  it('ignores fixed slots, other pools, and handles empty input', () => {
+    expect(getPlanMinimums([{ class_code: 'HIST2010', is_pool: false }, pool('CSC_ELECTIVE')])).toEqual({})
+    expect(getPlanMinimums(undefined)).toEqual({})
+    expect(getPlanMinimums([])).toEqual({})
+  })
+
+  it("uses the slot own credit hours when it has them", () => {
+    expect(getPlanMinimums([pool('FF_LITERACY', 4)])).toEqual({ LIT: 4 })
+  })
+
+  it('is applied by evaluateFlightFoundationsForPlan', () => {
+    const slots = [pool('SCIENCE'), pool('SCIENCE')].map((s, i) => ({ ...s, id: i + 1 }))
+    const ev = evaluateFlightFoundationsForPlan({}, [], slots, {})
+    expect(cat(ev, 'SCI')).toMatchObject({ min: 8, max: 8 })
+    expect(cat(ev, 'HUM').max).toBe(6)
   })
 })

@@ -471,12 +471,12 @@ describe('buildDegreePlan — prior credits', () => {
 
 // ── Flight Foundations template (entering Fall 2026+) ────────────────────────
 // CSC Core's Flight Foundations variant: the GEN_ED slots become the two fixed
-// History courses plus FF_SOCIAL x2 and FF_HUMANITIES, and the freed hours move to
-// the free elective (see csc_core_ff.json).
+// History courses plus FF_SOCIAL x2 and FF_HUMANITIES x2 (the second replaces the legacy
+// ENG_LIT slot), and the freed hours move to the free elective (see csc_core_ff.json).
 
 const FF_CORE_SLOTS = [
-  ...CORE_SLOTS.filter(e => e !== 'GEN_ED' && !(Array.isArray(e) && e[0] === 'FREE_ELECTIVE')),
-  'HIST2010', 'HIST2020', 'FF_SOCIAL', 'FF_SOCIAL', 'FF_HUMANITIES',
+  ...CORE_SLOTS.filter(e => e !== 'GEN_ED' && e !== 'ENG_LIT' && !(Array.isArray(e) && e[0] === 'FREE_ELECTIVE')),
+  'HIST2010', 'HIST2020', 'FF_SOCIAL', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_HUMANITIES',
   ['FREE_ELECTIVE', 8],
 ]
 

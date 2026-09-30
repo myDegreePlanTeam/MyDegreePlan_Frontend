@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { POOL_COURSES, POOL_CREDIT_ESTIMATES, resolvePool } from '../lib/poolResolver.js'
 import {
-  FF_CATEGORIES, evaluateFlightFoundationsForPlan, isFlightFoundationsCourse,
+  FF_CATEGORIES, evaluateFlightFoundationsForPlan, getFlightFoundationsStatus, isFlightFoundationsCourse,
 } from '../lib/flightFoundations.js'
 
 // These read the seed files in the sibling MyDegreePlan_Prototype repo — the
@@ -31,7 +31,7 @@ const NOT_IN_PROTOTYPE_JSON = new Set(['MATH1000'])
 // course where the template has one.
 const PICKS = {
   FF_SOCIAL:          ['ECON2010', 'PSY1030'],
-  FF_HUMANITIES:      ['ART1035'],
+  FF_HUMANITIES:      ['ART1035', 'ENGL2130'],
   FF_LITERACY:        ['DS2810'],
   ENG_LIT:            ['ENGL2130'],
   COMM_REQ:           ['COMM2025'],
@@ -127,8 +127,35 @@ describe.skipIf(!HAVE_SEEDS)('Flight Foundations seed templates', () => {
       }
     })
 
-    it('keeps the legacy template untouched: still six GEN_ED slots', () => {
+    it('keeps the legacy template untouched: still six GEN_ED slots and its ENG_LIT slot', () => {
       expect(legacy().slots.filter(s => s.class_code === 'GEN_ED')).toHaveLength(6)
+      expect(legacy().slots.filter(s => s.class_code === 'ENG_LIT')).toHaveLength(1)
+    })
+
+    it('has no separate English Literature slot: Humanities is two FF_HUMANITIES slots', () => {
+      const { slots } = ff()
+      expect(slots.filter(s => s.class_code === 'ENG_LIT')).toHaveLength(0)
+      expect(slots.filter(s => s.class_code === 'FF_HUMANITIES')).toHaveLength(2)
+    })
+
+    it('reads as a fixed range: Humanities 6, Science 8, Literacy 3, no flex left', () => {
+      const { slots } = ff()
+      const status = getFlightFoundationsStatus({}, [], slots, courses)
+      const by = code => status.categories.find(c => c.category === code)
+      expect([by('HUM').required, by('HUM').max]).toEqual([6, 6])
+      expect([by('SCI').required, by('SCI').max]).toEqual([8, 8])
+      expect([by('LIT').required, by('LIT').max]).toEqual([3, 3])
+      expect(status.flex.total).toBe(0)
+      expect(status.totalRequired).toBe(41)
+    })
+
+    it('counts a literature course toward Humanities', () => {
+      const { slots } = ff()
+      const plan = fillPlan(slots)
+      const ev = evaluateFlightFoundationsForPlan(plan, [], slots, courses)
+      const hum = ev.categories.find(c => c.code === 'HUM')
+      expect(hum.courses.map(c => c.code)).toContain('ENGL2130')
+      expect(hum.earned).toBe(6)
     })
 
     it('satisfies all 41 Flight Foundations hours with a normal selection', () => {
