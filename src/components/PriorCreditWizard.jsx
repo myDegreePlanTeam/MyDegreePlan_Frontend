@@ -18,7 +18,10 @@ import { useState, useEffect, useRef } from 'react'
 import { db } from '../lib/dataClient'
 import { resolveSatisfiesPool, mapSatisfiesPoolForPlan, POOL_LABELS, getGenEdSubCategory } from '../lib/poolResolver'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
-import { escapeIlikeValue } from '../lib/postgrestEscape'
+import { searchCourses, rowsOfKind } from '../lib/courseSearch'
+import { formatCredits, isVariableCredit, validateHours } from '../lib/creditHours'
+import CourseKindTabs from './CourseKindTabs'
+import CreditHoursField from './CreditHoursField'
 import { getBrand } from '../lib/brand'
 import './Dashboard.css'
 
@@ -84,7 +87,10 @@ export default function PriorCreditWizard({
   const [examOptions, setExamOptions]   = useState([])   // distinct test_names from test_equivalencies
   const [loadingExams, setLoadingExams] = useState(false)
   const [courseSearch, setCourseSearch] = useState('')
-  const [courseResults, setCourseResults] = useState([])
+  const [courseFound, setCourseFound] = useState({ all: [], counts: null, more: false })
+  const [courseKindTab, setCourseKindTab] = useState('undergraduate')
+  // credit hours for a transfer course that carries a range (kept as text while typing)
+  const [transferHours, setTransferHours] = useState('')
   const [searchingCourses, setSearchingCourses] = useState(false)
   const searchTimerRef = useRef(null)
 
@@ -232,17 +238,13 @@ export default function PriorCreditWizard({
   // ── Course search for transfer_credit (Step 2) ────────────────────
   function handleCourseSearch(val) {
     setCourseSearch(val)
-    if (!val.trim()) { setCourseResults([]); return }
+    if (!val.trim()) { setCourseFound({ all: [], counts: null, more: false }); return }
     clearTimeout(searchTimerRef.current)
     setSearchingCourses(true)
     searchTimerRef.current = setTimeout(async () => {
-      const term = escapeIlikeValue(val.trim())
-      const { data } = await db
-        .from('courses')
-        .select('code, name, credits')
-        .or(`code.ilike."%${term}%",name.ilike."%${term}%"`)
-        .limit(10)
-      setCourseResults(data ?? [])
+      // One batch covers undergraduate, graduate and placeholder codes; the tabs choose between them.
+      const result = await searchCourses(db, val, courseKindTab, { limit: 10 })
+      setCourseFound(result.error ? { all: [], counts: null, more: false } : { all: result.all, counts: result.counts, more: result.more })
       setSearchingCourses(false)
     }, 250)
   }
@@ -251,7 +253,7 @@ export default function PriorCreditWizard({
   function goBack() {
     if (step === 1) { onClose(); return }
     setStep(s => s - 1)
-    if (step === 2) { setSelectedExam(null); setExamOptions([]); setCourseSearch(''); setCourseResults([]) }
+    if (step === 2) { setSelectedExam(null); setExamOptions([]); setCourseSearch(''); setCourseFound({ all: [], counts: null, more: false }) }
     if (step === 3) { setSelectedScore(null); setScoreOptions([]) }
     if (step === 4) { setAwards([]) }
   }
@@ -280,7 +282,8 @@ export default function PriorCreditWizard({
   function handleCourseSelect(course) {
     setSelectedExam(course)
     setCourseSearch(course.code + ' — ' + course.name)
-    setCourseResults([])
+    setCourseFound({ all: [], counts: null, more: false })
+    setTransferHours(String(course.credits ?? ''))
     setStep(4)
   }
 
@@ -289,9 +292,17 @@ export default function PriorCreditWizard({
     setStep(4)
   }
 
+  // A transfer course with a range of credit hours takes the hours the student says they transferred.
+  const transferVariable = creditType === 'transfer_credit' && !!selectedExam && isVariableCredit(selectedExam)
+  const transferHoursOk  = !transferVariable || validateHours(selectedExam, transferHours) === null
+  const shownAwards = transferVariable
+    ? awards.map(a => ({ ...a, credits_awarded: Number(transferHours) }))
+    : awards
+
   // ── Apply ─────────────────────────────────────────────────────────
   async function handleApply() {
     if (awards.length === 0) return
+    if (!transferHoursOk) { setSaveError(validateHours(selectedExam, transferHours)); return }
     setSaving(true)
     setSaveError(null)
 
@@ -328,7 +339,7 @@ export default function PriorCreditWizard({
     // a loop causes stale-closure overwrites: each iteration captures the same
     // priorCredits snapshot, so only the last row survives in React state.
     await onSave(
-      awards.map(award => ({
+      shownAwards.map(award => ({
         // Persist the concrete DB test_type (e.g. act_credit or act_placement),
         // never the merged wizard category key.
         credit_type:           dbType,
@@ -442,10 +453,11 @@ export default function PriorCreditWizard({
                 autoFocus
                 autoComplete="off"
               />
+              <CourseKindTabs value={courseKindTab} onChange={setCourseKindTab} counts={courseFound.counts} more={courseFound.more} />
               {searchingCourses && <p className="wizard-loading">Searching…</p>}
-              {courseResults.length > 0 && (
+              {rowsOfKind(courseFound.all, courseKindTab, 10).length > 0 && (
                 <div className="add-credit-results">
-                  {courseResults.map(c => (
+                  {rowsOfKind(courseFound.all, courseKindTab, 10).map(c => (
                     <button
                       key={c.code}
                       type="button"
@@ -454,7 +466,7 @@ export default function PriorCreditWizard({
                     >
                       <span className="add-credit-result-code">{c.code}</span>
                       <span className="add-credit-result-name">{c.name}</span>
-                      <span className="add-credit-result-cr">{c.credits} cr</span>
+                      <span className="add-credit-result-cr">{formatCredits(c)} cr</span>
                     </button>
                   ))}
                 </div>
@@ -501,7 +513,11 @@ export default function PriorCreditWizard({
                 <p className="wizard-empty">Loading award details…</p>
               )}
 
-              {awards.map((award, i) => {
+              {transferVariable && (
+                <CreditHoursField course={selectedExam} value={transferHours} onChange={setTransferHours} idPrefix="transfer-hours" />
+              )}
+
+              {shownAwards.map((award, i) => {
                 const slot = slotForCode(award.awarded_course_code)
                 const slotSem = slot
                   ? (planSemesterOverrides[slot.id] ?? slot.semester_number)
@@ -584,7 +600,7 @@ export default function PriorCreditWizard({
                 type="button"
                 className="onboarding-btn"
                 onClick={handleApply}
-                disabled={saving || awards.length === 0}
+                disabled={saving || awards.length === 0 || !transferHoursOk}
               >
                 {saving ? 'Applying…' : 'Confirm & Apply'}
               </button>

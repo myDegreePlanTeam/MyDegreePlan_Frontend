@@ -9,6 +9,7 @@
 // request (PGRST_DB_MAX_ROWS): the builder would silently get a truncated catalog.
 
 import { POOL_COURSES } from './poolResolver'
+import { selectWithOptional } from './dbErrors'
 
 /**
  * @param {Array<{class_code: string, is_pool: boolean}>} slots  a plan's requirement_slots
@@ -30,7 +31,7 @@ const REQUIREMENT_COLUMNS = 'course_code, group_index, logic, required_code'
  */
 export async function fetchCourseDetail(db, code, columns = 'code, name, credits, subject_code, standing_req, description') {
   const [courseRes, prereqRes, coreqRes] = await Promise.all([
-    db.from('courses').select(columns).eq('code', code),
+    selectWithOptional(cols => db.from('courses').select(cols).eq('code', code), columns, ['credits_max']),
     db.from('prerequisite_entries').select(REQUIREMENT_COLUMNS).eq('course_code', code),
     db.from('corequisite_entries').select(REQUIREMENT_COLUMNS).eq('course_code', code),
   ])

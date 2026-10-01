@@ -3,6 +3,8 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDropp
 import { db } from '../lib/dataClient'
 import { getScienceWarnings, POOL_LABELS, POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver'
 import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
+import { applyChosenHours } from '../lib/creditHours'
+import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
@@ -49,8 +51,17 @@ async function fetchFreeAddSlots(studentId) {
     .eq('student_id', studentId)
     .order('created_at', { ascending: true })
 
-  const result = await query(`${FREE_ADD_COLUMNS}, fills_slot_id`)
+  const result = await query(`${FREE_ADD_COLUMNS}, fills_slot_id, credits`)
   return isMissingFillsSlotColumn(result.error) ? query(FREE_ADD_COLUMNS) : result
+}
+
+// student_plan_slots.selected_credits (hours chosen for a ranged course) is newer than the rest of the table.
+// A database that lacks it is written without it; only a pick that has hours to record needs the column.
+async function upsertPlanSlot(payload, hours = null) {
+  const target = { onConflict: 'student_id, requirement_slot_id' }
+  const result = await db.from('student_plan_slots').upsert({ ...payload, selected_credits: hours }, target)
+  if (isMissingColumn(result.error) && hours == null) return db.from('student_plan_slots').upsert(payload, target)
+  return result
 }
 
 // Human-readable labels for prior credit types
@@ -67,7 +78,9 @@ const CREDIT_TYPE_LABELS = {
 export default function DegreePlan({ profile, onProfileChange }) {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
   const [slots, setSlots]                         = useState([])
-  const [courses, setCourses]                     = useState({})
+  // baseCourses: the catalog rows as loaded. `courses` (below) is the same map with the student's chosen
+  // hours applied for a course that carries a range of credit hours (see creditHours.js).
+  const [baseCourses, setCourses]                 = useState({})
   const [loading, setLoading]                     = useState(true)
   const [error, setError]                         = useState(null)
   // view: which sidebar tab is showing
@@ -106,6 +119,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [draggedSlotId, setDraggedSlotId]         = useState(null)
   // showWizard: true when the guided prior credit wizard is open
   const [showWizard, setShowWizard]               = useState(false)
+  // planSelectedCredits: { [slotId]: hours } the student chose for a ranged pool pick
+  const [planSelectedCredits, setPlanSelectedCredits] = useState({})
+  const courses = useMemo(
+    () => applyChosenHours(baseCourses, { freeAdds: freeAddSlots, planSlots, planSelectedCredits }),
+    [baseCourses, freeAddSlots, planSlots, planSelectedCredits],
+  )
 
   // planArchived: { [slotId]: archiveReason | true } — slots removed from grid by
   // a prior credit (Concept 2 / Bug 2) or by the degree builder
@@ -222,11 +241,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       // Step 2 — student's saved selections + overrides + archived status
       const slotIds = slotData.map(s => s.id)
-      const { data: savedSlots, error: savedSlotsError } = await db
-        .from('student_plan_slots')
-        .select('requirement_slot_id, selected_course_code, status, semester_number, credits_remaining, archived, archive_reason')
-        .eq('student_id', profile.id)
-        .in('requirement_slot_id', slotIds)
+      const { data: savedSlots, error: savedSlotsError } = await selectWithOptional(
+        columns => db
+          .from('student_plan_slots')
+          .select(columns)
+          .eq('student_id', profile.id)
+          .in('requirement_slot_id', slotIds),
+        'requirement_slot_id, selected_course_code, status, semester_number, credits_remaining, archived, archive_reason',
+        ['selected_credits'],
+      )
 
       if (savedSlotsError) { setError(savedSlotsError.message); setLoading(false); return }
 
@@ -235,6 +258,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const planSemesterOverridesMap = {}
       const planCreditsRemainingMap  = {}
       const planArchivedMap          = {}
+      const planSelectedCreditsMap   = {}
       for (const row of savedSlots) {
         planSlotsMap[row.requirement_slot_id]    = row.selected_course_code
         planStatusesMap[row.requirement_slot_id] = row.status
@@ -244,6 +268,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           planCreditsRemainingMap[row.requirement_slot_id] = row.credits_remaining
         if (row.archived)
           planArchivedMap[row.requirement_slot_id] = row.archive_reason || true
+        if (row.selected_credits != null)
+          planSelectedCreditsMap[row.requirement_slot_id] = row.selected_credits
       }
 
       // Step 3 — free-add slots
@@ -255,10 +281,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const allCodes = plannerCodes(slotData, (freeAdds ?? []).map(f => f.course_code))
 
       // Step 5 — fetch courses
-      const { data: courseData, error: courseError } = await db
-        .from('courses')
-        .select('code, name, credits, subject_code, standing_req, description')
-        .in('code', allCodes)
+      const { data: courseData, error: courseError } = await selectWithOptional(
+        columns => db.from('courses').select(columns).in('code', allCodes),
+        'code, name, credits, subject_code, standing_req, description',
+        ['credits_max'],
+      )
 
       if (courseError) { setError(courseError.message); setLoading(false); return }
       const courseMap = {}
@@ -332,6 +359,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           studentProfile: {
             student_type: profile.student_type,
             act_math:     profile.act_math,
+            sat_math:     profile.sat_math,
             start_season: profile.start_season,
           },
         })
@@ -390,6 +418,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setPrereqMap(prereqMapBuilt)
       setCoreqMap(coreqMapBuilt)
       setPlanSlots(planSlotsMap)
+      setPlanSelectedCredits(planSelectedCreditsMap)
       setPlanStatuses(planStatusesMap)
       setPlanSemesterOverrides(planSemesterOverridesMap)
       setPlanCreditsRemaining(planCreditsRemainingMap)
@@ -688,45 +717,55 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }, [semesterNumbers, semesterMap, freeAddBySemester, prereqWarnings, coreqWarnings])
 
   // ── Save a pool/required course selection (optimistic) ────────────
-  function handleSave(slot, course) {
+  // hours: how many credit hours the student chose for a course that carries a range (null otherwise)
+  function handleSave(slot, course, hours = null) {
     const existingStatus = planStatuses[slot.id] ?? 'planned'
 
     let creditsRemaining = 0
     if (slot.is_pool && slot.flex_credits > 0) {
-      const diff = slot.flex_credits - course.credits
+      const diff = slot.flex_credits - (hours ?? course.credits)
       creditsRemaining = diff > 0 ? diff : 0
     }
 
     const prevSlots            = planSlots
     const prevStatuses         = planStatuses
     const prevCreditsRemaining = planCreditsRemaining
+    const prevSelectedCredits  = planSelectedCredits
 
     pushUndo({
       type: 'pool_select', slotId: slot.id, label: `Chose ${course.code}`,
       prevCourseCode: planSlots[slot.id] ?? null,
       prevStatus: planStatuses[slot.id] ?? null,
       prevCreditsRemaining: planCreditsRemaining[slot.id] ?? 0,
+      prevSelectedCredits: planSelectedCredits[slot.id] ?? null,
     })
     setPlanSlots(prev          => ({ ...prev, [slot.id]: course.code }))
     setPlanStatuses(prev       => ({ ...prev, [slot.id]: existingStatus }))
     setPlanCreditsRemaining(prev => ({ ...prev, [slot.id]: creditsRemaining }))
+    setPlanSelectedCredits(prev => {
+      const next = { ...prev }
+      if (hours != null) next[slot.id] = hours
+      else delete next[slot.id]
+      return next
+    })
 
-    db
-      .from('student_plan_slots')
-      .upsert({
+    upsertPlanSlot({
         student_id:           profile.id,
         requirement_slot_id:  slot.id,
         selected_course_code: course.code,
         status:               existingStatus,
         semester_number:      planSemesterOverrides[slot.id] ?? null,
         credits_remaining:    creditsRemaining,
-      }, { onConflict: 'student_id, requirement_slot_id' })
+      }, hours)
       .then(({ error }) => {
         if (error) {
           setPlanSlots(prevSlots)
           setPlanStatuses(prevStatuses)
           setPlanCreditsRemaining(prevCreditsRemaining)
-          showSaveError('Course selection could not be saved. Please try again.')
+          setPlanSelectedCredits(prevSelectedCredits)
+          showSaveError(hours != null && isMissingColumn(error)
+            ? 'Choosing credit hours needs a database update. Restart the stack so its setup step can apply it.'
+            : 'Course selection could not be saved. Please try again.')
         } else {
           markSaved()
         }
@@ -823,13 +862,19 @@ export default function DegreePlan({ profile, onProfileChange }) {
         setPlanSlots(prev => ({ ...prev, [record.slotId]: record.prevCourseCode }))
         setPlanStatuses(prev => ({ ...prev, [record.slotId]: record.prevStatus ?? 'planned' }))
         setPlanCreditsRemaining(prev => ({ ...prev, [record.slotId]: record.prevCreditsRemaining ?? 0 }))
-        await db.from('student_plan_slots').upsert({
+        setPlanSelectedCredits(prev => {
+          const next = { ...prev }
+          if (record.prevSelectedCredits != null) next[record.slotId] = record.prevSelectedCredits
+          else delete next[record.slotId]
+          return next
+        })
+        await upsertPlanSlot({
           student_id: profile.id, requirement_slot_id: record.slotId,
           selected_course_code: record.prevCourseCode,
           status: record.prevStatus ?? 'planned',
           semester_number: planSemesterOverrides[record.slotId] ?? null,
           credits_remaining: record.prevCreditsRemaining ?? 0,
-        }, { onConflict: 'student_id, requirement_slot_id' })
+        }, record.prevSelectedCredits ?? null)
       }
 
     } else if (record.type === 'slot_status') {
@@ -909,7 +954,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // ── Add a free-add course to a semester ──────────────────────────
   // fillsSlot: the Free Elective slot a follow-up pick spends hours from.
   // Resolves to the new row, or undefined when nothing was added.
-  async function handleAddCourse(semesterNumber, course, fillsSlot = null) {
+  // hours: the credit hours the student chose for a course that carries a range (null otherwise)
+  async function handleAddCourse(semesterNumber, course, fillsSlot = null, hours = null) {
     setAddCourseTarget(null)
 
     // BUG-34: defensive guard. The modal already greys taken codes out, but
@@ -927,14 +973,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
         semester_number: semesterNumber,
         status:          'planned',
         ...(fillsSlot ? { fills_slot_id: fillsSlot.id } : {}),
+        ...(hours != null ? { credits: hours } : {}),
       })
-      .select(fillsSlot ? `${FREE_ADD_COLUMNS}, fills_slot_id` : FREE_ADD_COLUMNS)
+      .select(`${FREE_ADD_COLUMNS}${fillsSlot ? ', fills_slot_id' : ''}${hours != null ? ', credits' : ''}`)
       .single()
 
     if (error) {
       showSaveError(fillsSlot && isMissingFillsSlotColumn(error)
         ? 'Choosing a second course needs a database update. Restart the stack so its setup step can apply it.'
-        : 'Could not add course. Please try again.')
+        : hours != null && isMissingColumn(error)
+          ? 'Choosing credit hours needs a database update. Restart the stack so its setup step can apply it.'
+          : 'Could not add course. Please try again.')
       return
     }
 
@@ -946,7 +995,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         setCourses(prev => ({ ...prev, [course.code]: loaded.course }))
         setPrereqMap(prev => ({ ...prev, ...buildRequirementMap(loaded.prereqs) }))
         setCoreqMap(prev => ({ ...prev, ...buildRequirementMap(loaded.coreqs) }))
-      } else if (!courses[course.code]) {
+      } else if (!baseCourses[course.code]) {
         setCourses(prev => ({ ...prev, [course.code]: course }))
       }
     }
@@ -960,9 +1009,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // ── Fill the hours a Free Elective's earlier pick left open ───────
   // Adds the course as a free-add in the slot's own term, linked to the slot
   // so its hours come out of the slot's remainder.
-  async function handleAddRemainder(slot, course) {
+  async function handleAddRemainder(slot, course, hours = null) {
     const semNum = planSemesterOverrides[slot.id] ?? slot.semester_number
-    const added  = await handleAddCourse(semNum, course, slot)
+    const added  = await handleAddCourse(semNum, course, slot, hours)
     if (added) setSelection({ kind: 'free', id: added.id })
   }
 
@@ -1530,6 +1579,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       studentProfile: {
         student_type: profile.student_type,
         act_math:     profile.act_math,
+        sat_math:     profile.sat_math,
         start_season: profile.start_season,
       },
     })
@@ -2054,7 +2104,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           semesterNumber={addCourseTarget}
           takenCodes={takenCodes}
           semesterSeason={semesterTerms[addCourseTarget]?.season ?? null}
-          onAdd={course => handleAddCourse(addCourseTarget, course)}
+          onAdd={(course, hours) => handleAddCourse(addCourseTarget, course, null, hours ?? null)}
           onClose={() => setAddCourseTarget(null)}
         />
       )}

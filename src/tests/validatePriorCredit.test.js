@@ -182,6 +182,27 @@ describe('validatePriorCredit — Rule 3 (transfer_credit)', () => {
     expect(result.correctedCredits).toBe(4)
   })
 
+  describe('a course with a range of credit hours', () => {
+    const RANGED = { ...CATALOG, AGBE4940: { code: 'AGBE4940', name: 'Special Topics', credits: 1, credits_max: 4 } }
+
+    it('accepts any hours from the minimum to the top of the range', () => {
+      for (const hours of [1, 2, 3, 4]) {
+        expect(validatePriorCredit('transfer_credit', 'AGBE4940', hours, TEST_EQ, RANGED).valid, String(hours)).toBe(true)
+      }
+    })
+    it('caps above the range at the top', () => {
+      const result = validatePriorCredit('transfer_credit', 'AGBE4940', 6, TEST_EQ, RANGED)
+      expect(result.valid).toBe(false)
+      expect(result.correctedCredits).toBe(4)
+    })
+    it('raises below the range to the minimum', () => {
+      const result = validatePriorCredit('transfer_credit', 'AGBE4940', 0, TEST_EQ, RANGED)
+      expect(result.valid).toBe(false)
+      expect(result.error).toMatch(/below the 1 credit hour minimum/i)
+      expect(result.correctedCredits).toBe(1)
+    })
+  })
+
   it('course not in catalog — invalid regardless of credits (BUG-20)', () => {
     const result = validatePriorCredit('transfer_credit', 'ZZZZ9999', 3, TEST_EQ, CATALOG)
     expect(result.valid).toBe(false)

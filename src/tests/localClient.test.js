@@ -152,6 +152,24 @@ describe('writes', () => {
     expect((await add('CSC2400')).data).toMatchObject({ fills_slot_id: null })
   })
 
+  it('leaves the credit hours a student chose for a ranged course empty unless given', async () => {
+    const add = (extra = {}) => db.from('student_free_add_slots')
+      .insert({ student_id: studentId, course_code: 'AGBE4940', semester_number: 4, ...extra })
+      .select('credits').single()
+    expect((await add()).data).toEqual({ credits: null })
+    expect((await add({ credits: 3 })).data).toEqual({ credits: 3 })
+
+    const slot = await db.from('student_plan_slots')
+      .insert({ student_id: studentId, requirement_slot_id: 31, selected_course_code: 'AGBE4940' })
+      .select('selected_credits').single()
+    expect(slot.data).toEqual({ selected_credits: null })
+  })
+
+  it('has an SAT Math column on the profile, empty by default', async () => {
+    const { data } = await db.from('student_profiles').select('act_math, sat_math').eq('id', studentId).single()
+    expect(data).toMatchObject({ sat_math: null })
+  })
+
   it('upserts on the composite key: insert, then merge only the supplied columns', async () => {
     const slot = { student_id: studentId, requirement_slot_id: 10, selected_course_code: 'CSC1300', semester_number: 2 }
     await db.from('student_plan_slots').upsert(slot, { onConflict: 'student_id, requirement_slot_id' })

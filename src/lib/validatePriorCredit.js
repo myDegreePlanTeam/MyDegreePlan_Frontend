@@ -42,7 +42,8 @@
 //   3. For transfer_credit:
 //      courseCode must exist in courseCatalog — otherwise the entry is rejected
 //      (BUG-20: prevents data corruption from freeform course-code entry).
-//      credits_awarded is capped at the catalog course credit hours.
+//      credits_awarded is capped at the catalog course credit hours (for a course with a
+//      range of hours: kept between credits and credits_max).
 //   4. courseCode is required for all non-placement types.
 
 const PLACEMENT_TYPES = new Set(['act_placement'])
@@ -146,12 +147,22 @@ export function validatePriorCredit(
       }
     }
 
+    // A course with a range of credit hours (credits .. credits_max) allows anything in between.
     const catalogCredits = catalogCourse.credits ?? 0
-    if (creditsAwarded > catalogCredits) {
+    const catalogMax     = catalogCourse.credits_max ?? catalogCredits
+    if (creditsAwarded > catalogMax) {
       return {
         valid:            false,
         error:            `Credits awarded (${creditsAwarded}) exceeds the catalog credit hours ` +
-                          `for ${courseCode} (${catalogCredits}). The value has been corrected.`,
+                          `for ${courseCode} (${catalogMax}). The value has been corrected.`,
+        correctedCredits: catalogMax,
+      }
+    }
+    if (catalogMax > catalogCredits && creditsAwarded < catalogCredits) {
+      return {
+        valid:            false,
+        error:            `Credits awarded (${creditsAwarded}) is below the ${catalogCredits} credit hour minimum ` +
+                          `for ${courseCode}. The value has been corrected.`,
         correctedCredits: catalogCredits,
       }
     }

@@ -8,6 +8,8 @@ import { getFlightFoundationsStatus, FF_POOL_CATEGORIES } from '../lib/flightFou
 import { checkPrereqs } from '../lib/prereqChecker'
 import { creditsBeforeSemester } from '../lib/transferCredits'
 import { getPlanCodes, getRemovedCodes, getRemovedPrereqs } from '../lib/removedPrereqs'
+import { formatCredits, isVariableCredit, validateHours } from '../lib/creditHours'
+import CreditHoursField from './CreditHoursField'
 import './Dashboard.css'
 
 export default function SlotModal({
@@ -40,6 +42,9 @@ export default function SlotModal({
   const [scienceNotice, setScienceNotice]   = useState(null)
   const [search, setSearch]                 = useState('')
   const [selected, setSelected]             = useState(null)
+  // hours: credit hours for a selected course that carries a range; starts at the student's earlier
+  // choice (the course map already has it applied) or the minimum
+  const [hours, setHours]                   = useState('')
 
   // ── Resolve which courses to show based on slot type ──────────────
   useEffect(() => {
@@ -240,9 +245,17 @@ export default function SlotModal({
       })
   }, [courses, freeOptions, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes])
 
+  useEffect(() => {
+    if (selected) setHours(String(selected.credits))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.code])
+
+  const hoursVariable = selected ? isVariableCredit(selected) : false
+  const hoursInvalid  = hoursVariable && validateHours(selected, hours) !== null
+
   function handleSave() {
-    if (!selected || selected.status === 'locked' || selected.status === 'taken') return
-    onSave(slot, selected)
+    if (!selected || selected.status === 'locked' || selected.status === 'taken' || hoursInvalid) return
+    onSave(slot, selected, hoursVariable ? Number(hours) : null)
   }
 
   function handleBackdropClick(e) {
@@ -424,6 +437,9 @@ export default function SlotModal({
         </div>
 
         <div className="modal-footer">
+          {selected && hoursVariable && (
+            <CreditHoursField course={selected} value={hours} onChange={setHours} idPrefix="slot-hours" />
+          )}
           <div className="modal-footer-btns">
             {planSlots[slot.id] && followUpHours === 0 && (
               <button
@@ -441,7 +457,7 @@ export default function SlotModal({
             <button
               className="onboarding-btn"
               onClick={handleSave}
-              disabled={!selected || selected.status === 'locked' || selected.status === 'taken'}
+              disabled={!selected || selected.status === 'locked' || selected.status === 'taken' || hoursInvalid}
             >
               Select course
             </button>
@@ -508,7 +524,7 @@ function CourseRow({ course, selected, onSelect, sectionDisabled = false }) {
           <span className="modal-prereq-hint">{course.removedNote}</span>
         )}
       </div>
-      <span className="modal-course-credits">{course.credits} cr</span>
+      <span className="modal-course-credits">{formatCredits(course)} cr</span>
     </button>
   )
 }

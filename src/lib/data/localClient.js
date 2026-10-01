@@ -34,12 +34,12 @@ export const STUDENT_TABLES = {
     pk: 'id', unique: [['user_id']],
     defaults: { concentration_id: null, start_season: null, start_year: null, student_type: null,
       act_math: null, act_english: null, act_science: null, act_reading: null, act_composite: null,
-      gened_program: 'legacy', created_at: now },
+      sat_math: null, gened_program: 'legacy', created_at: now },
   },
   student_plan_slots: {
     pk: 'id', unique: [['student_id', 'requirement_slot_id']],
     defaults: { selected_course_code: null, status: 'planned', semester_number: null, credits_remaining: 0,
-      locked: false, archived: false, archive_reason: null, position_source: null },
+      locked: false, archived: false, archive_reason: null, position_source: null, selected_credits: null },
   },
   student_semester_notes: {
     pk: 'id', unique: [['student_id', 'concentration_id', 'semester_number']],
@@ -47,7 +47,7 @@ export const STUDENT_TABLES = {
   },
   student_free_add_slots: {
     pk: 'id', unique: [],
-    defaults: { status: 'planned', fills_slot_id: null, created_at: now },
+    defaults: { status: 'planned', fills_slot_id: null, credits: null, created_at: now },
   },
   prior_credits: {
     pk: 'id', uuid: true, unique: [],

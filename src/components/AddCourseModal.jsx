@@ -1,19 +1,26 @@
 import { useState, useEffect, useRef } from 'react'
 import { db } from '../lib/dataClient'
-import { escapeIlikeValue } from '../lib/postgrestEscape'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
+import { searchCourses, rowsOfKind } from '../lib/courseSearch'
+import { creditRange, formatCredits, isVariableCredit, validateHours } from '../lib/creditHours'
+import CourseKindTabs from './CourseKindTabs'
+import CreditHoursField from './CreditHoursField'
 import './Dashboard.css'
 
 // ── AddCourseModal ─────────────────────────────────────────────────────────────
 // Lets the student search the full courses table and add any course to a semester.
 // The parent handles the actual insert into student_free_add_slots; this modal
-// just surfaces the search and calls onAdd(course) when the student confirms.
+// just surfaces the search and calls onAdd(course, hours) when the student confirms.
+//
+// The search shows one kind of course at a time (undergraduate by default; graduate
+// courses and placeholder codes are their own tabs). A course with a range of credit
+// hours asks how many the student will take; hours is undefined for a fixed course.
 //
 // Props:
 //   semesterNumber  — which semester the course will be added to (display only)
 //   takenCodes      — Set<string> of course codes already represented in the plan;
 //                     matching rows render greyed and unselectable (BUG-34)
-//   onAdd(course)   — called with the selected course object
+//   onAdd(course, hours) — called with the selected course object
 //   onClose()       — close without action
 
 export default function AddCourseModal({
@@ -24,41 +31,38 @@ export default function AddCourseModal({
   onClose,
 }) {
   const [search, setSearch]     = useState('')
-  const [results, setResults]   = useState([])
+  const [kind, setKind]         = useState('undergraduate')
+  const [found, setFound]       = useState({ all: [], counts: null, more: false })
   const [loading, setLoading]   = useState(false)
   const [selected, setSelected] = useState(null)
+  const [hours, setHours]       = useState('')
   const [error, setError]       = useState(null)
   const debounceRef             = useRef(null)
 
   // ── Query courses table on search change ──────────────────────────
   // Debounce 250 ms so we don't hammer the data layer on every keystroke.
-  // ilike on code OR name gives a good combined search experience.
+  // ilike on code OR name gives a good combined search experience. One batch covers all
+  // three kinds, so switching tabs does not search again.
   useEffect(() => {
     clearTimeout(debounceRef.current)
 
     if (search.trim() === '') {
-      setResults([])
+      setFound({ all: [], counts: null, more: false })
       setLoading(false)
       return
     }
 
     setLoading(true)
     debounceRef.current = setTimeout(async () => {
-      const q = `%${escapeIlikeValue(search.trim())}%`
-      const { data, error: fetchErr } = await db
-        .from('courses')
-        .select('code, name, credits, subject_code')
-        .or(`code.ilike."${q}",name.ilike."${q}"`)
-        .order('code', { ascending: true })
-        .limit(40)
+      const result = await searchCourses(db, search)
 
-      if (fetchErr) {
+      if (result.error) {
         setError('Search failed. Please try again.')
         setLoading(false)
         return
       }
 
-      setResults(data ?? [])
+      setFound({ all: result.all, counts: result.counts, more: result.more })
       setLoading(false)
       setError(null)
     }, 250)
@@ -66,15 +70,26 @@ export default function AddCourseModal({
     return () => clearTimeout(debounceRef.current)
   }, [search])
 
+  const results = rowsOfKind(found.all, kind)
+
   function handleSelect(course) {
     if (takenCodes.has(course.code)) return
     if (!isEnrollmentAllowed(course.code, semesterSeason)) return
-    setSelected(prev => prev?.code === course.code ? null : course)
+    if (selected?.code === course.code) {
+      setSelected(null)
+      return
+    }
+    setSelected(course)
+    setHours(String(creditRange(course).min))
   }
 
+  const variable   = selected ? isVariableCredit(selected) : false
+  const hoursError = selected && variable ? validateHours(selected, hours) : null
+  const canAdd     = !!selected && !hoursError
+
   function handleAdd() {
-    if (!selected) return
-    onAdd(selected)
+    if (!canAdd) return
+    onAdd(selected, variable ? Number(hours) : undefined)
   }
 
   function handleBackdropClick(e) {
@@ -103,6 +118,7 @@ export default function AddCourseModal({
             onChange={e => setSearch(e.target.value)}
             autoFocus
           />
+          <CourseKindTabs value={kind} onChange={setKind} counts={found.counts} more={found.more} />
         </div>
 
         <div className="modal-course-list">
@@ -121,7 +137,10 @@ export default function AddCourseModal({
           )}
 
           {!error && !loading && search.trim() !== '' && results.length === 0 && (
-            <p className="modal-empty">No courses match your search.</p>
+            <p className="modal-empty">
+              No {kind === 'undergraduate' ? 'undergraduate courses' : kind === 'graduate' ? 'graduate courses' : 'placeholder codes'} match your search.
+              {found.counts && Object.entries(found.counts).some(([k, n]) => k !== kind && n > 0) && ' Try another tab.'}
+            </p>
           )}
 
           {!error && !loading && results.map(course => {
@@ -150,13 +169,16 @@ export default function AddCourseModal({
                   </div>
                   <span className="modal-course-name">{course.name}</span>
                 </div>
-                <span className="modal-course-credits">{course.credits} cr</span>
+                <span className="modal-course-credits">{formatCredits(course)} cr</span>
               </button>
             )
           })}
         </div>
 
         <div className="modal-footer">
+          {selected && variable && (
+            <CreditHoursField course={selected} value={hours} onChange={setHours} idPrefix="add-hours" />
+          )}
           <div className="modal-footer-btns">
             <button className="onboarding-btn-secondary" onClick={onClose}>
               Cancel
@@ -164,7 +186,7 @@ export default function AddCourseModal({
             <button
               className="onboarding-btn"
               onClick={handleAdd}
-              disabled={!selected}
+              disabled={!canAdd}
             >
               Add to Semester {semesterNumber}
             </button>

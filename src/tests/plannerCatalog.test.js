@@ -4,6 +4,7 @@ import { createLocalClient } from '../lib/data/localClient'
 import { createMemoryStorage } from '../lib/data/storage'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
+import { checkPrereqs } from '../lib/prereqChecker'
 import { POOL_COURSES } from '../lib/poolResolver'
 import catalog from '../data/catalog.json'
 import descriptions from '../data/catalog.descriptions.json'
@@ -94,6 +95,29 @@ describe('a course added from the search box', () => {
     const { course, error } = await fetchCourseDetail(local(), 'ZZZ9999')
     expect(error).toBeNull()
     expect(course).toBeNull()
+  })
+})
+
+describe('the AI courses replace their CSC namesakes', () => {
+  // AI 3000 is CSC 4240 and AI 3200 is CSC 4220 (catalog/equivalents.json in the prototype repo), so a student
+  // who has either code of a pair has met a requirement for the other.
+  async function mapFor(...codes) {
+    const db = local()
+    const rows = await Promise.all(codes.map(c => fetchCourseDetail(db, c)))
+    return buildRequirementMap(rows.flatMap(r => r.prereqs))
+  }
+
+  it('AI3100 is met by AI3000, and by CSC4240 for a student who took the older course', async () => {
+    const map = await mapFor('AI3100')
+    expect(checkPrereqs('AI3100', map, new Set(['AI3000'])).satisfied).toBe(true)
+    expect(checkPrereqs('AI3100', map, new Set(['CSC4240'])).satisfied).toBe(true)
+    expect(checkPrereqs('AI3100', map, new Set()).satisfied).toBe(false)
+  })
+  it('AI4200 is met by AI3200 or CSC4220', async () => {
+    const map = await mapFor('AI4200')
+    expect(checkPrereqs('AI4200', map, new Set(['AI3200'])).satisfied).toBe(true)
+    expect(checkPrereqs('AI4200', map, new Set(['CSC4220'])).satisfied).toBe(true)
+    expect(checkPrereqs('AI4200', map, new Set(['AI3000'])).satisfied).toBe(false)
   })
 })
 
