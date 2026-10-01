@@ -6,6 +6,7 @@ import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { isConcentrationSelectable } from '../lib/concentrationAvailability'
 import { fetchRequirementSlots, programForEntryTerm, isMissingProgramColumn } from '../lib/requirementSlots'
+import { fetchPlannerCatalog } from '../lib/plannerCatalog'
 import PriorCreditWizard from './PriorCreditWizard'
 import ImportBackupButton from './ImportBackupButton'
 import { getBrand } from '../lib/brand'
@@ -260,20 +261,13 @@ export default function Onboarding({ profileId, onComplete }) {
     }
 
     // ── 3. Fetch data needed for the degree-builder algorithm ────────────────
-    const [slotsRes, coursesRes, prereqRes, coreqRes] = await Promise.all([
-      fetchRequirementSlots(db, concData.id, genEdProgram, 'id, class_code, is_pool, flex_credits'),
-      db
-        .from('courses')
-        .select('code, credits, standing_req'),
-      db
-        .from('prerequisite_entries')
-        .select('course_code, group_index, logic, required_code'),
-      db
-        .from('corequisite_entries')
-        .select('course_code, group_index, logic, required_code'),
-    ])
+    // Only this plan's slice of the catalog (see plannerCatalog.js): the catalog is every university course.
+    const slotsRes = await fetchRequirementSlots(db, concData.id, genEdProgram, 'id, class_code, is_pool, flex_credits')
+    const catalog = slotsRes.error
+      ? { courses: [], prereqs: [], coreqs: [], error: null }
+      : await fetchPlannerCatalog(db, slotsRes.data ?? [])
 
-    if (slotsRes.error || coursesRes.error || prereqRes.error || coreqRes.error) {
+    if (slotsRes.error || catalog.error) {
       setError('Failed to load degree data. Please try again.')
       setLoading(false)
       return
@@ -281,12 +275,12 @@ export default function Onboarding({ profileId, onComplete }) {
 
     const slots     = slotsRes.data   ?? []
     const courseMap = {}
-    for (const c of (coursesRes.data ?? [])) courseMap[c.code] = c
+    for (const c of catalog.courses) courseMap[c.code] = c
 
     // Grouped by group_index, with course substitutes applied (MATH1906
     // also satisfies MATH1910 requirements — see requirementMap.js).
-    const prereqMap = buildRequirementMap(prereqRes.data)
-    const coreqMap  = buildRequirementMap(coreqRes.data)
+    const prereqMap = buildRequirementMap(catalog.prereqs)
+    const coreqMap  = buildRequirementMap(catalog.coreqs)
 
     // ── 4. Run the algorithm ─────────────────────────────────────────────────
     const { assignments, archived } = buildDegreePlan({

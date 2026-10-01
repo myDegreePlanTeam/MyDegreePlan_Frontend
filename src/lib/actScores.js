@@ -12,6 +12,7 @@ import { buildDegreePlan } from './degreeBuilder'
 import { buildRequirementMap } from './requirementMap'
 import { fetchRequirementSlots, programForProfile } from './requirementSlots'
 import { resolveActMathPlacement, resolveActEnglishCredit } from './actScoreResolver'
+import { fetchPlannerCatalog } from './plannerCatalog'
 
 export const ACT_FIELDS = [
   { key: 'act_composite', label: 'Composite'   },
@@ -70,31 +71,30 @@ export async function saveActScoresAndRebuild(profile, numScores) {
     await db.from('prior_credits').insert(newPriorRows)
   }
 
-  const [slotsRes, coursesRes, prereqRes, coreqRes, priorRes, studentSlotsRes] = await Promise.all([
-    fetchRequirementSlots(db, profile.concentration_id, programForProfile(profile), 'id, class_code, is_pool, flex_credits'),
-    // standing_req drives the builder's junior/senior placement — without it
-    // CSC3040 jumped ahead of COMM_REQ and the pool front-fill never ran.
-    db.from('courses').select('code, credits, standing_req'),
-    db.from('prerequisite_entries').select('course_code, group_index, logic, required_code'),
-    db.from('corequisite_entries').select('course_code, group_index, logic, required_code'),
+  // The catalog holds every university course; the builder only needs this plan's (see plannerCatalog.js).
+  // standing_req drives the builder's junior/senior placement — without it CSC3040 jumped ahead of
+  // COMM_REQ and the pool front-fill never ran.
+  const slotsRes = await fetchRequirementSlots(db, profile.concentration_id, programForProfile(profile), 'id, class_code, is_pool, flex_credits')
+  const [catalog, priorRes, studentSlotsRes] = await Promise.all([
+    slotsRes.error ? { courses: [], prereqs: [], coreqs: [], error: null } : fetchPlannerCatalog(db, slotsRes.data ?? []),
     db.from('prior_credits').select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded').eq('plan_id', profile.id),
     db.from('student_plan_slots').select('requirement_slot_id, position_source, selected_course_code, status, credits_remaining').eq('student_id', profile.id),
   ])
 
   // The existing rows are needed to keep the student's selections below;
   // recalculating without them would wipe those and overwrite dragged slots.
-  if (slotsRes.error || coursesRes.error || prereqRes.error || coreqRes.error || priorRes.error || studentSlotsRes.error) {
+  if (slotsRes.error || catalog.error || priorRes.error || studentSlotsRes.error) {
     return 'Failed to reload degree data. Please refresh the page.'
   }
 
   const slots = slotsRes.data ?? []
   const courseMap = {}
-  for (const c of (coursesRes.data ?? [])) courseMap[c.code] = c
+  for (const c of catalog.courses) courseMap[c.code] = c
 
   // Grouped by group_index, with course substitutes applied (MATH1906
   // also satisfies MATH1910 requirements — see requirementMap.js).
-  const prereqMap = buildRequirementMap(prereqRes.data)
-  const coreqMap  = buildRequirementMap(coreqRes.data)
+  const prereqMap = buildRequirementMap(catalog.prereqs)
+  const coreqMap  = buildRequirementMap(catalog.coreqs)
 
   // Slots the student has manually dragged — the algorithm must not overwrite these.
   const studentSourcedIds = new Set(

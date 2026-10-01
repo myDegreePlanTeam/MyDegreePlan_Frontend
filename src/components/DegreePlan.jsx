@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { db } from '../lib/dataClient'
 import { getScienceWarnings, POOL_LABELS, POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver'
+import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
@@ -251,11 +252,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       if (freeAddError) { setError(freeAddError.message); setLoading(false); return }
 
       // Step 4 — collect all course codes to fetch
-      const { POOL_COURSES } = await import('../lib/poolResolver')
-      const realCodes  = slotData.filter(s => !s.is_pool).map(s => s.class_code)
-      const poolCodes  = Object.values(POOL_COURSES).filter(arr => arr !== null).flat()
-      const freeAddCodes = (freeAdds ?? []).map(f => f.course_code)
-      const allCodes   = [...new Set([...realCodes, ...poolCodes, ...freeAddCodes])]
+      const allCodes = plannerCodes(slotData, (freeAdds ?? []).map(f => f.course_code))
 
       // Step 5 — fetch courses
       const { data: courseData, error: courseError } = await db
@@ -941,8 +938,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
       return
     }
 
-    if (data && !courses[course.code]) {
-      setCourses(prev => ({ ...prev, [course.code]: course }))
+    // The search result carries only a name and hours. Load the rest so the course is checked against its
+    // prerequisites now, not after the next page load.
+    if (data) {
+      const loaded = await fetchCourseDetail(db, course.code)
+      if (!loaded.error && loaded.course) {
+        setCourses(prev => ({ ...prev, [course.code]: loaded.course }))
+        setPrereqMap(prev => ({ ...prev, ...buildRequirementMap(loaded.prereqs) }))
+        setCoreqMap(prev => ({ ...prev, ...buildRequirementMap(loaded.coreqs) }))
+      } else if (!courses[course.code]) {
+        setCourses(prev => ({ ...prev, [course.code]: course }))
+      }
     }
 
     setFreeAddSlots(prev => [...prev, data])
