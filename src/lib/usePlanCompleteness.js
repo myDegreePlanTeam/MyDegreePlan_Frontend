@@ -6,7 +6,7 @@
 // useMemo for use inside components.
 //
 // Inputs:
-//   slots       — array of requirement_slot rows from Supabase
+//   slots       — array of requirement_slot rows
 //                 Each row: { id, class_code, is_pool, flex_credits, ... }
 //   planSlots   — { [slotId]: selectedCourseCode } map (student's selections)
 //   genEdStatus — array of { category, filled, required, satisfied, ... } rows:

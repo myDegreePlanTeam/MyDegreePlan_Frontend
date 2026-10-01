@@ -2,7 +2,7 @@
 // the two actions a student can take (install, install-automatically toggle).
 // Inert unless this is the local Docker build (see updateSupported).
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from './supabaseClient'
+import { db } from './dataClient'
 import { callUpdater, describeUpdate, updateFinished, updateSupported } from './updateStatus'
 
 const IDLE_POLL_MS = 10 * 60 * 1000   // the updater itself only asks the internet every ~6h
@@ -18,7 +18,7 @@ function saveDismissed(v) {
 }
 
 async function accessToken() {
-  const { data } = await supabase.auth.getSession()
+  const { data } = await db.auth.getSession()
   return data?.session?.access_token ?? null
 }
 

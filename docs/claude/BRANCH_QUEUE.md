@@ -7,7 +7,17 @@
 
 ## Active Branches (not yet merged)
 
-_None._
+### feat/local-first-backend
+Vercel build stops depending on hosted Supabase: static catalog + IndexedDB, with the Docker stack
+unchanged on the `remote` backend (see `CLAUDE.md` → Data backends). Client renamed
+`supabaseClient` → `dataClient` (`supabase` identifier → `db`).
+
+**Manual checks owed before merging:**
+- Deploy a preview to Vercel and onboard on a real phone; reload; confirm the plan persists.
+- Export on one device, Import from the onboarding screen on another.
+- Open the running Docker stack (`mdp start`): login still works and the update banner still appears.
+- Decide what to tell students already using the hosted-Supabase site: their plans stay in Supabase and
+  will not appear in the local-first build (no migration is written).
 
 The placement stack (`fix/pool-prereq-placement` → `fix/math-track-prereqs` →
 `feat/gen-ed-interleaving` → `fix/builder-prior-credit-accounting`) merged to `main` as one

@@ -7,7 +7,7 @@
 //   3. re-run the degree builder, keeping every row's course choice, status,
 //      and remaining credits, and skipping slots the student dragged
 
-import { supabase } from './supabaseClient'
+import { db } from './dataClient'
 import { buildDegreePlan } from './degreeBuilder'
 import { buildRequirementMap } from './requirementMap'
 import { fetchRequirementSlots, programForProfile } from './requirementSlots'
@@ -47,14 +47,14 @@ export function describeActScore(key, score) {
 
 // Returns null on success or an error message.
 export async function saveActScoresAndRebuild(profile, numScores) {
-  const { error: updateErr } = await supabase
+  const { error: updateErr } = await db
     .from('student_profiles')
     .update(numScores)
     .eq('id', profile.id)
   if (updateErr) return updateErr.message
 
   // Remove old ACT-derived rows, then re-insert for the new scores.
-  await supabase
+  await db
     .from('prior_credits')
     .delete()
     .eq('plan_id', profile.id)
@@ -67,18 +67,18 @@ export async function saveActScoresAndRebuild(profile, numScores) {
     newPriorRows.push({ ...r, plan_id: profile.id })
   }
   if (newPriorRows.length > 0) {
-    await supabase.from('prior_credits').insert(newPriorRows)
+    await db.from('prior_credits').insert(newPriorRows)
   }
 
   const [slotsRes, coursesRes, prereqRes, coreqRes, priorRes, studentSlotsRes] = await Promise.all([
-    fetchRequirementSlots(supabase, profile.concentration_id, programForProfile(profile), 'id, class_code, is_pool, flex_credits'),
+    fetchRequirementSlots(db, profile.concentration_id, programForProfile(profile), 'id, class_code, is_pool, flex_credits'),
     // standing_req drives the builder's junior/senior placement — without it
     // CSC3040 jumped ahead of COMM_REQ and the pool front-fill never ran.
-    supabase.from('courses').select('code, credits, standing_req'),
-    supabase.from('prerequisite_entries').select('course_code, group_index, logic, required_code'),
-    supabase.from('corequisite_entries').select('course_code, group_index, logic, required_code'),
-    supabase.from('prior_credits').select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded').eq('plan_id', profile.id),
-    supabase.from('student_plan_slots').select('requirement_slot_id, position_source, selected_course_code, status, credits_remaining').eq('student_id', profile.id),
+    db.from('courses').select('code, credits, standing_req'),
+    db.from('prerequisite_entries').select('course_code, group_index, logic, required_code'),
+    db.from('corequisite_entries').select('course_code, group_index, logic, required_code'),
+    db.from('prior_credits').select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded').eq('plan_id', profile.id),
+    db.from('student_plan_slots').select('requirement_slot_id, position_source, selected_course_code, status, credits_remaining').eq('student_id', profile.id),
   ])
 
   // The existing rows are needed to keep the student's selections below;
@@ -148,7 +148,7 @@ export async function saveActScoresAndRebuild(profile, numScores) {
 
   const CHUNK = 100
   for (let i = 0; i < planSlotRows.length; i += CHUNK) {
-    const { error: upsertErr } = await supabase
+    const { error: upsertErr } = await db
       .from('student_plan_slots')
       .upsert(planSlotRows.slice(i, i + CHUNK), { onConflict: 'student_id, requirement_slot_id' })
     if (upsertErr) {

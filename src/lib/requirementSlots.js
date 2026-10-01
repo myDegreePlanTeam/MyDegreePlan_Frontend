@@ -34,7 +34,7 @@ export function programForEntryTerm(season, year) {
 }
 
 /**
- * @param {object} client          Supabase client
+ * @param {object} client          data client (see dataClient.js)
  * @param {number} concentrationId
  * @param {string} program         'legacy' | 'flight_foundations'
  * @param {string} columns         select list; gened_program is always included

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { db, isLocalBackend } from '../../lib/dataClient'
 import { getBrand } from '../../lib/brand'
 
 const TABS = [
@@ -13,7 +13,7 @@ export default function Sidebar({ view, onNavigate, issueCount, lastSavedAt }) {
   const [email, setEmail] = useState('')
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    db.auth.getSession().then(({ data: { session } }) => {
       setEmail(session?.user?.email ?? '')
     })
   }, [])
@@ -48,7 +48,7 @@ export default function Sidebar({ view, onNavigate, issueCount, lastSavedAt }) {
         <div className="ds-account-row">
           <div className="ds-avatar" aria-hidden="true">{initials}</div>
           <div style={{ minWidth: 0 }}>
-            <div className="ds-account-name" title={email}>{email || 'Signed in'}</div>
+            <div className="ds-account-name" title={email}>{isLocalBackend ? 'On this device' : (email || 'Signed in')}</div>
           </div>
         </div>
         <div className="ds-account-meta">
@@ -56,7 +56,8 @@ export default function Sidebar({ view, onNavigate, issueCount, lastSavedAt }) {
             ? `Last saved ${lastSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
             : 'Changes save automatically'}
         </div>
-        <button className="ds-signout" onClick={() => supabase.auth.signOut()}>Sign out</button>
+        {/* No accounts in local mode: the plan lives in this browser, so there is nothing to sign out of. */}
+        {!isLocalBackend && <button className="ds-signout" onClick={() => db.auth.signOut()}>Sign out</button>}
       </div>
     </nav>
   )
