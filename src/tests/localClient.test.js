@@ -144,6 +144,14 @@ describe('writes', () => {
     expect(res).toMatchObject({ data: null, error: null })
   })
 
+  it('stores a free-add linked to a Free Elective slot, and leaves other free-adds unlinked', async () => {
+    const add = (course_code, extra = {}) => db.from('student_free_add_slots')
+      .insert({ student_id: studentId, course_code, semester_number: 8, ...extra })
+      .select('id, course_code, fills_slot_id').single()
+    expect((await add('ART1030', { fills_slot_id: 42 })).data).toMatchObject({ fills_slot_id: 42 })
+    expect((await add('CSC2400')).data).toMatchObject({ fills_slot_id: null })
+  })
+
   it('upserts on the composite key: insert, then merge only the supplied columns', async () => {
     const slot = { student_id: studentId, requirement_slot_id: 10, selected_course_code: 'CSC1300', semester_number: 2 }
     await db.from('student_plan_slots').upsert(slot, { onConflict: 'student_id, requirement_slot_id' })

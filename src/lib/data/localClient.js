@@ -42,7 +42,7 @@ export const STUDENT_TABLES = {
   },
   student_free_add_slots: {
     pk: 'id', unique: [],
-    defaults: { status: 'planned', created_at: now },
+    defaults: { status: 'planned', fills_slot_id: null, created_at: now },
   },
   prior_credits: {
     pk: 'id', uuid: true, unique: [],

@@ -13,6 +13,7 @@ import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { buildPlanIssues, countIssuesBySemester, FULL_TIME_MIN, HEAVY_LOAD_MAX } from '../lib/planIssues'
 import Semester from './Semester'
 import { calculateCredits } from '../lib/semesterCredits'
+import { getPoolRemainder } from '../lib/poolRemainder'
 import SlotModal from './SlotModal'
 import CoursePanel from './CoursePanel'
 import AddCourseModal from './AddCourseModal'
@@ -29,6 +30,26 @@ import './shell/AppShell.css'
 
 // Credit-hour thresholds for academic standing
 const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
+
+// student_free_add_slots columns every database has. fills_slot_id (tier 22) links
+// a follow-up pick to the Free Elective slot it spends hours from; a database the
+// migration has not reached lacks it, so plans still load there, without links.
+const FREE_ADD_COLUMNS = 'id, course_code, semester_number, status'
+
+function isMissingFillsSlotColumn(error) {
+  return !!error && (error.code === '42703' || /fills_slot_id/.test(error.message ?? ''))
+}
+
+async function fetchFreeAddSlots(studentId) {
+  const query = columns => db
+    .from('student_free_add_slots')
+    .select(columns)
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: true })
+
+  const result = await query(`${FREE_ADD_COLUMNS}, fills_slot_id`)
+  return isMissingFillsSlotColumn(result.error) ? query(FREE_ADD_COLUMNS) : result
+}
 
 // Human-readable labels for prior credit types
 const CREDIT_TYPE_LABELS = {
@@ -224,11 +245,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       }
 
       // Step 3 — free-add slots
-      const { data: freeAdds, error: freeAddError } = await db
-        .from('student_free_add_slots')
-        .select('id, course_code, semester_number, status')
-        .eq('student_id', profile.id)
-        .order('created_at', { ascending: true })
+      const { data: freeAdds, error: freeAddError } = await fetchFreeAddSlots(profile.id)
 
       if (freeAddError) { setError(freeAddError.message); setLoading(false); return }
 
@@ -483,6 +500,20 @@ export default function DegreePlan({ profile, onProfileChange }) {
     () => getTakenCodes(planSlots, activeSlots, priorCredits, freeAddSlots),
     [planSlots, activeSlots, priorCredits, freeAddSlots]
   )
+
+  // ── Free Elective hours no course covers yet ──────────────────────
+  // { [slotId]: hours }. A Free Elective is an hours bucket (8 in the Flight
+  // Foundations Core plan): a short course fills part of it and the rest stays
+  // owed, shown as another choice row under the slot. For an unfilled slot it
+  // is the slot's own open hours. Derived from the picks, never stored.
+  const remainders = useMemo(() => {
+    const out = {}
+    for (const slot of activeSlots) {
+      const hours = getPoolRemainder(slot, planSlots, courses, freeAddSlots)
+      if (hours > 0) out[slot.id] = hours
+    }
+    return out
+  }, [activeSlots, planSlots, courses, freeAddSlots])
 
   // ── Transfer credit slot satisfaction ────────────────────────────
   const transferFilled = useMemo(
@@ -878,7 +909,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   // ── Add a free-add course to a semester ──────────────────────────
-  async function handleAddCourse(semesterNumber, course) {
+  // fillsSlot: the Free Elective slot a follow-up pick spends hours from.
+  // Resolves to the new row, or undefined when nothing was added.
+  async function handleAddCourse(semesterNumber, course, fillsSlot = null) {
     setAddCourseTarget(null)
 
     // BUG-34: defensive guard. The modal already greys taken codes out, but
@@ -895,12 +928,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
         course_code:     course.code,
         semester_number: semesterNumber,
         status:          'planned',
+        ...(fillsSlot ? { fills_slot_id: fillsSlot.id } : {}),
       })
-      .select('id, course_code, semester_number, status')
+      .select(fillsSlot ? `${FREE_ADD_COLUMNS}, fills_slot_id` : FREE_ADD_COLUMNS)
       .single()
 
     if (error) {
-      showSaveError('Could not add course. Please try again.')
+      showSaveError(fillsSlot && isMissingFillsSlotColumn(error)
+        ? 'Choosing a second course needs the tier 22 database migration, which has not been applied yet.'
+        : 'Could not add course. Please try again.')
       return
     }
 
@@ -911,6 +947,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setFreeAddSlots(prev => [...prev, data])
     if (data) pushUndo({ type: 'free_add', freeAddId: data.id, label: `Added ${course.code}` })
     markSaved()
+    return data
+  }
+
+  // ── Fill the hours a Free Elective's earlier pick left open ───────
+  // Adds the course as a free-add in the slot's own term, linked to the slot
+  // so its hours come out of the slot's remainder.
+  async function handleAddRemainder(slot, course) {
+    const semNum = planSemesterOverrides[slot.id] ?? slot.semester_number
+    const added  = await handleAddCourse(semNum, course, slot)
+    if (added) setSelection({ kind: 'free', id: added.id })
   }
 
   // ── Remove a free-add slot ────────────────────────────────────────
@@ -1599,9 +1645,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
     semLabels[n] = formatTermLabel(semesterTerms[n]) ?? `Semester ${idx + 1}`
   })
   const semCredits = n =>
-    calculateCredits(semesterMap[n] ?? [], freeAddBySemester[n] ?? [], courses, planSlots)
+    calculateCredits(semesterMap[n] ?? [], freeAddBySemester[n] ?? [], courses, planSlots, freeAddSlots)
   const semItems = n => [
-    ...(semesterMap[n] ?? []).map(slot => ({ key: slot.id, code: slotCode(slot) })),
+    ...(semesterMap[n] ?? []).flatMap(slot => [
+      { key: slot.id, code: slotCode(slot) },
+      ...(planSlots[slot.id] && remainders[slot.id] > 0
+        ? [{ key: `rem_${slot.id}`, code: POOL_LABELS[slot.class_code] ?? slot.class_code }]
+        : []),
+    ]),
     ...(freeAddBySemester[n] ?? []).map(fa => ({ key: `fa_${fa.id}`, code: fa.course_code })),
   ]
 
@@ -1613,6 +1664,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
     incompleteSlots[slot.id] = {
       label:      POOL_LABELS[slot.class_code] ?? slot.class_code,
       dependents: poolReliance[slot.id] ?? [],
+    }
+  }
+  // Free Elective hours still open after a pick
+  for (const slot of activeSlots) {
+    if (planSlots[slot.id] && remainders[slot.id] > 0) {
+      incompleteSlots[`rem_${slot.id}`] = {
+        label:      POOL_LABELS[slot.class_code] ?? slot.class_code,
+        dependents: [],
+      }
     }
   }
 
@@ -1638,17 +1698,29 @@ export default function DegreePlan({ profile, onProfileChange }) {
   })()
 
   // ── Selected course (side panel) ──────────────────────────────────
-  const selSlot = selection?.kind === 'slot'
+  // A 'remainder' selection is the follow-up choice row under a filled Free
+  // Elective: it points at the slot but has no course of its own yet. It goes
+  // away once the slot's hours are covered.
+  const selRemainder = selection?.kind === 'remainder'
+  const selSlotRow = selection?.kind === 'slot' || selRemainder
     ? slots.find(s => s.id === selection.id && !planArchived[s.id]) ?? null
     : null
+  const selFollowUpHours = selRemainder && selSlotRow && planSlots[selSlotRow.id]
+    ? (remainders[selSlotRow.id] ?? 0)
+    : 0
+  const selSlot = selRemainder && selFollowUpHours === 0 ? null : selSlotRow
   const selFree = selection?.kind === 'free'
     ? freeAddSlots.find(f => f.id === selection.id) ?? null
     : null
-  const selKey    = selSlot ? selSlot.id : selFree ? `fa_${selFree.id}` : null
+  const selKey    = selSlot
+    ? (selRemainder ? `rem_${selSlot.id}` : selSlot.id)
+    : selFree ? `fa_${selFree.id}` : null
   const selSem    = selSlot ? (planSemesterOverrides[selSlot.id] ?? selSlot.semester_number) : selFree?.semester_number
-  const selCode   = selSlot ? (selSlot.is_pool ? planSlots[selSlot.id] : selSlot.class_code) : selFree?.course_code
+  const selCode   = selSlot
+    ? (selRemainder ? null : (selSlot.is_pool ? planSlots[selSlot.id] : selSlot.class_code))
+    : selFree?.course_code
   const selCourse = selCode ? courses[selCode] : null
-  const selIsEmptyPool = !!selSlot?.is_pool && !planSlots[selSlot.id]
+  const selIsEmptyPool = !!selSlot?.is_pool && (selRemainder || !planSlots[selSlot.id])
 
   // Every term, with whether the selected course may move there. Uses the
   // same rules moveToSemester enforces (season, then prereq/coreq conflicts).
@@ -1674,6 +1746,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   function selectSlot(slot) {
     setSelection(sel => (sel?.kind === 'slot' && sel.id === slot.id ? null : { kind: 'slot', id: slot.id }))
   }
+  function selectRemainder(slot) {
+    setSelection(sel => (sel?.kind === 'remainder' && sel.id === slot.id ? null : { kind: 'remainder', id: slot.id }))
+  }
   function selectFreeAdd(fa) {
     setSelection(sel => (sel?.kind === 'free' && sel.id === fa.id ? null : { kind: 'free', id: fa.id }))
   }
@@ -1688,6 +1763,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setSemesterExpanded(prev => ({ ...prev, [issue.semNum]: true }))
     if (issue.key == null) { setSelection(null); return }
     const key = String(issue.key)
+    if (key.startsWith('rem_')) {
+      setSelection({ kind: 'remainder', id: Number(key.slice(4)) })
+      return
+    }
     setSelection(key.startsWith('fa_')
       ? { kind: 'free', id: freeAddSlots.find(f => `fa_${f.id}` === key)?.id }
       : { kind: 'slot', id: issue.key })
@@ -1706,7 +1785,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       eyebrow={semLabels[selSem] ?? ''}
       title={selIsEmptyPool ? (POOL_LABELS[selSlot.class_code] ?? selSlot.class_code) : selCode}
       subtitle={selIsEmptyPool
-        ? `Choose a course · ${selSlot.flex_credits ?? 3} cr`
+        ? `Choose a course · ${selRemainder ? selFollowUpHours : (remainders[selSlot.id] ?? selSlot.flex_credits ?? 3)} cr${selRemainder ? ' left to fill' : ''}`
         : `${selCourse?.name ?? 'Course not in catalog'}${selCourse ? ` · ${selCourse.credits} cr` : ''}`}
       course={selCourse}
       courseMap={courses}
@@ -1721,7 +1800,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
         science:  scienceWarnings[selKey],
       }}
       countsToward={selFree
-        ? 'Added by you · counts toward total degree hours'
+        ? (selFree.fills_slot_id != null
+            ? `${POOL_LABELS[slots.find(s => s.id === selFree.fills_slot_id)?.class_code] ?? 'Free Elective'} requirement · fills hours your earlier pick left open`
+            : 'Added by you · counts toward total degree hours')
         : selSlot.is_pool
           ? `${POOL_LABELS[selSlot.class_code] ?? selSlot.class_code} requirement`
           : `Major requirement · ${profile.concentrations.name}`}
@@ -1745,7 +1826,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           planSemesterOverrides={planSemesterOverrides}
           planArchived={planArchived}
           freeAddSlots={freeAddSlots}
-          onSave={handleSave}
+          followUpHours={selFollowUpHours}
+          onSave={selRemainder ? handleAddRemainder : handleSave}
           onRemove={handleRemove}
           onClose={onBack}
         />
@@ -1772,6 +1854,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     graduation,
     semesterCompleted: planSemesterCompleted,
     priorCredits,
+    remainders,
   }
 
   return (
@@ -1861,8 +1944,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
                         courseMap={courses}
                         planSlots={planSlots}
                         planStatuses={planStatuses}
-                        planCreditsRemaining={planCreditsRemaining}
+                        allFreeAddSlots={freeAddSlots}
+                        remainders={remainders}
                         onSelectSlot={selectSlot}
+                        onSelectRemainder={selectRemainder}
                         onSelectFreeAdd={selectFreeAdd}
                         selectedKey={selKey}
                         onAddCourse={() => setAddCourseTarget(semNum)}

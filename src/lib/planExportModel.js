@@ -96,9 +96,10 @@ function poolFootnote(poolCode) {
  * Mirrors Semester.jsx's SlotRow: a pool slot shows its selected course when
  * one is chosen and the pool's display label when it isn't, and credits fall
  * back to flex_credits (then 3) exactly as the card does, so the PDF's per-
- * semester totals match the "15 cr" on screen.
+ * semester totals match the "15 cr" on screen. An unfilled Free Elective
+ * prints the hours still open (`remainders`), as the card does.
  */
-function slotRow(slot, planSlots, courses) {
+function slotRow(slot, planSlots, courses, remainders) {
   const poolLabel = POOL_LABELS[slot.class_code] ?? slot.class_code
 
   if (slot.is_pool) {
@@ -107,7 +108,7 @@ function slotRow(slot, planSlots, courses) {
       return {
         code:        null,
         title:       poolLabel,
-        credits:     slot.flex_credits ?? 3,
+        credits:     remainders?.[slot.id] ?? slot.flex_credits ?? 3,
         kind:        'pool-empty',
         requirement: poolLabel,
         poolCode:    slot.class_code,
@@ -131,6 +132,22 @@ function slotRow(slot, planSlots, courses) {
     credits:     course?.credits ?? null,
     kind:        'required',
     requirement: null,
+  }
+}
+
+/**
+ * The hours a Free Elective's chosen courses leave open, as an unchosen pool
+ * row — the other half of the slot, which the card shows as its own choice.
+ */
+function remainderRow(slot, hours) {
+  const poolLabel = POOL_LABELS[slot.class_code] ?? slot.class_code
+  return {
+    code:        null,
+    title:       poolLabel,
+    credits:     hours,
+    kind:        'pool-empty',
+    requirement: poolLabel,
+    poolCode:    slot.class_code,
   }
 }
 
@@ -168,6 +185,7 @@ function freeAddRow(freeAdd, courses) {
  * @param {Date}    input.generatedAt        – stamped on the document
  * @param {Object}  input.semesterCompleted  – { [semNum]: boolean } (student_semester_notes.completed_by_student)
  * @param {Object[]} input.priorCredits      – prior_credits rows, listed in the Notes box
+ * @param {Object}  input.remainders         – { [slotId]: hours } Free Elective hours no course covers yet
  * @returns {Object} print-ready model
  */
 export function buildPlanExportModel({
@@ -182,6 +200,7 @@ export function buildPlanExportModel({
   generatedAt = new Date(),
   semesterCompleted = {},
   priorCredits = [],
+  remainders = {},
 } = {}) {
   // Course status for the legend. Completion is semester-level only (core
   // principle 3), so every course in a completed semester is "completed",
@@ -210,7 +229,10 @@ export function buildPlanExportModel({
     // them, student additions after. Re-sorting would break "matches what's
     // on screen" for a student reading the two side by side.
     const rows = [
-      ...slots.map(s => slotRow(s, planSlots, courses)),
+      ...slots.flatMap(s => [
+        slotRow(s, planSlots, courses, remainders),
+        ...(planSlots?.[s.id] && remainders?.[s.id] > 0 ? [remainderRow(s, remainders[s.id])] : []),
+      ]),
       ...freeAdds.map(f => freeAddRow(f, courses)),
     ].map(r => ({ ...r, footnote: footnoteFor(r.poolCode) }))
 

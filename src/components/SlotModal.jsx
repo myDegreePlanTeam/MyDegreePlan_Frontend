@@ -29,6 +29,10 @@ export default function SlotModal({
   embedded = false,
   // hideBack: embedded only — the panel already shows a "← Course details" link
   hideBack = false,
+  // followUpHours: choosing another course for the hours a Free Elective's
+  // earlier pick left open. The slot's own pick is then just another taken
+  // course, not the selection being edited.
+  followUpHours = 0,
 }) {
   const [courses, setCourses]               = useState([])
   const [freeSections, setFreeSections]     = useState(null)
@@ -46,7 +50,7 @@ export default function SlotModal({
 
     // If the slot already has a selection, we'll restore it at the end
     // of each code path so it shows highlighted when the modal opens.
-    const existingCode   = planSlots[slot.id]
+    const existingCode   = followUpHours > 0 ? null : planSlots[slot.id]
     const existingCourse = existingCode ? courseMap[existingCode] : null
 
     if (slot.class_code === 'FREE_ELECTIVE') {
@@ -127,13 +131,13 @@ export default function SlotModal({
     // would show the current course as "Already selected" and unclickable.
     // Archived slots aren't in the plan ('not_applicable' math courses keep
     // their class_code in planSlots), so their codes stay selectable.
-    const currentSlotId = String(slot.id)
+    const currentSlotId = followUpHours > 0 ? null : String(slot.id)
     return new Set(
       Object.entries(planSlots)
         .filter(([id]) => id !== currentSlotId && !planArchived[id])
         .map(([, code]) => code)
     )
-  }, [planSlots, planArchived, slot.id])
+  }, [planSlots, planArchived, slot.id, followUpHours])
 
   // ── Credit hours accumulated before this semester (positional) ───────
   // Used to determine whether junior/senior standing is met at this slot.
@@ -163,9 +167,9 @@ export default function SlotModal({
   const freeOptions = useMemo(() => {
     if (!freeSections) return null
     const inPlan = new Set(planCodes)
-    inPlan.delete(planSlots[slot.id])
+    if (followUpHours === 0) inPlan.delete(planSlots[slot.id])
     return excludeFreeElectiveCodes(freeSections, inPlan)
-  }, [freeSections, planCodes, planSlots, slot.id])
+  }, [freeSections, planCodes, planSlots, slot.id, followUpHours])
 
   // ── Annotate courses with availability status ──────────────────────
   function annotate(course) {
@@ -361,6 +365,13 @@ export default function SlotModal({
 
   const content = (
     <>
+        {followUpHours > 0 && (
+          <div className="modal-autofill-notice">
+            {followUpHours} credit {followUpHours === 1 ? 'hour' : 'hours'} of your {POOL_LABELS[slot.class_code] ?? slot.class_code} requirement
+            {followUpHours === 1 ? ' is' : ' are'} still open. Choose another course to fill them.
+          </div>
+        )}
+
         {autoFill && (
           <div className="modal-autofill-notice">
             Partner course auto-selected based on your science sequence choice.
@@ -414,7 +425,7 @@ export default function SlotModal({
 
         <div className="modal-footer">
           <div className="modal-footer-btns">
-            {planSlots[slot.id] && (
+            {planSlots[slot.id] && followUpHours === 0 && (
               <button
                 className="modal-remove-btn"
                 onClick={() => onRemove(slot)}

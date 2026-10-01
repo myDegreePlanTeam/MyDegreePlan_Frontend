@@ -19,6 +19,7 @@ export default function PlanPdfPreview({
   graduation,
   semesterCompleted,
   priorCredits,
+  remainders,
 }) {
   const [url, setUrl]       = useState(null)
   const [status, setStatus] = useState('working')   // 'working' | 'ready' | 'error'
@@ -40,6 +41,7 @@ export default function PlanPdfPreview({
     graduation,
     semesterCompleted,
     priorCredits,
+    remainders,
   }))
 
   useEffect(() => {

@@ -22,6 +22,7 @@ export default function ExportPlanButton({
   graduation,
   semesterCompleted,
   priorCredits,
+  remainders,
   className = 'degreeplan-settings',
 }) {
   const [status, setStatus] = useState('idle')   // 'idle' | 'working' | 'error'
@@ -46,6 +47,7 @@ export default function ExportPlanButton({
         generatedAt,
         semesterCompleted,
         priorCredits,
+        remainders,
       })
 
       const [{ pdf }, { default: PlanPdfDocument }] = await Promise.all([

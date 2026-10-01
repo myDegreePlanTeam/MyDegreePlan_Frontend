@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { POOL_LABELS, formatMissingForDisplay } from '../lib/poolResolver'
 import { calculateCredits } from '../lib/semesterCredits'
@@ -24,9 +24,13 @@ export default function Semester({
   courseMap,
   planSlots          = {},
   planStatuses       = {},
-  planCreditsRemaining = {},
+  allFreeAddSlots    = freeAddSlots,
+  // { [slotId]: hours } — Free Elective hours no course covers yet; each becomes
+  // a "choose a course" row under its slot (see poolRemainder.js)
+  remainders         = {},
   onSelectSlot,
   onSelectFreeAdd,
+  onSelectRemainder,
   selectedKey        = null,
   onAddCourse,
   scienceWarnings    = {},
@@ -51,8 +55,8 @@ export default function Semester({
 }) {
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
 
-  const totalCr         = calculateCredits(slots, freeAddSlots, courseMap, planSlots)
-  const hasUnfilledPool = slots.some(s => s.is_pool && !planSlots[s.id])
+  const totalCr         = calculateCredits(slots, freeAddSlots, courseMap, planSlots, allFreeAddSlots)
+  const hasUnfilledPool = slots.some(s => s.is_pool && (!planSlots[s.id] || remainders[s.id] > 0))
   const isEmpty         = slots.length === 0 && freeAddSlots.length === 0
 
   const [noteOpen, setNoteOpen] = useState(false)
@@ -122,25 +126,34 @@ export default function Semester({
           )}
 
           {slots.map(slot => (
-            <SlotRow
-              key={slot.id}
-              slot={slot}
-              course={courseMap[slot.class_code]}
-              selectedCode={planSlots[slot.id]}
-              selectedCourse={planSlots[slot.id] ? courseMap[planSlots[slot.id]] : null}
-              status={planStatuses[slot.id]}
-              creditsRemaining={planCreditsRemaining[slot.id] ?? 0}
-              isSelected={selectedKey === slot.id}
-              onSelect={() => onSelectSlot(slot)}
-              scienceWarning={scienceWarnings[slot.id]}
-              prereqMissing={prereqWarnings[slot.id]}
-              coreqMissing={coreqWarnings[slot.id]}
-              standingWarning={standingWarnings[slot.id]}
-              isTransferFilled={!!transferFilled[slot.id]}
-              transferLabel={
-                CREDIT_TYPE_LABELS[transferDetails[slot.id]?.creditType] ?? 'Transfer'
-              }
-            />
+            <Fragment key={slot.id}>
+              <SlotRow
+                slot={slot}
+                course={courseMap[slot.class_code]}
+                selectedCode={planSlots[slot.id]}
+                selectedCourse={planSlots[slot.id] ? courseMap[planSlots[slot.id]] : null}
+                status={planStatuses[slot.id]}
+                openCredits={slot.is_pool && !planSlots[slot.id] ? remainders[slot.id] : undefined}
+                isSelected={selectedKey === slot.id}
+                onSelect={() => onSelectSlot(slot)}
+                scienceWarning={scienceWarnings[slot.id]}
+                prereqMissing={prereqWarnings[slot.id]}
+                coreqMissing={coreqWarnings[slot.id]}
+                standingWarning={standingWarnings[slot.id]}
+                isTransferFilled={!!transferFilled[slot.id]}
+                transferLabel={
+                  CREDIT_TYPE_LABELS[transferDetails[slot.id]?.creditType] ?? 'Transfer'
+                }
+              />
+              {planSlots[slot.id] && remainders[slot.id] > 0 && (
+                <RemainderRow
+                  slot={slot}
+                  hours={remainders[slot.id]}
+                  isSelected={selectedKey === `rem_${slot.id}`}
+                  onSelect={() => onSelectRemainder(slot)}
+                />
+              )}
+            </Fragment>
           ))}
 
           {freeAddSlots.map(fa => (
@@ -246,7 +259,7 @@ function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPo
 }
 
 function SlotRow({
-  slot, course, selectedCode, selectedCourse, status, creditsRemaining,
+  slot, course, selectedCode, selectedCourse, status, openCredits,
   isSelected, onSelect,
   scienceWarning, prereqMissing, coreqMissing, standingWarning,
   isTransferFilled, transferLabel,
@@ -259,7 +272,6 @@ function SlotRow({
       ? `Satisfied by ${transferLabel} credit`
       : filled
         ? (selectedCourse?.name ?? 'Selected')
-          + (creditsRemaining > 0 ? ` · ${creditsRemaining} cr remaining` : '')
         : 'Choose a course'
     const view = describeRow({
       status, prereqMissing, coreqMissing, scienceWarning, standingWarning,
@@ -271,7 +283,7 @@ function SlotRow({
         isSelected={isSelected} onSelect={onSelect} view={view}
         code={filled ? selectedCode : (POOL_LABELS[slot.class_code] ?? slot.class_code)}
         codeIsPool={!filled}
-        credits={`${selectedCourse?.credits ?? slot.flex_credits ?? 3} cr`}
+        credits={`${selectedCourse?.credits ?? openCredits ?? slot.flex_credits ?? 3} cr`}
       />
     )
   }
@@ -304,6 +316,24 @@ function SlotRow({
   )
 }
 
+// The hours a Free Elective's chosen courses leave open, as another choice. It
+// is derived from the slot (not stored), so it has nothing to drag.
+function RemainderRow({ slot, hours, isSelected, onSelect }) {
+  const view = describeRow({
+    fallbackNote: `${hours} cr left to fill. Choose a course`,
+    isEmptyPool: true,
+  })
+  return (
+    <Row
+      dragProps={{}} isDragging={false}
+      isSelected={isSelected} onSelect={onSelect} view={view}
+      code={POOL_LABELS[slot.class_code] ?? slot.class_code}
+      codeIsPool
+      credits={`${hours} cr`}
+    />
+  )
+}
+
 function FreeAddRow({ freeAdd, course, isSelected, onSelect, prereqMissing, coreqMissing }) {
   const { dragProps, isDragging } = useRowDrag(freeAdd.id, 'free_add')
   const view = describeRow({
@@ -315,7 +345,7 @@ function FreeAddRow({ freeAdd, course, isSelected, onSelect, prereqMissing, core
       dragProps={dragProps} isDragging={isDragging}
       isSelected={isSelected} onSelect={onSelect} view={view}
       code={freeAdd.course_code}
-      tag="Added"
+      tag={freeAdd.fills_slot_id != null ? 'Elective' : 'Added'}
       credits={`${course?.credits ?? '—'} cr`}
     />
   )

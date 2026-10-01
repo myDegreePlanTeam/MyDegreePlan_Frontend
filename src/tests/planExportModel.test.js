@@ -278,6 +278,48 @@ describe('buildPlanExportModel — credit totals', () => {
 // semesters, legend status per semester, numbered pool footnotes, and the
 // header / score boxes an advisor reads first.
 
+// A Free Elective is an hours bucket: a 3-hour pick in an 8-hour slot leaves 5
+// hours the grid shows as another choice row. The printed page must keep them.
+describe('buildPlanExportModel — Free Elective remainder', () => {
+  const SLOT_FREE = { id: 9, class_code: 'FREE_ELECTIVE', is_pool: true, semester_number: 2, flex_credits: 8 }
+  const freeInput = (overrides = {}) => baseInput({
+    semesterMap: { 1: [SLOT_CSC1300], 2: [SLOT_FREE] },
+    planSlots:   { 9: 'MUS1030' },
+    remainders:  { 9: 5 },
+    ...overrides,
+  })
+
+  it('prints the open hours as an unchosen requirement after the chosen course', () => {
+    const [chosen, open] = buildPlanExportModel(freeInput()).semesters[1].courses
+    expect(chosen).toMatchObject({ code: 'MUS1030', credits: 3, kind: 'pool' })
+    expect(open).toMatchObject({ code: null, credits: 5, kind: 'pool-empty', requirement: 'Free Elective' })
+  })
+
+  it('keeps the printed semester total at the slot\'s full hours, as the card does', () => {
+    expect(buildPlanExportModel(freeInput()).semesters[1].credits).toBe(8)
+  })
+
+  it('prints no open row once the hours are covered', () => {
+    const rows = buildPlanExportModel(freeInput({ remainders: {} })).semesters[1].courses
+    expect(rows).toHaveLength(1)
+  })
+
+  it('prints an unfilled slot at its open hours, less follow-up picks', () => {
+    const model = buildPlanExportModel(freeInput({ planSlots: {}, remainders: { 9: 5 } }))
+    expect(model.semesters[1].courses).toHaveLength(1)
+    expect(model.semesters[1].courses[0]).toMatchObject({ kind: 'pool-empty', credits: 5 })
+  })
+
+  it('counts a follow-up pick once, in its own semester', () => {
+    const model = buildPlanExportModel(freeInput({
+      freeAddBySemester: { 2: [{ id: 1, course_code: 'PHIL1030', semester_number: 2, fills_slot_id: 9 }] },
+      remainders: { 9: 2 },
+    }))
+    // 3 chosen + 2 open + 3 follow-up = the slot's 8
+    expect(model.semesters[1].credits).toBe(8)
+  })
+})
+
 describe('buildPlanExportModel — degree map', () => {
   it('pairs semesters into year bands in plan order', () => {
     const model = buildPlanExportModel(baseInput({

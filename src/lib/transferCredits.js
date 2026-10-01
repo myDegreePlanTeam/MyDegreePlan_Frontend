@@ -1,5 +1,6 @@
 // transferCredits.js
 import { GEN_ED_CATEGORIES, POOL_CREDIT_ESTIMATES } from './poolResolver.js'
+import { isRemainderPool, getPoolRemainder } from './poolRemainder.js'
 //
 // Pure helpers — no side effects, no Supabase calls.
 //
@@ -379,10 +380,15 @@ export function creditsBeforeSemester(targetSem, {
     const sem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
     if (sem == null || !(sem < targetSem)) continue
     const code = slot.is_pool ? planSlots?.[slot.id] : slot.class_code
+    // Hours a Free Elective's chosen courses leave open are still owed this term.
+    const remainder = getPoolRemainder(slot, planSlots, courses, freeAddSlots)
     if (!code) {
-      total += slot.flex_credits ?? POOL_CREDIT_ESTIMATES[slot.class_code] ?? 3
+      total += isRemainderPool(slot)
+        ? remainder
+        : (slot.flex_credits ?? POOL_CREDIT_ESTIMATES[slot.class_code] ?? 3)
       continue
     }
+    total += remainder
     if (seen.has(code)) continue
     seen.add(code)
     total += courses?.[code]?.credits ?? (slot.is_pool ? (slot.flex_credits ?? 3) : 0)
