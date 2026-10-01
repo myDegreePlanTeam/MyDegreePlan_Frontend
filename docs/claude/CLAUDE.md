@@ -25,11 +25,13 @@ brand colors are all Tennessee Tech's.)
 
 ## Repository Structure
 
-The workspace root (`MDP/`) contains two sub-repos plus shared seed files:
+The workspace root (`MDP/`) holds three git repos (Frontend, Prototype, local-deploy) plus this file:
 
 ```
 MDP/
-├── CLAUDE.md                          ← this file
+├── CLAUDE.md                          ← this file (canonical copy: MyDegreePlan_Frontend/docs/claude/CLAUDE.md)
+├── local-deploy/                      ← Docker stack + signed-release pipeline (its own git repo:
+│                                         myDegreePlanTeam/MyDegreePlan_Deploy). See "Docker stack and releases"
 ├── MyDegreePlan_Frontend/             ← React/Vite app (its own git repo)
 │   ├── package.json
 │   ├── vite.config.js
@@ -40,7 +42,7 @@ MDP/
 │       ├── index.css                  ← global styles
 │       ├── assets/                    ← static images (hero.png, vite.svg)
 │       ├── components/
-│       │   ├── DegreePlan.jsx         ← main grid; orchestrates all state and Supabase calls
+│       │   ├── DegreePlan.jsx         ← main grid; orchestrates all state and data-client calls
 │       │   ├── Semester.jsx           ← one semester card + slot rows
 │       │   ├── SlotModal.jsx          ← course-selection modal for pool and free-add slots
 │       │   ├── AddCourseModal.jsx     ← free-add course picker
@@ -54,6 +56,7 @@ MDP/
 │       │   ├── prereqChecker.js       ← checkPrereqs / checkCoreqs (pure logic)
 │       │   ├── classifyPrereq.js      ← placement/consent/completion classification
 │       │   ├── poolResolver.js        ← POOL_COURSES, POOL_LABELS, resolvePool, science helpers
+│       │   ├── poolRemainder.js       ← Free Elective hours bucket: hours a chosen course leaves open (pure)
 │       │   ├── flightFoundations.js  ← Flight Foundations gen-ed rules + evaluators (pure)
 │       │   ├── requirementSlots.js    ← program-aware requirement_slots loader
 │       │   ├── transferCredits.js     ← resolveTransferCredits, computePlanCredits
@@ -79,7 +82,8 @@ MDP/
 │           └── validatePriorCredit.test.js
 │
 └── MyDegreePlan_Prototype/            ← schema, migrations, seed script (its own git repo)
-    ├── seed.js                        ← inserts catalog data from JSON into Supabase
+    ├── seed.js                        ← inserts catalog data from JSON into Postgres (the Docker stack's seed)
+    │                                     The migration files below are Supabase-era HISTORY: no new ones are written
     ├── rls_migration.sql              ← Tier 5: RLS policies for all tables
     ├── migration_tier6.sql            ← credits_remaining, semester_number, student_free_add_slots
     ├── migration_tier7.sql            ← prior_credits table
@@ -102,18 +106,27 @@ MDP/
     └── csc_hpc.json                   ← CSC High Performance Computing concentration template
 ```
 
-**Migration naming convention:** files are named `migration_tier{N}.sql` in
-`MyDegreePlan_Prototype/`. The RLS migration is a one-off named `rls_migration.sql`.
-Migrations are applied manually via the Supabase Dashboard SQL Editor — there is no
-automated migration runner. Each file is safe to re-run (`IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`).
+**No more Supabase migrations.** `migration_tier{N}.sql` and `rls_migration.sql` in
+`MyDegreePlan_Prototype/` are historical (tiers 6–21 were applied by hand in the Supabase Dashboard);
+the hosted Supabase project is retired and **no new migration files are written** (the next tier
+number is not "22"). A schema change goes in two places:
+
+1. `local-deploy/setup/sql/000_baseline.sql`, idempotent (`ADD COLUMN IF NOT EXISTS`, which also
+   reaches installs whose table already exists). The Docker setup container re-runs it on every start.
+2. For a student table, the `STUDENT_TABLES` defaults in `src/lib/data/localClient.js`, so the
+   local (IndexedDB) backend returns the column too. Add a test in `src/tests/localClient.test.js`.
+
+Code that reads a new column should tolerate its absence (an install whose setup step has not re-run);
+see `fetchFreeAddSlots` in `DegreePlan.jsx` for the pattern (retry the read without the column).
 
 ---
 
 ## Database
 
-All tables live in a single Supabase project. Connection details are in environment variables
-(never hard-coded here). The schema uses integer PKs for student tables and UUID PKs for
-`prior_credits`. All catalog tables have public read RLS; student tables are scoped to `auth.uid()`.
+The schema is defined by `local-deploy/setup/sql/000_baseline.sql` (the Docker stack's Postgres) and
+mirrored by the local backend's query engine (`src/lib/data/localClient.js`). The hosted Supabase
+project is retired. The schema uses integer PKs for student tables and UUID PKs for `prior_credits`.
+All catalog tables have public read RLS; student tables are scoped to `auth.uid()`.
 
 ### Tables
 
@@ -127,7 +140,7 @@ All tables live in a single Supabase project. Connection details are in environm
 | `student_profiles` | One row per student; anchors all student state; references `auth.users.id` |
 | `student_plan_slots` | Student's plan state per template slot: selected course, locked, archived, drag overrides |
 | `student_semester_notes` | Per-student, per-semester notes + `completed_by_student` toggle |
-| `student_free_add_slots` | Courses the student added outside the degree template |
+| `student_free_add_slots` | Courses the student added outside the degree template. `fills_slot_id` (nullable → `requirement_slots.id`, `ON DELETE CASCADE`) marks a follow-up pick that fills a Free Elective slot's open hours; NULL for ordinary "+ Add course" rows |
 | `prior_credits` | Transfer credits, AP/IB/CLEP credit, dual enrollment, placement scores |
 | `test_equivalencies` | Exam-to-TTU-course mappings; drives the PriorCreditWizard |
 
@@ -200,8 +213,21 @@ Vercel needs **no settings**: with no `__MDP_CONFIG__` the app is local-first. `
 - One implicit user per device: no sign-in, `db.auth` is a stub. Login/Signup are only reachable on the remote backend.
 - Plans do not sync between devices and can be lost if the browser clears site data. Settings has Export / Import / Erase (`DeviceDataCard`, `lib/data/backup.js`); the first onboarding step offers Import for a new device. Backups are format-versioned and drop rows that point at slots the current catalog no longer has.
 - `db.local` (export/import/erase, `persistent`) exists only on the local client.
-- Docker's stack, migrations and `seed.js` are unchanged and still authoritative for the remote backend.
+- A new column on a student table needs its default in `STUDENT_TABLES` (`localClient.js`) as well as in `000_baseline.sql`.
+- Docker's stack and `seed.js` still serve the remote backend; its schema is `setup/sql/000_baseline.sql` (see "No more Supabase migrations" above).
 
+---
+
+## Docker stack and releases
+
+`MDP/local-deploy/` is a **separate git repo** (`myDegreePlanTeam/MyDegreePlan_Deploy`); its README is the full reference. `MyDegreePlan_Prototype/local-deploy/` is a **stale tracked copy** of it: never edit that one.
+
+**Release process** (students get it through the in-app Update button):
+1. Merge the Frontend / Prototype / Deploy changes to `main` and push. The workflow builds `main` of Frontend and Prototype unless `frontend_ref` / `prototype_ref` say otherwise.
+2. Pick the next version: `gh release list --repo myDegreePlanTeam/MyDegreePlan_Deploy`. Versions are immutable.
+3. Deploy repo → Actions → **Release** → Run workflow (`gh workflow run release.yml -f version=… -f notes=… -f required=false`). `notes` is student-facing: it is what they read in the update prompt. Use `required` only for urgent fixes: it blocks older installs.
+4. CI runs the tests, builds four multi-arch images to GHCR pinned by digest, signs the release (`MDP_SIGNING_KEY` in the `release` environment), publishes it, then re-downloads and verifies it. Approve it if the environment asks for a reviewer.
+5. Installs offer the update on their next start or within about 6 hours; a failed update rolls back automatically.
 ---
 
 ## Environment Variables
@@ -239,20 +265,12 @@ See [`README.md`](./README.md) for branch prefixes and commit types. Additional 
 - **Watch mode:** `npm run test:watch`
 
 **Test file locations:**
-- `src/tests/[featureName].test.js` — primary suite (6 files)
-- `src/lib/__tests__/[featureName].test.js` — collocated lib tests (2 files)
+- `src/tests/[featureName].test.js` — primary suite
+- `src/lib/__tests__/[featureName].test.js` — collocated lib tests
 
-**All existing test files:**
-```
-src/tests/computePlanCredits.test.js
-src/tests/planCompleteness.test.js
-src/tests/prereqCheckerCoreq.test.js
-src/tests/prereqCheckerPlacement.test.js
-src/tests/transferCredits.test.js
-src/tests/validatePriorCredit.test.js
-src/lib/__tests__/poolResolver.test.js
-src/lib/__tests__/prereqChecker.test.js
-```
+The suite is 38 files / 729 tests as of 2026-10-01; `ls src/tests src/lib/__tests__` is the
+current list. `poolRemainder.test.js` covers the Free Elective bucket and its effect on semester
+totals and standing; `planExportModel.test.js` covers the PDF side.
 
 All existing tests must pass before any commit. New tests go in `src/tests/[featureName].test.js`.
 
@@ -331,6 +349,33 @@ Pool membership lives in code here, not in the database (keeps schema lean). `PO
 the authoritative list of valid course codes for each pool type. `POOL_LABELS` is the single
 source of truth for display names. `resolvePool(poolCode, courseMap)` returns filtered course
 objects from the live catalog.
+
+### `src/lib/poolRemainder.js`
+
+Exports `REMAINDER_POOLS`, `isRemainderPool(slot)`, `getPoolExtras(slotId, freeAddSlots)`,
+`getPoolRemainder(slot, planSlots, courses, freeAddSlots)`. Pure.
+
+A `FREE_ELECTIVE` slot is an **hours bucket**, not one course: `flex_credits` is 8 in the Flight
+Foundations Core template and 5 in legacy. A shorter course fills part of it and the rest stays owed
+as another "Choose a course" row under the slot, repeating until the bucket is covered.
+
+- `getPoolRemainder` = `max(0, flex_credits − chosen course − Σ follow-up picks)`. An unfilled slot
+  reports `flex_credits − follow-up picks`. It is **derived, never stored**. (`credits_remaining` on
+  `student_plan_slots` is still written by `handleSave` but nothing displays it.)
+- A follow-up pick is a `student_free_add_slots` row with `fills_slot_id` = the slot's id, created
+  in the slot's own semester by `DegreePlan.handleAddRemainder`. It counts toward totals once via
+  the free-add pass of `computePlanCredits`, and moves, undoes and removes like any added course.
+- Callers must pass **every** free-add row, not one semester's: `calculateCredits` takes it as a
+  5th argument (`allFreeAddSlots`), and `creditsBeforeSemester` reads `freeAddSlots`. Keep new code that
+  sums slot hours on `getPoolRemainder`, or semester totals, standing checks and the PDF drift apart.
+- UI: `DegreePlan` builds `remainders` (`{ [slotId]: hours }`) and passes it to `Semester`
+  (`RemainderRow`), `planExportModel`, and `SlotModal` (`followUpHours` mode, which treats the slot's
+  own pick as taken rather than as the selection being edited). The row is selectable as
+  `{ kind: 'remainder', id }` (panel key `rem_<slotId>`), blocks "Mark complete", and appears in the
+  Issues tab as `rem_<slotId>`.
+- Only `FREE_ELECTIVE` qualifies. Other pools stay one course per slot; widening it means adding to
+  `REMAINDER_POOLS` and deciding what a short course in that pool means.
+- `usePlanCompleteness` still treats `FREE_ELECTIVE` as always filled; the app does not use that hook.
 
 ### `src/lib/flightFoundations.js`
 
@@ -460,7 +505,7 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 
 1. Read this file
 2. Read the relevant source files before writing any code — do not assume file contents
-3. Check existing migration files before writing new migrations (latest is tier 21; next is 22)
+3. Do not write a migration file (no more Supabase migrations). A schema change edits `local-deploy/setup/sql/000_baseline.sql` and the `localClient.js` defaults; see "No more Supabase migrations"
 4. Run `npm run test` from `MyDegreePlan_Frontend/` and confirm all tests pass before making changes
 5. Create a branch before starting work — never work directly on main
 6. Do not assume file names or function signatures — use Glob/Grep to find them

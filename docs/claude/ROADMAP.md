@@ -33,8 +33,8 @@ already primed: `student_plan_slots.archive_reason = 'banner_import'` is reserve
 path. **Do not implement archive logic for this value** until the integration is real.
 
 ### Admin catalog UI
-Right now course catalog edits go through `MyDegreePlan_Prototype/coursesFile.json` →
-`seed.js` → Supabase. A future admin UI would let department staff edit `courses`,
+Right now course catalog edits go through `MyDegreePlan_Prototype/prototype.json` and the
+`csc_*.json` templates → `npm run build:catalog` (local backend) or `seed.js` (Docker stack). A future admin UI would let department staff edit `courses`,
 `prerequisite_entries`, `corequisite_entries`, and `requirement_slots` directly against the DB
 with RLS-scoped write access.
 

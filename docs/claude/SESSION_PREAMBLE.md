@@ -5,7 +5,7 @@
 > Paste this at the top of any new Degree Planner session (Claude.ai, Claude Code, or Antigravity). Keep it tight; if something below no longer applies, prune rather than append.
 
 ## Project
-TTU Degree Planner — React 19 + Vite SPA with Supabase (Postgres + Auth) as backend.
+TTU Degree Planner — React 19 + Vite SPA. Local-first: the catalog is bundled and the student's plan lives in the browser (IndexedDB). The self-hosted Docker stack uses Postgres instead. No Supabase, and no new Supabase migrations.
 Current scope: **TTU Computer Science only** (4 concentrations: No Concentration, DSAI,
 Cybersecurity, HPC). Prototype commissioned by the TTU CSC department. Features: semester
 grid, prereq/coreq checking, drag-and-drop, transfer credits, AP/IB/CLEP/ACT exam credit.
@@ -22,8 +22,8 @@ grid, prereq/coreq checking, drag-and-drop, transfer credits, AP/IB/CLEP/ACT exa
 - `docs/claude/PROMPT_*.md` — paste-ready kickoff prompts for individual branches
 
 ## Key data sources
-Runtime data lives in Supabase tables, not JSON. JSON files in `MyDegreePlan_Prototype/`
-are seed inputs for `seed.js`:
+Catalog data comes from the JSON/SQL in `MyDegreePlan_Prototype/`: `npm run build:catalog` bakes it into
+`src/data/catalog.json` (local backend) and `seed.js` loads it into the Docker stack's Postgres:
 - `coursesFile.json` — course catalog → `courses`, `prerequisite_entries`, `corequisite_entries`
 - `degrees.json` + `csc_*.json` — concentration templates → `concentrations`, `requirement_slots`
 - `test_equivalencies.sql` — exam credit mappings → `test_equivalencies` table (drives `PriorCreditWizard`)
