@@ -8,13 +8,18 @@
 //
 // Pure functions — no Supabase calls, no side effects.
 
+import { equivalentSubstitutes } from './mathPlacement'
+
 // A requirement on the key course is also met by any listed substitute.
 // MATH1904 + MATH1906 (Extended Calculus IA/IB) together equal MATH1910 — the
 // catalog says so in MATH1906's description — and MATH1906 requires MATH1904,
 // so listing MATH1906 alone stands for the pair. Applies to every course that
 // requires MATH1910, including ones added to the catalog later.
+// MATH1730 (Pre-Calculus) is equivalent to MATH1710 plus MATH1720, so it meets a requirement for either
+// (mathPlacement.js holds the pair).
 export const REQUIREMENT_SUBSTITUTES = {
   MATH1910: ['MATH1906'],
+  ...equivalentSubstitutes(),
 }
 
 // Group DB rows into a requirement map, then apply substitutes.

@@ -416,6 +416,6 @@ describe('checkPrereqs — MATH1710 "ACT Math sub-score" placement', () => {
   it('offers the ACT score as an alternative when no placement is recorded', () => {
     const result = checkPrereqs('MATH1710', prereqMap, new Set(), [], courseMap)
     expect(result.satisfied).toBe(false)
-    expect(result.missing).toEqual(['(MATH1000 or ACT Math 19+)'])
+    expect(result.missing).toEqual(['(MATH1000 or ACT Math 19+ / SAT Math 510+)'])
   })
 })

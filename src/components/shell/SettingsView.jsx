@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { db, isLocalBackend } from '../../lib/dataClient'
 import {
-  ACT_FIELDS, validateActScore, describeActScore, saveActScoresAndRebuild,
+  ACT_FIELDS, validateScore, describeActScore, saveActScoresAndRebuild,
 } from '../../lib/actScores'
 import { isConcentrationSelectable } from '../../lib/concentrationAvailability'
 import DeviceDataCard from './DeviceDataCard'
@@ -86,14 +86,15 @@ function ActScoresCard({ profile, onSaved }) {
   async function handleSave() {
     const errs = {}
     for (const { key } of ACT_FIELDS) {
-      const err = validateActScore(draft[key])
+      const err = validateScore(key, draft[key])
       if (err) errs[key] = err
     }
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
 
     const numScores = {}
-    for (const { key } of ACT_FIELDS) numScores[key] = Number(draft[key])
+    // a blank score is no score (null), not zero
+    for (const { key } of ACT_FIELDS) numScores[key] = draft[key] === '' ? null : Number(draft[key])
 
     setSaving(true)
     setError(null)
@@ -114,11 +115,11 @@ function ActScoresCard({ profile, onSaved }) {
   return (
     <>
       <div className="ds-section-head">
-        <p className="ds-eyebrow">ACT scores</p>
-        <p className="ds-section-meta">Used for math placement and English credit</p>
+        <p className="ds-eyebrow">Test scores</p>
+        <p className="ds-section-meta">ACT or SAT Math sets your math placement; ACT English can earn credit. Leave blank what you do not have.</p>
       </div>
       <div className="ds-card ds-act">
-        {ACT_FIELDS.map(({ key, label }) => (
+        {ACT_FIELDS.map(({ key, label, min = 1, max = 36 }) => (
           <div key={key} className="ds-act-row">
             <label className="ds-act-label" htmlFor={`act-${key}`}>{label}</label>
             <span className={`ds-act-note${errors[key] ? ' ds-act-note-error' : ''}`}>
@@ -127,8 +128,8 @@ function ActScoresCard({ profile, onSaved }) {
             <input
               id={`act-${key}`}
               type="number"
-              min={1}
-              max={36}
+              min={min}
+              max={max}
               placeholder="—"
               className={[
                 'ds-act-input',

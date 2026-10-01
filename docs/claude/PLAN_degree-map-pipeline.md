@@ -193,3 +193,27 @@ cap would have silently truncated; a course added from search had no prerequisit
 - `requisite_text` is stored but not yet shown; `CourseDetailModal` should display "Not checked by the planner: ...".
 - 78 prerequisite rows point at retired courses (e.g. `CSC2001`); harmless for OR groups, a permanent warning for an AND.
 - `AI3000`/`AI3200` prerequisites parse exactly; the AI program record in Coursedog still lacks the AI courses (P0 finding).
+
+---
+
+## P1 follow-ups (2026-10-01, answered by the department and resolved before P2)
+
+1. **AI 3100 / AI 4200 prerequisites:** the AI courses replace their CSC namesakes (AI 3000 = CSC 4240, AI 3200 = CSC 4220)
+   and build on one another, so Coursedog's "CSC 4240 Intro to AI/ML" is AI 3000. Not an override: a general
+   `catalog/equivalents.json`, applied by the build as OR groups in both directions. Open: a transfer or prior credit for
+   CSC 4240 does not yet archive an AI 3000 slot (`transferCredits` matches exact codes); a DSAI student keeps DSAI, so it
+   only matters if a student moves programs.
+2. **Math placement:** the table matched the code's ACT tiers already. New: SAT Math equivalents, "no score = MATH 1000"
+   (the builder used to assume MATH 1910 with no score), MATH 1845 as Engineering Technology only, and MATH 1730 = 1710 + 1720
+   (requirement substitutes). One module, `mathPlacement.js`, with `effective: '2026-2027'`. Onboarding and Settings take an
+   optional SAT Math; every test score is now optional. `student_profiles.sat_math` is the one new column.
+   `MATH1720`'s ACT gate stays as the older Coursedog text (override) so planner warnings do not change.
+3. **Credit ranges:** the student chooses hours inside the range (add course, pool pick, transfer credit), stored on
+   `student_free_add_slots.credits` / `student_plan_slots.selected_credits`, applied by overlaying the course map.
+4. **Search:** undergraduate / graduate / placeholder tabs with match counts, in add-course and the prior-credit wizard.
+
+Found on the way: `flightFoundationsTemplates.test.js` read `prototype.json` and skips itself when it is missing, so
+deleting that file silently dropped 38 tests. Repointed at `courses.json`; the full suite is 811 tests with none skipped.
+
+Not done (deliberately): `requisite_text` is stored but not yet shown in the course detail panel; the free-elective picker
+still offers only courses a plan already loads (use "+ Add course" for anything else); the PDF export does not print SAT.

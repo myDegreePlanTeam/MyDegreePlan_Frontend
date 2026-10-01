@@ -11,7 +11,9 @@ import { db } from './dataClient'
 import { buildDegreePlan } from './degreeBuilder'
 import { buildRequirementMap } from './requirementMap'
 import { fetchRequirementSlots, programForProfile } from './requirementSlots'
-import { resolveActMathPlacement, resolveActEnglishCredit } from './actScoreResolver'
+import { resolveMathPlacementRow, resolveActEnglishCredit } from './actScoreResolver'
+import { resolveMathPlacement, validateSatMath, SAT_MATH_RANGE } from './mathPlacement'
+import { isMissingColumn } from './dbErrors'
 import { fetchPlannerCatalog } from './plannerCatalog'
 
 export const ACT_FIELDS = [
@@ -20,23 +22,28 @@ export const ACT_FIELDS = [
   { key: 'act_math',      label: 'Mathematics' },
   { key: 'act_reading',   label: 'Reading'     },
   { key: 'act_science',   label: 'Science'     },
+  // SAT Math places a student like ACT Math does; either one (or neither) is fine.
+  { key: 'sat_math',      label: 'SAT Math', min: SAT_MATH_RANGE.min, max: SAT_MATH_RANGE.max },
 ]
 
+// Scores are optional: a student may have taken the ACT, the SAT, both or neither.
 export function validateActScore(val) {
-  if (val === '' || val === null || val === undefined) return 'Required'
+  if (val === '' || val === null || val === undefined) return null
   const n = Number(val)
   if (!Number.isInteger(n) || n < 1 || n > 36) return 'Must be a whole number between 1 and 36'
   return null
+}
+
+export function validateScore(key, val) {
+  return key === 'sat_math' ? validateSatMath(val) : validateActScore(val)
 }
 
 // One-line note shown next to each score: what it does in this planner.
 export function describeActScore(key, score) {
   const n = Number(score)
   if (!score || !Number.isInteger(n)) return 'not recorded'
-  if (key === 'act_math') {
-    const row = resolveActMathPlacement(n)
-    return row ? `places into ${row.satisfies_course_code}` : 'no placement'
-  }
+  if (key === 'act_math') return `places into ${resolveMathPlacement({ act: n }).course}`
+  if (key === 'sat_math') return `places into ${resolveMathPlacement({ sat: n }).course}`
   if (key === 'act_english') {
     const rows = resolveActEnglishCredit(n)
     return rows.length > 0
@@ -48,10 +55,16 @@ export function describeActScore(key, score) {
 
 // Returns null on success or an error message.
 export async function saveActScoresAndRebuild(profile, numScores) {
-  const { error: updateErr } = await db
+  let { error: updateErr } = await db
     .from('student_profiles')
     .update(numScores)
     .eq('id', profile.id)
+  // A database whose setup step has not added sat_math yet: save the ACT scores without it.
+  if (isMissingColumn(updateErr)) {
+    if (numScores.sat_math != null) return 'Saving an SAT score needs a database update. Restart the stack so its setup step can apply it.'
+    const { sat_math: _unused, ...withoutSat } = numScores
+    ;({ error: updateErr } = await db.from('student_profiles').update(withoutSat).eq('id', profile.id))
+  }
   if (updateErr) return updateErr.message
 
   // Remove old ACT-derived rows, then re-insert for the new scores.
@@ -62,8 +75,9 @@ export async function saveActScoresAndRebuild(profile, numScores) {
     .in('credit_type', ['act_placement', 'act_credit'])
 
   const newPriorRows = []
-  const mathRow = resolveActMathPlacement(numScores.act_math)
-  if (mathRow) newPriorRows.push({ ...mathRow, plan_id: profile.id })
+  // Always a placement row: with no ACT or SAT Math score the student starts in MATH1000.
+  const mathRow = resolveMathPlacementRow({ act: numScores.act_math, sat: numScores.sat_math })
+  newPriorRows.push({ ...mathRow, plan_id: profile.id })
   for (const r of resolveActEnglishCredit(numScores.act_english)) {
     newPriorRows.push({ ...r, plan_id: profile.id })
   }
@@ -123,6 +137,7 @@ export async function saveActScoresAndRebuild(profile, numScores) {
     studentProfile: {
       student_type: profile.student_type,
       act_math:     numScores.act_math,
+      sat_math:     numScores.sat_math,
       start_season: profile.start_season,
     },
   })

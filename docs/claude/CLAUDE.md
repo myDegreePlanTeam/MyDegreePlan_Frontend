@@ -138,10 +138,10 @@ All catalog tables have public read RLS; student tables are scoped to `auth.uid(
 | `corequisite_entries` | Corequisite rules: same shape as prerequisite_entries |
 | `concentrations` | Degree concentrations (core, cybersecurity, dsai, hpc) |
 | `requirement_slots` | Per-concentration degree template: which courses/pools go in which semester |
-| `student_profiles` | One row per student; anchors all student state; references `auth.users.id` |
-| `student_plan_slots` | Student's plan state per template slot: selected course, locked, archived, drag overrides |
+| `student_profiles` | One row per student; anchors all student state; references `auth.users.id`. ACT scores plus `sat_math` (optional; either test, both or neither) |
+| `student_plan_slots` | Student's plan state per template slot: selected course, locked, archived, drag overrides. `selected_credits` is the hours chosen for a pick whose course carries a credit range |
 | `student_semester_notes` | Per-student, per-semester notes + `completed_by_student` toggle |
-| `student_free_add_slots` | Courses the student added outside the degree template. `fills_slot_id` (nullable → `requirement_slots.id`, `ON DELETE CASCADE`) marks a follow-up pick that fills a Free Elective slot's open hours; NULL for ordinary "+ Add course" rows |
+| `student_free_add_slots` | Courses the student added outside the degree template. `fills_slot_id` (nullable → `requirement_slots.id`, `ON DELETE CASCADE`) marks a follow-up pick that fills a Free Elective slot's open hours; NULL for ordinary "+ Add course" rows. `credits` is the hours chosen for an added course whose catalog entry carries a range |
 | `prior_credits` | Transfer credits, AP/IB/CLEP credit, dual enrollment, placement scores |
 | `test_equivalencies` | Exam-to-TTU-course mappings; drives the PriorCreditWizard |
 
@@ -233,6 +233,9 @@ and `npm run build:catalog` (local backend).
 - **Overrides:** `catalog/overrides.json` (each with a `why`) are the hand-curated requisites that differ from
   Coursedog (math placement chain, physics, ACT-gated courses). `catalog/fixtures/curated_requisites.json` freezes the
   166 originally curated courses; a test requires the build to reproduce them.
+- **Equivalent courses:** `catalog/equivalents.json` lists courses that are one class under two codes (AI 3000 is
+  CSC 4240; AI 3200 is CSC 4220, confirmed by the department 2026-10-01). The build turns a requirement on either into
+  an OR group of both, so AI 3100 accepts AI 3000 or CSC 4240 and AI 4200 accepts AI 3200 or CSC 4220.
 - A new course code that a template, pool or equivalency needs but Coursedog has retired is kept (`keep` set in
   `build_courses.mjs`); anything else Inactive is dropped.
 
@@ -286,7 +289,7 @@ See [`README.md`](./README.md) for branch prefixes and commit types. Additional 
 - `src/tests/[featureName].test.js` — primary suite
 - `src/lib/__tests__/[featureName].test.js` — collocated lib tests
 
-The suite is 39 files / 747 tests as of 2026-10-01 (plus 55 in the Prototype repo: `npm test` there covers the
+The suite is 42 files / 811 tests as of 2026-10-01 (plus 55 in the Prototype repo: `npm test` there covers the
 catalog parser and build); `ls src/tests src/lib/__tests__` is the
 current list. `poolRemainder.test.js` covers the Free Elective bucket and its effect on semester
 totals and standing; `planExportModel.test.js` covers the PDF side.
@@ -370,6 +373,32 @@ Guards against invalid prior credit entries before every INSERT (even when the w
   go through this module; a test proves the scoped slice builds the same plan as the whole catalog.
 - A course chosen from the add-course search carries only name and hours; `DegreePlan.handleAddCourse` calls
   `fetchCourseDetail` so its prerequisites are checked immediately.
+
+### `src/lib/mathPlacement.js`
+
+The one copy of Tennessee Tech's math placement table (`MATH_PLACEMENT`, `effective: '2026-2027'`; the College of
+Engineering and the Math Department reassess it every year). ACT Math 29+ / SAT 680+ → MATH1910; 27+ / 640+ → MATH1904;
+25+ / 590+ → MATH1730 (MATH1845 shares the band but is Engineering Technology only, never a CSC placement); 19+ / 510+ →
+MATH1710; below that, **or no score at all**, → MATH1000. `resolveMathPlacement({ act, sat })` takes the higher of the two
+scores. MATH1730 is equivalent to MATH1710 + MATH1720 (`equivalents`; `requirementMap` turns that into substitutes).
+`actScoreResolver.resolveMathPlacementRow` writes the `act_placement` prior-credit row (always, even with no score);
+`degreeBuilder` picks the math chain from the same resolver. Every ACT/SAT field is optional in onboarding and Settings.
+`MyDegreePlan_Prototype/math_sequences.json` mirrors the tiers; change both together.
+
+### `src/lib/creditHours.js`
+
+About 550 courses carry a credit range (`credits` is the minimum, `credits_max` the top). The student chooses hours,
+kept inside the range (`validateHours`), when adding a course, picking one for a pool slot, or entering transfer credit.
+The choice is stored on `student_free_add_slots.credits` / `student_plan_slots.selected_credits` and applied by
+`applyChosenHours`: `DegreePlan` keeps the raw rows in `baseCourses` and derives `courses` from them, so every consumer
+of `courses[code].credits` (totals, standing, PDF, transfer dedupe) sees the student's hours without knowing about ranges.
+
+### `src/lib/courseKinds.js`, `courseSearch.js`, `dbErrors.js`
+
+Course searches show one kind at a time: **undergraduate** (TTU code below 5000), **graduate** (5000+), **placeholder**
+(not a TTU course number: `…ELEC` elective credit, transfer-institution codes like `CIS186`). `searchCourses` fetches one
+batch and `rowsOfKind` splits it, so tabs switch without searching again (`AddCourseModal`, the prior-credit wizard).
+`dbErrors.selectWithOptional` retries a read without a column an install has not gained yet (`credits_max`, `selected_credits`).
 
 ### `src/lib/poolResolver.js`
 
@@ -478,7 +507,7 @@ result to `student_plan_slots` with `position_source = 'algorithm'`.
   grid's standing warnings use, so a course two exams award (AP English Language and ACT
   English 27+ both award ENGL1010) counts once. Summing `credits_awarded` placed senior
   courses on hours the student did not have and the grid then flagged them (BUG-53).
-- Archives math-chain courses outside the student's ACT track (`not_applicable`) and slots
+- Archives math-chain courses outside the student's math placement (`not_applicable`; ACT or SAT, no score = MATH1000) and slots
   covered by prior credit. Required courses pack first (15 cr target, 18 max), then pools
   backfill.
 - **Pool prerequisites:** a prereq group no fixed course or prior credit can satisfy resolves to

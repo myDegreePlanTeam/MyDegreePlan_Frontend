@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { db, isLocalBackend } from '../lib/dataClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
-import { resolveActMathPlacement, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
+import { resolveMathPlacementRow, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
+import { validateSatMath, SAT_MATH_RANGE } from '../lib/mathPlacement'
+import { isMissingColumn } from '../lib/dbErrors'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { isConcentrationSelectable } from '../lib/concentrationAvailability'
@@ -79,7 +81,7 @@ export default function Onboarding({ profileId, onComplete }) {
   const [selectedCode, setSelectedCode]   = useState(null)
   const [startSeason, setStartSeason]     = useState('')
   const [startYear, setStartYear]         = useState('')
-  const [actScores, setActScores]         = useState({ math: '', english: '', science: '', reading: '', composite: '' })
+  const [actScores, setActScores]         = useState({ math: '', english: '', science: '', reading: '', composite: '', satMath: '' })
   const [actErrors, setActErrors]         = useState({})
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState(null)
@@ -140,19 +142,17 @@ export default function Onboarding({ profileId, onComplete }) {
     setStep(3)
   }
 
-  // Step 3 → Step 4 (chain). All five ACT fields are required — the algorithm
-  // requires a score before it can run (Q6).
+  // Step 3 → Step 4 (chain). Every score is optional: with no ACT or SAT Math score a student
+  // starts in MATH1000 (mathPlacement.js). A score that is entered must be a real one.
   async function handleGoToStep4() {
     const fields = ['math', 'english', 'science', 'reading', 'composite']
     const errors = {}
     for (const f of fields) {
-      if (actScores[f] === '' || actScores[f] === null || actScores[f] === undefined) {
-        errors[f] = 'Required'
-      } else {
-        const err = validateActScore(actScores[f])
-        if (err) errors[f] = err
-      }
+      const err = validateActScore(actScores[f])
+      if (err) errors[f] = err
     }
+    const satErr = validateSatMath(actScores.satMath)
+    if (satErr) errors.satMath = satErr
     if (Object.keys(errors).length > 0) {
       setActErrors(errors)
       return
@@ -177,12 +177,16 @@ export default function Onboarding({ profileId, onComplete }) {
     }
   }
 
+  // The scores math placement reads (blank means not taken)
+  const placementScores = {
+    act: actScores.math === '' ? null : Number(actScores.math),
+    sat: actScores.satMath === '' ? null : Number(actScores.satMath),
+  }
+
   // ── Step 4: fetch course data for math chain display ─────────────
   useEffect(() => {
-    if (step !== 4 || actScores.math === '') return
-    const score = Number(actScores.math)
-    const placement = resolveActMathPlacement(score)
-    if (!placement) return
+    if (step !== 4) return
+    const placement = resolveMathPlacementRow(placementScores)
     const chainCodes = getMathChains(studentType)[placement.satisfies_course_code] ?? []
     const allCodes = [...chainCodes, ...MATH_FORK_CODES]
     setMathChainLoading(true)
@@ -238,6 +242,19 @@ export default function Onboarding({ profileId, onComplete }) {
         .update(profileFields)
         .eq('id', profileId))
     }
+    // A database whose setup step has not added sat_math yet: save without it, unless an SAT score was entered.
+    if (isMissingColumn(updateError)) {
+      const { sat_math: satMath, ...withoutSat } = profileFields
+      if (satMath != null) {
+        setError('Saving an SAT score needs a database update. Restart the stack so its setup step can apply it.')
+        setLoading(false)
+        return
+      }
+      ;({ error: updateError } = await db
+        .from('student_profiles')
+        .update(withoutSat)
+        .eq('id', profileId))
+    }
 
     if (updateError) {
       setError(updateError.message)
@@ -248,8 +265,9 @@ export default function Onboarding({ profileId, onComplete }) {
     // ── 2. Generate ACT-derived prior_credit rows and insert all ────────────
     let allRecords = [...priorCreditRecords]
 
-    const mathRow = resolveActMathPlacement(actMathNum)
-    if (mathRow) allRecords = [mathRow, ...allRecords]
+    // Always a placement row: with no ACT or SAT Math score the student starts in MATH1000.
+    const mathRow = resolveMathPlacementRow({ act: actMathNum, sat: actFields.sat_math })
+    allRecords = [mathRow, ...allRecords]
 
     const englishRows = resolveActEnglishCredit(actEnglishNum)
     if (englishRows.length > 0) allRecords = [...englishRows, ...allRecords]
@@ -292,6 +310,7 @@ export default function Onboarding({ profileId, onComplete }) {
       studentProfile: {
         student_type: studentType,
         act_math:     actMathNum,
+        sat_math:     actFields.sat_math,
         start_season: startSeason,
       },
     })
@@ -381,15 +400,15 @@ export default function Onboarding({ profileId, onComplete }) {
   const STEP_TITLES = {
     1: 'Tell us about yourself',
     2: 'Choose your concentration',
-    3: 'ACT Scores',
+    3: 'Test Scores',
     4: 'Your Math Sequence',
     5: 'Any prior credits?',
   }
   const STEP_SUBS = {
     1: 'This helps us tailor your degree plan.',
     2: 'This determines your required courses and recommended plan.',
-    3: 'Enter all five ACT scores to continue. All fields are required.',
-    4: 'Based on your ACT Math score, here are the courses in your math sequence.',
+    3: 'Enter the scores you have and leave the rest blank. Your ACT or SAT Math score sets where your math starts; with neither, it starts in MATH 1000.',
+    4: 'Based on your math placement, here are the courses in your math sequence.',
     5: "We'll use these to pre-fill your plan and skip false prereq warnings.",
   }
 
@@ -548,16 +567,17 @@ export default function Onboarding({ profileId, onComplete }) {
                 { key: 'science',   label: 'ACT Science'   },
                 { key: 'reading',   label: 'ACT Reading'   },
                 { key: 'composite', label: 'ACT Composite' },
-              ].map(({ key, label }) => (
+                { key: 'satMath',   label: 'SAT Math', min: SAT_MATH_RANGE.min, max: SAT_MATH_RANGE.max },
+              ].map(({ key, label, min = 1, max = 36 }) => (
                 <div key={key} className="onboarding-field">
                   <label className="onboarding-label">{label}</label>
                   <input
                     type="number"
                     className={`onboarding-input${actErrors[key] ? ' onboarding-input-error' : ''}`}
                     value={actScores[key]}
-                    min={1}
-                    max={36}
-                    placeholder="1–36"
+                    min={min}
+                    max={max}
+                    placeholder={`${min}–${max}`}
                     onKeyDown={e => {
                       // Block e, E, +, - which type="number" normally allows
                       if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault()
@@ -597,13 +617,20 @@ export default function Onboarding({ profileId, onComplete }) {
 
         {/* ── Step 4: Math chain display ── */}
         {step === 4 && (() => {
-          const placement = resolveActMathPlacement(Number(actScores.math))
-          const startCode = placement?.satisfies_course_code
-          const chainCodes = startCode ? (getMathChains(studentType)[startCode] ?? []) : []
+          const placement = resolveMathPlacementRow(placementScores)
+          const startCode = placement.satisfies_course_code
+          const chainCodes = getMathChains(studentType)[startCode] ?? []
+          const noScore = actScores.math === '' && actScores.satMath === ''
           const courseMap = {}
           for (const c of mathChainData) courseMap[c.code] = c
           return (
             <div className="onboarding-body">
+              {noScore && (
+                <p className="wizard-step-hint">
+                  With no ACT or SAT Math score you start in MATH 1000, Transitional Algebra. If you take the
+                  ACT or SAT later, add the score in Settings and your plan updates.
+                </p>
+              )}
               {mathChainLoading ? (
                 <p className="wizard-loading">Loading your math sequence…</p>
               ) : (

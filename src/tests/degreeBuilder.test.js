@@ -374,8 +374,20 @@ describe('buildDegreePlan — math chain', () => {
     expect(activeMath(plan({ student_type: 'returning' }))).toContain('MATH1920')
   })
 
-  it('missing ACT score defaults to the MATH1910 chain', () => {
-    expect(activeMath(plan({ act_math: undefined })).sort()).toEqual(['MATH1910', 'MATH2010'])
+  // The 2026-27 placement table: ACT Math 18 or less, or no test score, starts in MATH1000.
+  it('no ACT or SAT Math score starts in MATH1000', () => {
+    expect(activeMath(plan({ act_math: undefined })).sort()).toEqual(['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'])
+  })
+
+  it('an SAT Math score places like the matching ACT score', () => {
+    expect(activeMath(plan({ act_math: undefined, sat_math: 690 })).sort()).toEqual(['MATH1910', 'MATH2010'])
+    expect(activeMath(plan({ act_math: undefined, sat_math: 640 })).sort()).toEqual(['MATH1904', 'MATH1906', 'MATH2010'])
+    expect(activeMath(plan({ act_math: undefined, sat_math: 520 })).sort()).toEqual(['MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'])
+  })
+
+  it('the higher of an ACT and an SAT Math placement wins', () => {
+    expect(activeMath(plan({ act_math: 20, sat_math: 690 })).sort()).toEqual(['MATH1910', 'MATH2010'])
+    expect(activeMath(plan({ act_math: 30, sat_math: 520 })).sort()).toEqual(['MATH1910', 'MATH2010'])
   })
 
   it('archives a slot covered by a credit-bearing prior credit as prior_credit', () => {

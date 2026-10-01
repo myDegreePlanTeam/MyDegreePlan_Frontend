@@ -42,7 +42,8 @@ describe('buildRequirementMap — MATH1906 substitutes for MATH1910', () => {
   })
 
   it('adds MATH1906 to OR groups that accept MATH1910', () => {
-    expect(map.MATH3070[0].codes).toEqual(['MATH1130', 'MATH1710', 'MATH1910', 'MATH1906'])
+    // MATH1730 (Pre-Calculus) stands in for MATH1710 + MATH1720, so an OR group with MATH1710 accepts it too
+    expect(map.MATH3070[0].codes).toEqual(['MATH1130', 'MATH1710', 'MATH1910', 'MATH1730', 'MATH1906'])
     expect(map.CSC1300[0].codes).toEqual(['CSC1200', 'MATH1845', 'MATH1910', 'MATH1906'])
   })
 

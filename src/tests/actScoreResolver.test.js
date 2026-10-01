@@ -120,13 +120,17 @@ describe('actScoresToProfileFields', () => {
     expect(actScoresToProfileFields({
       math: '28', english: '30', science: '25', reading: '27', composite: '29',
     })).toEqual({
-      act_math: 28, act_english: 30, act_science: 25, act_reading: 27, act_composite: 29,
+      act_math: 28, act_english: 30, act_science: 25, act_reading: 27, act_composite: 29, sat_math: null,
     })
+  })
+
+  it('maps an SAT Math score the same way', () => {
+    expect(actScoresToProfileFields({ satMath: '650' })).toMatchObject({ sat_math: 650, act_math: null })
   })
 
   it('maps blank / missing scores to null', () => {
     expect(actScoresToProfileFields({ math: '', english: null, composite: '20' })).toEqual({
-      act_math: null, act_english: null, act_science: null, act_reading: null, act_composite: 20,
+      act_math: null, act_english: null, act_science: null, act_reading: null, act_composite: 20, sat_math: null,
     })
   })
 })

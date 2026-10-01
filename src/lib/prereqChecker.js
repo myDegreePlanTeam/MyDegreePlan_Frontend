@@ -23,6 +23,7 @@
 
 import { classifyPrereq } from './classifyPrereq.js'
 import { getActMathThreshold } from './actScoreResolver.js'
+import { getSatMathThreshold } from './mathPlacement.js'
 
 // ── checkCoreqs ───────────────────────────────────────────────────────────────
 // Checks whether corequisites for a course are satisfied by availableCodes.
@@ -194,7 +195,10 @@ export function checkPrereqs(
     // rather than listing them as separate comma-joined requirements.
     if (classification === 'placement') {
       const actThreshold = getActMathThreshold(courseCode)
-      const actHint = actThreshold != null ? `ACT Math ${actThreshold}+` : 'ACT placement score'
+      const satThreshold = getSatMathThreshold(courseCode)
+      const actHint = actThreshold != null
+        ? `ACT Math ${actThreshold}+${satThreshold ? ` / SAT Math ${satThreshold}+` : ''}`
+        : 'ACT placement score'
       const allCodes = missing.flatMap(entry => {
         const orMatch = entry.match(/^\((.+)\)$/)
         return orMatch ? orMatch[1].split(' or ').map(s => s.trim()) : [entry]

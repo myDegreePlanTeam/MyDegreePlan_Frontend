@@ -31,7 +31,7 @@ export default function Dashboard() {
 
         // gened_program (tier 21) may not exist yet on an un-migrated database:
         // read without it then, and the student is treated as legacy.
-        const readProfile = withProgram => db
+        const readProfile = (withProgram, withSat = true) => db
         .from('student_profiles')
         .select(`
             id,
@@ -40,6 +40,7 @@ export default function Dashboard() {
             start_year,
             student_type,
             ${withProgram ? 'gened_program,' : ''}
+            ${withSat ? 'sat_math,' : ''}
             act_math,
             act_english,
             act_reading,
@@ -55,8 +56,10 @@ export default function Dashboard() {
         .eq('user_id', user.id)
         .single()
 
+        // sat_math and gened_program were added later: read without the newest first, then without both.
         let { data, error } = await readProfile(true)
-        if (isMissingProgramColumn(error)) ({ data, error } = await readProfile(false))
+        if (isMissingProgramColumn(error)) ({ data, error } = await readProfile(true, false))
+        if (isMissingProgramColumn(error)) ({ data, error } = await readProfile(false, false))
 
         // PGRST116 means zero rows found — profile is missing
         if (error && error.code === 'PGRST116') {

@@ -19,7 +19,7 @@
 //   archived    : { [slotId]: archiveReason }   — 'not_applicable' | 'prior_credit'
 
 import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
-import { resolveActMathPlacement } from './actScoreResolver'
+import { resolveMathPlacement } from './mathPlacement'
 import { POOL_COURSES, POOL_CREDIT_ESTIMATES, REQUIREMENT_POOLS } from './poolResolver'
 
 // ─── Math chain data ──────────────────────────────────────────────────────────
@@ -74,9 +74,10 @@ const IMPLICIT_POOL_PREREQ = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getStudentMathChain(actMath, studentType) {
-  const placement = resolveActMathPlacement(actMath)
-  const startCode = placement?.satisfies_course_code ?? 'MATH1910'
+// The chain follows the student's math placement (mathPlacement.js): ACT or SAT Math, whichever places higher,
+// and MATH1000 when there is no score at all.
+function getStudentMathChain({ act_math, sat_math }, studentType) {
+  const startCode = resolveMathPlacement({ act: act_math, sat: sat_math }).course
   const chains = studentType === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
   return new Set(chains[startCode] ?? ['MATH1910', 'MATH2010'])
 }
@@ -107,7 +108,7 @@ function groupSatisfied(group, satisfiedCodes) {
  * @param {object} opts.prereqMap   — { [code]: { [groupIndex]: { logic, codes } } }
  * @param {object} opts.coreqMap    — same shape as prereqMap
  * @param {Array}  opts.priorCredits — student's prior_credits rows
- * @param {object} opts.studentProfile — { student_type, act_math, start_season }
+ * @param {object} opts.studentProfile — { student_type, act_math, sat_math, start_season }
  *
  * @returns {{ assignments: object, archived: object }}
  *   assignments: { [slotId]: semesterNumber }
@@ -129,14 +130,14 @@ function planLength({ assignments }) {
 // One placement pass. `reserve` = credits per regular semester that required
 // courses leave free for gen-eds; 0 gives the compact, required-first layout.
 function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile }, reserve) {
-  const { student_type, act_math, start_season } = studentProfile
+  const { student_type, act_math, sat_math, start_season } = studentProfile
 
   // ── Step 1: Archive slots covered by prior credits ──────────────────────
   // resolveTransferCredits returns { [slotId]: true } for covered slots.
   const priorCreditCovered = resolveTransferCredits(priorCredits, {}, slots)
 
   // ── Step 2: Archive inapplicable math chain courses ─────────────────────
-  const studentChain = getStudentMathChain(act_math, student_type)
+  const studentChain = getStudentMathChain({ act_math, sat_math }, student_type)
   const mathArchived = {}
   for (const slot of slots) {
     if (ALL_MATH_CHAIN_CODES.has(slot.class_code) && !studentChain.has(slot.class_code)) {
