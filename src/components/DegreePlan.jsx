@@ -11,7 +11,8 @@ import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
-import { fetchRequirementSlots, programForProfile } from '../lib/requirementSlots'
+import { fetchRequirementSlots } from '../lib/requirementSlots'
+import { catalogYearForProfile } from '../lib/catalogYears'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { buildPlanIssues, countIssuesBySemester, FULL_TIME_MIN, HEAVY_LOAD_MAX } from '../lib/planIssues'
 import Semester from './Semester'
@@ -232,7 +233,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const { data: slotData, error: slotError } = await fetchRequirementSlots(
         db,
         profile.concentration_id,
-        programForProfile(profile),
+        catalogYearForProfile(profile),
         'id, semester_number, slot_order, class_code, is_pool, flex_credits',
         [{ column: 'semester_number' }, { column: 'slot_order' }],
       )
@@ -1636,13 +1637,23 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   // ── Concentration switch ──────────────────────────────────────────
-  async function handleConcentrationSwitch(newConc) {
+  // plan: the degree_plans row the new program follows for this student's entry year (null if unknown)
+  async function handleConcentrationSwitch(newConc, plan = null) {
     setSwitching(true)
 
-    const { error: updateErr } = await db
+    // The new program's plan may be a different catalog year, so the profile follows it. A database without
+    // the catalog_year / gened_program columns switches by program alone.
+    const planFields = plan ? { catalog_year: plan.catalog_year, gened_program: plan.gened_program } : {}
+    let { error: updateErr } = await db
       .from('student_profiles')
-      .update({ concentration_id: newConc.id })
+      .update({ concentration_id: newConc.id, ...planFields })
       .eq('id', profile.id)
+    if (isMissingColumn(updateErr) && plan) {
+      ;({ error: updateErr } = await db
+        .from('student_profiles')
+        .update({ concentration_id: newConc.id })
+        .eq('id', profile.id))
+    }
     if (updateErr) { setSwitching(false); return }
 
     const deleteErr = await clearPlanData()
@@ -1653,7 +1664,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setUndoStack([])
     setExtraSemesters([])
     setExtraSemesterTerms({})
-    onProfileChange({ ...profile, concentration_id: newConc.id, concentrations: newConc })
+    onProfileChange({ ...profile, concentration_id: newConc.id, ...planFields, concentrations: newConc })
   }
 
   // ── Add semester wizard ───────────────────────────────────────────
@@ -2131,8 +2142,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       {showSwitchModal && (
         <ConcentrationModal
-          currentId={profile.concentration_id}
-          studentType={profile.student_type}
+          profile={profile}
           onSwitch={handleConcentrationSwitch}
           onClose={() => setShowSwitchModal(false)}
           switching={switching}

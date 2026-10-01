@@ -3,7 +3,10 @@ import { db, isLocalBackend } from '../../lib/dataClient'
 import {
   ACT_FIELDS, validateScore, describeActScore, saveActScoresAndRebuild,
 } from '../../lib/actScores'
-import { isConcentrationSelectable } from '../../lib/concentrationAvailability'
+import {
+  academicYearOf, availablePrograms, catalogYearForProfile, degreeTitle, groupByMajor, planForYear,
+} from '../../lib/catalogYears'
+import { selectWithOptional } from '../../lib/dbErrors'
 import DeviceDataCard from './DeviceDataCard'
 
 export default function SettingsView({
@@ -167,57 +170,77 @@ function ActScoresCard({ profile, onSaved }) {
 
 // ── ConcentrationModal ────────────────────────────────────────────────────────
 
-export function ConcentrationModal({ currentId, studentType, onSwitch, onClose, switching }) {
-  const [concentrations, setConcentrations] = useState([])
-  const [selected, setSelected]             = useState(null)
-  const [loading, setLoading]               = useState(true)
-  const [fetchError, setFetchError]         = useState(null)
+export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
+  const currentId = profile.concentration_id
+  const [programs, setPrograms]   = useState([])
+  const [plans, setPlans]         = useState([])
+  const [selected, setSelected]   = useState(null)
+  const [loading, setLoading]     = useState(true)
+  const [fetchError, setFetchError] = useState(null)
+
+  // The student stays bound to the catalog year they entered under; in another program that year resolves to the
+  // latest plan not newer than it (catalogYears.js).
+  const entryYear = academicYearOf(profile.start_season, profile.start_year) ?? catalogYearForProfile(profile)
 
   useEffect(() => {
-    db
-      .from('concentrations')
-      .select('id, code, name, total_hours')
-      .order('id', { ascending: true })
-      .then(({ data, error }) => {
-        if (error) { setFetchError(error.message); setLoading(false); return }
-        const currentCode = data.find(c => c.id === currentId)?.code ?? null
-        setConcentrations(data.filter(c => isConcentrationSelectable(c.code, studentType, currentCode)))
-        setSelected(data.find(c => c.id === currentId) ?? null)
-        setLoading(false)
-      })
-  }, [currentId, studentType])
+    Promise.all([
+      selectWithOptional(
+        columns => db.from('concentrations').select(columns).order('id', { ascending: true }),
+        'id, code, name, total_hours',
+        ['kind', 'degree', 'major_name', 'department', 'supersedes', 'last_catalog_year', 'description'],
+      ),
+      db.from('degree_plans').select('id, concentration_id, catalog_year, gened_program, total_hours, covers_earlier'),
+    ]).then(([programsRes, plansRes]) => {
+      const error = programsRes.error ?? plansRes.error
+      if (error) { setFetchError(error.message); setLoading(false); return }
+      setPrograms(programsRes.data)
+      setPlans(plansRes.data)
+      setSelected(programsRes.data.find(c => c.id === currentId) ?? null)
+      setLoading(false)
+    })
+  }, [currentId])
 
+  const options = availablePrograms(programs, plans, entryYear, { currentId })
+  const groups  = groupByMajor(options)
+  const current = programs.find(c => c.id === currentId)
+  const currentGroup = groupByMajor(current ? [current] : [])[0]
+  const noun    = current?.kind === 'major' ? 'program' : 'concentration'
   const isDifferent = selected && selected.id !== currentId
 
   return (
     <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !switching) onClose() }}>
       <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="conc-title">
         <div className="ds-modal-head">
-          <p className="ds-eyebrow">B.S. Computer Science</p>
-          <h3 className="ds-modal-title" id="conc-title">Change concentration</h3>
+          <p className="ds-eyebrow">{currentGroup ? degreeTitle(currentGroup) : 'Degree program'}</p>
+          <h3 className="ds-modal-title" id="conc-title">Change {noun}</h3>
           <p className="ds-sub" style={{ fontSize: 11, lineHeight: 1.6 }}>
             Prior credits and placement scores carry over. The plan is rebuilt for the new requirements.
           </p>
         </div>
         <div className="ds-modal-body">
           {loading ? (
-            <p className="ds-modal-text">Loading concentrations…</p>
+            <p className="ds-modal-text">Loading programs…</p>
           ) : fetchError ? (
             <p className="ds-modal-text" style={{ color: 'var(--danger)' }}>{fetchError}</p>
-          ) : concentrations.map(c => (
-            <button
-              key={c.id}
-              className={`ds-option${selected?.id === c.id ? ' ds-option-selected' : ''}`}
-              onClick={() => setSelected(c)}
-            >
-              <span className="ds-option-mark" aria-hidden="true">{selected?.id === c.id ? '●' : '○'}</span>
-              <span className="ds-option-text">
-                <span className="ds-setting-label">{c.name}</span>
-              </span>
-              <span className="ds-option-meta">
-                {c.id === currentId ? 'current' : `${c.total_hours} hrs`}
-              </span>
-            </button>
+          ) : groups.map(group => (
+            <div key={group.majorName}>
+              {groups.length > 1 && <p className="ds-eyebrow" style={{ margin: '10px 0 4px' }}>{degreeTitle(group)}</p>}
+              {group.programs.map(c => (
+                <button
+                  key={c.id}
+                  className={`ds-option${selected?.id === c.id ? ' ds-option-selected' : ''}`}
+                  onClick={() => setSelected(c)}
+                >
+                  <span className="ds-option-mark" aria-hidden="true">{selected?.id === c.id ? '●' : '○'}</span>
+                  <span className="ds-option-text">
+                    <span className="ds-setting-label">{c.name}</span>
+                  </span>
+                  <span className="ds-option-meta">
+                    {c.id === currentId ? 'current' : `${c.total_hours} hrs`}
+                  </span>
+                </button>
+              ))}
+            </div>
           ))}
           {isDifferent && (
             <p className="ds-modal-warn">
@@ -229,10 +252,10 @@ export function ConcentrationModal({ currentId, studentType, onSwitch, onClose, 
           <button className="ds-btn-ghost" onClick={onClose} disabled={switching}>Cancel</button>
           <button
             className="ds-btn-primary"
-            onClick={() => isDifferent && onSwitch(selected)}
+            onClick={() => isDifferent && onSwitch(selected, planForYear(plans, selected.id, entryYear))}
             disabled={!isDifferent || switching}
           >
-            {switching ? 'Switching…' : isDifferent ? `Switch to ${selected.name}` : 'Choose a concentration'}
+            {switching ? 'Switching…' : isDifferent ? `Switch to ${selected.name}` : `Choose a ${noun}`}
           </button>
         </div>
       </div>

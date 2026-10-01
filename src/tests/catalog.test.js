@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { flattenReqArray, parseEquivalencies, assembleCatalog, POOL_CODES } from '../../scripts/catalogLib.mjs'
+import { existsSync } from 'node:fs'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { flattenReqArray, parseEquivalencies, assembleCatalog } from '../../scripts/catalogLib.mjs'
+import { POOL_CREDIT_ESTIMATES } from '../lib/poolResolver'
 import catalogJson from '../data/catalog.json'
 import descriptionsJson from '../data/catalog.descriptions.json'
 import { classifyPrereq } from '../lib/classifyPrereq'
@@ -59,16 +62,95 @@ describe('assembleCatalog id stability', () => {
     equivalencySql: '',
     planSlotSync: stubSync,
   }
-  const plan = classCodes => [{ code: 'core', name: 'Core', program: 'legacy', data: { hours: 120, courses: classCodes.map(classCode => ({ classCode })) } }]
+  const program = { code: 'core', name: 'Core', kind: 'concentration', degree: 'B.S.', majorName: 'Computer Science', department: 'CSC', supersedes: null, lastCatalogYear: null, description: 'The core.' }
+  // keys follow the spec convention: the code, or CODE#n when a code repeats
+  const plan = classCodes => {
+    const seen = {}
+    const total = {}
+    for (const c of classCodes) total[c] = (total[c] ?? 0) + 1
+    return {
+      programs: [program],
+      pools: { GEN_ED: 3 },
+      plans: [{
+        program: 'core', catalogYear: '2025-2026', genedProgram: 'legacy', coversEarlier: true, hours: 120,
+        slots: classCodes.map(classCode => {
+          seen[classCode] = (seen[classCode] ?? 0) + 1
+          return { key: total[classCode] > 1 ? `${classCode}#${seen[classCode]}` : classCode, classCode, credits: null, mapSemester: null }
+        }),
+      }],
+    }
+  }
 
   it('keeps ids for slots that survive a regeneration and never reuses removed ids', () => {
-    const first = assembleCatalog({ ...base, plans: plan(['CSC1', 'GEN_ED', 'GEN_ED']), previous: null }).catalog
+    const first = assembleCatalog({ ...base, degreePlans: plan(['CSC1', 'GEN_ED', 'GEN_ED']), previous: null }).catalog
     const ids = first.tables.requirement_slots.map(s => s.id)
-    const second = assembleCatalog({ ...base, plans: plan(['GEN_ED', 'CSC1', 'CSC2']), previous: first }).catalog
+    const second = assembleCatalog({ ...base, degreePlans: plan(['GEN_ED', 'CSC1', 'CSC2']), previous: first }).catalog
     const byCode = c => second.tables.requirement_slots.filter(s => s.class_code === c).map(s => s.id)
     expect(byCode('CSC1')).toEqual([ids[0]])
     expect(byCode('GEN_ED')).toEqual([ids[1]])         // the older GEN_ED keeps its id; the newer one is dropped
     expect(byCode('CSC2')[0]).toBeGreaterThan(Math.max(...ids))
+  })
+})
+
+// The same id guarantees against the prototype repo's real planSlotSync (the one seed.js and build:catalog use).
+// The repo is not present in every checkout (a frontend-only build), so these skip themselves without it.
+const SLOT_SYNC = fileURLToPath(new URL('../../../MyDegreePlan_Prototype/slotSync.js', import.meta.url))
+describe.skipIf(!existsSync(SLOT_SYNC))('assembleCatalog with the real planSlotSync', () => {
+  const program = { code: 'core', name: 'Core', kind: 'concentration', degree: 'B.S.', majorName: 'Computer Science', department: 'CSC', supersedes: null, lastCatalogYear: null, description: 'The core.' }
+  const base = (planSlotSync) => ({
+    courses: [{ code: 'CSC1', name: 'One', credits: 3, subjectCode: 'CSC', prerequisites: [], corequisites: [] }],
+    equivalencySql: '',
+    planSlotSync,
+  })
+  const degreePlans = (slots, extra = {}) => ({
+    programs: [program],
+    pools: { GEN_ED: 3 },
+    plans: [{ program: 'core', catalogYear: '2025-2026', genedProgram: 'legacy', coversEarlier: true, hours: 120, ...extra,
+      slots: slots.map(([key, classCode]) => ({ key, classCode, credits: null, mapSemester: null })) }],
+  })
+
+  it('keeps a slot\'s id by key however the plan is reordered, and writes keys, years and the plan index', async () => {
+    const { planSlotSync } = await import(/* @vite-ignore */ pathToFileURL(SLOT_SYNC).href)
+    const first = assembleCatalog({ ...base(planSlotSync), degreePlans: degreePlans([['CSC1', 'CSC1'], ['GEN_ED#1', 'GEN_ED'], ['GEN_ED#2', 'GEN_ED']]), previous: null }).catalog
+    const id = key => first.tables.requirement_slots.find(s => s.slot_key === key).id
+    const second = assembleCatalog({ ...base(planSlotSync), degreePlans: degreePlans([['GEN_ED#2', 'GEN_ED'], ['CSC1', 'CSC1'], ['GEN_ED#1', 'GEN_ED']]), previous: first }).catalog
+    const by = key => second.tables.requirement_slots.find(s => s.slot_key === key).id
+    expect([by('CSC1'), by('GEN_ED#1'), by('GEN_ED#2')]).toEqual([id('CSC1'), id('GEN_ED#1'), id('GEN_ED#2')])
+    expect(second.tables.requirement_slots.every(s => s.catalog_year === '2025-2026')).toBe(true)
+    expect(second.tables.degree_plans).toEqual([{ id: 1, concentration_id: 1, catalog_year: '2025-2026', gened_program: 'legacy', total_hours: 120, covers_earlier: true }])
+  })
+
+  it('adopts the rows of a catalog built before keys existed, keeping every id', async () => {
+    const { planSlotSync } = await import(/* @vite-ignore */ pathToFileURL(SLOT_SYNC).href)
+    const old = { format: 1, tables: {
+      courses: [], concentrations: [{ id: 1, code: 'core', name: 'Core', total_hours: 120 }],
+      requirement_slots: [
+        { id: 40, concentration_id: 1, class_code: 'CSC1', is_pool: false, gened_program: 'legacy' },
+        { id: 41, concentration_id: 1, class_code: 'GEN_ED', is_pool: true, gened_program: 'legacy' },
+        { id: 55, concentration_id: 1, class_code: 'GEN_ED', is_pool: true, gened_program: 'legacy' },
+      ],
+    } }
+    const { catalog, totals } = assembleCatalog({ ...base(planSlotSync), degreePlans: degreePlans([['CSC1', 'CSC1'], ['GEN_ED#1', 'GEN_ED'], ['GEN_ED#2', 'GEN_ED']]), previous: old })
+    expect(totals).toEqual({ kept: 3, inserted: 0, removed: 0 })
+    expect(catalog.tables.requirement_slots.map(s => [s.id, s.slot_key])).toEqual([[40, 'CSC1'], [41, 'GEN_ED#1'], [55, 'GEN_ED#2']])
+  })
+
+  it('gives a new plan year its own set of slots and its own index row, leaving the old year alone', async () => {
+    const { planSlotSync } = await import(/* @vite-ignore */ pathToFileURL(SLOT_SYNC).href)
+    const first = assembleCatalog({ ...base(planSlotSync), degreePlans: degreePlans([['CSC1', 'CSC1']]), previous: null }).catalog
+    const both = {
+      programs: [program], pools: { GEN_ED: 3 },
+      plans: [
+        ...degreePlans([['CSC1', 'CSC1']]).plans,
+        { program: 'core', catalogYear: '2027-2028', genedProgram: 'flight_foundations', coversEarlier: false, hours: 120, slots: [{ key: 'CSC1', classCode: 'CSC1', credits: null, mapSemester: 2 }] },
+      ],
+    }
+    const { catalog, totals } = assembleCatalog({ ...base(planSlotSync), degreePlans: both, previous: first })
+    expect(totals).toEqual({ kept: 1, inserted: 1, removed: 0 })
+    const rows = catalog.tables.requirement_slots
+    expect(rows.map(s => [s.catalog_year, s.gened_program, s.map_semester ?? null])).toEqual([['2025-2026', 'legacy', null], ['2027-2028', 'flight_foundations', 2]])
+    expect(rows[0].id).toBe(first.tables.requirement_slots[0].id)
+    expect(catalog.tables.degree_plans.map(p => p.catalog_year)).toEqual(['2025-2026', '2027-2028'])
   })
 })
 
@@ -91,7 +173,8 @@ describe('committed catalog.json', () => {
     const concIds = new Set(t.concentrations.map(c => c.id))
     for (const s of t.requirement_slots) {
       expect(concIds.has(s.concentration_id), `slot ${s.id}`).toBe(true)
-      expect(s.is_pool, `slot ${s.id} ${s.class_code}`).toBe(POOL_CODES.has(s.class_code))
+      // the pool codes the generated plans declare are the ones the app knows (poolResolver.js)
+      expect(s.is_pool, `slot ${s.id} ${s.class_code}`).toBe(s.class_code in POOL_CREDIT_ESTIMATES)
       if (!s.is_pool) expect(courseCodes.has(s.class_code), s.class_code).toBe(true)
     }
   })
@@ -120,6 +203,28 @@ describe('committed catalog.json', () => {
     expect(classifyPrereq('CSC1200', null, courseMap)).toBe('placement')    // "ACT Math Score of 25 or higher or ..."
     expect(classifyPrereq('MATH1710', null, courseMap)).toBe('placement')
     expect(classifyPrereq('CSC1310', null, courseMap)).toBe('completion')
+  })
+  it('describes every program, and indexes one degree plan per slot set', () => {
+    for (const c of t.concentrations) {
+      for (const f of ['kind', 'degree', 'major_name', 'department', 'description']) expect(c[f], `${c.code}.${f}`).toBeTruthy()
+      expect(['major', 'concentration']).toContain(c.kind)
+    }
+    expect(t.concentrations.find(c => c.code === 'dsai').last_catalog_year).toBe('2025-2026')
+    const sets = new Set(t.requirement_slots.map(s => `${s.concentration_id}|${s.catalog_year}`))
+    const indexed = new Set(t.degree_plans.map(p => `${p.concentration_id}|${p.catalog_year}`))
+    expect(indexed).toEqual(sets)
+    expect(t.degree_plans.length).toBe(sets.size)
+  })
+  it('gives every slot a key (unique within its plan), a catalog year and a gen-ed program that matches its plan', () => {
+    const plan = new Map(t.degree_plans.map(p => [`${p.concentration_id}|${p.catalog_year}`, p]))
+    const seen = new Set()
+    for (const s of t.requirement_slots) {
+      expect(s.slot_key, `slot ${s.id}`).toBeTruthy()
+      const id = `${s.concentration_id}|${s.catalog_year}|${s.slot_key}`
+      expect(seen.has(id), id).toBe(false)
+      seen.add(id)
+      expect(s.gened_program, `slot ${s.id}`).toBe(plan.get(`${s.concentration_id}|${s.catalog_year}`).gened_program)
+    }
   })
   it('gives each concentration a complete slot set per program it offers (DSAI is legacy only)', () => {
     const programs = Object.fromEntries(t.concentrations.map(c => [c.code, new Set(t.requirement_slots.filter(s => s.concentration_id === c.id).map(s => s.gened_program))]))

@@ -1,0 +1,154 @@
+import { describe, it, expect } from 'vitest'
+import {
+  yearStart, academicYearOf, compareCatalogYears, planForYear, isProgramOpen, availablePrograms,
+  groupByMajor, degreeTitle, catalogYearForProfile,
+} from '../lib/catalogYears'
+import { getGenEdProgram } from '../lib/flightFoundations'
+import catalog from '../data/catalog.json'
+
+const programs = catalog.tables.concentrations
+const plans = catalog.tables.degree_plans
+const id = code => programs.find(p => p.code === code).id
+
+describe('yearStart / academicYearOf / compareCatalogYears', () => {
+  it('reads a catalog year, and refuses anything that is not two consecutive years', () => {
+    expect(yearStart('2026-2027')).toBe(2026)
+    for (const bad of ['2026-2028', '2026', '26-27', '2027-2026', '', null, undefined]) expect(yearStart(bad)).toBeNull()
+  })
+  it('puts Fall in the year it starts and Spring and Summer in the year before', () => {
+    expect(academicYearOf('Fall', 2026)).toBe('2026-2027')
+    expect(academicYearOf('Spring', 2027)).toBe('2026-2027')
+    expect(academicYearOf('Summer', 2026)).toBe('2025-2026')
+    expect(academicYearOf('Fall', '2030')).toBe('2030-2031')
+  })
+  it('has no year for an incomplete term', () => {
+    expect(academicYearOf('', 2026)).toBeNull()
+    expect(academicYearOf('Fall', '')).toBeNull()
+    expect(academicYearOf(null, null)).toBeNull()
+    expect(academicYearOf('Winter', 2026)).toBeNull()
+  })
+  it('orders years', () => {
+    expect(compareCatalogYears('2025-2026', '2026-2027')).toBeLessThan(0)
+    expect(compareCatalogYears('2027-2028', '2026-2027')).toBeGreaterThan(0)
+    expect(compareCatalogYears('2026-2027', '2026-2027')).toBe(0)
+  })
+})
+
+// ── planForYear on a small, explicit set of plans ────────────────────────────
+
+const P = [
+  { concentration_id: 1, catalog_year: '2025-2026', gened_program: 'legacy', covers_earlier: true },
+  { concentration_id: 1, catalog_year: '2027-2028', gened_program: 'flight_foundations', covers_earlier: false },
+  { concentration_id: 1, catalog_year: '2026-2027', gened_program: 'flight_foundations', covers_earlier: false },
+  { concentration_id: 2, catalog_year: '2026-2027', gened_program: 'flight_foundations', covers_earlier: false },
+]
+
+describe('planForYear', () => {
+  it('is the latest plan not newer than the entry year', () => {
+    expect(planForYear(P, 1, '2026-2027').catalog_year).toBe('2026-2027')
+    expect(planForYear(P, 1, '2027-2028').catalog_year).toBe('2027-2028')
+    expect(planForYear(P, 1, '2030-2031').catalog_year).toBe('2027-2028')   // a year with no revision keeps the last one
+    expect(planForYear(P, 1, '2025-2026').catalog_year).toBe('2025-2026')
+  })
+  it('gives a student who entered before the first plan that plan when it covers earlier years', () => {
+    expect(planForYear(P, 1, '2016-2017').catalog_year).toBe('2025-2026')
+  })
+  it('offers nothing before a first plan that does not cover earlier years', () => {
+    expect(planForYear(P, 2, '2025-2026')).toBeNull()
+  })
+  it('offers nothing for an unknown program or an unusable year', () => {
+    expect(planForYear(P, 9, '2026-2027')).toBeNull()
+    expect(planForYear(P, 1, null)).toBeNull()
+    expect(planForYear(P, 1, 'soon')).toBeNull()
+    expect(planForYear(undefined, 1, '2026-2027')).toBeNull()
+  })
+  it('does not depend on the order the rows arrive in', () => {
+    expect(planForYear([...P].reverse(), 1, '2026-2027').catalog_year).toBe('2026-2027')
+  })
+})
+
+describe('isProgramOpen', () => {
+  it('is open when there is no last year, and through the last year when there is one', () => {
+    expect(isProgramOpen({ last_catalog_year: null }, '2040-2041')).toBe(true)
+    expect(isProgramOpen({ last_catalog_year: '2025-2026' }, '2025-2026')).toBe(true)
+    expect(isProgramOpen({ last_catalog_year: '2025-2026' }, '2016-2017')).toBe(true)
+    expect(isProgramOpen({ last_catalog_year: '2025-2026' }, '2026-2027')).toBe(false)
+    expect(isProgramOpen({ last_catalog_year: '2025-2026' }, null)).toBe(false)
+  })
+})
+
+// ── the real catalog ─────────────────────────────────────────────────────────
+
+describe('programs available in the real catalog', () => {
+  const codes = year => availablePrograms(programs, plans, year).map(p => p.code)
+
+  it('offers Data Science & AI only to students who entered through 2025-2026', () => {
+    expect(codes('2025-2026')).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
+    expect(codes('2018-2019')).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
+    expect(codes('2026-2027')).toEqual(['core', 'cybersecurity', 'hpc'])
+    expect(codes('2030-2031')).toEqual(['core', 'cybersecurity', 'hpc'])
+  })
+  it('keeps a student\'s own program visible even after it closes', () => {
+    expect(availablePrograms(programs, plans, '2026-2027', { currentId: id('dsai') }).map(p => p.code)).toContain('dsai')
+  })
+  it('hands every program the plan its entry year implies', () => {
+    expect(planForYear(plans, id('core'), '2025-2026').gened_program).toBe('legacy')
+    expect(planForYear(plans, id('core'), '2026-2027').gened_program).toBe('flight_foundations')
+    expect(planForYear(plans, id('dsai'), '2025-2026').gened_program).toBe('legacy')
+    expect(planForYear(plans, id('dsai'), '2026-2027').catalog_year).toBe('2025-2026')   // closed, but the nearest plan if asked
+  })
+})
+
+// The rule this replaces: Fall 2026 or later is Flight Foundations, anything earlier is legacy. Every entry term
+// from 2016 to 2032 must resolve to the same gen-ed program for every program that is open to it.
+describe('plan resolution agrees with the old entry-term rule', () => {
+  const seasons = ['Fall', 'Spring', 'Summer']
+  it('for every entry term from 2016 to 2032', () => {
+    const disagreements = []
+    for (let year = 2016; year <= 2032; year++) {
+      for (const season of seasons) {
+        const entry = academicYearOf(season, year)
+        const old = getGenEdProgram(season, year)
+        for (const p of availablePrograms(programs, plans, entry)) {
+          const got = planForYear(plans, p.id, entry).gened_program
+          if (got !== old) disagreements.push(`${season} ${year} ${p.code}: ${got} vs ${old}`)
+        }
+      }
+    }
+    expect(disagreements).toEqual([])
+  })
+})
+
+describe('groupByMajor / degreeTitle', () => {
+  it('puts the CSC concentrations under one major, in id order', () => {
+    const groups = groupByMajor(programs)
+    expect(groups).toHaveLength(1)
+    expect(degreeTitle(groups[0])).toBe('B.S. Computer Science')
+    expect(groups[0].programs.map(p => p.code)).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
+  })
+  it('keeps separate majors separate, a major with no concentrations being a group of one', () => {
+    const rows = [
+      { id: 1, name: 'CSC Core', major_name: 'Computer Science', degree: 'B.S.' },
+      { id: 2, name: 'Artificial Intelligence', major_name: 'Artificial Intelligence', degree: 'B.S.' },
+      { id: 3, name: 'CSC HPC', major_name: 'Computer Science', degree: 'B.S.' },
+    ]
+    const groups = groupByMajor(rows)
+    expect(groups.map(g => g.majorName)).toEqual(['Computer Science', 'Artificial Intelligence'])
+    expect(groups[0].programs.map(p => p.id)).toEqual([1, 3])
+  })
+  it('falls back to the program name when a row has no major', () => {
+    expect(groupByMajor([{ id: 1, name: 'X' }])[0].majorName).toBe('X')
+  })
+})
+
+describe('catalogYearForProfile', () => {
+  it('uses the stored year', () => {
+    expect(catalogYearForProfile({ catalog_year: '2027-2028', gened_program: 'legacy' })).toBe('2027-2028')
+  })
+  it('reads a profile saved before catalog years by its gen-ed program', () => {
+    expect(catalogYearForProfile({ gened_program: 'flight_foundations' })).toBe('2026-2027')
+    expect(catalogYearForProfile({ gened_program: 'legacy' })).toBe('2025-2026')
+    expect(catalogYearForProfile({})).toBe('2025-2026')
+    expect(catalogYearForProfile(null)).toBe('2025-2026')
+  })
+})

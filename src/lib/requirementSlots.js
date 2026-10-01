@@ -1,78 +1,52 @@
 // requirementSlots.js
 //
-// Loads a concentration's requirement_slots for the gen-ed program a student
-// follows.  A concentration holds one complete slot set per program
-// (requirement_slots.gened_program: 'legacy' | 'flight_foundations'); every
-// reader of the template goes through here so none of them mixes the two sets.
+// Loads a program's requirement_slots for one catalog year. A program holds one complete slot set per catalog
+// year it has a degree plan for (requirement_slots.catalog_year; see catalogYears.js for how a student's plan is
+// chosen). Every reader of the template goes through here so no screen mixes two sets.
 //
-// A program with no slots for the concentration falls back to legacy — Data
-// Science & AI has no Flight Foundations set (it is closed to students entering
-// Fall 2026+), and a concentration seeded before tier 21 has only legacy rows.
+// A database whose setup step has not added catalog_year yet has only the gen-ed program to tell the two
+// original sets apart (legacy / flight_foundations); the read falls back to that.
 
-import { FF_PROGRAM_CODE, LEGACY_PROGRAM_CODE, getGenEdProgram } from './flightFoundations.js'
+import { FF_PROGRAM_CODE, LEGACY_PROGRAM_CODE } from './flightFoundations.js'
+import { yearStart } from './catalogYears.js'
+import { isMissingColumn } from './dbErrors.js'
 
 /**
- * True when a PostgREST error means the tier 21 column does not exist yet
- * (Postgres 42703, "column … gened_program does not exist").  Lets the app keep
- * working, as legacy-only, against a database the migration has not reached.
+ * True when a PostgREST error means a column the app reads does not exist yet (Postgres 42703, or one naming
+ * gened_program). Lets the app keep working against a database the schema has not reached.
  */
 export function isMissingProgramColumn(error) {
-  return !!error && (error.code === '42703' || /gened_program/.test(error.message ?? ''))
+  return !!error && (error.code === '42703' || /gened_program|catalog_year/.test(error.message ?? ''))
 }
 
-/** The program a profile follows; anything unrecognised is legacy. */
-export function programForProfile(profile) {
-  return profile?.gened_program === FF_PROGRAM_CODE ? FF_PROGRAM_CODE : LEGACY_PROGRAM_CODE
-}
-
-/**
- * The program a student should start on, from their entry term — used when
- * onboarding writes the profile.  Unknown terms are legacy.
- */
-export function programForEntryTerm(season, year) {
-  return getGenEdProgram(season, year) ?? LEGACY_PROGRAM_CODE
+// The two sets that existed before catalog years: Fall 2026 on is Flight Foundations, earlier is legacy.
+function genedProgramForYear(catalogYear) {
+  return (yearStart(catalogYear) ?? 0) >= 2026 ? FF_PROGRAM_CODE : LEGACY_PROGRAM_CODE
 }
 
 /**
  * @param {object} client          data client (see dataClient.js)
- * @param {number} concentrationId
- * @param {string} program         'legacy' | 'flight_foundations'
- * @param {string} columns         select list; gened_program is always included
+ * @param {number} concentrationId the program
+ * @param {string} catalogYear     the plan's catalog year, e.g. '2026-2027'
+ * @param {string} columns         select list
  * @param {Array<{column: string, ascending?: boolean}>} [order]
- * @returns {Promise<{ data, error, program }>}  program is the one actually loaded
+ * @returns {Promise<{ data, error, catalogYear }>}
  */
-export async function fetchRequirementSlots(client, concentrationId, program, columns, order = []) {
-  const select = /\bgened_program\b/.test(columns) ? columns : `${columns}, gened_program`
-
-  const run = prog => {
-    let query = client
-      .from('requirement_slots')
-      .select(select)
-      .eq('concentration_id', concentrationId)
-      .eq('gened_program', prog)
+export async function fetchRequirementSlots(client, concentrationId, catalogYear, columns, order = []) {
+  const apply = query => {
     for (const { column, ascending = true } of order) query = query.order(column, { ascending })
     return query
   }
+  const base = () => client.from('requirement_slots').select(columns).eq('concentration_id', concentrationId)
 
-  const wanted = program === FF_PROGRAM_CODE ? FF_PROGRAM_CODE : LEGACY_PROGRAM_CODE
-  let result = await run(wanted)
-  let loaded = wanted
+  const result = await apply(base().eq('catalog_year', catalogYear))
+  if (!isMissingColumn(result.error)) return { ...result, catalogYear }
 
-  // Database not migrated to tier 21: every slot is legacy and there is no
-  // gened_program column to select or filter on.
-  if (isMissingProgramColumn(result.error)) {
-    let legacyQuery = client
-      .from('requirement_slots')
-      .select(columns.replace(/,?\s*\bgened_program\b/, '').replace(/^\s*,\s*/, ''))
-      .eq('concentration_id', concentrationId)
-    for (const { column, ascending = true } of order) legacyQuery = legacyQuery.order(column, { ascending })
-    return { ...(await legacyQuery), program: LEGACY_PROGRAM_CODE }
-  }
-
-  if (!result.error && wanted !== LEGACY_PROGRAM_CODE && (result.data ?? []).length === 0) {
-    result = await run(LEGACY_PROGRAM_CODE)
-    loaded = LEGACY_PROGRAM_CODE
-  }
-
-  return { ...result, program: loaded }
+  // Database without catalog_year: the slots are the original two sets, told apart by gen-ed program.
+  const wanted = genedProgramForYear(catalogYear)
+  const byProgram = program => apply(base().eq('gened_program', program))
+  let legacy = await byProgram(wanted)
+  if (isMissingColumn(legacy.error)) legacy = await apply(base())          // not even gened_program: all legacy
+  else if (!legacy.error && wanted !== LEGACY_PROGRAM_CODE && (legacy.data ?? []).length === 0) legacy = await byProgram(LEGACY_PROGRAM_CODE)
+  return { ...legacy, catalogYear }
 }

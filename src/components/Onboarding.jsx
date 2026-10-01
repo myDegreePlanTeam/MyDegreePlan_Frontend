@@ -3,11 +3,11 @@ import { db, isLocalBackend } from '../lib/dataClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveMathPlacementRow, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
 import { validateSatMath, SAT_MATH_RANGE } from '../lib/mathPlacement'
-import { isMissingColumn } from '../lib/dbErrors'
+import { isMissingColumn, selectWithOptional } from '../lib/dbErrors'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
-import { isConcentrationSelectable } from '../lib/concentrationAvailability'
-import { fetchRequirementSlots, programForEntryTerm, isMissingProgramColumn } from '../lib/requirementSlots'
+import { academicYearOf, availablePrograms, groupByMajor, degreeTitle, planForYear } from '../lib/catalogYears'
+import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requirementSlots'
 import { fetchPlannerCatalog } from '../lib/plannerCatalog'
 import PriorCreditWizard from './PriorCreditWizard'
 import ImportBackupButton from './ImportBackupButton'
@@ -34,13 +34,6 @@ function getMathChains(type) {
   return type === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
 }
 const MATH_FORK_CODES = ['MATH3070', 'MATH3470']
-
-const CONCENTRATION_DESCS = {
-  core:          'A broad foundation across all areas of computer science.',
-  cybersecurity: 'Security, networking, cryptography, and systems defense.',
-  dsai:          'Machine learning, data analysis, and artificial intelligence.',
-  hpc:           'Parallel systems, distributed computing, and advanced networking.',
-}
 
 const SEASONS = ['Fall', 'Spring', 'Summer']
 
@@ -101,25 +94,37 @@ export default function Onboarding({ profileId, onComplete }) {
   const [concSlots, setConcSlots]           = useState([])
 
   const [concentrations, setConcentrations] = useState([])
+  // degree_plans rows: which plan exists for which program and catalog year
+  const [degreePlans, setDegreePlans]       = useState([])
   const [concsLoading, setConcsLoading]     = useState(true)
   const [concsError, setConcsError]         = useState(null)
 
   useEffect(() => {
     async function fetchConcentrations() {
-      const { data, error: fetchErr } = await db
-        .from('concentrations')
-        .select('id, code, name, total_hours')
-        .order('id', { ascending: true })
+      const [programsRes, plansRes] = await Promise.all([
+        selectWithOptional(
+          columns => db.from('concentrations').select(columns).order('id', { ascending: true }),
+          'id, code, name, total_hours',
+          ['kind', 'degree', 'major_name', 'department', 'supersedes', 'last_catalog_year', 'description'],
+        ),
+        db.from('degree_plans').select('id, concentration_id, catalog_year, gened_program, total_hours, covers_earlier'),
+      ])
 
-      if (fetchErr) {
-        setConcsError(fetchErr.message)
+      if (programsRes.error || plansRes.error) {
+        setConcsError((programsRes.error ?? plansRes.error).message)
       } else {
-        setConcentrations(data)
+        setConcentrations(programsRes.data)
+        setDegreePlans(plansRes.data)
       }
       setConcsLoading(false)
     }
     fetchConcentrations()
   }, [])
+
+  // The catalog year the student enters under, and what they may choose in it. The plan they follow in a
+  // program is the latest one not newer than that year (catalogYears.js).
+  const entryYear = academicYearOf(startSeason, startYear)
+  const selectablePrograms = availablePrograms(concentrations, degreePlans, entryYear)
 
   function handleSelectConcentration(code) {
     setSelectedCode(code)
@@ -170,9 +175,10 @@ export default function Onboarding({ profileId, onComplete }) {
   async function loadConcSlots() {
     const concData = concentrations.find(c => c.code === selectedCode)
     if (concData) {
-      const { data } = await fetchRequirementSlots(
-        db, concData.id, programForEntryTerm(startSeason, startYear), 'id, class_code, is_pool',
-      )
+      const plan = planForYear(degreePlans, concData.id, entryYear)
+      const { data } = plan
+        ? await fetchRequirementSlots(db, concData.id, plan.catalog_year, 'id, class_code, is_pool')
+        : { data: [] }
       setConcSlots(data ?? [])
     }
   }
@@ -214,9 +220,15 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
 
-    // Flight Foundations applies to students entering Fall 2026 or later; everyone
-    // earlier (returning students) stays on the legacy gen-ed program.
-    const genEdProgram  = programForEntryTerm(startSeason, startYear)
+    // The plan this student follows: the program's latest plan not newer than their entry year. Its catalog
+    // year (and the gen-ed program that plan uses) is stored on the profile and never recomputed.
+    const plan = planForYear(degreePlans, concData.id, entryYear)
+    if (!plan) {
+      setError('That program has no degree plan for your entry term. Please choose another.')
+      setLoading(false)
+      return
+    }
+    const genEdProgram  = plan.gened_program
 
     const actFields     = actScoresToProfileFields(actScores)
     const actMathNum    = actFields.act_math
@@ -232,10 +244,10 @@ export default function Onboarding({ profileId, onComplete }) {
     }
     let { error: updateError } = await db
       .from('student_profiles')
-      .update({ ...profileFields, gened_program: genEdProgram })
+      .update({ ...profileFields, gened_program: genEdProgram, catalog_year: plan.catalog_year })
       .eq('id', profileId)
-    // A database the tier 21 migration has not reached has no gened_program column:
-    // save without it (the student stays on the legacy program).
+    // A database whose schema has not reached catalog years or gen-ed programs lacks those columns:
+    // save without them (the student is read as following the original plan).
     if (isMissingProgramColumn(updateError)) {
       ;({ error: updateError } = await db
         .from('student_profiles')
@@ -280,7 +292,7 @@ export default function Onboarding({ profileId, onComplete }) {
 
     // ── 3. Fetch data needed for the degree-builder algorithm ────────────────
     // Only this plan's slice of the catalog (see plannerCatalog.js): the catalog is every university course.
-    const slotsRes = await fetchRequirementSlots(db, concData.id, genEdProgram, 'id, class_code, is_pool, flex_credits')
+    const slotsRes = await fetchRequirementSlots(db, concData.id, plan.catalog_year, 'id, class_code, is_pool, flex_credits')
     const catalog = slotsRes.error
       ? { courses: [], prereqs: [], coreqs: [], error: null }
       : await fetchPlannerCatalog(db, slotsRes.data ?? [])
@@ -373,6 +385,7 @@ export default function Onboarding({ profileId, onComplete }) {
       start_year:       startYear,
       student_type:     studentType,
       gened_program:    genEdProgram,
+      catalog_year:     plan.catalog_year,
       ...actFields,
       concentrations:   concData,
     })
@@ -508,31 +521,41 @@ export default function Onboarding({ profileId, onComplete }) {
         {/* ── Step 2: Concentration ── */}
         {step === 2 && (
           <div className="onboarding-body">
-            <div className="concentration-grid">
+            <div className="concentration-picker">
               {concsLoading ? (
-                [0, 1, 2, 3].map(i => (
-                  <div key={i} className="sk-pulse sk-ob-conc-card" />
-                ))
+                <div className="concentration-grid">
+                  {[0, 1, 2, 3].map(i => (
+                    <div key={i} className="sk-pulse sk-ob-conc-card" />
+                  ))}
+                </div>
               ) : concsError ? (
                 <p className="onboarding-error">
                   Could not load concentrations: {concsError}
                 </p>
               ) : (
-                // DSAI is no longer available for new students (Fall 2026+ curriculum)
-                concentrations
-                  .filter(c => isConcentrationSelectable(c.code, studentType))
-                  .map(c => (
-                    <button
-                      key={c.code}
-                      className={`concentration-card ${selectedCode === c.code ? 'selected' : ''}`}
-                      onClick={() => handleSelectConcentration(c.code)}
-                    >
-                      <span className="concentration-name">{c.name}</span>
-                      {CONCENTRATION_DESCS[c.code] && (
-                        <span className="concentration-desc">{CONCENTRATION_DESCS[c.code]}</span>
-                      )}
-                    </button>
+                // Programs open to the student's entry year, grouped under their major. A program closed to
+                // later catalog years (DSAI after 2025-2026) is not offered; the heading shows only when
+                // there is more than one major to tell apart.
+                (() => {
+                  const groups = groupByMajor(selectablePrograms)
+                  return groups.map(group => (
+                    <div key={group.majorName} className="concentration-group">
+                      {groups.length > 1 && <p className="concentration-group-title">{degreeTitle(group)}</p>}
+                      <div className="concentration-grid">
+                        {group.programs.map(c => (
+                          <button
+                            key={c.code}
+                            className={`concentration-card ${selectedCode === c.code ? 'selected' : ''}`}
+                            onClick={() => handleSelectConcentration(c.code)}
+                          >
+                            <span className="concentration-name">{c.name}</span>
+                            {c.description && <span className="concentration-desc">{c.description}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))
+                })()
               )}
             </div>
 

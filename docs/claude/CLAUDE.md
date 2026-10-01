@@ -96,15 +96,12 @@ MDP/
     ├── migration_tier11.sql           ← remove dual_enrollment; drop zero-credit equivalency rows
     ├── migration_tier12–20.sql        ← later tiers; see each file's header
     ├── migration_tier21.sql           ← gened_program on requirement_slots / student_profiles
-    ├── csc_core_ff.json               ← Flight Foundations variants (Core, Cybersecurity, HPC);
-    ├── csc_cybersecurity_ff.json         DSAI has none
-    ├── csc_hpc_ff.json
+    ├── degree-specs/                  ← degree plans as specs (one per program per catalog year), programs.json, pools.json,
+    │                                     the validator and generator; see degree-specs/README.md
+    ├── degree_plans.json              ← GENERATED from degree-specs/ by `node degree-specs/build.mjs`; seed.js and build:catalog read it
     ├── catalog_scrape/                ← Coursedog catalog scraper + Flight Foundations reference data
     ├── test_equivalencies.sql         ← seed data for the test_equivalencies table
-    ├── csc_core.json                  ← CSC Core degree plan template
-    ├── csc_cybersecurity.json         ← CSC Cybersecurity concentration template
-    ├── csc_dsai.json                  ← CSC Data Science & AI concentration template
-    └── csc_hpc.json                   ← CSC High Performance Computing concentration template
+    └── math_sequences.json            ← math placement chains (mirror of the frontend's mathPlacement.js)
 ```
 
 **No more Supabase migrations.** `migration_tier{N}.sql` and `rls_migration.sql` in
@@ -136,34 +133,42 @@ All catalog tables have public read RLS; student tables are scoped to `auth.uid(
 | `courses` | Course catalog: code, name, credits, description, subject_code, standing_req. `credits_max` (top of a variable-credit range, else NULL) and `requisite_text` (a prerequisite statement the planner could not turn into rules) |
 | `prerequisite_entries` | Prerequisite rules: course_code, required_code, group_index, logic (AND/OR) |
 | `corequisite_entries` | Corequisite rules: same shape as prerequisite_entries |
-| `concentrations` | Degree concentrations (core, cybersecurity, dsai, hpc) |
-| `requirement_slots` | Per-concentration degree template: which courses/pools go in which semester |
-| `student_profiles` | One row per student; anchors all student state; references `auth.users.id`. ACT scores plus `sat_math` (optional; either test, both or neither) |
+| `concentrations` | Degree **programs**: a major or a concentration of one (core, cybersecurity, dsai, hpc). `kind`, `degree`, `major_name`, `department`, `supersedes`, `last_catalog_year`, `description` |
+| `degree_plans` | One row per program per catalog year: `gened_program`, `total_hours`, `covers_earlier`. The index the app resolves a student's plan from |
+| `requirement_slots` | A degree plan's slots: `catalog_year`, stable `slot_key`, `map_semester` (the department's recommended semester), `gened_program` |
+| `student_profiles` | One row per student; anchors all student state; references `auth.users.id`. ACT scores plus `sat_math` (optional; either test, both or neither), `gened_program`, and `catalog_year` (the plan year their slots belong to, stored at onboarding) |
 | `student_plan_slots` | Student's plan state per template slot: selected course, locked, archived, drag overrides. `selected_credits` is the hours chosen for a pick whose course carries a credit range |
 | `student_semester_notes` | Per-student, per-semester notes + `completed_by_student` toggle |
 | `student_free_add_slots` | Courses the student added outside the degree template. `fills_slot_id` (nullable → `requirement_slots.id`, `ON DELETE CASCADE`) marks a follow-up pick that fills a Free Elective slot's open hours; NULL for ordinary "+ Add course" rows. `credits` is the hours chosen for an added course whose catalog entry carries a range |
 | `prior_credits` | Transfer credits, AP/IB/CLEP credit, dual enrollment, placement scores |
 | `test_equivalencies` | Exam-to-TTU-course mappings; drives the PriorCreditWizard |
 
-### Gen-ed programs (tier 21)
+### Programs, catalog years and gen-ed programs
 
-`requirement_slots.gened_program` and `student_profiles.gened_program` hold `'legacy'` or
-`'flight_foundations'` (default `'legacy'`). A concentration carries one complete slot set per
-program: `csc_*.json` are the legacy templates; `csc_core_ff.json`, `csc_cybersecurity_ff.json`
-and `csc_hpc_ff.json` are the Flight Foundations variants. Data Science & AI has no Flight
-Foundations set: it is closed to students entering Fall 2026+.
+A **program** is a row of `concentrations` (the table kept its name so stored plans stay valid; the app says
+"program"): a `major` or a `concentration` of one. It carries `kind`, `degree`, `major_name` (what the picker groups
+it under), `department`, `supersedes`, `last_catalog_year` (the last catalog year that may choose it; NULL = open) and
+`description`. `degree_plans` has one row per program per **catalog year** (an academic year, `2026-2027` = Fall 2026
+through Summer 2027): its `gened_program`, `total_hours`, and `covers_earlier` (a program's first plan also serves every
+older year). Each plan's slots are `requirement_slots` rows with the same `catalog_year`, a stable `slot_key`, and
+`map_semester` (the department's recommended semester, when published).
 
-- The program is **stored on the profile at onboarding** (entry Fall 2026 or later →
-  `flight_foundations`; earlier, including every returning student → `legacy`), never derived at
-  read time: a student's `student_plan_slots` reference the slot ids of exactly one set.
-- Flight Foundations templates replace the six `GEN_ED` slots with fixed `HIST2010` + `HIST2020`
-  and the pools `FF_SOCIAL` ×2 and `FF_HUMANITIES` ×2 (HPC also `FF_LITERACY`). The second
-  Humanities slot is the legacy `ENG_LIT` slot: English Literature is **not** a separate Flight
-  Foundations requirement (ENGL2130/2235/2330 are ordinary Humanities courses), so `ENG_LIT` exists
-  only in legacy templates. SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are shared.
-- Apply `migration_tier21.sql` before `seed.js`; deploy a frontend that filters by program before
-  seeding a database that live clients read. The frontend falls back to legacy when the column
-  does not exist yet.
+- A student is bound to the catalog of the year they **entered** (`academicYearOf(season, year)`) and follows the
+  **latest plan not newer than it** in their program (`planForYear`). The year of the plan they actually follow is
+  stored on `student_profiles.catalog_year` at onboarding and **never recomputed**: a student's `student_plan_slots`
+  reference the slot ids of exactly one set, and adding a newer plan later must not move them.
+- `student_profiles.gened_program` is still stored (the resolved plan's gen-ed program, `'legacy'` or
+  `'flight_foundations'`). Profiles saved before catalog years read as `2025-2026` (legacy) or `2026-2027` (Flight
+  Foundations) via `catalogYearForProfile`; the Docker baseline backfills the same way.
+- **Which programs a student may choose is data**: open to their entry year (`last_catalog_year`) and with a plan for it
+  (`availablePrograms`). Data Science & AI closed after `2025-2026`; a new major needs a `programs.json` entry and a
+  spec, no frontend change.
+- Flight Foundations plans replace the six `GEN_ED` slots with fixed `HIST2010` + `HIST2020` and the pools `FF_SOCIAL`
+  ×2 and `FF_HUMANITIES` ×2 (HPC also `FF_LITERACY`). English Literature is **not** a separate Flight Foundations
+  requirement, so `ENG_LIT` exists only in legacy plans. SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are
+  shared.
+- The two current CSC years are interim: `2026-2027` (Flight Foundations) totals 116 hours on its top math track, not
+  120, and carries a validator waiver until the department's 2026-27 degree maps replace it.
 
 ### Constrained column values
 
@@ -239,6 +244,21 @@ and `npm run build:catalog` (local backend).
 - A new course code that a template, pool or equivalency needs but Coursedog has retired is kept (`keep` set in
   `build_courses.mjs`); anything else Inactive is dropped.
 
+## Degree plan pipeline
+
+Plans are written as specs in `MyDegreePlan_Prototype/degree-specs/` (README there is the runbook for adding a
+program or a catalog year). `node degree-specs/build.mjs` validates them and generates `degree_plans.json`, which
+`seed.js` (Docker) and `npm run build:catalog` (local backend) read.
+
+- A **slot key** is a slot's identity. `planSlotSync` matches by key, then adopts rows seeded before keys existed by
+  course code and position, so a slot keeps its database id (and every student's pick) across spec edits. Never rename
+  or reuse a key.
+- The validator is a hard gate: slot codes exist, no duplicate courses, gen-ed structure, total hours on the most
+  advanced math track, map semesters, closed programs. A known failure needs a reasoned `waivers` entry in the spec; a
+  waiver that no longer fires fails the build.
+- Upgrade path verified against a real Postgres seeded by the previous release: all slots adopted, 0 inserted or
+  removed, id fingerprint unchanged, student rows intact, a second seed run changes nothing.
+
 ## Docker stack and releases
 
 `MDP/local-deploy/` is a **separate git repo** (`myDegreePlanTeam/MyDegreePlan_Deploy`); its README is the full reference. (A stale copy once sat under `MyDegreePlan_Prototype/local-deploy/`; it was deleted 2026-10-01. If an old checkout still has one, ignore it.)
@@ -289,8 +309,8 @@ See [`README.md`](./README.md) for branch prefixes and commit types. Additional 
 - `src/tests/[featureName].test.js` — primary suite
 - `src/lib/__tests__/[featureName].test.js` — collocated lib tests
 
-The suite is 42 files / 811 tests as of 2026-10-01 (plus 55 in the Prototype repo: `npm test` there covers the
-catalog parser and build); `ls src/tests src/lib/__tests__` is the
+The suite is 43 files / 827 tests as of 2026-10-01 (plus 93 in the Prototype repo: `npm test` there covers the
+catalog parser and build, the degree-spec validator and slot sync); `ls src/tests src/lib/__tests__` is the
 current list. `poolRemainder.test.js` covers the Free Elective bucket and its effect on semester
 totals and standing; `planExportModel.test.js` covers the PDF side.
 
@@ -405,7 +425,8 @@ batch and `rowsOfKind` splits it, so tabs switch without searching again (`AddCo
 Exports `POOL_COURSES`, `POOL_LABELS`, `resolvePool`, `resolveScience`, `getScienceWarnings`,
 `getGenEdStatus`, `resolveFreeElective`.
 
-Pool membership lives in code here, not in the database (keeps schema lean). `POOL_COURSES` is
+Pool membership lives in code here, not in the database (keeps schema lean). The pool codes and credit estimates are
+also declared in the prototype's `degree-specs/pools.json`; a test requires the two to agree. `POOL_COURSES` is
 the authoritative list of valid course codes for each pool type. `POOL_LABELS` is the single
 source of truth for display names. `resolvePool(poolCode, courseMap)` returns filtered course
 objects from the live catalog.
@@ -459,12 +480,14 @@ entering Fall 2026+; legacy stays in effect for earlier entrants). No Supabase c
 - Course lists come from the published gen-ed page (Coursedog has no gen-ed attribute on courses
   and its internal Flight Foundations course sets lag the page). Re-check them each catalog year.
 
-### `src/lib/requirementSlots.js`
+### `src/lib/catalogYears.js` and `src/lib/requirementSlots.js`
 
-`fetchRequirementSlots(client, concentrationId, program, columns, order)`: every reader of
-`requirement_slots` goes through it so the two programs' slot sets never mix. Falls back to
-legacy when a concentration has no slots for the program (DSAI) and when the tier 21 column is
-missing. `programForProfile` (stored program) and `programForEntryTerm` (onboarding).
+`catalogYears.js` is pure: `academicYearOf`, `planForYear`, `isProgramOpen`, `availablePrograms`, `groupByMajor`,
+`degreeTitle`, `catalogYearForProfile`. Onboarding and the Settings "change concentration" modal list programs from the
+database through it (grouped under their major; the group heading shows only when there is more than one).
+`fetchRequirementSlots(client, concentrationId, catalogYear, columns, order)` loads one program's slots for one catalog
+year; every reader of the template goes through it so no screen mixes two sets. A database without `catalog_year` falls
+back to the gen-ed program (Fall 2026+ is Flight Foundations).
 
 ### `src/lib/classifyPrereq.js`
 

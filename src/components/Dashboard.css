@@ -2951,3 +2951,19 @@
   font-size: 0.7rem;
   color: var(--danger-light);
 }
+
+/* ── Program picker: programs grouped under their major ───────────────────── */
+.concentration-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.concentration-group-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}

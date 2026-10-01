@@ -217,3 +217,40 @@ deleting that file silently dropped 38 tests. Repointed at `courses.json`; the f
 
 Not done (deliberately): `requisite_text` is stored but not yet shown in the course detail panel; the free-elective picker
 still offers only courses a plan already loads (use "+ Add course" for anything else); the PDF export does not print SAT.
+
+---
+
+## P2 results (2026-10-01): degree specs, catalog years, program-aware onboarding; branch `feat/degree-spec-pipeline` in all three repos, unpushed
+
+**Delivered**
+- Prototype: `degree-specs/` (programs.json, pools.json, one spec per program per catalog year, validator + generator,
+  README runbook) generating `degree_plans.json`; the seven `csc_*.json` templates are retired (the generated plans
+  reproduce all 311 slots in the original order). `slotSync` now matches by `slot_key`, then adopts keyless rows. `seed.js`
+  reads `degree_plans.json`. 93 tests.
+- local-deploy: programs gain kind / degree / major_name / department / supersedes / last_catalog_year / description; new
+  `degree_plans` table; slots gain catalog_year / slot_key / map_semester; profiles gain catalog_year (backfilled).
+- Frontend: `catalogYears.js` (entry term -> academic year, plan resolution, program availability, grouping),
+  `requirementSlots.js` by catalog year, onboarding and the Settings modal list programs from data (grouped under their
+  major; descriptions and the DSAI cutoff are data, not code). 827 tests.
+
+**Verified on a real Postgres** (the `mdp_fftest` stack, seeded by the previous release): migrate + seed adopted all 311
+slots (0 inserted, 0 removed), the id-and-code fingerprint was identical, all 90 student plan rows survived, existing
+students were backfilled to the right catalog year, and a second seed run changed nothing. This was also the first run of
+the 6,183-course catalog through PostgREST in batches. In the app: a profile saved before catalog years loads its plan
+unchanged; a returning Fall 2025 student is offered DSAI and stored as `2025-2026`; Fall 2026 and Spring 2027 entrants are
+not offered DSAI; switching program keeps the entry-year plan.
+
+**Found:** the validator reproduced a real data error. The Fall 2026 (Flight Foundations) CSC plans total **116** hours on
+their top math track, not 120: MATH1920 (4 hrs) was dropped without adding hours back. They carry a reasoned waiver until
+the department's 2026-27 maps replace them in P4.
+
+**Deviations from the plan**
+- `programs` gained `last_catalog_year` and `description` (a closed program and per-program copy were hardcoded in the
+  frontend), and a `degree_plans` index table: onboarding needs "which plan exists for which year" without scanning slots.
+- A profile's `catalog_year` stores the **resolved plan year**, not the raw entry year: a newer plan added later must not
+  silently move an existing student onto different slots.
+- Not in P2: per-slot `offering` terms and the `replaces` hint for renamed slots (both needed by P4: CSC4620 replaces
+  CSC4615 inside the same 2026-2027 year, so P4 must migrate students' non-pool slot picks when it does).
+- Onboarding's student types and year lists (returning = entered through 2026, new = 2026 on) and the builder's
+  MATH1920 curriculum switch are still tied to the 2026 curriculum change; they should become per-plan data when the next
+  catalog year lands.

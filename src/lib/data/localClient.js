@@ -17,12 +17,13 @@ export const LOCAL_USER_ID = '00000000-0000-4000-8000-000000000001'
 
 export const CATALOG_TABLES = [
   'courses', 'prerequisite_entries', 'corequisite_entries',
-  'concentrations', 'requirement_slots', 'test_equivalencies',
+  'concentrations', 'degree_plans', 'requirement_slots', 'test_equivalencies',
 ]
 
 // Columns a catalog row may leave out, to keep catalog.json small; a read sees them as null, as Postgres would.
 const CATALOG_COLUMN_DEFAULTS = {
   courses: { credits_max: null, standing_req: null, requisite_text: null },
+  requirement_slots: { slot_key: null, catalog_year: null, map_semester: null },
 }
 
 const now = () => new Date().toISOString()
@@ -34,7 +35,7 @@ export const STUDENT_TABLES = {
     pk: 'id', unique: [['user_id']],
     defaults: { concentration_id: null, start_season: null, start_year: null, student_type: null,
       act_math: null, act_english: null, act_science: null, act_reading: null, act_composite: null,
-      sat_math: null, gened_program: 'legacy', created_at: now },
+      sat_math: null, gened_program: 'legacy', catalog_year: null, created_at: now },
   },
   student_plan_slots: {
     pk: 'id', unique: [['student_id', 'requirement_slot_id']],

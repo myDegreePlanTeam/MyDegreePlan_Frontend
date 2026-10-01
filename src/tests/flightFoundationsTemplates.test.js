@@ -12,15 +12,15 @@ import {
 // build), so the suite skips itself when it is missing.
 
 const PROTO = fileURLToPath(new URL('../../../MyDegreePlan_Prototype/', import.meta.url))
-const HAVE_SEEDS = existsSync(`${PROTO}courses.json`) && existsSync(`${PROTO}csc_core_ff.json`)
+const HAVE_SEEDS = existsSync(`${PROTO}courses.json`) && existsSync(`${PROTO}degree_plans.json`)
 
 const readJson = name => JSON.parse(readFileSync(`${PROTO}${name}`, 'utf8'))
 
 // Concentration → [legacy template, Flight Foundations template]
 const CONCENTRATIONS = {
-  core:          ['csc_core.json',          'csc_core_ff.json'],
-  cybersecurity: ['csc_cybersecurity.json', 'csc_cybersecurity_ff.json'],
-  hpc:           ['csc_hpc.json',           'csc_hpc_ff.json'],
+  core:          ['core:legacy',          'core:flight_foundations'],
+  cybersecurity: ['cybersecurity:legacy', 'cybersecurity:flight_foundations'],
+  hpc:           ['hpc:legacy',           'hpc:flight_foundations'],
 }
 
 // MATH1000 was once inserted by migration_math1000.sql; courses.json (the full Coursedog catalog) has it now.
@@ -43,8 +43,15 @@ const PICKS = {
   CSC_HPC_ELECTIVE:   ['CSC4040'],
 }
 
-function loadTemplate(file, courses) {
-  const data  = readJson(file)
+// A template is a program's degree plan for a gen-ed program, from degree_plans.json (generated from the
+// prototype repo's degree-specs/). `id` is "program:genedProgram".
+function loadTemplate(id, courses) {
+  const [program, genedProgram] = id.split(':')
+  const plan = readJson('degree_plans.json').plans.find(p => p.program === program && p.genedProgram === genedProgram)
+  const data = {
+    hours: plan.hours,
+    courses: plan.slots.map(s => (s.credits != null ? { classCode: s.classCode, credits: s.credits } : { classCode: s.classCode })),
+  }
   const slots = data.courses.map((c, i) => ({
     id: i + 1, class_code: c.classCode, is_pool: c.classCode in POOL_COURSES || c.classCode === 'FREE_ELECTIVE',
     flex_credits: c.credits ?? null,
@@ -93,6 +100,11 @@ describe.skipIf(!HAVE_SEEDS)('Flight Foundations seed templates', () => {
     expect(courses.BIOL2020.prerequisites).toEqual(['BIOL2010'])
     expect(courses.CHEM1020.prerequisites).toEqual(['CHEM1010'])
     expect(courses.ENGL2400.corequisites).toEqual(['ENGL1020'])
+  })
+
+  it('declares the same pools, with the same credit estimates, as the app', () => {
+    // pools.json (the specs) and POOL_CREDIT_ESTIMATES (poolResolver.js) describe one list; this keeps them one.
+    expect(readJson('degree_plans.json').pools).toEqual(POOL_CREDIT_ESTIMATES)
   })
 
   it('keeps courses.json codes unique and sorted', () => {
@@ -188,7 +200,7 @@ describe.skipIf(!HAVE_SEEDS)('Flight Foundations seed templates', () => {
   })
 
   it('Core reaches Literacy through its two lower electives, whichever two of three a student picks', () => {
-    const { slots } = loadTemplate('csc_core_ff.json', courses)
+    const { slots } = loadTemplate('core:flight_foundations', courses)
     const lower = slots.filter(s => s.class_code === 'CSC_LOWER_ELECTIVE')
     expect(lower).toHaveLength(2)
     const gateway = ['CSC2220', 'CSC2570', 'CSC2770']
@@ -202,7 +214,7 @@ describe.skipIf(!HAVE_SEEDS)('Flight Foundations seed templates', () => {
   })
 
   it('HPC needs its literacy slot: CSC2770 alone does not satisfy Literacy', () => {
-    const { slots } = loadTemplate('csc_hpc_ff.json', courses)
+    const { slots } = loadTemplate('hpc:flight_foundations', courses)
     expect(slots.filter(s => s.class_code === 'FF_LITERACY')).toHaveLength(1)
     expect(slots.some(s => s.class_code === 'CSC2770')).toBe(true)
     expect(isFlightFoundationsCourse('CSC2770')).toBe(false)
@@ -210,8 +222,8 @@ describe.skipIf(!HAVE_SEEDS)('Flight Foundations seed templates', () => {
 
   it('Core and Cybersecurity move the freed 3 hours to free electives; HPC converts them to literacy', () => {
     const free = file => loadTemplate(file, courses).slots.find(s => s.class_code === 'FREE_ELECTIVE').flex_credits
-    expect(free('csc_core_ff.json') - free('csc_core.json')).toBe(3)
-    expect(free('csc_cybersecurity_ff.json') - free('csc_cybersecurity.json')).toBe(3)
-    expect(free('csc_hpc_ff.json')).toBe(free('csc_hpc.json'))
+    expect(free('core:flight_foundations') - free('core:legacy')).toBe(3)
+    expect(free('cybersecurity:flight_foundations') - free('cybersecurity:legacy')).toBe(3)
+    expect(free('hpc:flight_foundations')).toBe(free('hpc:legacy'))
   })
 })

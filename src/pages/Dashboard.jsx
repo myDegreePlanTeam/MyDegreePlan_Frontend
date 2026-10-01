@@ -39,7 +39,7 @@ export default function Dashboard() {
             start_season,
             start_year,
             student_type,
-            ${withProgram ? 'gened_program,' : ''}
+            ${withProgram ? 'gened_program, catalog_year,' : ''}
             ${withSat ? 'sat_math,' : ''}
             act_math,
             act_english,

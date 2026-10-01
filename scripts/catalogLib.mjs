@@ -1,23 +1,6 @@
 // catalogLib.mjs: the pure parts of the catalog build, split out of build-catalog.mjs so Vitest can
 // exercise them. Mirrors MyDegreePlan_Prototype/seed.js; see build-catalog.mjs for the why.
 
-// Must match seed.js. DSAI has no Flight Foundations file (closed to Fall 2026+ entrants).
-export const DEGREE_FILES = [
-  { file: 'csc_core.json',             code: 'core',          name: 'CSC Core',                       program: 'legacy' },
-  { file: 'csc_cybersecurity.json',    code: 'cybersecurity', name: 'CSC Cybersecurity',              program: 'legacy' },
-  { file: 'csc_dsai.json',             code: 'dsai',          name: 'CSC Data Science & AI',          program: 'legacy' },
-  { file: 'csc_hpc.json',              code: 'hpc',           name: 'CSC High Performance Computing', program: 'legacy' },
-  { file: 'csc_core_ff.json',          code: 'core',          name: 'CSC Core',                       program: 'flight_foundations' },
-  { file: 'csc_cybersecurity_ff.json', code: 'cybersecurity', name: 'CSC Cybersecurity',              program: 'flight_foundations' },
-  { file: 'csc_hpc_ff.json',           code: 'hpc',           name: 'CSC High Performance Computing', program: 'flight_foundations' },
-]
-
-export const POOL_CODES = new Set([
-  'GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY', 'ENG_LIT', 'SCIENCE', 'COMM_REQ',
-  'MATH_STATS', 'CSC_LOWER_ELECTIVE', 'CSC_UPPER_ELECTIVE', 'CSC_ELECTIVE', 'CSC_HPC_ELECTIVE',
-  'FREE_ELECTIVE',
-])
-
 // Courses that the live database has but the generated course catalog (courses.json) might not: they were
 // added by hand-applied migrations. MATH1000 (migration_math1000.sql) is a template slot and an
 // exam-equivalency award; Coursedog lists it now, so this only fires if a rebuild ever drops it.
@@ -80,15 +63,18 @@ const withIds = rows => rows.map((r, i) => ({ id: i + 1, ...r }))
  * @param {Set<string>|null} [input.coreCodes]  courses whose description ships in catalog.json itself:
  *                                      the ones templates, pools and exam equivalencies name. Every other
  *                                      description goes to `descriptions`, loaded on demand. null embeds all.
- * @param {Array}  input.plans          DEGREE_FILES entries plus `data` (the parsed template JSON)
+ * @param {object} input.degreePlans    degree_plans.json: { programs, pools, plans } (see the prototype repo's
+ *                                      degree-specs/). A slot is a pool when its code is a key of `pools`.
  * @param {string} input.equivalencySql contents of test_equivalencies.sql
  * @param {object|null} input.previous  the previous catalog.json, used to keep ids stable
  * @param {Function} input.planSlotSync the prototype repo's slotSync planner (the one seed.js uses)
  * @returns {{ catalog: object, descriptions: object, totals: object }}
  */
-export function assembleCatalog({ courses, plans, equivalencySql, previous, planSlotSync, coreCodes = null }) {
+export function assembleCatalog({ courses, degreePlans, equivalencySql, previous, planSlotSync, coreCodes = null }) {
+  const { programs, pools, plans } = degreePlans
   const prevSlots = previous?.tables.requirement_slots ?? []
   const prevConcentrations = previous?.tables.concentrations ?? []
+  const prevDegreePlans = previous?.tables.degree_plans ?? []
 
   // Null columns are left out (the engine fills them: see CATALOG_COLUMN_DEFAULTS in localClient.js), and
   // descriptions outside the core ride in a separate lazily loaded file.
@@ -108,31 +94,67 @@ export function assembleCatalog({ courses, plans, equivalencySql, previous, plan
   const prereqRows = courses.flatMap(c => (c.prerequisites?.length ? flattenReqArray(c.code, c.prerequisites) : []))
   const coreqRows = courses.flatMap(c => (c.corequisites?.length ? flattenReqArray(c.code, c.corequisites) : []))
 
-  // Concentration ids are stable too: reuse the previous id for a code, else the next free one.
+  // Program ids are stable: reuse the previous id for a code, else the next free one. A program row is a major or
+  // a concentration of one (the table keeps its original name; see local-deploy's baseline schema).
+  const latestHours = code => plans.filter(plan => plan.program === code).at(-1)?.hours ?? null
   const concentrations = []
   let nextConcId = Math.max(0, ...prevConcentrations.map(c => c.id)) + 1
-  for (const plan of plans) {
-    if (concentrations.some(c => c.code === plan.code)) continue
-    const prior = prevConcentrations.find(c => c.code === plan.code)
-    concentrations.push({ id: prior?.id ?? nextConcId++, code: plan.code, name: plan.name, total_hours: plan.data.hours })
+  for (const program of programs) {
+    const prior = prevConcentrations.find(c => c.code === program.code)
+    concentrations.push({
+      id: prior?.id ?? nextConcId++,
+      code: program.code,
+      name: program.name,
+      total_hours: latestHours(program.code),
+      kind: program.kind,
+      degree: program.degree,
+      major_name: program.majorName,
+      department: program.department,
+      supersedes: program.supersedes,
+      last_catalog_year: program.lastCatalogYear,
+      description: program.description,
+    })
   }
   const concId = Object.fromEntries(concentrations.map(c => [c.code, c.id]))
 
+  // The plan index: one row per program per catalog year. Ids stable on (program, year).
+  const degree_plans = []
+  let nextPlanId = Math.max(0, ...prevDegreePlans.map(p => p.id)) + 1
+  for (const plan of plans) {
+    const concentration_id = concId[plan.program]
+    const prior = prevDegreePlans.find(p => p.concentration_id === concentration_id && p.catalog_year === plan.catalogYear)
+    degree_plans.push({
+      id: prior?.id ?? nextPlanId++,
+      concentration_id,
+      catalog_year: plan.catalogYear,
+      gened_program: plan.genedProgram,
+      total_hours: plan.hours,
+      covers_earlier: plan.coversEarlier,
+    })
+  }
+
+  // Slots. A slot keeps its id by key; rows from a catalog built before keys existed (slot_key and catalog_year
+  // missing) are adopted by course code and position, the way seed.js adopts them in Postgres.
   const slots = []
   let nextSlotId = Math.max(0, ...prevSlots.map(s => s.id)) + 1
   const totals = { kept: 0, inserted: 0, removed: 0 }
   for (const plan of plans) {
-    const concentration_id = concId[plan.code]
-    const desired = plan.data.courses.map(cls => ({
+    const concentration_id = concId[plan.program]
+    const desired = plan.slots.map(slot => ({
       concentration_id,
       semester_number: null,
       slot_order: null,
-      class_code: cls.classCode,
-      is_pool: POOL_CODES.has(cls.classCode),
-      flex_credits: cls.credits ?? null,
-      gened_program: plan.program,
+      class_code: slot.classCode,
+      is_pool: Object.hasOwn(pools, slot.classCode),
+      flex_credits: slot.credits ?? null,
+      gened_program: plan.genedProgram,
+      catalog_year: plan.catalogYear,
+      slot_key: slot.key,
+      map_semester: slot.mapSemester ?? null,
     }))
-    const existing = prevSlots.filter(s => s.concentration_id === concentration_id && s.gened_program === plan.program)
+    const existing = prevSlots.filter(s => s.concentration_id === concentration_id
+      && s.gened_program === plan.genedProgram
+      && (s.catalog_year == null || s.catalog_year === plan.catalogYear))
     const { update, insert, remove, kept } = planSlotSync(existing, desired)
     const dropped = new Set(remove)
     const changes = new Map(update.map(u => [u.id, u.changes]))
@@ -154,6 +176,7 @@ export function assembleCatalog({ courses, plans, equivalencySql, previous, plan
         prerequisite_entries: withIds(prereqRows),
         corequisite_entries: withIds(coreqRows),
         concentrations,
+        degree_plans,
         requirement_slots: slots,
         test_equivalencies: parseEquivalencies(equivalencySql),
       },
