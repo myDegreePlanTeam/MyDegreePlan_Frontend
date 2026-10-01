@@ -7,7 +7,7 @@
 // shows them as another "choose a course" row.
 //
 // Those follow-up picks are student_free_add_slots rows whose fills_slot_id
-// points at the slot (tier 22). They are ordinary free-add courses in every
+// points at the slot. They are ordinary free-add courses in every
 // other respect — they count toward total hours, can be moved or removed, and
 // are deduplicated against the rest of the plan — and the link only says which
 // bucket they spend hours from.

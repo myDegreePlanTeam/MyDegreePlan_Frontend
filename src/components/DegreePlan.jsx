@@ -31,9 +31,10 @@ import './shell/AppShell.css'
 // Credit-hour thresholds for academic standing
 const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
 
-// student_free_add_slots columns every database has. fills_slot_id (tier 22) links
-// a follow-up pick to the Free Elective slot it spends hours from; a database the
-// migration has not reached lacks it, so plans still load there, without links.
+// student_free_add_slots columns every database has. fills_slot_id links a
+// follow-up pick to the Free Elective slot it spends hours from. It is in the
+// Docker baseline schema; an install whose setup container has not re-run since
+// lacks it, so plans still load there, without links.
 const FREE_ADD_COLUMNS = 'id, course_code, semester_number, status'
 
 function isMissingFillsSlotColumn(error) {
@@ -935,7 +936,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     if (error) {
       showSaveError(fillsSlot && isMissingFillsSlotColumn(error)
-        ? 'Choosing a second course needs the tier 22 database migration, which has not been applied yet.'
+        ? 'Choosing a second course needs a database update. Restart the stack so its setup step can apply it.'
         : 'Could not add course. Please try again.')
       return
     }
