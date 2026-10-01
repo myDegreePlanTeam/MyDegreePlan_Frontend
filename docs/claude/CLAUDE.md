@@ -15,10 +15,10 @@ brand colors are all Tennessee Tech's.)
 **Tech stack**
 - Frontend: React 19 + Vite 8 (uses rolldown as bundler — not classic Rollup)
 - Routing: react-router-dom 7
-- Database/Auth: PostgreSQL via Supabase (direct `@supabase/supabase-js` client — no Node/Express server)
+- Data: **local-first by default**: the static course catalog (`src/data/catalog.json`) plus the student's plan in the browser's IndexedDB; nothing leaves the device. The self-hosted Docker stack (`local-deploy/`) instead uses Postgres + an API through `@supabase/supabase-js` (see "Data backends" below). No Node/Express server either way.
 - Drag-and-drop: @dnd-kit/core + @dnd-kit/sortable
 - Testing: Vitest 4
-- Deployment: Vercel (frontend) + Supabase (database + auth)
+- Deployment: Vercel (static frontend only). The hosted Supabase project is no longer used by the frontend.
 - No TypeScript — everything is plain JavaScript (.js / .jsx)
 
 ---
@@ -59,7 +59,9 @@ MDP/
 │       │   ├── transferCredits.js     ← resolveTransferCredits, computePlanCredits
 │       │   ├── validatePriorCredit.js ← prior credit validation before INSERT
 │       │   ├── usePlanCompleteness.js ← React hook for plan-completeness tracking
-│       │   ├── supabaseClient.js      ← single shared Supabase client instance
+│       │   ├── dataClient.js          ← the one data client components import (`db`); picks the backend
+│       │   ├── data/                  ← backend.js (selection), localClient.js (query engine), storage.js (IndexedDB),
+│       │   │                             backup.js (export/import), remoteClient.js (Docker stack)
 │       │   └── __tests__/
 │       │       ├── poolResolver.test.js
 │       │       └── prereqChecker.test.js
@@ -181,14 +183,36 @@ is not implemented.
 
 ---
 
+## Data backends
+
+Components import `db` from `lib/dataClient.js` and call the supabase-js query chain (`db.from('t').select().eq()`, `db.auth.getSession()`); they do not know which backend answers. `lib/data/backend.js` picks one per page load:
+
+| Backend | Chosen when | Data lives in |
+|---|---|---|
+| `local` (default) | no `window.__MDP_CONFIG__` | catalog: bundled `src/data/catalog.json`; student rows: IndexedDB in the browser |
+| `remote` | the Docker web container served `/config.js` (sets `window.__MDP_CONFIG__`), or `VITE_DATA_BACKEND=remote` in dev | the Docker stack's Postgres, via PostgREST/GoTrue on the page's own origin |
+
+Vercel needs **no settings**: with no `__MDP_CONFIG__` the app is local-first. `supabase-js` is only fetched on the remote backend (dynamic import in `dataClient.js`).
+
+**Local backend facts**
+- `lib/data/localClient.js` is not a general PostgREST emulator. It implements what the app calls (filters, `or`/`ilike`, order/limit, `single`, the `concentrations` to-one embed, insert/update/upsert/delete) plus the Postgres behaviour the app leans on: identity ids (never reused), schema defaults, unique constraints for `onConflict`, `ON DELETE CASCADE` from `student_profiles`, and the `PGRST116` / `23505` error codes. If a component starts using a query feature it lacks, it returns an error rather than a wrong answer; extend the engine and add a test in `src/tests/localClient.test.js`.
+- Catalog tables are read-only. `src/data/catalog.json` is **generated and committed**: run `npm run build:catalog` (reads `../MyDegreePlan_Prototype`: `prototype.json`, the `csc_*.json` templates, `test_equivalencies.sql`) after any seed-data change, commit the result, and redeploy. Slot ids stay stable across regenerations via the prototype's `planSlotSync`, so stored plans keep pointing at the right slot. Courses that exist only through a migration (currently MATH1000) are listed in `scripts/catalogLib.mjs`.
+- One implicit user per device: no sign-in, `db.auth` is a stub. Login/Signup are only reachable on the remote backend.
+- Plans do not sync between devices and can be lost if the browser clears site data. Settings has Export / Import / Erase (`DeviceDataCard`, `lib/data/backup.js`); the first onboarding step offers Import for a new device. Backups are format-versioned and drop rows that point at slots the current catalog no longer has.
+- `db.local` (export/import/erase, `persistent`) exists only on the local client.
+- Docker's stack, migrations and `seed.js` are unchanged and still authoritative for the remote backend.
+
+---
+
 ## Environment Variables
 
 ### Frontend (`MyDegreePlan_Frontend/.env.local`)
 
 | Variable | Purpose |
 |---|---|
-| `VITE_SUPABASE_URL` | Supabase project REST/realtime endpoint URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon (publishable) key — safe to ship in browser bundle |
+| `VITE_DATA_BACKEND` | Optional. `remote` makes `npm run dev` use an API instead of the local-first backend (needs the two variables below). Never needed on Vercel. |
+| `VITE_SUPABASE_URL` | Only for `VITE_DATA_BACKEND=remote`: Supabase-compatible API URL |
+| `VITE_SUPABASE_ANON_KEY` | Only for `VITE_DATA_BACKEND=remote`: anon (publishable) key |
 
 ### Prototype seed script (`MyDegreePlan_Prototype/.env`)
 

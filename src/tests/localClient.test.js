@@ -121,6 +121,12 @@ describe('student_profiles', () => {
     const { error } = await db.from('student_profiles').insert({ user_id: LOCAL_USER_ID })
     expect(error.code).toBe('23505')
   })
+  it('reports a lost creation race as 23505, which Dashboard recovers from by re-reading the profile', async () => {
+    const create = () => db.from('student_profiles').insert({ user_id: LOCAL_USER_ID }).select('id').single()
+    const [first, second] = await Promise.all([create(), create()])
+    expect([first.error, second.error].filter(Boolean).map(e => e.code)).toEqual(['23505'])
+    expect((await db.from('student_profiles').select('id')).data).toHaveLength(1)
+  })
   it('refuses a profile with no user', async () => {
     const { error } = await db.from('student_profiles').insert({})
     expect(error.code).toBe('23502')

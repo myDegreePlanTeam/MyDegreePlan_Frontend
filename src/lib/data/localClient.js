@@ -496,7 +496,8 @@ export function createLocalClient({ loadCatalog, storage, userId = LOCAL_USER_ID
     auth,
     // Per-device data management, used by Settings. Absent on the Supabase-backed client.
     local: {
-      persistent: storage.persistent !== false,
+      // A getter: IndexedDB can turn out to be unavailable only after the first load.
+      get persistent() { return storage.persistent !== false },
       exportData: async () => { await db.ready; return db.snapshot() },
       importData: tables => db.replaceAll(tables),
       eraseAll: async () => { await db.ready; await db.replaceAll({}); for (const k of Object.keys(db.counters)) db.counters[k] = 0; await db.persist() },

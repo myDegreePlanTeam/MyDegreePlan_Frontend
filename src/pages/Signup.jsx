@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { db } from '../lib/dataClient'
 import { getBrand } from '../lib/brand'
 import { Link } from 'react-router-dom'
 import './Auth.css'
@@ -28,7 +28,7 @@ export default function Signup() {
 
     setLoading(true)
 
-    const { error } = await supabase.auth.signUp({ email, password })
+    const { error } = await db.auth.signUp({ email, password })
 
     if (error) {
       setError(error.message)

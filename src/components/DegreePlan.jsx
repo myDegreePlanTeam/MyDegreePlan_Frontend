@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
-import { supabase } from '../lib/supabaseClient'
+import { db } from '../lib/dataClient'
 import { getScienceWarnings, POOL_LABELS, POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
@@ -146,7 +146,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     if (toArchive.length > 0) {
       await Promise.all(toArchive.map(slot =>
-        supabase.from('student_plan_slots').upsert({
+        db.from('student_plan_slots').upsert({
           student_id:           profile.id,
           requirement_slot_id:  slot.id,
           selected_course_code: slot.is_pool
@@ -162,7 +162,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     if (toUnarchive.length > 0) {
-      await supabase.from('student_plan_slots')
+      await db.from('student_plan_slots')
         .update({ archived: false, archive_reason: null })
         .eq('student_id', profile.id)
         .in('requirement_slot_id', toUnarchive.map(s => s.id))
@@ -188,7 +188,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     async function loadPlan() {
       // Step 1 — requirement slots (template)
       const { data: slotData, error: slotError } = await fetchRequirementSlots(
-        supabase,
+        db,
         profile.concentration_id,
         programForProfile(profile),
         'id, semester_number, slot_order, class_code, is_pool, flex_credits',
@@ -199,7 +199,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       // Step 2 — student's saved selections + overrides + archived status
       const slotIds = slotData.map(s => s.id)
-      const { data: savedSlots, error: savedSlotsError } = await supabase
+      const { data: savedSlots, error: savedSlotsError } = await db
         .from('student_plan_slots')
         .select('requirement_slot_id, selected_course_code, status, semester_number, credits_remaining, archived, archive_reason')
         .eq('student_id', profile.id)
@@ -224,7 +224,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       }
 
       // Step 3 — free-add slots
-      const { data: freeAdds, error: freeAddError } = await supabase
+      const { data: freeAdds, error: freeAddError } = await db
         .from('student_free_add_slots')
         .select('id, course_code, semester_number, status')
         .eq('student_id', profile.id)
@@ -240,7 +240,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const allCodes   = [...new Set([...realCodes, ...poolCodes, ...freeAddCodes])]
 
       // Step 5 — fetch courses
-      const { data: courseData, error: courseError } = await supabase
+      const { data: courseData, error: courseError } = await db
         .from('courses')
         .select('code, name, credits, subject_code, standing_req, description')
         .in('code', allCodes)
@@ -250,7 +250,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       for (const course of courseData) courseMap[course.code] = course
 
       // Step 6 — prerequisites
-      const { data: prereqData, error: prereqError } = await supabase
+      const { data: prereqData, error: prereqError } = await db
         .from('prerequisite_entries')
         .select('course_code, group_index, logic, required_code')
         .in('course_code', allCodes)
@@ -263,7 +263,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       // Step 6b — corequisites
       // Fetch group_index and logic so OR groups can short-circuit correctly.
-      const { data: coreqData } = await supabase
+      const { data: coreqData } = await db
         .from('corequisite_entries')
         .select('course_code, required_code, group_index, logic')
         .in('course_code', allCodes)
@@ -271,7 +271,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const coreqMapBuilt = buildRequirementMap(coreqData)
 
       // Step 7 — semester notes + completion state
-      const { data: notesData } = await supabase
+      const { data: notesData } = await db
         .from('student_semester_notes')
         .select('semester_number, note_text, completed_by_student, term_season, term_year')
         .eq('student_id', profile.id)
@@ -288,7 +288,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       }
 
       // Step 7.5 — prior credits (placement gates + transfer/AP credits)
-      const { data: priorCreditsData, error: pcError } = await supabase
+      const { data: priorCreditsData, error: pcError } = await db
         .from('prior_credits')
         .select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded')
         .eq('plan_id', profile.id)
@@ -341,7 +341,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           }
         }
 
-        const { error: placeError } = await supabase
+        const { error: placeError } = await db
           .from('student_plan_slots')
           .upsert(placedRows, { onConflict: 'student_id, requirement_slot_id' })
         if (placeError) {
@@ -682,7 +682,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setPlanStatuses(prev       => ({ ...prev, [slot.id]: existingStatus }))
     setPlanCreditsRemaining(prev => ({ ...prev, [slot.id]: creditsRemaining }))
 
-    supabase
+    db
       .from('student_plan_slots')
       .upsert({
         student_id:           profile.id,
@@ -719,7 +719,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const prevStatuses = planStatuses
     setPlanStatuses(prev => ({ ...prev, [slot.id]: newStatus }))
 
-    supabase
+    db
       .from('student_plan_slots')
       .upsert({
         student_id:           profile.id,
@@ -749,7 +749,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setFreeAddSlots(list =>
       list.map(f => f.id === freeAdd.id ? { ...f, status: newStatus } : f)
     )
-    supabase
+    db
       .from('student_free_add_slots')
       .update({ status: newStatus })
       .eq('id', freeAdd.id)
@@ -765,7 +765,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Remove a pool slot selection ──────────────────────────────────
   async function handleRemove(slot) {
-    const { error } = await supabase
+    const { error } = await db
       .from('student_plan_slots')
       .delete()
       .eq('student_id', profile.id)
@@ -794,7 +794,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         setPlanSlots(prev => ({ ...prev, [record.slotId]: record.prevCourseCode }))
         setPlanStatuses(prev => ({ ...prev, [record.slotId]: record.prevStatus ?? 'planned' }))
         setPlanCreditsRemaining(prev => ({ ...prev, [record.slotId]: record.prevCreditsRemaining ?? 0 }))
-        await supabase.from('student_plan_slots').upsert({
+        await db.from('student_plan_slots').upsert({
           student_id: profile.id, requirement_slot_id: record.slotId,
           selected_course_code: record.prevCourseCode,
           status: record.prevStatus ?? 'planned',
@@ -808,7 +808,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const slot = slots.find(s => s.id === record.slotId)
       const courseCode = slot?.is_pool ? planSlots[record.slotId] : slot?.class_code
       if (courseCode) {
-        await supabase.from('student_plan_slots').upsert({
+        await db.from('student_plan_slots').upsert({
           student_id: profile.id, requirement_slot_id: record.slotId,
           selected_course_code: courseCode, status: record.prevStatus,
           semester_number: planSemesterOverrides[record.slotId] ?? null,
@@ -818,7 +818,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     } else if (record.type === 'free_status') {
       setFreeAddSlots(list => list.map(f => f.id === record.freeAddId ? { ...f, status: record.prevStatus } : f))
-      await supabase.from('student_free_add_slots').update({ status: record.prevStatus }).eq('id', record.freeAddId)
+      await db.from('student_free_add_slots').update({ status: record.prevStatus }).eq('id', record.freeAddId)
 
     } else if (record.type === 'free_add') {
       const fa = freeAddSlots.find(f => f.id === record.freeAddId)
@@ -832,7 +832,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         const saved = record.prevFreeAdds.find(pf => pf.id === f.id)
         return saved ? { ...f, status: saved.status } : f
       }))
-      await supabase.from('student_semester_notes').upsert({
+      await db.from('student_semester_notes').upsert({
         student_id: profile.id, concentration_id: profile.concentration_id,
         semester_number: record.semNum, note_text: semesterNotes[record.semNum] ?? '',
         updated_at: new Date().toISOString(), completed_by_student: record.prevCompleted,
@@ -840,19 +840,19 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const semSlotIds = Object.keys(record.prevStatuses)
       if (semSlotIds.length > 0) {
         for (const slotId of semSlotIds) {
-          await supabase.from('student_plan_slots')
+          await db.from('student_plan_slots')
             .update({ status: record.prevStatuses[slotId] })
             .eq('student_id', profile.id)
             .eq('requirement_slot_id', Number(slotId))
         }
       }
       for (const pf of record.prevFreeAdds) {
-        await supabase.from('student_free_add_slots').update({ status: pf.status }).eq('id', pf.id)
+        await db.from('student_free_add_slots').update({ status: pf.status }).eq('id', pf.id)
       }
 
     } else if (record.type === 'note') {
       setSemesterNotes(prev => ({ ...prev, [record.semNum]: record.prevNote }))
-      await supabase.from('student_semester_notes').upsert({
+      await db.from('student_semester_notes').upsert({
         student_id: profile.id, concentration_id: profile.concentration_id,
         semester_number: record.semNum, note_text: record.prevNote,
         updated_at: new Date().toISOString(),
@@ -862,7 +862,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const prevSem = record.prevSemester
       setPlanSemesterOverrides(prev => ({ ...prev, [record.slotId]: prevSem }))
       const slot = slots.find(s => s.id === record.slotId)
-      await supabase.from('student_plan_slots').upsert({
+      await db.from('student_plan_slots').upsert({
         student_id: profile.id, requirement_slot_id: record.slotId,
         selected_course_code: slot?.is_pool ? planSlots[record.slotId] ?? null : slot?.class_code ?? null,
         status: planStatuses[record.slotId] ?? 'planned',
@@ -872,7 +872,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     } else if (record.type === 'drag_free') {
       setFreeAddSlots(list => list.map(f => f.id === record.freeAddId ? { ...f, semester_number: record.prevSemester } : f))
-      await supabase.from('student_free_add_slots').update({ semester_number: record.prevSemester }).eq('id', record.freeAddId)
+      await db.from('student_free_add_slots').update({ semester_number: record.prevSemester }).eq('id', record.freeAddId)
     }
     markSaved()
   }
@@ -888,7 +888,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       return
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('student_free_add_slots')
       .insert({
         student_id:      profile.id,
@@ -919,7 +919,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setFreeAddSlots(list => list.filter(f => f.id !== freeAdd.id))
     setSelection(sel => (sel?.kind === 'free' && sel.id === freeAdd.id ? null : sel))
 
-    supabase
+    db
       .from('student_free_add_slots')
       .delete()
       .eq('id', freeAdd.id)
@@ -935,14 +935,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Prior credit CRUD ─────────────────────────────────────────────
   // Accepts a single credit-data object OR an array of them.
-  // Passing an array inserts all rows in one Supabase call and updates
+  // Passing an array inserts all rows in one call and updates
   // priorCredits state once — avoiding the stale-closure overwrite that
   // occurs when callers loop and call this function once per award.
   async function handleAddPriorCredit(creditDataOrArray) {
     const items   = Array.isArray(creditDataOrArray) ? creditDataOrArray : [creditDataOrArray]
     const inserts = items.map(item => ({ ...item, plan_id: profile.id }))
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('prior_credits')
       .insert(inserts)
       .select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded')
@@ -963,7 +963,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const newCredits = priorCredits.filter(pc => pc.id !== id)
     setPriorCredits(newCredits)
 
-    const { error } = await supabase
+    const { error } = await db
       .from('prior_credits')
       .delete()
       .eq('id', id)
@@ -1018,7 +1018,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     )
 
     // Persist semester completion flag
-    const { error: noteErr } = await supabase
+    const { error: noteErr } = await db
       .from('student_semester_notes')
       .upsert({
         student_id:           profile.id,
@@ -1040,7 +1040,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     // Rule B: batch update template slot statuses
     if (semSlotIds.length > 0) {
-      const { error: slotErr } = await supabase
+      const { error: slotErr } = await db
         .from('student_plan_slots')
         .update({ status: newStatus })
         .eq('student_id', profile.id)
@@ -1054,7 +1054,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     // Rule B: batch update free-add slot statuses
-    const { error: faErr } = await supabase
+    const { error: faErr } = await db
       .from('student_free_add_slots')
       .update({ status: newStatus })
       .eq('student_id', profile.id)
@@ -1088,7 +1088,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const prevNotes = semesterNotes
     setSemesterNotes(prev => ({ ...prev, [semesterNumber]: noteText }))
 
-    supabase
+    db
       .from('student_semester_notes')
       .upsert({
         student_id:       profile.id,
@@ -1263,7 +1263,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const prevOverrides = planSemesterOverrides
       setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
 
-      supabase
+      db
         .from('student_plan_slots')
         .upsert({
           student_id:           profile.id,
@@ -1299,7 +1299,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         list.map(f => f.id === slotId ? { ...f, semester_number: newSemester } : f)
       )
 
-      supabase
+      db
         .from('student_free_add_slots')
         .update({ semester_number: newSemester })
         .eq('id', slotId)
@@ -1365,7 +1365,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         // syncArchivedSlots will already have archived this slot above.
         // This upsert remains as defensive belt-and-suspenders and is
         // idempotent if the resolver already produced the same archive state.
-        const { error: archErr } = await supabase.from('student_plan_slots').upsert({
+        const { error: archErr } = await db.from('student_plan_slots').upsert({
           student_id:           profile.id,
           requirement_slot_id:  slot.id,
           selected_course_code: courseCode,
@@ -1452,11 +1452,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── clearPlanData ─────────────────────────────────────────────────
   async function clearPlanData() {
-    const { error } = await supabase
+    const { error } = await db
       .from('student_plan_slots').delete().eq('student_id', profile.id)
     if (error) return error
-    await supabase.from('student_free_add_slots').delete().eq('student_id', profile.id)
-    await supabase.from('student_semester_notes').delete().eq('student_id', profile.id)
+    await db.from('student_free_add_slots').delete().eq('student_id', profile.id)
+    await db.from('student_semester_notes').delete().eq('student_id', profile.id)
     return null
   }
 
@@ -1513,7 +1513,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     const CHUNK = 100
     for (let i = 0; i < planSlotRows.length; i += CHUNK) {
-      const { error: upsertErr } = await supabase
+      const { error: upsertErr } = await db
         .from('student_plan_slots')
         .upsert(planSlotRows.slice(i, i + CHUNK), { onConflict: 'student_id, requirement_slot_id' })
       if (upsertErr) {
@@ -1536,7 +1536,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   async function handleConcentrationSwitch(newConc) {
     setSwitching(true)
 
-    const { error: updateErr } = await supabase
+    const { error: updateErr } = await db
       .from('student_profiles')
       .update({ concentration_id: newConc.id })
       .eq('id', profile.id)
@@ -1556,7 +1556,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // ── Add semester wizard ───────────────────────────────────────────
   async function handleAddSemesterConfirm() {
     const newSemNum = allSemesterNumbers.length > 0 ? Math.max(...allSemesterNumbers) + 1 : maxTemplateSem + 1
-    await supabase.from('student_semester_notes').upsert({
+    await db.from('student_semester_notes').upsert({
       student_id:           profile.id,
       concentration_id:     profile.concentration_id,
       semester_number:      newSemNum,
@@ -1891,7 +1891,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                         issueCount={issueCounts[semNum] ?? 0}
                         onDelete={extraSemesters.includes(semNum)
                           ? async () => {
-                              await supabase.from('student_semester_notes')
+                              await db.from('student_semester_notes')
                                 .delete().eq('student_id', profile.id).eq('semester_number', semNum)
                               setExtraSemesters(prev => prev.filter(n => n !== semNum))
                               setExtraSemesterTerms(prev => { const next = { ...prev }; delete next[semNum]; return next })

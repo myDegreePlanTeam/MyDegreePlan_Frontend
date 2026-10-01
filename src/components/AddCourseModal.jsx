@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { db } from '../lib/dataClient'
 import { escapeIlikeValue } from '../lib/postgrestEscape'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import './Dashboard.css'
@@ -31,7 +31,7 @@ export default function AddCourseModal({
   const debounceRef             = useRef(null)
 
   // ── Query courses table on search change ──────────────────────────
-  // Debounce 250 ms so we don't hammer Supabase on every keystroke.
+  // Debounce 250 ms so we don't hammer the data layer on every keystroke.
   // ilike on code OR name gives a good combined search experience.
   useEffect(() => {
     clearTimeout(debounceRef.current)
@@ -45,7 +45,7 @@ export default function AddCourseModal({
     setLoading(true)
     debounceRef.current = setTimeout(async () => {
       const q = `%${escapeIlikeValue(search.trim())}%`
-      const { data, error: fetchErr } = await supabase
+      const { data, error: fetchErr } = await db
         .from('courses')
         .select('code, name, credits, subject_code')
         .or(`code.ilike."${q}",name.ilike."${q}"`)

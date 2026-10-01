@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { db, isLocalBackend } from '../lib/dataClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveActMathPlacement, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
 import { buildDegreePlan } from '../lib/degreeBuilder'
@@ -7,6 +7,7 @@ import { buildRequirementMap } from '../lib/requirementMap'
 import { isConcentrationSelectable } from '../lib/concentrationAvailability'
 import { fetchRequirementSlots, programForEntryTerm, isMissingProgramColumn } from '../lib/requirementSlots'
 import PriorCreditWizard from './PriorCreditWizard'
+import ImportBackupButton from './ImportBackupButton'
 import { getBrand } from '../lib/brand'
 import './Dashboard.css'
 
@@ -102,7 +103,7 @@ export default function Onboarding({ profileId, onComplete }) {
 
   useEffect(() => {
     async function fetchConcentrations() {
-      const { data, error: fetchErr } = await supabase
+      const { data, error: fetchErr } = await db
         .from('concentrations')
         .select('id, code, name, total_hours')
         .order('id', { ascending: true })
@@ -169,7 +170,7 @@ export default function Onboarding({ profileId, onComplete }) {
     const concData = concentrations.find(c => c.code === selectedCode)
     if (concData) {
       const { data } = await fetchRequirementSlots(
-        supabase, concData.id, programForEntryTerm(startSeason, startYear), 'id, class_code, is_pool',
+        db, concData.id, programForEntryTerm(startSeason, startYear), 'id, class_code, is_pool',
       )
       setConcSlots(data ?? [])
     }
@@ -184,7 +185,7 @@ export default function Onboarding({ profileId, onComplete }) {
     const chainCodes = getMathChains(studentType)[placement.satisfies_course_code] ?? []
     const allCodes = [...chainCodes, ...MATH_FORK_CODES]
     setMathChainLoading(true)
-    supabase
+    db
       .from('courses')
       .select('code, name, credits')
       .in('code', allCodes)
@@ -224,14 +225,14 @@ export default function Onboarding({ profileId, onComplete }) {
       student_type:     studentType,
       ...actFields,
     }
-    let { error: updateError } = await supabase
+    let { error: updateError } = await db
       .from('student_profiles')
       .update({ ...profileFields, gened_program: genEdProgram })
       .eq('id', profileId)
     // A database the tier 21 migration has not reached has no gened_program column:
     // save without it (the student stays on the legacy program).
     if (isMissingProgramColumn(updateError)) {
-      ;({ error: updateError } = await supabase
+      ;({ error: updateError } = await db
         .from('student_profiles')
         .update(profileFields)
         .eq('id', profileId))
@@ -253,21 +254,21 @@ export default function Onboarding({ profileId, onComplete }) {
     if (englishRows.length > 0) allRecords = [...englishRows, ...allRecords]
 
     if (allRecords.length > 0) {
-      await supabase
+      await db
         .from('prior_credits')
         .insert(allRecords.map(r => ({ ...r, plan_id: profileId })))
     }
 
     // ── 3. Fetch data needed for the degree-builder algorithm ────────────────
     const [slotsRes, coursesRes, prereqRes, coreqRes] = await Promise.all([
-      fetchRequirementSlots(supabase, concData.id, genEdProgram, 'id, class_code, is_pool, flex_credits'),
-      supabase
+      fetchRequirementSlots(db, concData.id, genEdProgram, 'id, class_code, is_pool, flex_credits'),
+      db
         .from('courses')
         .select('code, credits, standing_req'),
-      supabase
+      db
         .from('prerequisite_entries')
         .select('course_code, group_index, logic, required_code'),
-      supabase
+      db
         .from('corequisite_entries')
         .select('course_code, group_index, logic, required_code'),
     ])
@@ -336,11 +337,11 @@ export default function Onboarding({ profileId, onComplete }) {
     }
 
     if (planSlotRows.length > 0) {
-      // Batch in chunks to stay within Supabase payload limits
+      // Batch in chunks to stay within request payload limits
       const CHUNK = 100
       for (let i = 0; i < planSlotRows.length; i += CHUNK) {
         const chunk = planSlotRows.slice(i, i + CHUNK)
-        const { error: upsertErr } = await supabase
+        const { error: upsertErr } = await db
           .from('student_plan_slots')
           .upsert(chunk, { onConflict: 'student_id, requirement_slot_id' })
         if (upsertErr) {
@@ -475,6 +476,19 @@ export default function Onboarding({ profileId, onComplete }) {
             >
               Continue
             </button>
+
+            {/* Local backend only: a new device has no plan, so this is where a backup from another one is loaded. */}
+            {isLocalBackend && (
+              <p className="onboarding-import">
+                Moving from another device?{' '}
+                <ImportBackupButton
+                  className="onboarding-import-btn"
+                  onError={setError}
+                >
+                  Import a backup
+                </ImportBackupButton>
+              </p>
+            )}
           </div>
         )}
 

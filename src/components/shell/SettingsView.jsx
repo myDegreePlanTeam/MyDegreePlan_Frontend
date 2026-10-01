@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { db, isLocalBackend } from '../../lib/dataClient'
 import {
   ACT_FIELDS, validateActScore, describeActScore, saveActScoresAndRebuild,
 } from '../../lib/actScores'
 import { isConcentrationSelectable } from '../../lib/concentrationAvailability'
+import DeviceDataCard from './DeviceDataCard'
 
 export default function SettingsView({
   profile,
@@ -46,6 +47,8 @@ export default function SettingsView({
         profile={profile}
         onSaved={onActSaved}
       />
+
+      {isLocalBackend && <DeviceDataCard />}
 
       <div className="ds-danger-card">
         <span className="ds-setting-text">
@@ -170,7 +173,7 @@ export function ConcentrationModal({ currentId, studentType, onSwitch, onClose, 
   const [fetchError, setFetchError]         = useState(null)
 
   useEffect(() => {
-    supabase
+    db
       .from('concentrations')
       .select('id, code, name, total_hours')
       .order('id', { ascending: true })

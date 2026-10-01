@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState, lazy, Suspense } from 'react'
-import { supabase } from './lib/supabaseClient'
+import { db } from './lib/dataClient'
 import ErrorBoundary from './components/ErrorBoundary'
 import UpdateBanner from './components/UpdateBanner'
 
@@ -28,12 +28,12 @@ function App() {
 
   useEffect(() => {
     // Get the current session on initial load
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    db.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
     })
 
     // Listen for login/logout events and update session state
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = db.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session)
       }

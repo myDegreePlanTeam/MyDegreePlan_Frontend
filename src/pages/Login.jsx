@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { db } from '../lib/dataClient'
 import { getBrand } from '../lib/brand'
 import { Link } from 'react-router-dom'
 import './Auth.css'
@@ -16,7 +16,7 @@ export default function Login() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await db.auth.signInWithPassword({ email, password })
 
     if (error) {
       setError(error.message)

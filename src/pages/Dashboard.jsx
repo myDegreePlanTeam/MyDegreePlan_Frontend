@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { db } from '../lib/dataClient'
 import { isMissingProgramColumn } from '../lib/requirementSlots'
 import Onboarding from '../components/Onboarding'
 import DegreePlan from '../components/DegreePlan'
@@ -20,7 +20,7 @@ export default function Dashboard() {
         // getSession() reads the locally-cached session — no network round-trip.
         // App.jsx has already validated the session exists before rendering
         // Dashboard, so we can trust it here without calling getUser() again.
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session } } = await db.auth.getSession()
         const user = session?.user
 
         if (!user) {
@@ -31,7 +31,7 @@ export default function Dashboard() {
 
         // gened_program (tier 21) may not exist yet on an un-migrated database:
         // read without it then, and the student is treated as legacy.
-        const readProfile = withProgram => supabase
+        const readProfile = withProgram => db
         .from('student_profiles')
         .select(`
             id,
@@ -60,7 +60,7 @@ export default function Dashboard() {
 
         // PGRST116 means zero rows found — profile is missing
         if (error && error.code === 'PGRST116') {
-        const { data: newProfile, error: insertError } = await supabase
+        let { data: newProfile, error: insertError } = await db
             .from('student_profiles')
             .insert({ user_id: user.id })
             .select(`
@@ -82,6 +82,15 @@ export default function Dashboard() {
             )
             `)
             .single()
+
+        // Two loads can race to create the profile (React StrictMode runs this effect twice in
+        // development, and a new device has no row yet). The loser hits the unique constraint on
+        // user_id: that means the row now exists, so read it instead of reporting a failure.
+        if (insertError?.code === '23505') {
+            let reread = await readProfile(true)
+            if (isMissingProgramColumn(reread.error)) reread = await readProfile(false)
+            ;({ data: newProfile, error: insertError } = reread)
+        }
 
         if (!cancelled) {
             if (insertError) {
@@ -112,7 +121,7 @@ export default function Dashboard() {
   // changes, causing an infinite loop.
 
   // ── This is called by Onboarding when the student completes setup.
-  // Instead of re-fetching from Supabase, we just update local state
+  // Instead of re-fetching from the data layer, we just update local state
   // directly with the new values — faster and no extra network call.
   function handleOnboardingComplete(updatedProfile) {
     setProfile(updatedProfile)

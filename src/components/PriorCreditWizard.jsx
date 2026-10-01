@@ -15,7 +15,7 @@
 // students never set these manually.
 
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { db } from '../lib/dataClient'
 import { resolveSatisfiesPool, mapSatisfiesPoolForPlan, POOL_LABELS, getGenEdSubCategory } from '../lib/poolResolver'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
 import { escapeIlikeValue } from '../lib/postgrestEscape'
@@ -104,7 +104,7 @@ export default function PriorCreditWizard({
 
     const testTypes = resolveTestTypes(typeConfig, creditType)
     setLoadingExams(true)
-    supabase
+    db
       .from('test_equivalencies')
       .select('test_name, test_type')
       .in('test_type', testTypes)
@@ -137,7 +137,7 @@ export default function PriorCreditWizard({
     if (step !== 3 || !creditType || !selectedExam) return
 
     const dbType = effectiveTestType(selectedExam, creditType)
-    supabase
+    db
       .from('test_equivalencies')
       .select('min_score, awarded_course_code, credits_awarded, satisfies_pool')
       .eq('test_type', dbType)
@@ -190,7 +190,7 @@ export default function PriorCreditWizard({
       // Merged categories (e.g. ACT) use the exam's own test_type, not the
       // wizard-level category key.
       const dbType = effectiveTestType(selectedExam, creditType)
-      let query = supabase
+      let query = db
         .from('test_equivalencies')
         .select('awarded_course_code, credits_awarded, satisfies_pool, min_score, test_type, test_name')
         .eq('test_type', dbType)
@@ -207,7 +207,7 @@ export default function PriorCreditWizard({
 
       // Fetch course names for display
       const codes = [...new Set(data.map(r => r.awarded_course_code).filter(Boolean))]
-      const { data: courseData } = await supabase
+      const { data: courseData } = await db
         .from('courses')
         .select('code, name, credits')
         .in('code', codes)
@@ -237,7 +237,7 @@ export default function PriorCreditWizard({
     setSearchingCourses(true)
     searchTimerRef.current = setTimeout(async () => {
       const term = escapeIlikeValue(val.trim())
-      const { data } = await supabase
+      const { data } = await db
         .from('courses')
         .select('code, name, credits')
         .or(`code.ilike."%${term}%",name.ilike."%${term}%"`)
