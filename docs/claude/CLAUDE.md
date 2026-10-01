@@ -220,7 +220,7 @@ Vercel needs **no settings**: with no `__MDP_CONFIG__` the app is local-first. `
 
 ## Docker stack and releases
 
-`MDP/local-deploy/` is a **separate git repo** (`myDegreePlanTeam/MyDegreePlan_Deploy`); its README is the full reference. `MyDegreePlan_Prototype/local-deploy/` is a **stale tracked copy** of it: never edit that one.
+`MDP/local-deploy/` is a **separate git repo** (`myDegreePlanTeam/MyDegreePlan_Deploy`); its README is the full reference. (A stale copy once sat under `MyDegreePlan_Prototype/local-deploy/`; it was deleted 2026-10-01. If an old checkout still has one, ignore it.)
 
 **Release process** (students get it through the in-app Update button):
 1. Merge the Frontend / Prototype / Deploy changes to `main` and push. The workflow builds `main` of Frontend and Prototype unless `frontend_ref` / `prototype_ref` say otherwise.
