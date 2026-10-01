@@ -12,7 +12,7 @@ import {
 // build), so the suite skips itself when it is missing.
 
 const PROTO = fileURLToPath(new URL('../../../MyDegreePlan_Prototype/', import.meta.url))
-const HAVE_SEEDS = existsSync(`${PROTO}prototype.json`) && existsSync(`${PROTO}csc_core_ff.json`)
+const HAVE_SEEDS = existsSync(`${PROTO}courses.json`) && existsSync(`${PROTO}csc_core_ff.json`)
 
 const readJson = name => JSON.parse(readFileSync(`${PROTO}${name}`, 'utf8'))
 
@@ -23,7 +23,7 @@ const CONCENTRATIONS = {
   hpc:           ['csc_hpc.json',           'csc_hpc_ff.json'],
 }
 
-// MATH1000 is inserted by migration_math1000.sql, not seeded from prototype.json.
+// MATH1000 was once inserted by migration_math1000.sql; courses.json (the full Coursedog catalog) has it now.
 const NOT_IN_PROTOTYPE_JSON = new Set(['MATH1000'])
 
 // What a student picks for each pool, in slot order — a plan the department
@@ -69,7 +69,7 @@ function fillPlan(slots) {
 }
 
 describe.skipIf(!HAVE_SEEDS)('Flight Foundations seed templates', () => {
-  const courseList = HAVE_SEEDS ? readJson('prototype.json').courses : []
+  const courseList = HAVE_SEEDS ? readJson('courses.json').courses : []
   const courses = Object.fromEntries(courseList.map(c => [c.code, c]))
 
   it('has every Flight Foundations course in the seeded catalog', () => {
@@ -95,7 +95,7 @@ describe.skipIf(!HAVE_SEEDS)('Flight Foundations seed templates', () => {
     expect(courses.ENGL2400.corequisites).toEqual(['ENGL1020'])
   })
 
-  it('keeps prototype.json codes unique and sorted', () => {
+  it('keeps courses.json codes unique and sorted', () => {
     const codes = courseList.map(c => c.code)
     expect(new Set(codes).size).toBe(codes.length)
     expect(codes).toEqual([...codes].sort())
