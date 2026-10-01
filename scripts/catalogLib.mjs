@@ -18,9 +18,10 @@ export const POOL_CODES = new Set([
   'FREE_ELECTIVE',
 ])
 
-// Courses that exist in the live database but not in prototype.json: seed.js never inserts them, they
-// were added by hand-applied migrations. MATH1000 (migration_math1000.sql) is a template slot and an
-// exam-equivalency award, so the catalog is incomplete without it. local-deploy's setup does the same.
+// Courses that the live database has but the generated course catalog (courses.json) might not: they were
+// added by hand-applied migrations. MATH1000 (migration_math1000.sql) is a template slot and an
+// exam-equivalency award; Coursedog lists it now, so this only fires if a rebuild ever drops it.
+// local-deploy's setup does the same.
 export const SUPPLEMENTAL_COURSES = [
   {
     code: 'MATH1000',
@@ -75,25 +76,32 @@ const withIds = rows => rows.map((r, i) => ({ id: i + 1, ...r }))
 
 /**
  * @param {object} input
- * @param {Array}  input.courses        prototype.json `courses`
+ * @param {Array}  input.courses        courses.json `courses` (the generated full catalog)
+ * @param {Set<string>|null} [input.coreCodes]  courses whose description ships in catalog.json itself:
+ *                                      the ones templates, pools and exam equivalencies name. Every other
+ *                                      description goes to `descriptions`, loaded on demand. null embeds all.
  * @param {Array}  input.plans          DEGREE_FILES entries plus `data` (the parsed template JSON)
  * @param {string} input.equivalencySql contents of test_equivalencies.sql
  * @param {object|null} input.previous  the previous catalog.json, used to keep ids stable
  * @param {Function} input.planSlotSync the prototype repo's slotSync planner (the one seed.js uses)
- * @returns {{ catalog: object, totals: object }}
+ * @returns {{ catalog: object, descriptions: object, totals: object }}
  */
-export function assembleCatalog({ courses, plans, equivalencySql, previous, planSlotSync }) {
+export function assembleCatalog({ courses, plans, equivalencySql, previous, planSlotSync, coreCodes = null }) {
   const prevSlots = previous?.tables.requirement_slots ?? []
   const prevConcentrations = previous?.tables.concentrations ?? []
 
-  const courseRows = courses.map(c => ({
-    code: c.code,
-    name: c.name,
-    credits: c.credits,
-    subject_code: c.subjectCode ?? null,
-    description: c.description ?? null,
-    standing_req: c.standing ?? null,
-  }))
+  // Null columns are left out (the engine fills them: see CATALOG_COLUMN_DEFAULTS in localClient.js), and
+  // descriptions outside the core ride in a separate lazily loaded file.
+  const descriptions = {}
+  const courseRows = courses.map(c => {
+    const row = { code: c.code, name: c.name, credits: c.credits, subject_code: c.subjectCode ?? null }
+    if (c.creditsMax != null) row.credits_max = c.creditsMax
+    if (c.standing) row.standing_req = c.standing
+    if (c.requisiteText) row.requisite_text = c.requisiteText
+    if (!coreCodes || coreCodes.has(c.code)) row.description = c.description ?? null
+    else if (c.description) descriptions[c.code] = c.description
+    return row
+  })
   for (const extra of SUPPLEMENTAL_COURSES) {
     if (!courseRows.some(c => c.code === extra.code)) courseRows.push(extra)
   }
@@ -138,6 +146,7 @@ export function assembleCatalog({ courses, plans, equivalencySql, previous, plan
 
   return {
     totals,
+    descriptions,
     catalog: {
       format: 1,
       tables: {

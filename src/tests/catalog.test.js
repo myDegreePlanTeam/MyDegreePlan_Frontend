@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { flattenReqArray, parseEquivalencies, assembleCatalog, POOL_CODES } from '../../scripts/catalogLib.mjs'
 import catalogJson from '../data/catalog.json'
+import descriptionsJson from '../data/catalog.descriptions.json'
+import { classifyPrereq } from '../lib/classifyPrereq'
 
 describe('flattenReqArray', () => {
   it('turns strings into AND groups and inner arrays into OR groups', () => {
@@ -92,6 +94,32 @@ describe('committed catalog.json', () => {
       expect(s.is_pool, `slot ${s.id} ${s.class_code}`).toBe(POOL_CODES.has(s.class_code))
       if (!s.is_pool) expect(courseCodes.has(s.class_code), s.class_code).toBe(true)
     }
+  })
+  it('carries the full Tennessee Tech catalog, not just the planner courses', () => {
+    expect(t.courses.length).toBeGreaterThan(5000)
+    const subjects = new Set(t.courses.map(c => c.subject_code))
+    for (const s of ['CSC', 'MATH', 'AI', 'BIOL', 'NURS', 'MUS']) expect(subjects.has(s), s).toBe(true)
+  })
+  it('only has requisite rows for courses it lists', () => {
+    for (const name of ['prerequisite_entries', 'corequisite_entries']) {
+      const stray = t[name].filter(r => !courseCodes.has(r.course_code)).map(r => r.course_code)
+      expect(stray, name).toEqual([])
+    }
+  })
+  it('puts every description in exactly one place', () => {
+    for (const c of t.courses) {
+      const inline = 'description' in c
+      const lazy = c.code in descriptionsJson
+      expect(inline && lazy, `${c.code} in both`).toBe(false)
+    }
+    for (const code of Object.keys(descriptionsJson)) expect(courseCodes.has(code), code).toBe(true)
+  })
+  it('keeps ACT and consent sentences where classifyPrereq reads them', () => {
+    const courseMap = Object.fromEntries(t.courses.map(c => [c.code, c]))
+    expect(classifyPrereq('CSC4040', null, courseMap)).toBe('consent')      // "... and consent of instructor"
+    expect(classifyPrereq('CSC1200', null, courseMap)).toBe('placement')    // "ACT Math Score of 25 or higher or ..."
+    expect(classifyPrereq('MATH1710', null, courseMap)).toBe('placement')
+    expect(classifyPrereq('CSC1310', null, courseMap)).toBe('completion')
   })
   it('gives each concentration a complete slot set per program it offers (DSAI is legacy only)', () => {
     const programs = Object.fromEntries(t.concentrations.map(c => [c.code, new Set(t.requirement_slots.filter(s => s.concentration_id === c.id).map(s => s.gened_program))]))

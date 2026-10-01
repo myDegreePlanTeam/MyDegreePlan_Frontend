@@ -20,6 +20,11 @@ export const CATALOG_TABLES = [
   'concentrations', 'requirement_slots', 'test_equivalencies',
 ]
 
+// Columns a catalog row may leave out, to keep catalog.json small; a read sees them as null, as Postgres would.
+const CATALOG_COLUMN_DEFAULTS = {
+  courses: { credits_max: null, standing_req: null, requisite_text: null },
+}
+
 const now = () => new Date().toISOString()
 
 // pk: column holding the generated id ('uuid' ids are random). unique: constraints beyond the pk.
@@ -266,6 +271,8 @@ class Query {
       if (this.rangeFrom) rows = rows.slice(this.rangeFrom)
       if (this.limitTo != null) rows = rows.slice(0, this.limitTo)
       const sel = parseSelect(this.selectText)
+      const wantsDescription = sel.star || sel.columns.includes('description') || (sel.columns.length === 0 && sel.embeds.length === 0)
+      if (table === 'courses' && wantsDescription && rows.some(r => !('description' in r))) await db.hydrateDescriptions()
       return { rows: rows.map(r => project(r, sel, table, db)) }
     }
 
@@ -314,8 +321,10 @@ const toArray = v => (Array.isArray(v) ? v : [v])
 // ── the "database" ─────────────────────────────────────────────────────────────
 
 class LocalDb {
-  constructor({ loadCatalog, storage }) {
+  constructor({ loadCatalog, loadDescriptions, storage }) {
     this.storage = storage
+    this.loadDescriptions = loadDescriptions ?? null
+    this.descriptionsReady = null
     this.tables = {}
     this.counters = {}
     this.dirty = new Set()
@@ -325,6 +334,11 @@ class LocalDb {
   async #init(loadCatalog) {
     const [catalog, saved] = await Promise.all([loadCatalog(), this.storage.load()])
     for (const name of CATALOG_TABLES) this.tables[name] = catalog.tables[name] ?? []
+    for (const [name, defaults] of Object.entries(CATALOG_COLUMN_DEFAULTS)) {
+      for (const row of this.tables[name]) {
+        for (const [col, value] of Object.entries(defaults)) if (!(col in row)) row[col] = value
+      }
+    }
     for (const name of Object.keys(STUDENT_TABLES)) this.tables[name] = saved.tables?.[name] ?? []
     this.counters = { ...(saved.meta?.counters ?? {}) }
     // A counter must never fall behind the rows it numbers (covers imports and older saves).
@@ -333,6 +347,16 @@ class LocalDb {
       const max = this.tables[name].reduce((m, r) => Math.max(m, Number(r[spec.pk]) || 0), 0)
       this.counters[name] = Math.max(this.counters[name] ?? 0, max)
     }
+  }
+
+  // Most course descriptions are not in catalog.json (see build-catalog.mjs); they arrive in a separate
+  // file. Load it once, the first time a query asks for a description a row does not have, and fill them all.
+  hydrateDescriptions() {
+    this.descriptionsReady ??= (async () => {
+      const lazy = this.loadDescriptions ? await this.loadDescriptions() : {}
+      for (const row of this.tables.courses) if (!('description' in row)) row.description = lazy[row.code] ?? null
+    })().catch(err => { this.descriptionsReady = null; throw err })
+    return this.descriptionsReady
   }
 
   rows(table) {
@@ -478,8 +502,8 @@ class LocalDb {
 
 // ── public ─────────────────────────────────────────────────────────────────────
 
-export function createLocalClient({ loadCatalog, storage, userId = LOCAL_USER_ID }) {
-  const db = new LocalDb({ loadCatalog, storage })
+export function createLocalClient({ loadCatalog, loadDescriptions, storage, userId = LOCAL_USER_ID }) {
+  const db = new LocalDb({ loadCatalog, loadDescriptions, storage })
   const session = { access_token: null, user: { id: userId, email: null } }
 
   const auth = {

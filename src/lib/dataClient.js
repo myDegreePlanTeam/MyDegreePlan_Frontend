@@ -19,6 +19,8 @@ function createLocal() {
   return createLocalClient({
     // A separate chunk, fetched on first query, so it never loads on the remote backend.
     loadCatalog: () => import('../data/catalog.json').then(m => m.default),
+    // Descriptions of the courses no template or pool names: fetched the first time a query needs one.
+    loadDescriptions: () => import('../data/catalog.descriptions.json').then(m => m.default),
     storage: createIndexedDbStorage(),
   })
 }
