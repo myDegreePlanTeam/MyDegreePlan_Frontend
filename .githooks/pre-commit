@@ -1,0 +1,11 @@
+#!/bin/sh
+# pre-commit: eslint on the staged .js/.jsx files (npm run lint:changed -- --staged). Prints one line when clean and
+# blocks the commit with one line per problem otherwise. It lints the files as they are on disk, and it does not run the
+# tests (run `npm run test` before committing, as CLAUDE.md says). Enable it once per clone: npm run hooks:install
+cd "$(git rev-parse --show-toplevel)" || exit 0
+[ -f scripts/lint-changed.mjs ] || exit 0
+if [ ! -d node_modules ]; then
+  echo "pre-commit: node_modules is missing, lint skipped (run npm ci)"
+  exit 0
+fi
+exec node scripts/lint-changed.mjs --staged

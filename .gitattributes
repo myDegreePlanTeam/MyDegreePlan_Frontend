@@ -1,0 +1,2 @@
+# Hook scripts run under sh: keep LF even where core.autocrlf would turn it into CRLF.
+.githooks/* text eol=lf

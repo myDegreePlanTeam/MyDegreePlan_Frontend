@@ -2,6 +2,7 @@
 //
 //   npm run lint:changed                 files changed since HEAD (staged, unstaged and untracked)
 //   npm run lint:changed -- --since main files changed since main (everything on the branch, plus uncommitted work)
+//   npm run lint:changed -- --staged     only the files staged for commit (what the pre-commit hook runs)
 //
 // Prints one line when clean (`lint ok (N files)`), one line per problem otherwise. Exit 1 on any error or warning:
 // the baseline is clean, so a warning is new. Read-only: it never fixes anything.
@@ -12,6 +13,7 @@ import { ESLint } from 'eslint'
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url))
 const args = process.argv.slice(2)
+const staged = args.includes('--staged')
 const i = args.indexOf('--since')
 const since = i >= 0 ? args[i + 1] : 'HEAD'
 if (i >= 0 && !since) {
@@ -21,10 +23,12 @@ if (i >= 0 && !since) {
 
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean)
 // `--relative` limits to this repo folder and prints paths relative to it; --diff-filter=d drops deleted files.
-const changed = new Set([
-  ...git('diff', '--name-only', '--relative', '--diff-filter=d', since),
-  ...git('ls-files', '--others', '--exclude-standard'),
-])
+const changed = new Set(staged
+  ? git('diff', '--cached', '--name-only', '--relative', '--diff-filter=d')
+  : [
+      ...git('diff', '--name-only', '--relative', '--diff-filter=d', since),
+      ...git('ls-files', '--others', '--exclude-standard'),
+    ])
 const wanted = [...changed].filter(f => /\.(js|jsx)$/.test(f) && !f.startsWith('dist/')).map(f => resolve(ROOT, f))
 
 const eslint = new ESLint({ cwd: ROOT })
