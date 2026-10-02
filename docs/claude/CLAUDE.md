@@ -251,7 +251,10 @@ that section before changing the module. Rules that must hold even if you do not
   real `/^\s*none<BS>/` in `catalog/prereqParser.mjs`. A dropped backslash is not a control character, so check the
   written line (`sed -n Np file | cat -A`) after editing a regex. To change text that contains a backslash or an escaped
   newline, use the Edit tool, not `sed`, `node -e` or a nested heredoc (they re-escape it, and a heredoc inside a heredoc
-  hangs the shell until the timeout).
+  hangs the shell until the timeout). An empty heredoc fed to `python3 -` is the worst case here: Python 3.13 starts its
+  interactive prompt and loops (20 MB of output). A PreToolUse hook (`local-deploy/tools/guard_bash.mjs`, wired in
+  `MDP/.claude/settings.json`) now refuses that, an unclosed heredoc and a bare `python`/`node` before they run; put
+  `# guard_bash: allow` in a command to run one deliberately.
 - **Driving onboarding in the browser pane** (no screenshots: they time out while the pane is hidden). The pane keeps a
   saved plan per origin, so Onboarding only shows on an origin with none: use `http://127.0.0.1:5173/` when
   `localhost:5173` already has a plan, rather than erasing it. React ignores a plain `el.value = x`; use the native setter
