@@ -326,3 +326,6 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 9. To see where every repo stands (branch, dirty files, behind/ahead `origin/main`, PR state, which local branches are safe to
    delete), run `bash local-deploy/tools/mdp_status.sh` from `MDP/` once instead of several `git status` / `log` / `branch` calls.
    Quote branch and commit counts from it or from git, not from memory. It is read-only.
+10. To see where tool-output tokens go (by category, against the recorded baseline) and whether an earlier retro fix held, run
+   `node local-deploy/tools/token_audit.mjs --check-log` from `MDP/` (read-only; `--record --label NAME` appends a row to
+   `.claude/retro/metrics.tsv`). When a logged friction gets fixed, the retro appends a `FIXED` line to `.claude/retro/log.md`.
