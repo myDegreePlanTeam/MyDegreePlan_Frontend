@@ -292,7 +292,7 @@ export default function Onboarding({ profileId, onComplete }) {
 
     // ── 3. Fetch data needed for the degree-builder algorithm ────────────────
     // Only this plan's slice of the catalog (see plannerCatalog.js): the catalog is every university course.
-    const slotsRes = await fetchRequirementSlots(db, concData.id, plan.catalog_year, 'id, class_code, is_pool, flex_credits')
+    const slotsRes = await fetchRequirementSlots(db, concData.id, plan.catalog_year, 'id, class_code, is_pool, flex_credits, map_semester')
     const catalog = slotsRes.error
       ? { courses: [], prereqs: [], coreqs: [], error: null }
       : await fetchPlannerCatalog(db, slotsRes.data ?? [])

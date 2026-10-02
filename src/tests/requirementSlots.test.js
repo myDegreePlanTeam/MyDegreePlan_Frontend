@@ -45,6 +45,32 @@ describe('fetchRequirementSlots', () => {
     expect((await fetchRequirementSlots(client, 7, '2027-2028', 'id')).data).toEqual([])
   })
 
+  it('reads the department path (map_semester) when the database has it', async () => {
+    const client = fakeClient(() => [{ id: 1, class_code: 'CSC1300', map_semester: 1 }])
+    const r = await fetchRequirementSlots(client, 7, '2026-2027', 'id, class_code, map_semester')
+    expect(r.data).toEqual([{ id: 1, class_code: 'CSC1300', map_semester: 1 }])
+    expect(client.calls).toHaveLength(1)
+  })
+
+  it('reads without map_semester from a database whose setup has not added the column yet', async () => {
+    const missing = { code: '42703', message: 'column requirement_slots.map_semester does not exist' }
+    const client = fakeClient(byYear, { fail: call => (/map_semester/.test(call.select) ? missing : null) })
+    const r = await fetchRequirementSlots(client, 7, '2026-2027', 'id, class_code, map_semester')
+    expect(r.error).toBeNull()
+    expect(r.data).toEqual(slot2026)
+    expect(client.calls.map(c => c.select)).toEqual(['id, class_code, map_semester', 'id, class_code'])
+  })
+
+  it('a database older still (no catalog_year either) falls back without map_semester too', async () => {
+    const client = fakeClient(f => (f.gened_program === 'flight_foundations' ? slot2026 : []), {
+      fail: call => (call.filters.catalog_year !== undefined || /map_semester/.test(call.select) ? { code: '42703', message: 'column does not exist' } : null),
+    })
+    const r = await fetchRequirementSlots(client, 7, '2026-2027', 'id, class_code, map_semester')
+    expect(r.error).toBeNull()
+    expect(r.data).toEqual(slot2026)
+    expect(client.calls.at(-1).select).toBe('id, class_code')
+  })
+
   it('applies the requested ordering', async () => {
     const client = fakeClient(byYear)
     await fetchRequirementSlots(client, 1, '2025-2026', 'id', [

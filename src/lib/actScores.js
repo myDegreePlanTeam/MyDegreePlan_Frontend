@@ -89,7 +89,7 @@ export async function saveActScoresAndRebuild(profile, numScores) {
   // The catalog holds every university course; the builder only needs this plan's (see plannerCatalog.js).
   // standing_req drives the builder's junior/senior placement — without it CSC3040 jumped ahead of
   // COMM_REQ and the pool front-fill never ran.
-  const slotsRes = await fetchRequirementSlots(db, profile.concentration_id, catalogYearForProfile(profile), 'id, class_code, is_pool, flex_credits')
+  const slotsRes = await fetchRequirementSlots(db, profile.concentration_id, catalogYearForProfile(profile), 'id, class_code, is_pool, flex_credits, map_semester')
   const [catalog, priorRes, studentSlotsRes] = await Promise.all([
     slotsRes.error ? { courses: [], prereqs: [], coreqs: [], error: null } : fetchPlannerCatalog(db, slotsRes.data ?? []),
     db.from('prior_credits').select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded').eq('plan_id', profile.id),

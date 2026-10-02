@@ -5,6 +5,11 @@
 // slots that don't apply to the student (e.g., math chain courses above their
 // ACT placement level, or courses covered by prior credits).
 //
+// A standard student (Fall start, no prior credit, top-track math placement) gets the department's own path: each
+// slot's map_semester, the recommended semester the degree map prints. The path is checked against the catalog's
+// prerequisites and corequisites, the courses' offering terms, standing requirements and the semester load; a map
+// that fails any of them, a plan with no map, or any other student, goes through the placement algorithm below.
+//
 // Gen-ed pools are interleaved with the major — required courses leave each
 // regular semester a seat for one — unless that would make the plan longer
 // than the compact, required-courses-first layout.
@@ -20,6 +25,7 @@
 
 import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
 import { resolveMathPlacement } from './mathPlacement'
+import { isEnrollmentAllowed } from './semesterRestrictions'
 import { POOL_COURSES, POOL_CREDIT_ESTIMATES, POOL_FLOORS, REQUIREMENT_POOLS } from './poolResolver'
 
 // ─── Math chain data ──────────────────────────────────────────────────────────
@@ -110,6 +116,10 @@ function groupSatisfied(group, satisfiedCodes) {
  *   archived:    { [slotId]: 'not_applicable' | 'prior_credit' }
  */
 export function buildDegreePlan(opts) {
+  // The department's path, when this student is the one it was written for and it holds up
+  const mapped = mapFirstPlan(opts)
+  if (mapped) return mapped
+
   // Interleave gen-eds with the major — required courses leave a seat for one
   // in each regular semester — unless that makes the plan longer than packing
   // required courses first. The graduation semester comes first.
@@ -122,29 +132,85 @@ function planLength({ assignments }) {
   return Math.max(0, ...Object.values(assignments))
 }
 
+// Slots the student does not take: math-chain courses outside their placement ('not_applicable') and slots a prior
+// credit covers ('prior_credit').
+function archivedSlots({ slots, priorCredits, studentProfile }) {
+  const { student_type, act_math, sat_math } = studentProfile
+  const studentChain = getStudentMathChain({ act_math, sat_math }, student_type)
+  const archived = {}
+  for (const slot of slots) {
+    if (ALL_MATH_CHAIN_CODES.has(slot.class_code) && !studentChain.has(slot.class_code)) archived[slot.id] = 'not_applicable'
+  }
+  for (const slotId of Object.keys(resolveTransferCredits(priorCredits, {}, slots))) archived[slotId] = 'prior_credit'
+  return archived
+}
+
+// ─── Map-first placement ─────────────────────────────────────────────────────
+
+// The department's path for a standard student, or null when there is none or it does not hold up here. Semester n of
+// the map is fall for odd n, spring for even n, which is how the department writes it, so only a Fall start can take it.
+function mapFirstPlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile }) {
+  if (studentProfile.start_season !== 'Fall') return null
+  if (creditsBeforeSemester(1, { priorCredits }) > 0) return null            // any prior credit moves the student off the path
+  const archived = archivedSlots({ slots, priorCredits, studentProfile })
+  if (Object.values(archived).includes('prior_credit')) return null
+  const active = slots.filter(s => !archived[s.id])
+  if (!active.length || active.some(s => !Number.isInteger(s.map_semester))) return null   // a plan without a (complete) map
+
+  const assignments = Object.fromEntries(active.map(s => [s.id, s.map_semester]))
+  return mapPathHolds({ active, assignments, archived, slots, courseMap, prereqMap, coreqMap, priorCredits }) ? { assignments, archived } : null
+}
+
+function mapPathHolds({ active, assignments, archived, slots, courseMap, prereqMap, coreqMap, priorCredits }) {
+  // the department path may not overload a semester
+  const loads = {}
+  for (const s of active) loads[assignments[s.id]] = (loads[assignments[s.id]] ?? 0) + slotCredits(s, courseMap)
+  if (Object.values(loads).some(load => load > CREDIT_MAX)) return false
+
+  const semOf = {}
+  for (const s of active) if (!s.is_pool) semOf[s.class_code] = assignments[s.id]
+  const priorSatisfied = new Set(priorCredits.filter(pc => pc.satisfies_course_code && (pc.credits_awarded ?? 0) > 0).map(pc => pc.satisfies_course_code))
+
+  for (const s of active) {
+    if (s.is_pool) continue
+    const sem = assignments[s.id]
+    // offering term: odd semesters are fall, even are spring
+    if (!isEnrollmentAllowed(s.class_code, sem % 2 === 1 ? 'Fall' : 'Spring')) return false
+    // standing
+    const standing = courseMap[s.class_code]?.standing_req
+    if (standing && STANDING_THRESHOLDS[standing] !== undefined) {
+      const before = creditsBeforeSemester(sem, { slots, planSemesterOverrides: assignments, planArchived: archived, priorCredits, courses: courseMap })
+      if (before < STANDING_THRESHOLDS[standing]) return false
+    }
+    // prerequisites: a group needs one of its courses (OR) or all of them (AND) placed earlier, or alongside when the
+    // catalog lets the course be taken concurrently. A course the plan does not place at all (a pool, placement or
+    // prior credit supplies it) is not this check's to judge.
+    const alongside = new Set(Object.values(coreqMap[s.class_code] ?? {}).flatMap(g => g.codes))
+    for (const group of Object.values(prereqMap[s.class_code] ?? {})) {
+      const placed = group.codes.filter(c => semOf[c] !== undefined && !priorSatisfied.has(c))
+      if (!placed.length || group.codes.some(c => priorSatisfied.has(c) && group.logic === 'OR')) continue
+      if (placed.length < group.codes.length && group.logic === 'OR') continue    // another option is supplied outside the plan
+      const ready = c => semOf[c] < sem || (semOf[c] === sem && alongside.has(c))
+      if (group.logic === 'OR' ? !placed.some(ready) : !placed.every(ready)) return false
+    }
+    // corequisites: in the same or an earlier semester
+    for (const group of Object.values(coreqMap[s.class_code] ?? {})) {
+      const placed = group.codes.filter(c => semOf[c] !== undefined)
+      if (!placed.length || (placed.length < group.codes.length && group.logic === 'OR')) continue
+      const ready = c => semOf[c] <= sem
+      if (group.logic === 'OR' ? !placed.some(ready) : !placed.every(ready)) return false
+    }
+  }
+  return true
+}
+
 // One placement pass. `reserve` = credits per regular semester that required
 // courses leave free for gen-eds; 0 gives the compact, required-first layout.
 function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile }, reserve) {
-  const { student_type, act_math, sat_math, start_season } = studentProfile
+  const { start_season } = studentProfile
 
-  // ── Step 1: Archive slots covered by prior credits ──────────────────────
-  // resolveTransferCredits returns { [slotId]: true } for covered slots.
-  const priorCreditCovered = resolveTransferCredits(priorCredits, {}, slots)
-
-  // ── Step 2: Archive inapplicable math chain courses ─────────────────────
-  const studentChain = getStudentMathChain({ act_math, sat_math }, student_type)
-  const mathArchived = {}
-  for (const slot of slots) {
-    if (ALL_MATH_CHAIN_CODES.has(slot.class_code) && !studentChain.has(slot.class_code)) {
-      mathArchived[slot.id] = 'not_applicable'
-    }
-  }
-
-  // ── Step 3: Merge archived sets ─────────────────────────────────────────
-  const archived = { ...mathArchived }
-  for (const slotId of Object.keys(priorCreditCovered)) {
-    archived[slotId] = 'prior_credit'
-  }
+  // ── Steps 1-3: Archive slots covered by prior credits and inapplicable math-chain courses ──
+  const archived = archivedSlots({ slots, priorCredits, studentProfile })
 
   // ── Step 4: Active (non-archived) slots for placement ───────────────────
   const activeSlots = slots.filter(s => !archived[s.id])

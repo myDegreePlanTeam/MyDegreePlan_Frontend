@@ -7,7 +7,7 @@ import { applyChosenHours } from '../lib/creditHours'
 import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
-import { checkPrereqs, checkCoreqs } from '../lib/prereqChecker'
+import { checkPrereqs, checkCoreqsProvisional } from '../lib/prereqChecker'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
@@ -234,7 +234,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         db,
         profile.concentration_id,
         catalogYearForProfile(profile),
-        'id, semester_number, slot_order, class_code, is_pool, flex_credits',
+        'id, semester_number, slot_order, class_code, is_pool, flex_credits, map_semester',
         [{ column: 'semester_number' }, { column: 'slot_order' }],
       )
 
@@ -640,13 +640,20 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // BUG-13: the completion toggle does not feed satisfaction in either
   // direction; only positional ordering does. Archived and unplaced slots are
   // left out, as in prereqWarnings.
-  const coreqWarnings = useMemo(() => {
+  // An unfilled requirement-pool slot in the same or an earlier semester provisionally meets a corequisite its pool
+  // offers (CSC3220 with the Statistics slot), as it does for prerequisites; coreqReliance records which slots that
+  // leaned on, for the same "incomplete selection" entries.
+  const { coreqWarnings, coreqReliance } = useMemo(() => {
     const placed = []
+    const pending = []
 
     for (const slot of activeSlots) {
       const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
       const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
       if (code && sem != null) placed.push({ key: slot.id, code, sem })
+      else if (sem != null && slot.is_pool && REQUIREMENT_POOLS.has(slot.class_code)) {
+        pending.push({ key: slot.id, sem, codes: POOL_COURSES[slot.class_code] ?? [] })
+      }
     }
     for (const fa of freeAddSlots) {
       placed.push({ key: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
@@ -657,6 +664,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       .map(pc => pc.satisfies_course_code)
 
     const warnings = {}
+    const reliance = {}
     for (const item of placed) {
       const completedCodes = new Set([
         ...placed
@@ -672,10 +680,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
           .map(p => p.code),
       ])
 
-      const result = checkCoreqs(item.code, coreqMap, availableCodes)
+      const result = checkCoreqsProvisional(item.code, coreqMap, availableCodes, pending.filter(p => p.sem <= item.sem))
       if (!result.satisfied) warnings[item.key] = result.missing
+      for (const key of result.relyingOn ?? []) (reliance[key] ??= []).push(item.code)
     }
-    return warnings
+    return { coreqWarnings: warnings, coreqReliance: reliance }
   }, [activeSlots, planSlots, freeAddSlots, planSemesterOverrides, coreqMap, priorCredits])
 
   // ── Standing requirement warnings ────────────────────────────────
@@ -1731,7 +1740,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (!slot.is_pool || planSlots[slot.id]) continue
     incompleteSlots[slot.id] = {
       label:      POOL_LABELS[slot.class_code] ?? slot.class_code,
-      dependents: poolReliance[slot.id] ?? [],
+      dependents: [...new Set([...(poolReliance[slot.id] ?? []), ...(coreqReliance[slot.id] ?? [])])],
     }
   }
   // Free Elective hours still open after a pick

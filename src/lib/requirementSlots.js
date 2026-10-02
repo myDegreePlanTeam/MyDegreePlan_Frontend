@@ -37,10 +37,19 @@ export async function fetchRequirementSlots(client, concentrationId, catalogYear
     for (const { column, ascending = true } of order) query = query.order(column, { ascending })
     return query
   }
-  const base = () => client.from('requirement_slots').select(columns).eq('concentration_id', concentrationId)
+  let cols = columns
+  const base = () => client.from('requirement_slots').select(cols).eq('concentration_id', concentrationId)
 
   const result = await apply(base().eq('catalog_year', catalogYear))
   if (!isMissingColumn(result.error)) return { ...result, catalogYear }
+
+  // A database whose setup step has not added map_semester yet reads without it (no department path). If that
+  // is not the missing column, the database is older still (no catalog_year), and the rest reads without it too.
+  if (/\bmap_semester\b/.test(columns)) {
+    cols = columns.split(',').map(c => c.trim()).filter(c => c !== 'map_semester').join(', ')
+    const retry = await apply(base().eq('catalog_year', catalogYear))
+    if (!isMissingColumn(retry.error)) return { ...retry, catalogYear }
+  }
 
   // Database without catalog_year: the slots are the original two sets, told apart by gen-ed program.
   const wanted = genedProgramForYear(catalogYear)

@@ -79,6 +79,35 @@ export function checkCoreqs(courseCode, coreqMap, availableCodes) {
   return { satisfied: true }
 }
 
+/**
+ * checkCoreqs, with unfilled requirement-pool slots standing in provisionally. A corequisite a pool offers (CSC3220
+ * with MATH 3070 or 3470, which only the Statistics slot provides) is met when an empty slot of that pool sits in the
+ * same semester or an earlier one, the way checkPrereqs treats such a slot for a prerequisite. Without it the
+ * department's own path opens with a blocker on every plan that has not chosen its Statistics course yet.
+ *
+ * checkCoreqs itself keeps its signature; this is the sibling that takes the pending slots.
+ *
+ * @param {string} courseCode
+ * @param {object} coreqMap
+ * @param {Set<string>} availableCodes   codes from the same semester and earlier
+ * @param {Array<{key, codes: string[]}>} pendingPools  unfilled pool slots in the same or an earlier semester
+ * @returns {{ satisfied: boolean, missing?: string[], relyingOn?: Array }}  relyingOn: keys of the slots it leaned on
+ */
+export function checkCoreqsProvisional(courseCode, coreqMap, availableCodes, pendingPools = []) {
+  const strict = checkCoreqs(courseCode, coreqMap, availableCodes)
+  if (strict.satisfied || pendingPools.length === 0) return strict
+
+  const provisional = new Set(availableCodes)
+  for (const pool of pendingPools) for (const code of pool.codes) provisional.add(code)
+  if (!checkCoreqs(courseCode, coreqMap, provisional).satisfied) return strict
+
+  // Which slots it leaned on: those offering a course the missing groups ask for.
+  const required = coreqMap?.[courseCode] ?? {}
+  const wanted = new Set((Array.isArray(required) ? required : Object.values(required).flatMap(g => g.codes)).filter(c => !availableCodes.has(c)))
+  const relyingOn = pendingPools.filter(p => p.codes.some(c => wanted.has(c))).map(p => p.key)
+  return { satisfied: true, relyingOn }
+}
+
 // ── Internal helper ──────────────────────────────────────────────────────────
 // Returns true if `code` is listed as a corequisite for `courseCode` in the
 // provided coreqMap.  Handles both flat-list and grouped coreqMap shapes.

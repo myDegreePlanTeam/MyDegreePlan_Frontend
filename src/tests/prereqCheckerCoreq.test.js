@@ -300,3 +300,40 @@ describe('checkPrereqs — coreq overlap suppresses false prereq warning (Bug 1 
     expect(result).toEqual({ satisfied: true })
   })
 })
+
+// ── checkCoreqsProvisional: an empty pool slot stands in, as it does for prerequisites ──
+
+import { checkCoreqsProvisional } from '../lib/prereqChecker'
+
+describe('checkCoreqsProvisional', () => {
+  // CSC3220: "MATH 3070 or MATH 3470 or MATH 4470 may be taken concurrently"; only the Statistics slot offers them
+  const COREQS = { CSC3220: { 0: { logic: 'OR', codes: ['MATH3070', 'MATH3470', 'MATH4470'] } } }
+  const stats = { key: 41, codes: ['MATH3070', 'MATH3470'] }
+
+  it('is satisfied by an empty slot whose pool offers the corequisite, and says which slot it leaned on', () => {
+    const r = checkCoreqsProvisional('CSC3220', COREQS, new Set(['CSC1310']), [stats])
+    expect(r).toEqual({ satisfied: true, relyingOn: [41] })
+  })
+
+  it('does not lean on a slot when the corequisite is already met', () => {
+    const r = checkCoreqsProvisional('CSC3220', COREQS, new Set(['MATH3470']), [stats])
+    expect(r).toEqual({ satisfied: true })
+  })
+
+  it('is still unmet when no empty slot offers it (an elective pool, or none at all)', () => {
+    const none = checkCoreqsProvisional('CSC3220', COREQS, new Set(['CSC1310']), [])
+    expect(none.satisfied).toBe(false)
+    const wrongPool = checkCoreqsProvisional('CSC3220', COREQS, new Set(), [{ key: 7, codes: ['CSC4040'] }])
+    expect(wrongPool).toEqual({ satisfied: false, missing: ['(MATH3070 or MATH3470 or MATH4470)'] })
+  })
+
+  it('agrees with checkCoreqs whenever there is nothing pending', () => {
+    for (const available of [new Set(), new Set(['MATH3070']), new Set(['X'])]) {
+      expect(checkCoreqsProvisional('CSC3220', COREQS, available)).toEqual(checkCoreqs('CSC3220', COREQS, available))
+    }
+  })
+
+  it('leaves checkCoreqs strict: its own answer does not change', () => {
+    expect(checkCoreqs('CSC3220', COREQS, new Set()).satisfied).toBe(false)
+  })
+})
