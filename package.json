@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint . -f ./scripts/eslint-compact.mjs",
     "lint:changed": "node scripts/lint-changed.mjs",
+    "hooks:install": "node scripts/install-hooks.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
