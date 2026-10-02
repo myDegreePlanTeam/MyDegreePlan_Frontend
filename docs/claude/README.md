@@ -6,6 +6,7 @@ For branch naming use following conventions:
 - fix/* for bugs
 - data/* for curriculum data edits
 - schema/* for load-bearing schema work. 
+- integration/* for a trial of a new major or department end to end (data, pipeline and app together). Start it as test/*; once it works, rename it to integration/*, push it, and merge it. Commits on it use the usual types below (feat:, data:, ...).
 
 For Commit naming use following conventions:
 - docs:
