@@ -291,7 +291,10 @@ program or a catalog year). `node degree-specs/build.mjs` validates them and gen
 
 **Release process** (students get it through the in-app Update button):
 1. Merge the Frontend / Prototype / Deploy changes to `main` and push. The workflow builds `main` of Frontend and Prototype unless `frontend_ref` / `prototype_ref` say otherwise.
-2. Pick the next version: `gh release list --repo myDegreePlanTeam/MyDegreePlan_Deploy`. Versions are immutable.
+2. Run `bash release-tools/preflight.sh <version>` from `local-deploy/`. It checks that the sources are on origin/main, the
+   version is free (versions are immutable), no stale Release run is holding the `release` lane, and the Frontend tests pass
+   in a fresh clone with no Prototype sibling, as the workflow's test job runs them; details in the Deploy README under
+   "Shipping a release". It publishes nothing.
 3. Deploy repo → Actions → **Release** → Run workflow (`gh workflow run release.yml -f version=… -f notes=… -f required=false`). `notes` is student-facing: it is what they read in the update prompt. Use `required` only for urgent fixes: it blocks older installs.
 4. CI runs the tests, builds four multi-arch images to GHCR pinned by digest, signs the release (`MDP_SIGNING_KEY` in the `release` environment), publishes it, then re-downloads and verifies it. Approve it if the environment asks for a reviewer.
 5. Installs offer the update on their next start or within about 6 hours; a failed update rolls back automatically.
