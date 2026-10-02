@@ -69,7 +69,7 @@ function effectiveTestType(selectedExam, creditType) {
 }
 
 export default function PriorCreditWizard({
-  onSave, onClose, planSlots, slots, studentType = null,
+  onSave, onClose, slots, studentType = null,
   planSemesterOverrides = {}, planArchived = {},
 }) {
   const [step, setStep]           = useState(1)
@@ -109,6 +109,7 @@ export default function PriorCreditWizard({
     if (step !== 2 || !creditType || creditType === 'transfer_credit') return
 
     const testTypes = resolveTestTypes(typeConfig, creditType)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the fetch this effect starts
     setLoadingExams(true)
     db
       .from('test_equivalencies')
@@ -383,7 +384,7 @@ export default function PriorCreditWizard({
         <div className="modal-header">
           <div>
             <p className="modal-eyebrow">Prior Credits — Step {step} of {maxStep(creditType, typeConfig)}</p>
-            <h3 className="modal-title">{stepTitle(step, creditType, typeConfig)}</h3>
+            <h3 className="modal-title">{stepTitle(step, creditType)}</h3>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
@@ -622,7 +623,7 @@ function maxStep(creditType, typeConfig) {
   return 4                                         // all steps
 }
 
-function stepTitle(step, creditType, typeConfig) {
+function stepTitle(step, creditType) {
   switch (step) {
     case 1: return 'What kind of credit do you have?'
     case 2: return creditType === 'transfer_credit'

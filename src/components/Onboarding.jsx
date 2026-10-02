@@ -205,6 +205,8 @@ export default function Onboarding({ profileId, onComplete }) {
         setMathChainData(data ?? [])
         setMathChainLoading(false)
       })
+    // `placementScores` is rebuilt every render; its inputs are the scores that change `step`, so it is left out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, studentType, concSlots])
 
   // ── Final save — persists concentration, start term, student type, ACT columns,
