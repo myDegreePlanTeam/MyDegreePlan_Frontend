@@ -1,0 +1,10 @@
+[
+  {"code":"cahe","name":"College of Agriculture & Human Ecology","short":"Agriculture & Human Ecology","url":"https://www.tntech.edu/cahe/index.php"},
+  {"code":"cas","name":"College of Arts & Sciences","short":"Arts & Sciences","url":"https://www.tntech.edu/cas/index.php"},
+  {"code":"business","name":"College of Business","short":"Business","url":"https://www.tntech.edu/business/index.php"},
+  {"code":"education","name":"College of Education & Human Sciences","short":"Education & Human Sciences","url":"https://www.tntech.edu/education/index.php"},
+  {"code":"ceis","name":"College of Emerging and Integrative Studies","short":"Emerging & Integrative Studies","url":"https://www.tntech.edu/ceis/index.php"},
+  {"code":"engineering","name":"College of Engineering","short":"Engineering","url":"https://www.tntech.edu/engineering/index.php"},
+  {"code":"fine-arts","name":"College of Fine Arts","short":"Fine Arts","url":"https://www.tntech.edu/fine-arts/index.php"},
+  {"code":"nursing","name":"Whitson-Hester School of Nursing","short":"Nursing","url":"https://www.tntech.edu/nursing/index.php"}
+]

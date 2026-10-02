@@ -89,9 +89,61 @@ export function groupByMajor(programs) {
   return groups
 }
 
-/** "B.S. Computer Science" */
+/** "Computer Science, B.S.": a major and its degree the way the catalog writes them (B.S.M.E. and B.S.B.A. exist too). */
 export function degreeTitle(group) {
-  return [group.degree, group.majorName].filter(Boolean).join(' ')
+  return [group.majorName, group.degree].filter(Boolean).join(', ')
+}
+
+// ── start terms ──────────────────────────────────────────────────────────────
+
+/**
+ * The first catalog year of the new curriculum (Flight Foundations gen-ed, the 2026 math table). A student who starts in
+ * Fall 2026 or later is a new student; one who started before is a returning student, whatever the calendar says today.
+ */
+export const NEW_CURRICULUM_YEAR = 2026
+const SEASONS = ['Fall', 'Spring', 'Summer']
+const RETURNING_SPAN = 10   // a returning student may have started up to this many years before the switch
+const NEW_SPAN = 6          // and a new one may start up to this many years after it
+
+/** Whether a student starting in this term can follow the program: it is open to that catalog year and has a plan for it. */
+export function termAvailable(program, plans, season, year) {
+  const entry = academicYearOf(season, year)
+  return entry !== null && isProgramOpen(program, entry) && planForYear(plans, program.id, entry) !== null
+}
+
+/**
+ * The start terms a student of this type can choose, as [{ year, seasons }] in year order. With a program, only the terms in
+ * which that program has a plan: a program whose first plan is 2026-2027 has none for a returning student, and that is
+ * said out loud rather than hidden. Without one: every term the student type allows.
+ */
+export function termChoices(studentType, { program = null, plans = [] } = {}) {
+  const returning = studentType === 'returning'
+  const first = returning ? NEW_CURRICULUM_YEAR - RETURNING_SPAN : NEW_CURRICULUM_YEAR
+  const last = returning ? NEW_CURRICULUM_YEAR : NEW_CURRICULUM_YEAR + NEW_SPAN
+  const choices = []
+  for (let year = first; year <= last; year++) {
+    let seasons = SEASONS
+    if (year === NEW_CURRICULUM_YEAR) seasons = returning ? ['Spring', 'Summer'] : ['Fall']
+    if (program) seasons = seasons.filter(season => termAvailable(program, plans, season, year))
+    if (seasons.length) choices.push({ year, seasons })
+  }
+  return choices
+}
+
+/** The newest catalog year any plan is for, or null. */
+export function latestCatalogYear(plans) {
+  return (plans ?? []).reduce((best, p) => (yearStart(p.catalog_year) !== null && (best === null || compareCatalogYears(p.catalog_year, best) > 0) ? p.catalog_year : best), null)
+}
+
+/**
+ * The programs a student can choose before saying when they start: those with a plan, split into the ones still open to
+ * the newest catalog year and the ones closed to it (DSAI after 2025-2026). A closed program is still a real choice for a
+ * returning student, so it is separated, not dropped.
+ */
+export function splitByOffering(programs, plans) {
+  const latest = latestCatalogYear(plans)
+  const withPlan = (programs ?? []).filter(p => (plans ?? []).some(pl => pl.concentration_id === p.id))
+  return { current: withPlan.filter(p => isProgramOpen(p, latest)), closed: withPlan.filter(p => !isProgramOpen(p, latest)) }
 }
 
 // Profiles saved before catalog years existed carry only their gen-ed program. Those two programs were

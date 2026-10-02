@@ -57,6 +57,15 @@ export function mathCurriculumFor(slots, studentType) {
   return studentType === 'returning' ? 'returning' : 'new'
 }
 
+/**
+ * Whether a plan includes Calculus I, the course every placement chain leads to (MATH 1000, 1710, 1730 and 1904 all end
+ * there). A plan without it (a Music or Nursing plan) has no placement sequence to show, so onboarding skips that step.
+ */
+export function planHasMathChain(slots) {
+  const calculusI = MATH_PLACEMENT.tiers[0].course
+  return (slots ?? []).some(s => s.class_code === calculusI)
+}
+
 const TIERS = MATH_PLACEMENT.tiers
 const rank = course => TIERS.findIndex(t => t.course === course)
 
