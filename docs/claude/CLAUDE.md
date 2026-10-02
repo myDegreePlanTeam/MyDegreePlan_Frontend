@@ -596,6 +596,35 @@ required). Used by `CompletionBadge` and `Dashboard`.
 
 ---
 
+## Working-method gotchas
+
+- **Edit input and backslashes.** A `\b` or `\d` typed inside an edit script (Python, node, shell) can reach the file as a
+  backspace character or as a bare `d`. Write `[0-9]` instead of `\d`, `chr(92)` for a backslash, and prefer
+  `scripts/multi_replace.py`, which refuses control characters. `src/tests/sourceHygiene.test.js` (Frontend) and
+  `sourceHygiene.test.mjs` (Prototype) fail on any control character below 0x20 in source; the second one caught a
+  real `/^\s*none<BS>/` in `catalog/prereqParser.mjs`. A dropped backslash is not a control character, so check the
+  written line (`sed -n Np file | cat -A`) after editing a regex.
+- **Driving onboarding in the browser pane** (no screenshots: they time out while the pane is hidden). The pane keeps a
+  saved plan per origin, so Onboarding only shows on an origin with none: use `http://127.0.0.1:5173/` when
+  `localhost:5173` already has a plan, rather than erasing it. React ignores a plain `el.value = x`; use the native setter
+  and dispatch an event. Pick the **year before the season**: changing the year clears the season. Verified 2026-10-02:
+
+  ```js
+  const setVal = (el, v) => {
+    const proto = el.tagName === 'SELECT' ? HTMLSelectElement.prototype : HTMLInputElement.prototype
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v)
+    el.dispatchEvent(new Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }))
+  }
+  const btn = t => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === t)
+  btn('Incoming Freshman').click()                                   // step 1
+  const [season, year] = document.querySelectorAll('select.onboarding-select')
+  setVal(year, '2026'); setVal(document.querySelectorAll('select.onboarding-select')[0], 'Fall')
+  btn('Continue').click()                                            // step 2: button.concentration-card per program
+  document.querySelector('button.concentration-card').click(); btn('Continue').click()   // step 3: 6 input.onboarding-input (ACT/SAT)
+  ```
+
+  Wait about 150 ms between steps (`await new Promise(r => setTimeout(r, 150))`) so React re-renders.
+
 ## Core Principles (read before every session)
 
 1. **The degree plan grid shows only what a student still needs to complete.** Archived slots
