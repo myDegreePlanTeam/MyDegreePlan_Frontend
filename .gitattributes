@@ -1,2 +1,4 @@
+# Text is LF in the repository and in the working copy, whatever core.autocrlf says: the generators (build:catalog, degree-specs/build.mjs) write LF, and under autocrlf=true git then listed the files they rewrote as modified with no content change.
+* text=auto eol=lf
 # Hook scripts run under sh: keep LF even where core.autocrlf would turn it into CRLF.
 .githooks/* text eol=lf
