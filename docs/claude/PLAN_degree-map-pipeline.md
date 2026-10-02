@@ -1,6 +1,6 @@
 # Plan: degree-map pipeline, 2026-27 maps, full Coursedog catalog
 
-> Status (2026-10-01): decisions locked; P0, P1 and P2 are built (unpushed, branch `feat/degree-spec-pipeline`); P3 and P4 are built (branches `feat/degree-docx-extractor`, `feat/degree-maps-2026-27`); P5 (release) is next.
+> Status (2026-10-01): decisions locked; P0, P1 and P2 are built (unpushed, branch `feat/degree-spec-pipeline`); P0-P5 are done: released as v0.2.0 on 2026-10-02.
 > Inputs: `RE__Request_for_Updated_CSC_AI_Degree_Plans.zip` (CS, Cyber, HPC, AI 2026-2027 Degree Map .docx).
 
 ## Goal
@@ -415,3 +415,25 @@ golden inputs.
 - Onboarding's student types and year lists and the builder's MATH1920 curriculum switch are still tied to the 2026 change.
 - Not released: nothing is pushed or merged; P5 is the release (a signed release notes the AI major, the department maps and
   the CSC 4615 -> 4620 change).
+
+---
+
+## P5 results (2026-10-02): released as v0.2.0
+
+- **Merged and pushed** (fast-forward onto `main`, which was level with `origin/main` in all three repos): Deploy `5d174d1`,
+  Prototype `8ba57aa`, Frontend `520564a`. Vercel's production deployment of `520564a` succeeded.
+- **Pre-flight:** a fresh clone of the Frontend with no sibling repos (what the release CI sees): `npm ci` + tests pass (44 files
+  run, 2 that need the Prototype repo self-skip); updater tests pass; the web image built from the branch; Deploy CI on `main` passed.
+- **Release:** `gh workflow run release.yml -f version=0.2.0 -f required=false` (run 36961821466): test job passed, the
+  `release` job waited for the environment's required reviewer and was approved by the owner. Not marked required.
+- **Verified after publishing** (v0.2.0, published 2026-10-02): the signed `release.json` records exactly the three commits above;
+  `verify-dist.mjs` (the updater's own verifier) reports it "verifies exactly as a student install will"; the compose hash matches
+  the file; all four images (web, setup, db, updater) are pinned by digest and exist for linux/amd64 and linux/arm64; the setup image
+  carries the new `degree_plans.json` (program `ai`, `CSC_HPC_ELECTIVE_2026`, the three `replaces` hints).
+- **Housekeeping:** a stale duplicate Release run (36925287964, dispatched 44 s after v0.1.6 on the same commit) was holding the
+  workflow's concurrency lane and the approval queue; it was cancelled.
+- **Not verified:** the in-app Update button on an existing install (v0.1.6 -> v0.2.0), and the migrate + seed against a
+  *production-like* data set beyond the throwaway test stack (that check passed: P4 results).
+- **Still open:** the department's answers (PHYS 2110/2120 hours, HPC "Science Sequence3", AI science list, AI "Elective 2000+",
+  AI "Upper Division Elective") are recorded assumptions in `degree-specs/sources/csc/2026-2027/manifest.json`. When they
+  arrive: update `decisions`, run `npm run degrees:extract` and `npm run degrees:promote`, rebuild the catalog, release.
