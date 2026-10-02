@@ -78,11 +78,14 @@ MDP/
     ├── migration_tier11.sql           ← remove dual_enrollment; drop zero-credit equivalency rows
     ├── migration_tier12–20.sql        ← later tiers; see each file's header
     ├── migration_tier21.sql           ← gened_program on requirement_slots / student_profiles
-    ├── degree-specs/                  ← degree plans as specs (one per program per catalog year), programs.json, pools.json,
-    │                                     the validator and generator, and extract/ (a department's Word map -> a draft spec
-    │                                     + review); sources/ holds the department's files; see degree-specs/README.md
+    ├── degree-specs/                  ← degree plans as specs (one per program per catalog year), programs.json, colleges.json,
+    │                                     pools.json, the validator and generator, and extract/ (a department's Word or PDF map,
+    │                                     or Coursedog's degree map -> a draft spec + review); sources/ holds the department's
+    │                                     files and sources/coursedog/<year>/ the pinned Coursedog snapshot and its manifest;
+    │                                     see degree-specs/README.md
     ├── degree_plans.json              ← GENERATED from degree-specs/ by `node degree-specs/build.mjs`; seed.js and build:catalog read it
-    ├── catalog_scrape/                ← Coursedog catalog scraper + Flight Foundations reference data
+    ├── catalog_scrape/                ← Coursedog scrapers (scrape_catalog.mjs: courses; scrape_programs.mjs: program degree
+    │                                     maps and the course sets they use) + Flight Foundations reference data
     ├── test_equivalencies.sql         ← seed data for the test_equivalencies table
     └── math_sequences.json            ← math placement chains (mirror of the frontend's mathPlacement.js)
 ```
@@ -146,6 +149,13 @@ program or a catalog year). `node degree-specs/build.mjs` validates them and gen
   `drafts/<dept>/<program>/<year>.draft.json` plus a Markdown review (errors, department questions, changes against the plan
   it replaces). Source files, a per-folder `manifest.json` and the department's answers (`decisions`) live in
   `degree-specs/sources/`. A draft is a draft: promotion to a spec is P4.
+- **Coursedog source** (`extract/coursedogAdapter.mjs`, `coursedogInventory.mjs`; `npm run coursedog:snapshot`, `coursedog:manifest`,
+  `degrees:survey`): Tennessee Tech's catalog publishes a structured degree map for 175 bachelor's programs (50 majors in 8 colleges).
+  `scrape_programs.mjs` pins them (`sources/coursedog/<year>/snapshot.json`), a manifest says per program which of ours it is, its
+  college and major, and whether a department's own file is the source (the nine CSC and engineering programs) or Coursedog is
+  (`planned`, rolled out in waves). The adapter hands the same drafter finished rows, so nothing after it changed. The **parity
+  gate** (`extract/coursedogParity.test.mjs`) requires it to reproduce those nine plans before anything is promoted from Coursedog.
+  Rollout plan, findings and what each wave needs: `docs/claude/PLAN_all-majors.md`.
 
 ---
 
