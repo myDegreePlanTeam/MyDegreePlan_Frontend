@@ -245,7 +245,9 @@ that section before changing the module. Rules that must hold even if you do not
   `local-deploy/tools/multi_replace.py`, which refuses control characters. `src/tests/sourceHygiene.test.js` (Frontend) and
   `sourceHygiene.test.mjs` (Prototype) fail on any control character below 0x20 in source; the second one caught a
   real `/^\s*none<BS>/` in `catalog/prereqParser.mjs`. A dropped backslash is not a control character, so check the
-  written line (`sed -n Np file | cat -A`) after editing a regex.
+  written line (`sed -n Np file | cat -A`) after editing a regex. To change text that contains a backslash or an escaped
+  newline, use the Edit tool, not `sed`, `node -e` or a nested heredoc (they re-escape it, and a heredoc inside a heredoc
+  hangs the shell until the timeout).
 - **Driving onboarding in the browser pane** (no screenshots: they time out while the pane is hidden). The pane keeps a
   saved plan per origin, so Onboarding only shows on an origin with none: use `http://127.0.0.1:5173/` when
   `localhost:5173` already has a plan, rather than erasing it. React ignores a plain `el.value = x`; use the native setter
@@ -305,7 +307,9 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 5. Create a branch before starting work — never work directly on main
 6. Do not assume file names or function signatures — use Glob/Grep to find them
 7. For exact-text edits across several files, or in CRLF files, run `local-deploy/tools/multi_replace.py` from the `MDP/` folder
-   (`python local-deploy/tools/multi_replace.py - <<'EOF'` with `@@@ file PATH` / `@@@ old` / `@@@ new` blocks; `--dry-run` previews)
+   (`python local-deploy/tools/multi_replace.py - <<'EOF'`; `--dry-run` previews). Format: one `@@@ file PATH` line per file, then
+   any number of `@@@ old` / `@@@ new` pairs for it (a second `@@@ file` for the same path is refused; a trailing `@@@ old`
+   with no `@@@ new` makes the whole call write nothing)
    instead of writing a throwaway script: it writes nothing unless every edit matches, keeps CRLF and refuses control
    characters. The tools live in `local-deploy/tools/` (its README lists them) and are tracked in the Deploy repo.
    For a **structural** JSON edit (a catalog override, a manifest decision, a vocabulary entry) run
