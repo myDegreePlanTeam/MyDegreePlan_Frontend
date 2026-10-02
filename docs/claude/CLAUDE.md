@@ -212,6 +212,8 @@ covers the catalog parser and build, the degree-spec validator and slot sync, an
 totals and standing; `planExportModel.test.js` covers the PDF side.
 
 `docsReferences.test.js` fails when a link, or a pointer that says to see a named section, in the instruction docs names something that is not there.
+The workspace tools in `local-deploy/tools/` have their own suites: run them all with `bash local-deploy/tools/run_tests.sh` (parallel, one
+line per suite, about 90 s) instead of chaining the individual `test_*.sh` scripts, which run past a tool timeout.
 All existing tests must pass before any commit. New tests go in `src/tests/[featureName].test.js`. Before a commit also run
 `npm run lint:changed` (eslint on the files you changed; prints one line when clean). `npm run hooks:install` (once per clone)
 turns that into a pre-commit hook on the staged files; it does not run the tests.
