@@ -51,7 +51,7 @@ export const POOL_CREDIT_ESTIMATES = Object.fromEntries(Object.entries(POOL_DEFS
 // ── Helper function ───────────────────────────────────────────────────────────
 // Given a pool code and the full course catalog (as the courseMap object
 // from DegreePlan), returns an array of course objects valid for that slot.
-// Returns null for FREE_ELECTIVE — the modal handles that case separately.
+// Returns null for an open pool (FREE_ELECTIVE, Nuclear Engineering's Area of Emphasis) — the modal handles that case separately.
 
 // ── resolveSatisfiesPool ──────────────────────────────────────────────────────
 // Given a transfer-credit course code and the active concentration's
@@ -94,9 +94,9 @@ export function mapSatisfiesPoolForPlan(poolCode, courseCode, slots) {
 }
 
 export function resolvePool(poolCode, courseMap) {
-  // FREE_ELECTIVE — return null to signal open resolution
+  // an open pool (pools.json "open") — return null to signal open resolution
   // (handled separately in SlotModal with suggestions)
-  if (poolCode === 'FREE_ELECTIVE') return null
+  if (poolCode === 'FREE_ELECTIVE' || POOL_COURSES[poolCode] === null) return null
 
   const codes = POOL_COURSES[poolCode]
   if (!codes) return []

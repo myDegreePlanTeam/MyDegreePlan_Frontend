@@ -46,6 +46,17 @@ export const MATH_PLACEMENT = {
   equivalents: { MATH1730: ['MATH1710', 'MATH1720'] },
 }
 
+/**
+ * Which math curriculum a plan follows: 'new' (Fall 2026+ Computer Science: no MATH1920) or 'returning' (MATH1920 sits between
+ * MATH1910 and MATH2010). A plan whose department map puts MATH1920 in a semester requires it, so it is 'returning' for every
+ * student: the engineering majors take Calculus I, II and III. Otherwise the student's own type decides, as before.
+ * The Prototype's specLib.mathCurriculumOf reads the same evidence, so the validator and the app agree.
+ */
+export function mathCurriculumFor(slots, studentType) {
+  if ((slots ?? []).some(s => s.class_code === 'MATH1920' && s.map_semester != null)) return 'returning'
+  return studentType === 'returning' ? 'returning' : 'new'
+}
+
 const TIERS = MATH_PLACEMENT.tiers
 const rank = course => TIERS.findIndex(t => t.course === course)
 

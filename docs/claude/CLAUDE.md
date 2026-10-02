@@ -277,10 +277,10 @@ program or a catalog year). `node degree-specs/build.mjs` validates them and gen
   time), an external source (Flight Foundations' published lists stay in `flightFoundations.js`) or open. A pool is not
   scoped to a catalog year, so when a year changes what a pool contains the new definition gets a new code and earlier plans
   keep theirs (`CSC_HPC_ELECTIVE_2026` is the three courses the 2026-27 HPC map names; `CSC_HPC_ELECTIVE` keeps five).
-- **Extractor** (`degree-specs/extract/`, `npm run degrees:extract`): a department's degree map (Word today) is read by an
+- **Extractor** (`degree-specs/extract/`, `npm run degrees:extract`): a department's degree map (Word, or PDF for the College of Engineering) is read by an
   adapter into a format-neutral map document, drafted into slots (`vocabulary.json` maps row labels and either/or sets to
-  pools), and checked: printed semester totals, catalog existence and hours, footnotes, option-list hours (PHYS 2110/2120
-  are 5 hrs, the maps count 4), offering terms, prerequisite order (concurrent-aware), gen-ed rules. Output is
+  pools), and checked: printed semester totals, catalog existence and hours, footnotes, option-list hours,
+  offering terms, prerequisite order (concurrent-aware), gen-ed rules. Output is
   `drafts/<dept>/<program>/<year>.draft.json` plus a Markdown review (errors, department questions, changes against the plan
   it replaces). Source files, a per-folder `manifest.json` and the department's answers (`decisions`) live in
   `degree-specs/sources/`. A draft is a draft: promotion to a spec is P4.
@@ -335,7 +335,7 @@ See [`README.md`](./README.md) for branch prefixes and commit types. Additional 
 - `src/tests/[featureName].test.js` — primary suite
 - `src/lib/__tests__/[featureName].test.js` — collocated lib tests
 
-The suite is 46 files / 875 tests as of 2026-10-01 (plus 149 in the Prototype repo: `npm test` there covers the
+The suite is 47 files / 904 tests as of 2026-10-02 (plus 161 in the Prototype repo: `npm test` there covers the
 catalog parser and build, the degree-spec validator and slot sync, and the degree-map extractor); `ls src/tests src/lib/__tests__` is the
 current list. `poolRemainder.test.js` covers the Free Elective bucket and its effect on semester
 totals and standing; `planExportModel.test.js` covers the PDF side.
@@ -434,7 +434,9 @@ MATH1710; below that, **or no score at all**, → MATH1000. `resolveMathPlacemen
 scores. MATH1730 is equivalent to MATH1710 + MATH1720 (`equivalents`; `requirementMap` turns that into substitutes).
 `actScoreResolver.resolveMathPlacementRow` writes the `act_placement` prior-credit row (always, even with no score);
 `degreeBuilder` picks the math chain from the same resolver. Every ACT/SAT field is optional in onboarding and Settings.
-`MyDegreePlan_Prototype/math_sequences.json` mirrors the tiers; change both together.
+`MyDegreePlan_Prototype/math_sequences.json` mirrors the tiers; change both together. `mathCurriculumFor(slots, studentType)`
+picks the new or the returning chains: a plan whose department map names MATH1920 (the engineering majors take Calculus I-III)
+is returning for every student, otherwise the student type decides. The Prototype's `specLib.mathCurriculumOf` reads the same evidence.
 
 ### `src/lib/creditHours.js`
 
@@ -461,7 +463,7 @@ Pools are **data**, not code: this file derives `POOL_COURSES`, `POOL_LABELS`, `
 `degree-specs/pools.json` (through `degree_plans.json`'s `poolDefs`); a test requires the committed file to be current.
 The order of the keys matters (`resolveSatisfiesPool` takes the first pool on a plan that lists a course) and
 `REQUIREMENT_POOLS` is ordered by each pool's `gates` rank. `POOL_COURSES` is the list of valid course codes for each
-pool (null for the open Free Elective). `resolvePool(poolCode, courseMap)` returns filtered course objects from the live
+pool (null for an open pool: Free Elective, Nuclear Engineering's Area of Emphasis; `resolvePool` and `SlotModal` search the whole catalog for it). `resolvePool(poolCode, courseMap)` returns filtered course objects from the live
 catalog.
 
 ### `src/lib/poolRemainder.js`

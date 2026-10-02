@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   resolvePool, resolveScience, resolveFreeElective, excludeFreeElectiveCodes,
-  POOL_LABELS, formatMissingForDisplay,
+  POOL_LABELS, POOL_COURSES, formatMissingForDisplay,
   GEN_ED_CATEGORIES, getGenEdStatus,
 } from '../lib/poolResolver'
 import { getFlightFoundationsStatus, FF_POOL_CATEGORIES } from '../lib/flightFoundations'
@@ -58,7 +58,8 @@ export default function SlotModal({
     const existingCode   = followUpHours > 0 ? null : planSlots[slot.id]
     const existingCourse = existingCode ? courseMap[existingCode] : null
 
-    if (slot.class_code === 'FREE_ELECTIVE') {
+    // Free Elective, or any other open pool (pools.json "open": Nuclear Engineering's Area of Emphasis): search the whole catalog
+    if (slot.class_code === 'FREE_ELECTIVE' || POOL_COURSES[slot.class_code] === null) {
       const result = resolveFreeElective(courseMap, slots, planSlots)
       setFreeSections(result)
       setCourses([...result.suggested, ...result.other])
