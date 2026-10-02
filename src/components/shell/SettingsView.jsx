@@ -7,6 +7,7 @@ import {
   academicYearOf, availablePrograms, catalogYearForProfile, degreeTitle, groupByMajor, planForYear,
 } from '../../lib/catalogYears'
 import { selectWithOptional } from '../../lib/dbErrors'
+import { groupByCollege, searchPrograms } from '../../lib/programBrowser'
 import DeviceDataCard from './DeviceDataCard'
 
 export default function SettingsView({
@@ -175,6 +176,7 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
   const [programs, setPrograms]   = useState([])
   const [plans, setPlans]         = useState([])
   const [selected, setSelected]   = useState(null)
+  const [query, setQuery]         = useState('')
   const [loading, setLoading]     = useState(true)
   const [fetchError, setFetchError] = useState(null)
 
@@ -187,7 +189,7 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
       selectWithOptional(
         columns => db.from('concentrations').select(columns).order('id', { ascending: true }),
         'id, code, name, total_hours',
-        ['kind', 'degree', 'major_name', 'department', 'supersedes', 'last_catalog_year', 'description'],
+        ['kind', 'degree', 'major_name', 'department', 'supersedes', 'last_catalog_year', 'description', 'college', 'major_code', 'is_base', 'aliases'],
       ),
       db.from('degree_plans').select('id, concentration_id, catalog_year, gened_program, total_hours, covers_earlier'),
     ]).then(([programsRes, plansRes]) => {
@@ -201,7 +203,8 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
   }, [currentId])
 
   const options = availablePrograms(programs, plans, entryYear, { currentId })
-  const groups  = groupByMajor(options)
+  // college → major → programs (the same grouping the onboarding picker uses); a long list gets a search box
+  const tree    = groupByCollege(query.trim() ? searchPrograms(options, query) : options)
   const current = programs.find(c => c.id === currentId)
   const currentGroup = groupByMajor(current ? [current] : [])[0]
   const noun    = current?.kind === 'major' ? 'program' : 'concentration'
@@ -222,26 +225,47 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
             <p className="ds-modal-text">Loading programs…</p>
           ) : fetchError ? (
             <p className="ds-modal-text" style={{ color: 'var(--danger)' }}>{fetchError}</p>
-          ) : groups.map(group => (
-            <div key={group.majorName}>
-              {groups.length > 1 && <p className="ds-eyebrow" style={{ margin: '10px 0 4px' }}>{degreeTitle(group)}</p>}
-              {group.programs.map(c => (
-                <button
-                  key={c.id}
-                  className={`ds-option${selected?.id === c.id ? ' ds-option-selected' : ''}`}
-                  onClick={() => setSelected(c)}
-                >
-                  <span className="ds-option-mark" aria-hidden="true">{selected?.id === c.id ? '●' : '○'}</span>
-                  <span className="ds-option-text">
-                    <span className="ds-setting-label">{c.name}</span>
-                  </span>
-                  <span className="ds-option-meta">
-                    {c.id === currentId ? 'current' : `${c.total_hours} hrs`}
-                  </span>
-                </button>
+          ) : (
+            <>
+              {options.length > 10 && (
+                <input
+                  type="search"
+                  className="ds-act-input"
+                  style={{ width: '100%', margin: '0 0 6px', textAlign: 'left' }}
+                  placeholder="Search majors and concentrations"
+                  aria-label="Search majors and concentrations"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                />
+              )}
+              {tree.length === 0 && <p className="ds-modal-text">No program matches “{query.trim()}”.</p>}
+              {tree.map(({ college, majors }) => (
+                <div key={college.code}>
+                  {tree.length > 1 && <p className="ds-eyebrow" style={{ margin: '14px 0 2px' }}>{college.short}</p>}
+                  {majors.map(major => (
+                    <div key={major.key}>
+                      {(tree.length > 1 || majors.length > 1) && <p className="ds-eyebrow" style={{ margin: '10px 0 4px' }}>{degreeTitle(major)}</p>}
+                      {major.programs.map(c => (
+                        <button
+                          key={c.id}
+                          className={`ds-option${selected?.id === c.id ? ' ds-option-selected' : ''}`}
+                          onClick={() => setSelected(c)}
+                        >
+                          <span className="ds-option-mark" aria-hidden="true">{selected?.id === c.id ? '●' : '○'}</span>
+                          <span className="ds-option-text">
+                            <span className="ds-setting-label">{c.name}</span>
+                          </span>
+                          <span className="ds-option-meta">
+                            {c.id === currentId ? 'current' : `${c.total_hours} hrs`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               ))}
-            </div>
-          ))}
+            </>
+          )}
           {isDifferent && (
             <p className="ds-modal-warn">
               Switching to {selected.name} clears your current course selections, added courses, and notes.

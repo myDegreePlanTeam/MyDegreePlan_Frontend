@@ -2,14 +2,16 @@ import { useState, useEffect } from 'react'
 import { db, isLocalBackend } from '../lib/dataClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveMathPlacementRow, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
-import { validateSatMath, SAT_MATH_RANGE, mathCurriculumFor } from '../lib/mathPlacement'
+import { validateSatMath, SAT_MATH_RANGE, mathCurriculumFor, planHasMathChain } from '../lib/mathPlacement'
 import { isMissingColumn, selectWithOptional } from '../lib/dbErrors'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
-import { academicYearOf, availablePrograms, groupByMajor, degreeTitle, planForYear } from '../lib/catalogYears'
+import { academicYearOf, planForYear, termChoices } from '../lib/catalogYears'
+import { termUnavailableNote } from '../lib/programBrowser'
 import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requirementSlots'
 import { fetchPlannerCatalog } from '../lib/plannerCatalog'
 import PriorCreditWizard from './PriorCreditWizard'
+import ProgramPicker from './ProgramPicker'
 import ImportBackupButton from './ImportBackupButton'
 import { getBrand } from '../lib/brand'
 import './Dashboard.css'
@@ -35,26 +37,6 @@ function getMathChains(curriculum) {
 }
 const MATH_FORK_CODES = ['MATH3070', 'MATH3470']
 
-const SEASONS = ['Fall', 'Spring', 'Summer']
-
-const CURRENT_YEAR = new Date().getFullYear()
-
-// Returning students started before Fall 2026 (old curriculum)
-const RETURNING_YEARS = Array.from({ length: 11 }, (_, i) => 2016 + i) // 2016–2026
-
-// Incoming/transfer students start Fall 2026 or later (new curriculum)
-const NEW_STUDENT_YEARS = Array.from({ length: 7 }, (_, i) => 2026 + i) // 2026–2032
-
-function getAvailableYears(type) {
-  return type === 'returning' ? RETURNING_YEARS : NEW_STUDENT_YEARS
-}
-
-function getAvailableSeasons(type, year) {
-  if (type === 'returning' && Number(year) === 2026) return ['Spring', 'Summer']
-  if (type !== 'returning' && Number(year) === 2026) return ['Fall']
-  return SEASONS
-}
-
 const STUDENT_TYPES = [
   { value: 'incoming_freshman', label: 'Incoming Freshman' },
   { value: 'transfer',          label: 'Transfer Student'  },
@@ -68,6 +50,10 @@ function validateActScore(val) {
   return null
 }
 
+// The steps, in order. Step 4 (the math sequence) is skipped for a plan that has no Calculus I to place into.
+const FLOW_WITH_MATH = [1, 2, 3, 4, 5]
+const FLOW_WITHOUT_MATH = [1, 2, 3, 5]
+
 export default function Onboarding({ profileId, onComplete }) {
   const [step, setStep]                   = useState(1)
   const [studentType, setStudentType]     = useState(null)
@@ -79,18 +65,18 @@ export default function Onboarding({ profileId, onComplete }) {
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState(null)
 
-  // Step 4: math chain display (only when ACT Math score was entered)
+  // The math sequence step: only when the chosen plan includes Calculus I (known once its slots are loaded).
+  const [hasMath, setHasMath]                   = useState(true)
   const [mathChainData, setMathChainData]       = useState([])
   const [mathChainLoading, setMathChainLoading] = useState(false)
 
-  // Step 5: every student enters prior credits through the unified wizard.
+  // Prior credits: every student enters them through the unified wizard.
   // Entries accumulate locally and are batch-inserted on completion, so
   // abandoning onboarding leaves no stray prior_credits rows.
   const [pendingRecords, setPendingRecords] = useState([])
   const [showWizard, setShowWizard]         = useState(false)
-  // Requirement slots for the selected concentration. Loaded lazily when
-  // the student advances to step 4 so the wizard can resolve transfer
-  // credits against the correct pool set (BUG-4).
+  // Requirement slots for the selected program. Loaded when the student leaves the start-term step so the
+  // wizard can resolve transfer credits against the correct pool set (BUG-4).
   const [concSlots, setConcSlots]           = useState([])
 
   const [concentrations, setConcentrations] = useState([])
@@ -105,7 +91,7 @@ export default function Onboarding({ profileId, onComplete }) {
         selectWithOptional(
           columns => db.from('concentrations').select(columns).order('id', { ascending: true }),
           'id, code, name, total_hours',
-          ['kind', 'degree', 'major_name', 'department', 'supersedes', 'last_catalog_year', 'description'],
+          ['kind', 'degree', 'major_name', 'department', 'supersedes', 'last_catalog_year', 'description', 'college', 'major_code', 'is_base', 'aliases'],
         ),
         db.from('degree_plans').select('id, concentration_id, catalog_year, gened_program, total_hours, covers_earlier'),
       ])
@@ -121,13 +107,20 @@ export default function Onboarding({ profileId, onComplete }) {
     fetchConcentrations()
   }, [])
 
-  // The catalog year the student enters under, and what they may choose in it. The plan they follow in a
-  // program is the latest one not newer than that year (catalogYears.js).
-  const entryYear = academicYearOf(startSeason, startYear)
-  const selectablePrograms = availablePrograms(concentrations, degreePlans, entryYear)
+  // The program is chosen first; the start term then has to be one the program has a plan for. The plan the student
+  // follows is the program's latest one not newer than their entry year (catalogYears.js).
+  const entryYear       = academicYearOf(startSeason, startYear)
+  const selectedProgram = concentrations.find(c => c.code === selectedCode) ?? null
+  const termsFor        = type => termChoices(type, { program: selectedProgram, plans: degreePlans })
+  const choices         = studentType ? termsFor(studentType) : []
 
-  function handleSelectConcentration(code) {
-    setSelectedCode(code)
+  function handleSelectProgram(program) {
+    if (program.code !== selectedCode) {
+      setSelectedCode(program.code)
+      // the start term was chosen for another program: ask again rather than keep one this program may not have a plan for
+      setStartSeason('')
+      setStartYear('')
+    }
   }
 
   function handleStudentTypeChange(type) {
@@ -136,20 +129,22 @@ export default function Onboarding({ profileId, onComplete }) {
     setStartYear('')
   }
 
+  // Step 1 → 2: a program
   function handleGoToStep2() {
-    if (!studentType || !startSeason || !startYear) return
+    if (!selectedCode) return
     setStep(2)
   }
 
-  // Step 2 → Step 3: requires a concentration selection
-  function handleGoToStep3() {
-    if (!selectedCode) return
+  // Step 2 → 3: a start term. Its slots are loaded here: they say whether the math step applies.
+  async function handleGoToStep3() {
+    if (!studentType || !startSeason || !startYear) return
+    await loadConcSlots()
     setStep(3)
   }
 
-  // Step 3 → Step 4 (chain). Every score is optional: with no ACT or SAT Math score a student
-  // starts in MATH1000 (mathPlacement.js). A score that is entered must be a real one.
-  async function handleGoToStep4() {
+  // Step 3 → the math sequence (or the prior credits, when the plan has none). Every score is optional: with no ACT or
+  // SAT Math score a student starts in MATH1000 (mathPlacement.js). A score that is entered must be a real one.
+  function handleGoToStep4() {
     const fields = ['math', 'english', 'science', 'reading', 'composite']
     const errors = {}
     for (const f of fields) {
@@ -163,25 +158,22 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
     setActErrors({})
-    await loadConcSlots()   // step 4 shows the math sequence of the chosen plan, which its map decides
-    setStep(4)
+    setStep(hasMath ? 4 : 5)
   }
 
-  // Step 4 (chain) → Step 5 (prior credits)
-  async function handleGoToStep5() {
-    await loadConcSlots()
+  // The math sequence → prior credits
+  function handleGoToStep5() {
     setStep(5)
   }
 
   async function loadConcSlots() {
-    const concData = concentrations.find(c => c.code === selectedCode)
-    if (concData) {
-      const plan = planForYear(degreePlans, concData.id, entryYear)
-      const { data } = plan
-        ? await fetchRequirementSlots(db, concData.id, plan.catalog_year, 'id, class_code, is_pool, map_semester')
-        : { data: [] }
-      setConcSlots(data ?? [])
-    }
+    if (!selectedProgram) return
+    const plan = planForYear(degreePlans, selectedProgram.id, entryYear)
+    const { data } = plan
+      ? await fetchRequirementSlots(db, selectedProgram.id, plan.catalog_year, 'id, class_code, is_pool, map_semester')
+      : { data: [] }
+    setConcSlots(data ?? [])
+    setHasMath(planHasMathChain(data ?? []))
   }
 
   // The scores math placement reads (blank means not taken)
@@ -216,9 +208,9 @@ export default function Onboarding({ profileId, onComplete }) {
     setLoading(true)
     setError(null)
 
-    const concData = concentrations.find(c => c.code === selectedCode)
+    const concData = selectedProgram
     if (!concData) {
-      setError('Selected concentration not found. Please go back and try again.')
+      setError('Selected program not found. Please go back and try again.')
       setLoading(false)
       return
     }
@@ -412,17 +404,19 @@ export default function Onboarding({ profileId, onComplete }) {
   // ── Render ────────────────────────────────────────────────────────
 
   const startDateLabel = studentType === 'returning' ? 'When did you start?' : 'When do you start?'
+  const flow = hasMath ? FLOW_WITH_MATH : FLOW_WITHOUT_MATH
+  const seasonsForYear = choices.find(c => c.year === startYear)?.seasons ?? []
 
   const STEP_TITLES = {
-    1: 'Tell us about yourself',
-    2: 'Choose your concentration',
+    1: 'What are you studying?',
+    2: 'Tell us about yourself',
     3: 'Test Scores',
     4: 'Your Math Sequence',
     5: 'Any prior credits?',
   }
   const STEP_SUBS = {
-    1: 'This helps us tailor your degree plan.',
-    2: 'This determines your required courses and recommended plan.',
+    1: 'Pick your college, major and concentration. This determines your required courses and recommended plan.',
+    2: 'Your start term picks the catalog year your degree plan follows.',
     3: 'Enter the scores you have and leave the rest blank. Your ACT or SAT Math score sets where your math starts; with neither, it starts in MATH 1000.',
     4: 'Based on your math placement, here are the courses in your math sequence.',
     5: "We'll use these to pre-fill your plan and skip false prereq warnings.",
@@ -437,71 +431,32 @@ export default function Onboarding({ profileId, onComplete }) {
           <h2 className="onboarding-title">{STEP_TITLES[step]}</h2>
           <p className="onboarding-sub">{STEP_SUBS[step]}</p>
           <div className="onboarding-steps">
-            <div className={`onboarding-step ${step >= 1 ? 'active' : ''}`} />
-            <div className={`onboarding-step ${step >= 2 ? 'active' : ''}`} />
-            <div className={`onboarding-step ${step >= 3 ? 'active' : ''}`} />
-            <div className={`onboarding-step ${step >= 4 ? 'active' : ''}`} />
-            <div className={`onboarding-step ${step >= 5 ? 'active' : ''}`} />
+            {flow.map((n, i) => (
+              <div key={n} className={`onboarding-step ${flow.indexOf(step) >= i ? 'active' : ''}`} />
+            ))}
           </div>
         </div>
 
-        {/* ── Step 1: Student type + start date ── */}
+        {/* ── Step 1: Program (college, major, concentration) ── */}
         {step === 1 && (
           <div className="onboarding-body">
-            <p className="onboarding-toggle-prompt">What best describes you?</p>
-            <div className="onboarding-toggle-row">
-              {STUDENT_TYPES.map(t => (
-                <button
-                  key={t.value}
-                  className={`onboarding-toggle-btn ${studentType === t.value ? 'selected' : ''}`}
-                  onClick={() => handleStudentTypeChange(t.value)}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="concentration-picker">
+              <ProgramPicker
+                programs={concentrations}
+                plans={degreePlans}
+                value={selectedCode}
+                onChange={handleSelectProgram}
+                loading={concsLoading}
+                error={concsError}
+              />
             </div>
-
-            {studentType && (
-              <div className="season-year-row">
-                <div className="onboarding-field">
-                  <label className="onboarding-label">{startDateLabel}</label>
-                  <select
-                    className="onboarding-select"
-                    value={startSeason}
-                    onChange={e => setStartSeason(e.target.value)}
-                  >
-                    <option value="">Select season</option>
-                    {getAvailableSeasons(studentType, startYear).map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="onboarding-field">
-                  <label className="onboarding-label">Year</label>
-                  <select
-                    className="onboarding-select"
-                    value={startYear}
-                    onChange={e => {
-                      setStartYear(e.target.value ? Number(e.target.value) : '')
-                      setStartSeason('')
-                    }}
-                  >
-                    <option value="">Select year</option>
-                    {getAvailableYears(studentType).map(y => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
 
             {error && <p className="onboarding-error">{error}</p>}
 
             <button
               className="onboarding-btn"
               onClick={handleGoToStep2}
-              disabled={!studentType || !startSeason || !startYear}
+              disabled={!selectedCode || concsLoading}
             >
               Continue
             </button>
@@ -521,46 +476,79 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 2: Concentration ── */}
+        {/* ── Step 2: Student type + start term, for the chosen program ── */}
         {step === 2 && (
           <div className="onboarding-body">
-            <div className="concentration-picker">
-              {concsLoading ? (
-                <div className="concentration-grid">
-                  {[0, 1, 2, 3].map(i => (
-                    <div key={i} className="sk-pulse sk-ob-conc-card" />
-                  ))}
-                </div>
-              ) : concsError ? (
-                <p className="onboarding-error">
-                  Could not load concentrations: {concsError}
-                </p>
-              ) : (
-                // Programs open to the student's entry year, grouped under their major. A program closed to
-                // later catalog years (DSAI after 2025-2026) is not offered; the heading shows only when
-                // there is more than one major to tell apart.
-                (() => {
-                  const groups = groupByMajor(selectablePrograms)
-                  return groups.map(group => (
-                    <div key={group.majorName} className="concentration-group">
-                      {groups.length > 1 && <p className="concentration-group-title">{degreeTitle(group)}</p>}
-                      <div className="concentration-grid">
-                        {group.programs.map(c => (
-                          <button
-                            key={c.code}
-                            className={`concentration-card ${selectedCode === c.code ? 'selected' : ''}`}
-                            onClick={() => handleSelectConcentration(c.code)}
-                          >
-                            <span className="concentration-name">{c.name}</span>
-                            {c.description && <span className="concentration-desc">{c.description}</span>}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                })()
-              )}
+            <p className="onboarding-toggle-prompt">What best describes you?</p>
+            <div className="onboarding-toggle-row">
+              {STUDENT_TYPES.map(t => {
+                const unavailable = termsFor(t.value).length === 0
+                return (
+                  <button
+                    key={t.value}
+                    className={`onboarding-toggle-btn ${studentType === t.value ? 'selected' : ''}`}
+                    onClick={() => handleStudentTypeChange(t.value)}
+                    disabled={unavailable}
+                    title={unavailable ? `${selectedProgram?.name} has no plan for this kind of student` : undefined}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
             </div>
+
+            {selectedProgram && STUDENT_TYPES.map(t => {
+              const note = termsFor(t.value).length === 0 ? termUnavailableNote(t.value, selectedProgram, degreePlans, concentrations) : null
+              return note && (
+                <p key={t.value} className="program-note">
+                  <strong>{t.label}:</strong> {note.text}{' '}
+                  {note.replacement && (
+                    <button
+                      type="button"
+                      className="program-link"
+                      onClick={() => { handleSelectProgram(note.replacement); setStudentType(null) }}
+                    >
+                      Choose {note.replacement.name} instead
+                    </button>
+                  )}
+                </p>
+              )
+            })}
+
+            {studentType && (
+              <div className="season-year-row">
+                <div className="onboarding-field">
+                  <label className="onboarding-label">{startDateLabel}</label>
+                  <select
+                    className="onboarding-select"
+                    value={startSeason}
+                    onChange={e => setStartSeason(e.target.value)}
+                  >
+                    <option value="">Select season</option>
+                    {seasonsForYear.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="onboarding-field">
+                  <label className="onboarding-label">Year</label>
+                  <select
+                    className="onboarding-select"
+                    value={startYear}
+                    onChange={e => {
+                      setStartYear(e.target.value ? Number(e.target.value) : '')
+                      setStartSeason('')
+                    }}
+                  >
+                    <option value="">Select year</option>
+                    {choices.map(c => (
+                      <option key={c.year} value={c.year}>{c.year}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {error && <p className="onboarding-error">{error}</p>}
 
@@ -575,7 +563,7 @@ export default function Onboarding({ profileId, onComplete }) {
               <button
                 className="onboarding-btn"
                 onClick={handleGoToStep3}
-                disabled={!selectedCode || concsLoading}
+                disabled={!studentType || !startSeason || !startYear}
               >
                 Continue
               </button>
@@ -641,7 +629,7 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 4: Math chain display ── */}
+        {/* ── Step 4: Math chain display (only for a plan that includes Calculus I) ── */}
         {step === 4 && (() => {
           const placement = resolveMathPlacementRow(placementScores)
           const startCode = placement.satisfies_course_code
@@ -783,7 +771,7 @@ export default function Onboarding({ profileId, onComplete }) {
             <div className="onboarding-btn-row">
               <button
                 className="onboarding-btn-secondary"
-                onClick={() => setStep(4)}
+                onClick={() => setStep(hasMath ? 4 : 3)}
                 disabled={loading}
               >
                 Back
