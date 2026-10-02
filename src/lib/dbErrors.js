@@ -15,8 +15,13 @@ export function isMissingColumn(error) {
  * @param {string[]} optionalColumns  columns added later (credits_max, requisite_text, ...)
  */
 export async function selectWithOptional(run, baseColumns, optionalColumns = []) {
-  const full = [baseColumns, ...optionalColumns].join(', ')
-  const result = await run(full)
-  if (optionalColumns.length && isMissingColumn(result.error)) return run(baseColumns)
-  return result
+  let optional = [...optionalColumns]
+  for (;;) {
+    const result = await run([baseColumns, ...optional].join(', '))
+    if (!optional.length || !isMissingColumn(result.error)) return result
+    // Postgres names the column ("column concentrations.college does not exist"): drop only that one, so an install that
+    // has the older optional columns keeps them. A message that names nothing we asked for drops them all, as before.
+    const named = /column\s+"?(?:\w+\.)?(\w+)"?\s+does not exist/i.exec(result.error.message ?? '')?.[1]
+    optional = named && optional.includes(named) ? optional.filter(c => c !== named) : []
+  }
 }

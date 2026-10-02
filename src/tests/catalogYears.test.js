@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   yearStart, academicYearOf, compareCatalogYears, planForYear, isProgramOpen, availablePrograms,
   groupByMajor, degreeTitle, catalogYearForProfile,
+  NEW_CURRICULUM_YEAR, termAvailable, termChoices, latestCatalogYear, splitByOffering,
 } from '../lib/catalogYears'
 import { getGenEdProgram } from '../lib/flightFoundations'
 import catalog from '../data/catalog.json'
@@ -130,16 +131,16 @@ describe('groupByMajor / degreeTitle', () => {
   it('puts the CSC concentrations under one major, in id order, and Artificial Intelligence under its own', () => {
     const groups = groupByMajor(programs.filter(p => p.department === 'CSC'))
     expect(groups.map(g => g.majorName)).toEqual(['Computer Science', 'Artificial Intelligence'])
-    expect(degreeTitle(groups[0])).toBe('B.S. Computer Science')
+    expect(degreeTitle(groups[0])).toBe('Computer Science, B.S.')
     expect(groups[0].programs.map(p => p.code)).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
-    expect(degreeTitle(groups[1])).toBe('B.S. Artificial Intelligence')
+    expect(degreeTitle(groups[1])).toBe('Artificial Intelligence, B.S.')
     expect(groups[1].programs.map(p => p.code)).toEqual(['ai'])
   })
   it('puts Mechanical Engineering and its three concentrations under one major, and Nuclear Engineering under its own', () => {
     const groups = groupByMajor(programs.filter(p => p.department === 'MNE'))
     expect(groups.map(g => g.majorName)).toEqual(['Mechanical Engineering', 'Nuclear Engineering'])
     expect(groups[0].programs.map(p => p.code)).toEqual(['me', 'me_aero', 'me_mechatronics', 'me_vehicle'])
-    expect(degreeTitle(groups[1])).toBe('B.S. Nuclear Engineering')
+    expect(degreeTitle(groups[1])).toBe('Nuclear Engineering, B.S.N.E.')
   })
   it('keeps separate majors separate, a major with no concentrations being a group of one', () => {
     const rows = [
@@ -153,6 +154,63 @@ describe('groupByMajor / degreeTitle', () => {
   })
   it('falls back to the program name when a row has no major', () => {
     expect(groupByMajor([{ id: 1, name: 'X' }])[0].majorName).toBe('X')
+  })
+})
+
+describe('termChoices: the start terms a program can be started in', () => {
+  const years = c => c.map(x => x.year)
+  const find = (c, y) => c.find(x => x.year === y)?.seasons
+
+  it('without a program, offers what the student type allows: returning before the 2026 switch, new from it', () => {
+    const returning = termChoices('returning')
+    expect(years(returning)).toEqual(Array.from({ length: 11 }, (_, i) => 2016 + i))
+    expect(find(returning, NEW_CURRICULUM_YEAR)).toEqual(['Spring', 'Summer'])
+    expect(find(returning, 2020)).toEqual(['Fall', 'Spring', 'Summer'])
+    const fresh = termChoices('incoming_freshman')
+    expect(years(fresh)).toEqual(Array.from({ length: 7 }, (_, i) => 2026 + i))
+    expect(find(fresh, NEW_CURRICULUM_YEAR)).toEqual(['Fall'])
+    expect(termChoices('transfer')).toEqual(fresh)
+  })
+
+  it('a program whose first plan covers earlier entrants is open to returning students too', () => {
+    const core = programs.find(p => p.code === 'core')
+    expect(years(termChoices('returning', { program: core, plans }))).toHaveLength(11)
+    expect(years(termChoices('incoming_freshman', { program: core, plans }))).toHaveLength(7)
+  })
+
+  it('a program that starts with the 2026-2027 catalog has no returning student, and says so by having no terms', () => {
+    const me = programs.find(p => p.code === 'me')
+    expect(termChoices('returning', { program: me, plans })).toEqual([])
+    expect(find(termChoices('incoming_freshman', { program: me, plans }), 2026)).toEqual(['Fall'])
+  })
+
+  it('a program closed to a catalog year has no new student after it', () => {
+    const dsai = programs.find(p => p.code === 'dsai')
+    expect(termChoices('incoming_freshman', { program: dsai, plans })).toEqual([])
+    expect(termChoices('returning', { program: dsai, plans }).length).toBeGreaterThan(0)
+  })
+
+  it('a term is available only with a plan for its catalog year and an open program', () => {
+    const me = programs.find(p => p.code === 'me')
+    expect(termAvailable(me, plans, 'Fall', 2026)).toBe(true)
+    expect(termAvailable(me, plans, 'Spring', 2027)).toBe(true)
+    expect(termAvailable(me, plans, 'Summer', 2026)).toBe(false)   // 2025-2026: no plan
+    expect(termAvailable(me, plans, '', 2026)).toBe(false)
+  })
+})
+
+describe('latestCatalogYear / splitByOffering', () => {
+  it('finds the newest catalog year', () => {
+    expect(latestCatalogYear(plans)).toBe('2026-2027')
+    expect(latestCatalogYear([])).toBeNull()
+    expect(latestCatalogYear([{ catalog_year: 'junk' }])).toBeNull()
+  })
+
+  it('separates the programs closed to the newest year (DSAI) from the ones still open, and drops a program with no plan', () => {
+    const { current, closed } = splitByOffering(programs, plans)
+    expect(closed.map(p => p.code)).toEqual(['dsai'])
+    expect(current.map(p => p.code)).toEqual(['core', 'cybersecurity', 'hpc', 'ai', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne'])
+    expect(splitByOffering([{ id: 99, code: 'x' }], plans)).toEqual({ current: [], closed: [] })
   })
 })
 

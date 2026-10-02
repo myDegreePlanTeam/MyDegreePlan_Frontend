@@ -27,6 +27,7 @@ const protoDir = resolve(here, '../../MyDegreePlan_Prototype')
 const outFile = resolve(here, '../src/data/catalog.json')
 const descriptionsFile = resolve(here, '../src/data/catalog.descriptions.json')
 const poolsFile = resolve(here, '../src/data/pools.json')
+const collegesFile = resolve(here, '../src/data/colleges.json')
 
 const readJson = name => JSON.parse(readFileSync(resolve(protoDir, name), 'utf8'))
 
@@ -55,6 +56,9 @@ async function main() {
   writeFileSync(descriptionsFile, JSON.stringify(descriptions) + '\n')
   // The pools (label, hours, resolved membership) as data for poolResolver.js; one pool a line so a change reads as a small diff.
   writeFileSync(poolsFile, `{\n${Object.entries(degreePlans.poolDefs).map(([code, def]) => `  ${JSON.stringify(code)}: ${JSON.stringify(def)}`).join(',\n')}\n}\n`)
+  // The colleges the picker's first level lists (degree-specs/colleges.json). Static for both backends, like pools.json:
+  // programs carry only the college code.
+  writeFileSync(collegesFile, `[\n${(degreePlans.colleges ?? []).map(c => `  ${JSON.stringify({ code: c.code, name: c.name, short: c.short, url: c.url })}`).join(',\n')}\n]\n`)
   const t = catalog.tables
   console.log(
     `catalog.json: ${t.courses.length} courses (${Object.keys(descriptions).length} descriptions deferred), `

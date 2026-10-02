@@ -60,7 +60,7 @@ All catalog tables have public read RLS; student tables are scoped to `auth.uid(
 | `courses` | Course catalog: code, name, credits, description, subject_code, standing_req. `credits_max` (top of a variable-credit range, else NULL) and `requisite_text` (a prerequisite statement the planner could not turn into rules) |
 | `prerequisite_entries` | Prerequisite rules: course_code, required_code, group_index, logic (AND/OR) |
 | `corequisite_entries` | Corequisite rules: same shape as prerequisite_entries |
-| `concentrations` | Degree **programs**: a major or a concentration of one (core, cybersecurity, dsai, hpc). `kind`, `degree`, `major_name`, `department`, `supersedes`, `last_catalog_year`, `description` |
+| `concentrations` | Degree **programs**: a major or a concentration of one (core, cybersecurity, dsai, hpc, ai, me ...). `kind`, `degree`, `major_name`, `department`, `supersedes`, `last_catalog_year`, `description`, and where it sits in the picker: `college` (a code), `major_code` (groups a major with its concentrations), `is_base` (the major itself, no concentration), `aliases` (search words) |
 | `degree_plans` | One row per program per catalog year: `gened_program`, `total_hours`, `covers_earlier`. The index the app resolves a student's plan from |
 | `requirement_slots` | A degree plan's slots: `catalog_year`, stable `slot_key`, `map_semester` (the department's recommended semester), `gened_program` |
 | `student_profiles` | One row per student; anchors all student state; references `auth.users.id`. ACT scores plus `sat_math` (optional; either test, both or neither), `gened_program`, and `catalog_year` (the plan year their slots belong to, stored at onboarding) |
@@ -90,6 +90,15 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
 - **Which programs a student may choose is data**: open to their entry year (`last_catalog_year`) and with a plan for it
   (`availablePrograms`). Data Science & AI closed after `2025-2026`; a new major needs a `programs.json` entry and a
   spec, no frontend change.
+- **The picker is college → major → concentration, and onboarding asks for the program first.** `lib/programBrowser.js`
+  (`groupByCollege`, `searchPrograms`, `programPath`, `termUnavailableNote`) and `components/ProgramPicker.jsx` do it; Settings'
+  change-program modal groups the same way. `src/data/colleges.json` is generated from the Prototype's `degree-specs/colleges.json`
+  by `npm run build:catalog` (programs carry only the college code). A database that lacks the new columns still works: programs
+  group by `major_name` under "Other programs". The start-term step then offers only the terms the chosen program has a plan for
+  (`termChoices` in `catalogYears.js`; a program whose first plan is 2026-2027 has none for a returning student, and the step says
+  so); a closed program (DSAI) is behind "Show closed programs" and offers its replacement. The math sequence step is shown only
+  when the plan includes Calculus I (`planHasMathChain`). The rollout of every Tennessee Tech major is `PLAN_all-majors.md`; every
+  program with a map is checked by `allMapsConformance.test.js`.
 - Flight Foundations plans replace the six `GEN_ED` slots with fixed `HIST2010` + `HIST2020` and the pools `FF_SOCIAL`
   ×2 and `FF_HUMANITIES` ×2 (HPC also `FF_LITERACY`). English Literature is **not** a separate Flight Foundations
   requirement, so `ENG_LIT` exists only in legacy plans. SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are
@@ -279,15 +288,19 @@ that section before changing the module. Rules that must hold even if you do not
     Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v)
     el.dispatchEvent(new Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }))
   }
-  const btn = t => [...document.querySelectorAll('button')].find(b => b.textContent.trim() === t)
-  btn('Incoming Freshman').click()                                   // step 1
-  const [season, year] = document.querySelectorAll('select.onboarding-select')
-  setVal(year, '2026'); setVal(document.querySelectorAll('select.onboarding-select')[0], 'Fall')
-  btn('Continue').click()                                            // step 2: button.concentration-card per program
-  document.querySelector('button.concentration-card').click(); btn('Continue').click()   // step 3: 6 input.onboarding-input (ACT/SAT)
+  const btn = t => [...document.querySelectorAll('button')].find(b => b.textContent.trim().startsWith(t))
+  // step 1: the program. With one college the list starts at the majors (button.program-major); with several, first
+  // button.program-college. A major with concentrations then shows .concentration-card buttons, or use the search box.
+  btn('Computer Science, B.S.').click(); btn('CSC Cybersecurity').click(); btn('Continue').click()
+  // step 2: start term, limited to what the program has a plan for
+  btn('Incoming Freshman').click()
+  setVal(document.querySelectorAll('select.onboarding-select')[1], '2026')   // the year select is the second one
+  setVal(document.querySelectorAll('select.onboarding-select')[0], 'Fall')
+  btn('Continue').click()      // step 3: 6 input.onboarding-input (ACT/SAT); Continue again: step 4 (math, only if the plan has Calculus I), then step 5
   ```
 
-  Wait about 150 ms between steps (`await new Promise(r => setTimeout(r, 150))`) so React re-renders.
+  Wait about 150 ms between steps (`await new Promise(r => setTimeout(r, 150))`) so React re-renders. To start over, delete the
+  site's IndexedDB (`indexedDB.databases()` then `deleteDatabase`) and clear localStorage; screenshots worked on 2026-10-02 with the pane open.
 - **Paths and the shell's working directory.** The Bash tool's working directory drifts after any `cd`, so a relative path or
   `git -C <relative folder>` from an earlier call fails ("cannot change to ..."). Use absolute paths
   (`/c/Users/brady/github/MDP/...`), or `cd` in the same command.

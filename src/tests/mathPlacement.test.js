@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   MATH_PLACEMENT, tierForAct, tierForSat, resolveMathPlacement, getActMathThreshold, getSatMathThreshold,
-  equivalentSubstitutes, validateSatMath,
+  equivalentSubstitutes, validateSatMath, planHasMathChain,
 } from '../lib/mathPlacement'
 import { resolveMathPlacementRow, resolveActMathPlacement } from '../lib/actScoreResolver'
 import { buildRequirementMap, REQUIREMENT_SUBSTITUTES } from '../lib/requirementMap'
@@ -141,5 +141,14 @@ describe('MATH1730 is equivalent to MATH1710 + MATH1720', () => {
     expect(map.MATH3999[0]).toEqual({ logic: 'OR', codes: ['MATH1720', 'MATH1730'] })
     expect(checkPrereqs('MATH3999', map, new Set(['MATH1730'])).satisfied).toBe(true)
     expect(checkPrereqs('MATH3999', map, new Set()).satisfied).toBe(false)
+  })
+})
+
+describe('planHasMathChain: whether onboarding shows the math sequence', () => {
+  it('a plan that includes Calculus I has a chain; one without it does not', () => {
+    expect(planHasMathChain([{ class_code: 'CSC1300' }, { class_code: 'MATH1910' }])).toBe(true)
+    expect(planHasMathChain([{ class_code: 'MUS1010' }, { class_code: 'MATH1710' }])).toBe(false)
+    expect(planHasMathChain([])).toBe(false)
+    expect(planHasMathChain(null)).toBe(false)
   })
 })

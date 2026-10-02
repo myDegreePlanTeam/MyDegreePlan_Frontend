@@ -113,6 +113,10 @@ export function assembleCatalog({ courses, degreePlans, equivalencySql, previous
       supersedes: program.supersedes,
       last_catalog_year: program.lastCatalogYear,
       description: program.description,
+      college: program.college ?? null,
+      major_code: program.majorCode ?? null,
+      is_base: program.isBase ?? false,
+      aliases: (program.aliases ?? []).join(', ') || null,
     })
   }
   const concId = Object.fromEntries(concentrations.map(c => [c.code, c.id]))

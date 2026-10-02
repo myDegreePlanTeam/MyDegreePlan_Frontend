@@ -1,0 +1,119 @@
+/* ── Program picker: college → major → concentration, or search ───────────── */
+.program-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.program-crumb {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--white);
+}
+
+.program-crumb-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.program-colleges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.6rem;
+}
+
+.program-college,
+.program-major {
+  background: var(--navy);
+  border: 1px solid var(--navy-light);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.program-college:hover,
+.program-major:hover {
+  border-color: var(--muted);
+}
+
+.program-college.selected,
+.program-major.selected {
+  border-color: var(--gold);
+  background: rgba(var(--gold-rgb), 0.06);
+}
+
+.program-major-list,
+.program-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.6rem;
+}
+
+.program-tag {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.onboarding-toggle-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.program-note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.program-note strong {
+  color: var(--white);
+  font-weight: 500;
+}
+
+.program-empty,
+.program-closed {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.program-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--gold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.program-college:focus-visible,
+.program-major:focus-visible,
+.program-link:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .program-major-list,
+  .program-results {
+    grid-template-columns: 1fr;
+  }
+}
