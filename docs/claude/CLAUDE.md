@@ -319,7 +319,10 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
    RFC 6901 paths (`/courses/CSC2400/why`, `/slots/-`), all-or-nothing, indent / EOL / BOM kept. It refuses a file whose
    layout `JSON.stringify` would not reproduce (the generated specs under `degree-specs/<dept>/`, `catalog/equivalents.json`:
    inline arrays), so edit those with `multi_replace.py`. The Deploy repo's CI runs the tools' tests.
-8. To finish a PR (wait for CI, squash-merge, fast-forward local `main`, delete the local branch), run
+8. To open a PR, commit on a branch (explicit paths, never `git add -A`), then run
+   `bash local-deploy/tools/open_pr.sh <repo-folder> --title "type(scope): text" --body-file FILE` from `MDP/`: a dry run that prints
+   the plan; add `--yes` to push and create it (never forced; refuses on `main`, with no new commits, or if a PR is already open).
+   To finish a PR (wait for CI, squash-merge, fast-forward local `main`, delete the local branch), run
    `bash local-deploy/tools/finish_pr.sh <repo-folder> <pr> [--dry-run]` from `MDP/`. It deletes the branch only if its tip
    is the merged head, and keeps it (saying how many commits it holds beyond the PR) otherwise. `ccd_pr get_status` reports
    only the session-bound PR: use `gh pr checks <n> --repo <owner/repo>` for a PR in another repo.
