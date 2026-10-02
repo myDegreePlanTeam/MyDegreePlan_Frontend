@@ -1,6 +1,6 @@
 # Plan: degree-map pipeline, 2026-27 maps, full Coursedog catalog
 
-> Status (2026-10-01): decisions locked; P0, P1 and P2 are built (unpushed, branch `feat/degree-spec-pipeline`); P3 is built (branch `feat/degree-docx-extractor`).
+> Status (2026-10-01): decisions locked; P0, P1 and P2 are built (unpushed, branch `feat/degree-spec-pipeline`); P3 and P4 are built (branches `feat/degree-docx-extractor`, `feat/degree-maps-2026-27`); P5 (release) is next.
 > Inputs: `RE__Request_for_Updated_CSC_AI_Degree_Plans.zip` (CS, Cyber, HPC, AI 2026-2027 Degree Map .docx).
 
 ## Goal
@@ -83,7 +83,7 @@ New year: `degrees:new-year` copies the previous spec as a draft.
 - **P1 `feat/full-catalog`:** normalizer, prerequisite parser, overrides, chunking, parity tests. Shippable alone.
 - **P2 `feat/degree-spec-pipeline`:** spec format, generator, schema columns, `catalog_year` filtering, program-aware onboarding.
 - **P3 `feat/degree-docx-extractor`:** extractor + validators (done 2026-10-01, see P3 results).
-- **P4 `feat/degree-maps-2026-27`:** four specs, pools as data, map-first placement, conformance test.
+- **P4 `feat/degree-maps-2026-27`:** four specs, pools as data, map-first placement, conformance test (done 2026-10-01, see P4 results).
 - **P5:** release, runbook, update both CLAUDE.md copies (canonical: this repo's `docs/claude/CLAUDE.md`).
 
 ## Open questions for the department
@@ -351,3 +351,67 @@ golden inputs.
 **Not done / open**
 - The department's answers to the questions are not recorded yet (`manifest.json` `decisions` is empty).
 - Only the Word adapter exists; the `ADAPTERS` map is the extension point.
+
+---
+
+## P4 results (2026-10-01): the four 2026-27 maps live; branch `feat/degree-maps-2026-27` in Prototype and Frontend, unpushed
+
+**Delivered**
+- **Four specs** (`degree-specs/csc/{core,cybersecurity,hpc,ai}/2026-2027.json`) promoted from the extractor's drafts
+  (`npm run degrees:promote`, idempotent). Each totals exactly 120; the interim `track-hours` waivers are gone. `ai` is a
+  program (major, supersedes `dsai`; picker shows it under "B.S. Artificial Intelligence" for 2026+ entrants, DSAI stays for
+  earlier ones). Promotion keeps pool keys (`CSC_ELECTIVE` stays `CSC_ELECTIVE`, then `#2`, `#3`), keeps the math placement
+  courses the map does not show as unmapped slots, and records the source hash and the assumptions.
+- **Spec format:** `offering` (term + year parity, validated against the mapped semester) and `replaces` (a renamed slot
+  keeps its row). `slotSync` now syncs `class_code` and matches by `replaces`; the seed and `catalogLib` pass the hint (never
+  stored). Seasons for AI 3000/3100/3200/4200 are in `semesterRestrictions.js`, and a test requires every spec offering to
+  agree with it.
+- **Pools as data** (`degree-specs/pools.json` -> `degree_plans.json` `poolDefs` -> `src/data/pools.json` ->
+  `poolResolver.js`): explicit lists carried over unchanged (checked mechanically), `CSC_ELECTIVE` / `CSC_UPPER_ELECTIVE` as
+  rules over the catalog (the department's wording), `gates` rank, `floor`, `source` for Flight Foundations. Replaces the
+  hand-written `POOL_COURSES`, `POOL_LABELS`, `POOL_CREDIT_ESTIMATES`, `REQUIREMENT_POOLS`, `IMPLICIT_POOL_PREREQ` and
+  `SATISFIABLE_POOLS`. Pool membership is versioned by code, since a pool is not scoped to a catalog year: the 2026-27 HPC
+  list is `CSC_HPC_ELECTIVE_2026` (3 courses); `CSC_HPC_ELECTIVE` keeps the 2025-26 five.
+- **Map-first placement** in `buildDegreePlan`: Fall start + no prior credit + top-track math = the department path
+  (`map_semester`), used only if every active slot has one and it passes prerequisites, corequisites, offering terms,
+  standing and load; everyone else (and any map that fails) gets the algorithm exactly as before (tests prove equality with a
+  map-less plan). The algorithm would place 21-25 slots per program somewhere other than the department does.
+- **Conformance test** (`mapConformance.test.js`): each program's reference student equals the map slot for slot, with the
+  printed semester totals (Core 15/16/17/16/15/15/12/14, Cyber 15/16/16/16/15/14/15/13, HPC 15/16/17/16/15/15/14/12, AI
+  15/16/16/16/15/16/14/12), plus the fall-back cases and six ways a map can be invalid.
+- **Provisional corequisites:** an empty requirement-pool slot now meets a corequisite its pool offers
+  (`checkCoreqsProvisional`), as it already did for prerequisites. Found in the browser: the department's own AI path opened
+  with a "CSC3220 corequisite unmet" blocker (pre-existing: the curated data had the same corequisite).
+
+**Verified**
+- Frontend 46 files / 875 tests, Prototype 149 tests, lint at the baseline (13), build OK.
+- In the app: a Fall 2026 AI student (ACT 29, no prior credit) gets Fall 2026 -> Spring 2030, 120 hours, exactly the AI map;
+  no blocker, 13 advisory "choose a course" notes.
+- On a real Postgres (the throwaway `mdp_fftest` stack, seeded by the previous release): migrate + seed = 308 slots kept, 3
+  CSC4615 slots renamed to CSC4620 in place (same ids; the student's semester-8 row intact), 50 new (45 AI + 5 electives), 3
+  MATH1920 slots dropped (the Fall 2026 curriculum has none; one archived student row went with them, 89 of 90 remain), second
+  seed run 0 changes. The static catalog build gives the same counts.
+
+**Assumptions recorded, pending the department** (`degree-specs/sources/csc/2026-2027/manifest.json`, listed in each spec's
+`assumptions`; replace each with the department's answer and re-run `degrees:extract` / `degrees:promote`)
+- PHYS 2110/2120 stay allowed as science options although they are 5 hours each (the maps count 4): a student who picks them
+  carries more than 120 hours.
+- HPC "Science Sequence3" is a typo for note 2.
+- AI Natural Science list = the Computer Science map's sequences.
+- AI "Elective (2000-level or higher)" is a plain free-elective bucket; the level limit is recorded but not enforced.
+- AI "Upper Division Elective" is a CSC upper-division elective.
+
+**Deviations / known gaps**
+- Pool rules add a judgment the department's wording does not state: a course must have at least 3 hours (a 1-hour lab does not
+  fill a 3-hour slot) and CSC4615 (retired) and CSC4990 (internship) are excluded; CSC1200 stays in `CSC_ELECTIVE` for the
+  2025-26 plans whose wording was "1000-4000".
+- Existing students keep the positions already saved (the builder only places unplaced slots); a Fall 2026 student placed by
+  the algorithm before this release stays where they are unless they Reset Plan. Slots they had saved keep their ids.
+- A student whose pick for the 2026-27 HPC elective was CSC4400 or CSC4710 keeps the pick, but the picker no longer offers
+  them (the 2026-27 map names three courses).
+- Prior credit for CSC4615 does not clear the CSC4620 slot (exact-code matching; the two are one class but their hours differ).
+- Offering year parity (CSC4780 "spring even years") is validated in the spec but not enforced in the app.
+- "Not required for transfer students with more than 12 hours" (CSC 1020) is read and kept as a note, not modeled.
+- Onboarding's student types and year lists and the builder's MATH1920 curriculum switch are still tied to the 2026 change.
+- Not released: nothing is pushed or merged; P5 is the release (a signed release notes the AI major, the department maps and
+  the CSC 4615 -> 4620 change).

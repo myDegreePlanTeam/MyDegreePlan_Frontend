@@ -168,8 +168,10 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
   ×2 and `FF_HUMANITIES` ×2 (HPC also `FF_LITERACY`). English Literature is **not** a separate Flight Foundations
   requirement, so `ENG_LIT` exists only in legacy plans. SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are
   shared.
-- The two current CSC years are interim: `2026-2027` (Flight Foundations) totals 116 hours on its top math track, not
-  120, and carries a validator waiver until the department's 2026-27 degree maps replace it.
+- The `2026-2027` plans are the department's own degree maps (Computer Science Core, Cybersecurity, High Performance
+  Computing, and the new Artificial Intelligence major, which supersedes the Data Science & AI concentration). Each totals
+  exactly 120 hours. A few questions to the department are still open and the plans carry them as recorded assumptions
+  (`assumptions` in each spec; see "Degree plan pipeline").
 
 ### Constrained column values
 
@@ -216,7 +218,7 @@ Vercel needs **no settings**: with no `__MDP_CONFIG__` the app is local-first. `
 
 **Local backend facts**
 - `lib/data/localClient.js` is not a general PostgREST emulator. It implements what the app calls (filters, `or`/`ilike`, order/limit, `single`, the `concentrations` to-one embed, insert/update/upsert/delete) plus the Postgres behaviour the app leans on: identity ids (never reused), schema defaults, unique constraints for `onConflict`, `ON DELETE CASCADE` from `student_profiles`, and the `PGRST116` / `23505` error codes. If a component starts using a query feature it lacks, it returns an error rather than a wrong answer; extend the engine and add a test in `src/tests/localClient.test.js`.
-- Catalog tables are read-only. `src/data/catalog.json` is **generated and committed**: run `npm run build:catalog` (reads `../MyDegreePlan_Prototype`: `courses.json`, the `csc_*.json` templates, `test_equivalencies.sql`) after any seed-data change, commit the result, and redeploy. It holds the **full** Tennessee Tech catalog (~6,200 courses). A course's description is inline only when a template, pool or exam equivalency names it; the other ~5,000 live in `src/data/catalog.descriptions.json`, which the engine fetches the first time a query asks for a description a row lacks (`LocalDb.hydrateDescriptions`). `courses.json` itself is generated in the Prototype repo (`node catalog/build_courses.mjs`; see "Course catalog pipeline" below). Slot ids stay stable across regenerations via the prototype's `planSlotSync`, so stored plans keep pointing at the right slot. Courses that exist only through a migration (currently MATH1000) are listed in `scripts/catalogLib.mjs`.
+- Catalog tables are read-only. `src/data/catalog.json` is **generated and committed**: run `npm run build:catalog` (reads `../MyDegreePlan_Prototype`: `courses.json`, `degree_plans.json`, `test_equivalencies.sql`; writes `catalog.json`, `catalog.descriptions.json` and `pools.json`) after any seed-data change, commit the result, and redeploy. It holds the **full** Tennessee Tech catalog (~6,200 courses). A course's description is inline only when a template, pool or exam equivalency names it; the other ~5,000 live in `src/data/catalog.descriptions.json`, which the engine fetches the first time a query asks for a description a row lacks (`LocalDb.hydrateDescriptions`). `courses.json` itself is generated in the Prototype repo (`node catalog/build_courses.mjs`; see "Course catalog pipeline" below). Slot ids stay stable across regenerations via the prototype's `planSlotSync`, so stored plans keep pointing at the right slot. Courses that exist only through a migration (currently MATH1000) are listed in `scripts/catalogLib.mjs`.
 - One implicit user per device: no sign-in, `db.auth` is a stub. Login/Signup are only reachable on the remote backend.
 - Plans do not sync between devices and can be lost if the browser clears site data. Settings has Export / Import / Erase (`DeviceDataCard`, `lib/data/backup.js`); the first onboarding step offers Import for a new device. Backups are format-versioned and drop rows that point at slots the current catalog no longer has.
 - `db.local` (export/import/erase, `persistent`) exists only on the local client.
@@ -258,7 +260,23 @@ program or a catalog year). `node degree-specs/build.mjs` validates them and gen
   advanced math track, map semesters, closed programs. A known failure needs a reasoned `waivers` entry in the spec; a
   waiver that no longer fires fails the build.
 - Upgrade path verified against a real Postgres seeded by the previous release: all slots adopted, 0 inserted or
-  removed, id fingerprint unchanged, student rows intact, a second seed run changes nothing.
+  removed, id fingerprint unchanged, student rows intact, a second seed run changes nothing. Verified again for the
+  2026-2027 maps (308 slots kept, 3 renamed in place, 50 new, 3 MATH1920 slots dropped, 89 of 90 student rows intact).
+- A spec slot may carry `offering` (`{terms, parity}`: the term the department prints next to a course; the validator
+  checks it against the semester the map puts it in) and `replaces` (the key a slot took over from: CSC4615 -> CSC4620,
+  the same class recoded). The seed turns the replaced slot's row into the new slot in place (same id, new key and class
+  code), so a student's saved plan follows it. `replaces` and `offering` live in `degree_plans.json`, not in a column.
+- **Promotion** (`npm run degrees:promote`): a *ready* draft (no errors, no open questions) becomes the spec: pool keys
+  carry over from the plan it replaces, the math placement courses the map does not show stay as unmapped slots, and the
+  source file's hash and the recorded assumptions are written into the spec. Idempotent. A department answer goes in the
+  source folder's `manifest.json` `decisions`; one recorded as `"status": "assumed"` is an engineering assumption pending the
+  department, and the spec lists it under `assumptions` until someone confirms it.
+- **Pools are data** (`degree-specs/pools.json`): label, hours, `gates` (the rank among pools a course can depend on, which
+  is also the order pools take open seats), `floor` (a course every option needs first) and membership as an explicit list,
+  a **rule** over the catalog (`CSC_ELECTIVE` = "any additional 2000 or above level CSC course", resolved to a list at build
+  time), an external source (Flight Foundations' published lists stay in `flightFoundations.js`) or open. A pool is not
+  scoped to a catalog year, so when a year changes what a pool contains the new definition gets a new code and earlier plans
+  keep theirs (`CSC_HPC_ELECTIVE_2026` is the three courses the 2026-27 HPC map names; `CSC_HPC_ELECTIVE` keeps five).
 - **Extractor** (`degree-specs/extract/`, `npm run degrees:extract`): a department's degree map (Word today) is read by an
   adapter into a format-neutral map document, drafted into slots (`vocabulary.json` maps row labels and either/or sets to
   pools), and checked: printed semester totals, catalog existence and hours, footnotes, option-list hours (PHYS 2110/2120
@@ -317,7 +335,7 @@ See [`README.md`](./README.md) for branch prefixes and commit types. Additional 
 - `src/tests/[featureName].test.js` — primary suite
 - `src/lib/__tests__/[featureName].test.js` — collocated lib tests
 
-The suite is 43 files / 827 tests as of 2026-10-01 (plus 132 in the Prototype repo: `npm test` there covers the
+The suite is 46 files / 875 tests as of 2026-10-01 (plus 149 in the Prototype repo: `npm test` there covers the
 catalog parser and build, the degree-spec validator and slot sync, and the degree-map extractor); `ls src/tests src/lib/__tests__` is the
 current list. `poolRemainder.test.js` covers the Free Elective bucket and its effect on semester
 totals and standing; `planExportModel.test.js` covers the PDF side.
@@ -346,6 +364,11 @@ Exports two pure functions.
 - `availableCodes` — Set of codes from *same semester + prior semesters* (coreqs may be
   taken concurrently)
 - Prereqs use `completedCodes` (prior only); coreqs use `availableCodes` (same + prior)
+
+**`checkCoreqsProvisional(courseCode, coreqMap, availableCodes, pendingPools)`** is `checkCoreqs` with unfilled
+requirement-pool slots (same or earlier semester) standing in for a corequisite their pool offers (CSC3220 with the
+Statistics slot), returning `relyingOn` slot keys like `checkPrereqs`. `DegreePlan` uses it so the department's own path
+does not open with a blocker. `checkCoreqs` itself is unchanged.
 
 ### `src/lib/transferCredits.js`
 
@@ -433,11 +456,13 @@ batch and `rowsOfKind` splits it, so tabs switch without searching again (`AddCo
 Exports `POOL_COURSES`, `POOL_LABELS`, `resolvePool`, `resolveScience`, `getScienceWarnings`,
 `getGenEdStatus`, `resolveFreeElective`.
 
-Pool membership lives in code here, not in the database (keeps schema lean). The pool codes and credit estimates are
-also declared in the prototype's `degree-specs/pools.json`; a test requires the two to agree. `POOL_COURSES` is
-the authoritative list of valid course codes for each pool type. `POOL_LABELS` is the single
-source of truth for display names. `resolvePool(poolCode, courseMap)` returns filtered course
-objects from the live catalog.
+Pools are **data**, not code: this file derives `POOL_COURSES`, `POOL_LABELS`, `POOL_CREDIT_ESTIMATES`, `POOL_FLOORS` and
+`REQUIREMENT_POOLS` from `src/data/pools.json`, which `npm run build:catalog` generates from the prototype's
+`degree-specs/pools.json` (through `degree_plans.json`'s `poolDefs`); a test requires the committed file to be current.
+The order of the keys matters (`resolveSatisfiesPool` takes the first pool on a plan that lists a course) and
+`REQUIREMENT_POOLS` is ordered by each pool's `gates` rank. `POOL_COURSES` is the list of valid course codes for each
+pool (null for the open Free Elective). `resolvePool(poolCode, courseMap)` returns filtered course objects from the live
+catalog.
 
 ### `src/lib/poolRemainder.js`
 
@@ -532,6 +557,12 @@ MATH1920). `getPlanCodes` / `getRemovedCodes` derive the inputs from plan state.
 Pure placement algorithm. Called from `Onboarding.jsx`, `ProfileSettings.jsx` (ACT-score
 change), and `DegreePlan.jsx` (first load with unplaced slots, Reset Plan). Callers write the
 result to `student_plan_slots` with `position_source = 'algorithm'`.
+- **Map-first:** a *standard* student (Fall start, no prior credit at all, top-track math placement) gets the department's
+  own path: each slot's `map_semester`. It is used only when every active slot has one and the path holds up (prerequisites
+  and corequisites between the plan's courses, offering terms by season, standing, no semester over 18 hours); otherwise,
+  and for every other student, the algorithm below runs exactly as if the plan had no map. `map_semester` must be in the
+  slot select (`fetchRequirementSlots` tolerates a database without the column). `mapConformance.test.js` pins each
+  2026-27 map to its printed semester totals.
 - `courseMap` **must include `standing_req`** — without it junior/senior gates are skipped
   silently (BUG-49).
 - **Prior hours come from `creditsBeforeSemester(1, { priorCredits })`**, the same helper the
