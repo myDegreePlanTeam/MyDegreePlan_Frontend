@@ -48,13 +48,10 @@ describe.each(Object.keys(PRINTED))('%s', program => {
   })
 })
 
-// The department's own path is used only when it holds up against the catalog. The catalog stores PHYS 2110 as 5 hours that need
-// MATH 1920 finished first, while every engineering map has PHYS 2110 (4 hours) in the same semester as MATH 1920, so today the
-// builder rejects the path and falls back to its own algorithm. This block switches itself on when the catalog says
-// "MATH 1920 may be taken alongside, PHYS 2110 is 4 hours" (see docs/claude/INTEGRATION_mne-engineering.md).
-const physMatchesMaps = Object.values(coreqMap.PHYS2110 ?? {}).some(g => g.codes.includes('MATH1920')) && courseMap.PHYS2110.credits === 4
-
-describe.runIf(physMatchesMaps).each(Object.keys(PRINTED))('%s: the reference student gets the department map', program => {
+// The department's own path is used only when it holds up against the catalog. Every engineering map puts PHYS 2110 (4 hours) in the
+// same semester as MATH 1920, so the catalog must say MATH 1920 may be taken alongside and PHYS 2110 is 4 hours; if either regresses
+// the builder rejects the path and falls back to its own algorithm (see docs/claude/INTEGRATION_mne-engineering.md).
+describe.each(Object.keys(PRINTED))('%s: the reference student gets the department map', program => {
   const slots = slotsOf(program)
   const result = build(slots)
 

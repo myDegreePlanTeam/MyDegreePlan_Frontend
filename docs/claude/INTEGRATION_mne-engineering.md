@@ -7,9 +7,10 @@ Engineering. Each is 128 hours.
 
 ## Verdict
 
-**Mostly yes, and the gaps were specific.** The program picker, grouping, catalog build, slot sync, prerequisite checking and plan
-grid took five new programs with no change. Five things did not generalize and were fixed on this branch; two catalog facts make the
-planner discard the department's own path and are **proposed, not applied** (they change CSC data; see below).
+**Yes, with the fixes on this branch.** The program picker, grouping, catalog build, slot sync, prerequisite checking and plan grid
+took five new programs with no change. Five things did not generalize and are fixed in code; three catalog facts made the planner
+discard the department's own path and are fixed in data, as a separate commit (`data(catalog): PHYS ...`, Prototype) so it can be
+reviewed or reverted on its own because it also touches CSC.
 
 ## What worked unchanged
 
@@ -33,39 +34,32 @@ planner discard the department's own path and are **proposed, not applied** (the
 Smaller: program matching no longer lets a short code ("me") match inside a longer word; `BSME`/`BSNE` read as B.S.; "2026-27" reads
 as 2026-2027; "Elective 1/2" are ordinals, not footnotes.
 
-## Proposed catalog fix (not applied: it touches CSC)
+## Catalog fix (separate commit)
 
-Held in `git stash` in `MyDegreePlan_Prototype` (message "PROPOSED catalog fix") and reproduced here. Apply with `git stash pop`,
-then regenerate (`node catalog/build_courses.mjs`, the specs, `npm run build:catalog`).
-
-1. **PHYS 2110 needs MATH 1920 finished first** (curated override), but every engineering map puts both in semester 2. The map-first
-   path therefore fails its own prerequisite check and the builder falls back to its algorithm.
-2. **PHYS 2110 / 2120 are stored as 5 hours**; the PHYS 2120 description says TTU offers it at 4 (5 is the ETSU joint program), the
-   maps count 4, and `flightFoundations.js` already defaults them to 4. Stored as 5, every plan totals 130, and Mechatronics semester 2
-   is 19 hours (over the builder's 18 cap, which also rejects the path).
-3. **PHYS 2120's curated rule reads PHYS 2110 *and* (PHYS 2109 *or* 2111)**, which a student on the PHYS 2110 sequence cannot meet. It
-   shows as "needs PHYS2109 or PHYS2111" on the planner. Probably intended as PHYS 2110 or 2111.
-
-```
-PHYS2110  prerequisites [MATH1920]  corequisites [MATH1920]  credits 4   (same pattern as PHYS2109 and ME4810/ME3050)
-PHYS2120  prerequisites [[PHYS2110, PHYS2111]]               credits 4
-fixtures/curated_requisites.json: PHYS2110 corequisites and PHYS2120 prerequisites updated to match
-```
+1. **PHYS 2110 needed MATH 1920 finished first** (curated override), but every engineering map puts both in semester 2. The map-first
+   path failed its own prerequisite check and the builder fell back to its algorithm. Now MATH 1920 is also a corequisite, the same
+   pattern the catalog already uses for PHYS 2109 and ME 4810 / ME 3050.
+2. **PHYS 2110 / 2120 were stored as 5 hours.** The PHYS 2120 description says TTU offers it at 4 (5 is the ETSU joint program), the maps
+   count 4, and `flightFoundations.js` already defaulted them to 4. Now 4. Before, every plan totalled 130 and Mechatronics semester 2
+   was 19 hours, over the builder's 18 cap, which also rejected the path.
+3. **PHYS 2120's curated rule read PHYS 2110 *and* (PHYS 2109 *or* 2111)**, which a student on the PHYS 2110 sequence cannot meet; it
+   showed as "needs PHYS2109 or PHYS2111". Now PHYS 2110 or PHYS 2111.
 
 **Measured in the app, ME Aerospace, Fall 2026 start, ACT 30, no prior credit:**
 
-| | Without the fix (as committed) | With the fix |
+| | Before the fix | After the fix |
 |---|---|---|
 | Plan | "Degree Plan", Fall 2026 to Fall 2030, 9 semesters | "Four-Year Plan", Fall 2026 to Spring 2030, 8 semesters, 128 hours |
 | Shape | ME 1010 in semester 2; Senior Design I and II both Spring 2028; Calculus II not until Fall 2028 | exactly the department map, semester totals 17/17/17/17/15/15/15/15 |
 | Warnings | PHYS 2120 prerequisite, plus 12 unfilled pools | the 12 unfilled pools only |
 
-`src/tests/engineeringMaps.test.js` has a block that **switches itself on** when the catalog carries the fix (25 tests then pass;
-today 10 are skipped).
+`src/tests/engineeringMaps.test.js` now pins this for all five programs: every slot lands in its printed semester and the totals equal
+the PDFs'.
 
-**Cascade to decide on:** CSC's SCIENCE pool offers the same PHYS courses, so a CSC student who picks them sees 4 hours instead of 5.
-13 Prototype tests encode today's PHYS 5-versus-4 CSC findings (the CSC reviews list them as questions) and would need updating, and
-the CSC drafts and AI spec assumptions regenerate. Nothing else in CSC changes.
+**Effect on CSC:** CSC's SCIENCE pool offers the same PHYS courses, so a CSC student who picks them now carries 4 hours instead of 5,
+may take PHYS 2110 alongside MATH 1920, and no longer sees the spurious PHYS 2120 warning. The CSC reviews stop asking the
+`option-hours` question for PHYS and the CSC specs drop those two recorded assumptions; the option-hours rule itself is still tested
+on a synthetic mismatch. No CSC slot or map semester changes.
 
 ## Questions for the department (recorded as assumptions in `sources/mne/2026-2027/manifest.json`)
 
