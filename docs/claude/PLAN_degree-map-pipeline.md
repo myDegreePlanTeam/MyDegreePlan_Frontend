@@ -1,6 +1,6 @@
 # Plan: degree-map pipeline, 2026-27 maps, full Coursedog catalog
 
-> Status: planning, decisions locked 2026-10-01. No code written yet.
+> Status (2026-10-01): decisions locked; P0, P1 and P2 are built (unpushed, branch `feat/degree-spec-pipeline`); P3 is in progress.
 > Inputs: `RE__Request_for_Updated_CSC_AI_Degree_Plans.zip` (CS, Cyber, HPC, AI 2026-2027 Degree Map .docx).
 
 ## Goal
@@ -93,6 +93,11 @@ New year: `degrees:new-year` copies the previous spec as a draft.
 - HPC: confirm "Science Sequence3" is a typo for note 2.
 - Does AI satisfy Financial/Digital Literacy through CSC 2220 (the AI map has no note)?
 - Core: confirm CSC 4620 replaces CSC 4615 for all 2026-27 entrants.
+- All four maps: PHYS 2110 and PHYS 2120 are 5 hours each in the catalog, but the maps count every science course at 4. Is
+  the calculus-based physics sequence allowed (a student who takes it reaches 122 hours), and if so does the department
+  want 2 fewer elective hours for those students? (found by the 2026-10-01 recount below)
+- Elective rows: the maps list a plain "Elective" in several semesters (CS 5 hrs, Cyber 2, HPC 2, AI 11). Is each a free
+  elective, and may the hours be split across any courses (the planner models them as one hours bucket per plan)?
 
 ---
 
@@ -254,3 +259,56 @@ the department's 2026-27 maps replace them in P4.
 - Onboarding's student types and year lists (returning = entered through 2026, new = 2026 on) and the builder's
   MATH1920 curriculum switch are still tied to the 2026 curriculum change; they should become per-plan data when the next
   catalog year lands.
+
+---
+
+## Map audit (2026-10-01): recount of the four Word maps
+
+Recounted from the source `.docx` files, not from our specs.
+
+- **Every map totals exactly 120.** All 32 printed "Total Credit Hours" equal the sum of their rows (CS 15/16/17/16/15/15/12/14,
+  Cyber 15/16/16/16/15/14/15/13, HPC 15/16/17/16/15/15/14/12, AI 15/16/16/16/15/16/14/12).
+- **Every named course matches the catalog hours:** 0 mismatches, 0 missing (incl. AI 3000/3100/3200/4200 at 3 hrs each).
+- **The 116-hour finding in P2 was our data, not the department's.** The three 2026-27 CSC plans we built are 4 hours short of
+  the maps: +1 because the maps use CSC 4620 (3 hrs) where we had CSC 4615 (2 hrs), and +3 because the maps carry 3 more hours
+  of CSC electives than we modelled (CS and Cyber: +6 CSC elective pool hours, -3 free-elective hours; HPC: +3 CSC elective).
+  This corrects the P2 note that blamed the dropped MATH 1920 alone. P4 replaces these plans and removes the `track-hours` waivers.
+- **New discrepancy: PHYS 2110/2120 are 5 hrs each** (BIOL 1113/1123/2310, CHEM 1110/1120, GEOL 1040/1045 and PHYS 2010/2020
+  are 4). The maps' 120 holds only for the 4-hour sequences; calculus-based physics gives 122. Added to the department
+  questions. The P3 validators check every science option sequence against the hours the map counts, so this class of problem is
+  caught for any future map.
+
+## P3 design (`feat/degree-docx-extractor`, Prototype repo, `degree-specs/extract/`)
+
+**Principle:** a department's file is an *input format*, the spec is the contract. Three layers, so a new format (PDF, Excel, a
+different department's Word layout) adds an adapter and nothing else changes.
+
+1. **Adapter: `ttu-degree-map-docx`** reads the file into a format-neutral *map document*: header (catalog year, degree, major,
+   concentration), semesters (year block, declared total, rows of label + hours + footnote refs), numbered notes. Zero
+   dependencies (a small zip reader over `node:zlib` and an XML tokenizer). Footnote markers are real superscript runs in these
+   files, so they are read exactly instead of guessed from glued digits ("CSC 2570" + superscript 4); a 5-digit course number
+   with no superscript is still caught and warned. Notes are the numbered list (`numPr`); the option lines under a note (a
+   different list) belong to the preceding note.
+2. **Drafter** turns a map document into a *draft spec* plus structured *findings*. Row grammar: course, alternatives
+   (`COMM 2025/PC 2500`, `MATH 3070 or MATH 3470`), offering terms (`fall only`, `spring only`, `spring even years`), pools.
+   A data file `vocabulary.json` maps row labels and alternative sets to pool codes, so a new major extends data, not code.
+   Anything it cannot resolve is marked `unresolved` and becomes a department question, never a guess. Slot keys reuse the
+   previous year's keys where the slot is the same course.
+3. **Validators** (`checks.mjs`, rule-by-rule like specLib): per-semester sums equal the printed totals and the plan equals its
+   hours; every code exists and its catalog hours equal the row's; no duplicate course; footnote number exists and its note
+   matches the row label (catches HPC "Science Sequence3"); science option sequences total the hours the map counts (catches
+   PHYS 2110/2120); offering terms agree with the semester's season and year for a reference entrant; the department path
+   respects prerequisites, with "may be taken concurrently" courses allowed alongside (corequisite rows), ACT-gated courses and
+   pool-supplied prerequisites reported as unverifiable, not failed; the draft also runs through specLib's own gen-ed rules.
+   Rows have severity `error` (blocks promotion), `question` (department must answer) or `info`.
+
+**Outputs:** `degree-specs/drafts/<dept>/<program>/<year>.draft.json` and a Markdown review report beside it (checksum table,
+resolved rows, diff against the program's previous plan with `replaces` suggestions, open questions). The source file's name and
+SHA-256 are recorded in the draft so a spec always traces back to the document it came from. A draft is promoted into
+`degree-specs/<dept>/<program>/<year>.json` in P4 only when it has no errors and no unresolved items.
+
+**CLI:** `node degree-specs/extract/cli.mjs <file.docx> [--program code]` (also `npm run degrees:extract`). The department's
+source files live in `degree-specs/sources/<dept>/<year>/`.
+
+**Tests:** synthetic docx built in-test (every grammar case and every rule failing on purpose) plus the four real maps as
+golden inputs.
