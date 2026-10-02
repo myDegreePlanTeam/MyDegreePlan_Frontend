@@ -244,8 +244,14 @@ that section before changing the module. Rules that must hold even if you do not
 
 ## Working-method gotchas
 
-- **Edit input and backslashes.** A `\b` or `\d` typed inside an edit script (Python, node, shell) can reach the file as a
-  backspace character or as a bare `d`. Write `[0-9]` instead of `\d`, `chr(92)` for a backslash, and prefer
+- **Edit input and backslashes.** The Bash tool delivers two typed backslashes as ONE (checked 2026-10-02 with `printf` and
+  `od -c`; the Write and Edit tools keep both). So in a Python or node script typed into a Bash command, two backslashes before
+  `n` write a real newline, before `d` lose the backslash, and before `b` make a backspace: it broke two test runs, put
+  backspace characters into source files, and made a counting regex count single backslashes. Put a script that needs a
+  literal backslash in a file with the Write tool and run it, or build the character with `chr(92)` / `String.fromCharCode(92)`;
+  `guard_bash.mjs` adds a hint when it sees two backslashes before an escape character in a Python or node script. A single
+  `\b` or `\d` typed inside an edit script can also reach the file as a backspace character or as a bare `d`. Write `[0-9]`
+  instead of `\d`, `chr(92)` for a backslash, and prefer
   `local-deploy/tools/multi_replace.py`, which refuses control characters. `src/tests/sourceHygiene.test.js` (Frontend) and
   `sourceHygiene.test.mjs` (Prototype) fail on any control character below 0x20 in source; the second one caught a
   real `/^\s*none<BS>/` in `catalog/prereqParser.mjs`. A dropped backslash is not a control character, so check the
@@ -255,6 +261,13 @@ that section before changing the module. Rules that must hold even if you do not
   interactive prompt and loops (20 MB of output). A PreToolUse hook (`local-deploy/tools/guard_bash.mjs`, wired in
   `MDP/.claude/settings.json`) now refuses that, an unclosed heredoc and a bare `python`/`node` before they run; put
   `# guard_bash: allow` in a command to run one deliberately.
+- **Before archiving, moving or deleting work, look in every place it can live:** `git stash list` (`mdp_status.sh` prints the
+  count; `git stash show STASH` the files), local branches, untracked files and the remote. Concluding "never added" or "exists
+  nowhere else" from one file went wrong on 2026-10-02: an archive README said the Capacitor packages were never added to
+  `package.json`, and a stash held exactly that install.
+- **Before proposing tooling or automation, read `local-deploy/tools/README.md`** (and `ls` the folder). Tools get built in
+  other sessions and the CLAUDE.md and memory loaded at session start can predate them: on 2026-10-02 the first answer proposed a
+  session-start status script and a CLAUDE.md drift check that already existed.
 - **Driving onboarding in the browser pane** (no screenshots: they time out while the pane is hidden). The pane keeps a
   saved plan per origin, so Onboarding only shows on an origin with none: use `http://127.0.0.1:5173/` when
   `localhost:5173` already has a plan, rather than erasing it. React ignores a plain `el.value = x`; use the native setter
