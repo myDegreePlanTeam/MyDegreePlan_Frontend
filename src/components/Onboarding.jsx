@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { db, isLocalBackend } from '../lib/dataClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveMathPlacementRow, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
-import { validateSatMath, SAT_MATH_RANGE } from '../lib/mathPlacement'
+import { validateSatMath, SAT_MATH_RANGE, mathCurriculumFor } from '../lib/mathPlacement'
 import { isMissingColumn, selectWithOptional } from '../lib/dbErrors'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
@@ -30,8 +30,8 @@ const MATH_CHAINS_RETURNING = {
   MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
   MATH1910: ['MATH1910', 'MATH1920', 'MATH2010'],
 }
-function getMathChains(type) {
-  return type === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
+function getMathChains(curriculum) {
+  return curriculum === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
 }
 const MATH_FORK_CODES = ['MATH3070', 'MATH3470']
 
@@ -163,6 +163,7 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
     setActErrors({})
+    await loadConcSlots()   // step 4 shows the math sequence of the chosen plan, which its map decides
     setStep(4)
   }
 
@@ -177,7 +178,7 @@ export default function Onboarding({ profileId, onComplete }) {
     if (concData) {
       const plan = planForYear(degreePlans, concData.id, entryYear)
       const { data } = plan
-        ? await fetchRequirementSlots(db, concData.id, plan.catalog_year, 'id, class_code, is_pool')
+        ? await fetchRequirementSlots(db, concData.id, plan.catalog_year, 'id, class_code, is_pool, map_semester')
         : { data: [] }
       setConcSlots(data ?? [])
     }
@@ -193,7 +194,7 @@ export default function Onboarding({ profileId, onComplete }) {
   useEffect(() => {
     if (step !== 4) return
     const placement = resolveMathPlacementRow(placementScores)
-    const chainCodes = getMathChains(studentType)[placement.satisfies_course_code] ?? []
+    const chainCodes = getMathChains(mathCurriculumFor(concSlots, studentType))[placement.satisfies_course_code] ?? []
     const allCodes = [...chainCodes, ...MATH_FORK_CODES]
     setMathChainLoading(true)
     db
@@ -204,7 +205,7 @@ export default function Onboarding({ profileId, onComplete }) {
         setMathChainData(data ?? [])
         setMathChainLoading(false)
       })
-  }, [step, studentType])
+  }, [step, studentType, concSlots])
 
   // ── Final save — persists concentration, start term, student type, ACT columns,
   // flushes prior_credits, then runs the degree-builder algorithm and writes
@@ -642,7 +643,7 @@ export default function Onboarding({ profileId, onComplete }) {
         {step === 4 && (() => {
           const placement = resolveMathPlacementRow(placementScores)
           const startCode = placement.satisfies_course_code
-          const chainCodes = getMathChains(studentType)[startCode] ?? []
+          const chainCodes = getMathChains(mathCurriculumFor(concSlots, studentType))[startCode] ?? []
           const noScore = actScores.math === '' && actScores.satMath === ''
           const courseMap = {}
           for (const c of mathChainData) courseMap[c.code] = c

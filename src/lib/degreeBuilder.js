@@ -24,7 +24,7 @@
 //   archived    : { [slotId]: archiveReason }   — 'not_applicable' | 'prior_credit'
 
 import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
-import { resolveMathPlacement } from './mathPlacement'
+import { resolveMathPlacement, mathCurriculumFor } from './mathPlacement'
 import { isEnrollmentAllowed } from './semesterRestrictions'
 import { POOL_COURSES, POOL_CREDIT_ESTIMATES, POOL_FLOORS, REQUIREMENT_POOLS } from './poolResolver'
 
@@ -77,9 +77,9 @@ const IMPLICIT_POOL_PREREQ = POOL_FLOORS
 
 // The chain follows the student's math placement (mathPlacement.js): ACT or SAT Math, whichever places higher,
 // and MATH1000 when there is no score at all.
-function getStudentMathChain({ act_math, sat_math }, studentType) {
+function getStudentMathChain({ act_math, sat_math }, curriculum) {
   const startCode = resolveMathPlacement({ act: act_math, sat: sat_math }).course
-  const chains = studentType === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
+  const chains = curriculum === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
   return new Set(chains[startCode] ?? ['MATH1910', 'MATH2010'])
 }
 
@@ -136,7 +136,7 @@ function planLength({ assignments }) {
 // credit covers ('prior_credit').
 function archivedSlots({ slots, priorCredits, studentProfile }) {
   const { student_type, act_math, sat_math } = studentProfile
-  const studentChain = getStudentMathChain({ act_math, sat_math }, student_type)
+  const studentChain = getStudentMathChain({ act_math, sat_math }, mathCurriculumFor(slots, student_type))
   const archived = {}
   for (const slot of slots) {
     if (ALL_MATH_CHAIN_CODES.has(slot.class_code) && !studentChain.has(slot.class_code)) archived[slot.id] = 'not_applicable'
@@ -332,7 +332,7 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
   // Earliest semester a pool slot can hold any of its options — the option
   // whose own prereqs clear soonest (MATH_STATS waits for MATH1910, which
   // MATH3070 needs). Options needing a course outside the plan don't count
-  // (MATH3470 needs MATH1920, which new students don't take). Never earlier
+  // (MATH3470 needs MATH1920, which a plan on the new curriculum does not take). Never earlier
   // than the pool's IMPLICIT_POOL_PREREQ floor.
   function poolEarliest(slot, semOf) {
     const implicit = IMPLICIT_POOL_PREREQ[slot.class_code]
