@@ -292,7 +292,7 @@ describe('against the real catalog', () => {
   it('answers the queries Onboarding and DegreePlan make', async () => {
     const real = createLocalClient({ loadCatalog: async () => catalog, storage: createMemoryStorage() })
     const concs = (await real.from('concentrations').select('id, code, name, total_hours').order('id', { ascending: true })).data
-    expect(concs.map(c => c.code)).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
+    expect(concs.map(c => c.code)).toEqual(['core', 'cybersecurity', 'dsai', 'hpc', 'ai'])
     const ff = (await real.from('requirement_slots').select('id, class_code, gened_program').eq('concentration_id', concs[0].id).eq('gened_program', 'flight_foundations')).data
     expect(ff.length).toBeGreaterThan(0)
     expect(ff.some(s => s.class_code === 'FF_SOCIAL')).toBe(true)

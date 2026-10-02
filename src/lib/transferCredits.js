@@ -45,11 +45,7 @@ import { isRemainderPool, getPoolRemainder } from './poolRemainder.js'
 // Pool types that can be explicitly satisfied via satisfies_pool.
 // Includes all pool codes used in requirement_slots so that drag-to-prior-credit
 // and wizard entries can archive any pool slot.
-const SATISFIABLE_POOLS = new Set([
-  'GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY', 'ENG_LIT', 'SCIENCE', 'COMM_REQ',
-  'MATH_STATS', 'CSC_LOWER_ELECTIVE', 'CSC_UPPER_ELECTIVE',
-  'CSC_ELECTIVE', 'CSC_HPC_ELECTIVE', 'FREE_ELECTIVE',
-])
+const SATISFIABLE_POOLS = new Set(Object.keys(POOL_CREDIT_ESTIMATES))
 
 // ── matchPriorCreditsToSlots (private) ────────────────────────────────────────
 //

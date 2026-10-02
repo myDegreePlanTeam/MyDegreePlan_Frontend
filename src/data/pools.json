@@ -1,0 +1,16 @@
+{
+  "GEN_ED": {"label":"General Education","credits":3,"gates":5,"kind":"courses","courses":["HIST2010","HIST2020","ART1035","ART2000","ART2020","FLST2520","FLST3520","FREN2510","GERM2520","HIST1310","HIST2210","HIST2220","HIST2310","HIST2320","MUS1030","PHIL1030","PHIL2250","RELS2010","SPAN2510","SPAN2550","THEA1030","AGBE2010","ANTH1100","ECON2010","ECON2020","ESS1100","EXPW2015","GEOG1012","GEOG1130","JOUR1110","POLS1030","PSY1030","SOC1010","WGS2010"]},
+  "ENG_LIT": {"label":"English Literature","credits":3,"gates":4,"floor":"ENGL1020","kind":"courses","courses":["ENGL2130","ENGL2235","ENGL2330"]},
+  "FF_SOCIAL": {"label":"Social & Behavioral Sciences","credits":3,"gates":6,"kind":"source","source":"flightFoundations","category":"SOC"},
+  "FF_HUMANITIES": {"label":"Humanities & Cultural Expression","credits":3,"gates":7,"kind":"source","source":"flightFoundations","category":"HUM"},
+  "FF_LITERACY": {"label":"Financial / Digital Literacy","credits":3,"gates":8,"kind":"source","source":"flightFoundations","category":"LIT"},
+  "SCIENCE": {"label":"Natural Science","credits":4,"gates":1,"kind":"courses","courses":["BIOL1113","BIOL1123","BIOL2310","CHEM1110","CHEM1120","GEOL1040","GEOL1045","PHYS2010","PHYS2020","PHYS2110","PHYS2120"]},
+  "COMM_REQ": {"label":"Communications","credits":3,"gates":2,"kind":"courses","courses":["COMM2025","PC2500"]},
+  "MATH_STATS": {"label":"Statistics","credits":3,"gates":3,"kind":"courses","courses":["MATH3070","MATH3470"]},
+  "CSC_LOWER_ELECTIVE": {"label":"CSC Lower Elective","credits":3,"floor":"CSC1300","kind":"courses","courses":["CSC2220","CSC2570","CSC2770"]},
+  "CSC_UPPER_ELECTIVE": {"label":"CSC Upper Elective","credits":3,"floor":"CSC1310","kind":"rule","rule":{"subject":"CSC","from":3000,"to":4999,"minHours":3,"exclude":["CSC4615","CSC4990"]},"courses":["CSC3020","CSC3040","CSC3100","CSC3220","CSC3230","CSC3300","CSC3340","CSC3410","CSC3450","CSC3570","CSC3710","CSC4010","CSC4040","CSC4100","CSC4200","CSC4220","CSC4240","CSC4260","CSC4310","CSC4320","CSC4400","CSC4500","CSC4560","CSC4570","CSC4575","CSC4580","CSC4585","CSC4610","CSC4620","CSC4710","CSC4750","CSC4760","CSC4770","CSC4780","CSC4803","CSC4903"]},
+  "CSC_ELECTIVE": {"label":"CSC Elective","credits":3,"floor":"CSC1310","kind":"rule","rule":{"subject":"CSC","from":2000,"to":4999,"minHours":3,"exclude":["CSC4615","CSC4990"],"include":["CSC1200"]},"courses":["CSC1200","CSC2010","CSC2220","CSC2310","CSC2400","CSC2510","CSC2570","CSC2700","CSC2770","CSC2903","CSC3020","CSC3040","CSC3100","CSC3220","CSC3230","CSC3300","CSC3340","CSC3410","CSC3450","CSC3570","CSC3710","CSC4010","CSC4040","CSC4100","CSC4200","CSC4220","CSC4240","CSC4260","CSC4310","CSC4320","CSC4400","CSC4500","CSC4560","CSC4570","CSC4575","CSC4580","CSC4585","CSC4610","CSC4620","CSC4710","CSC4750","CSC4760","CSC4770","CSC4780","CSC4803","CSC4903"]},
+  "CSC_HPC_ELECTIVE": {"label":"HPC Elective","credits":3,"floor":"CSC1310","kind":"courses","courses":["CSC4040","CSC4220","CSC4400","CSC4575","CSC4710"]},
+  "CSC_HPC_ELECTIVE_2026": {"label":"HPC Elective","credits":3,"floor":"CSC1310","succeeds":"CSC_HPC_ELECTIVE","kind":"courses","courses":["CSC4040","CSC4220","CSC4575"]},
+  "FREE_ELECTIVE": {"label":"Free Elective","credits":3,"kind":"open"}
+}

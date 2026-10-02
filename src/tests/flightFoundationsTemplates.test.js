@@ -220,10 +220,10 @@ describe.skipIf(!HAVE_SEEDS)('Flight Foundations seed templates', () => {
     expect(isFlightFoundationsCourse('CSC2770')).toBe(false)
   })
 
-  it('Core and Cybersecurity move the freed 3 hours to free electives; HPC converts them to literacy', () => {
-    const free = file => loadTemplate(file, courses).slots.find(s => s.class_code === 'FREE_ELECTIVE').flex_credits
-    expect(free('core:flight_foundations') - free('core:legacy')).toBe(3)
-    expect(free('cybersecurity:flight_foundations') - free('cybersecurity:legacy')).toBe(3)
-    expect(free('hpc:flight_foundations')).toBe(free('hpc:legacy'))
+  it("the department's 2026-2027 maps set each plan's free-elective hours (Core 5, Cybersecurity 2, HPC 2)", () => {
+    const free = id => loadTemplate(id, courses).slots.filter(s => s.class_code === 'FREE_ELECTIVE').reduce((n, s) => n + s.flex_credits, 0)
+    expect(free('core:flight_foundations')).toBe(5)
+    expect(free('cybersecurity:flight_foundations')).toBe(2)
+    expect(free('hpc:flight_foundations')).toBe(2)
   })
 })

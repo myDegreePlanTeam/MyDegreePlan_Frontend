@@ -82,11 +82,11 @@ describe('isProgramOpen', () => {
 describe('programs available in the real catalog', () => {
   const codes = year => availablePrograms(programs, plans, year).map(p => p.code)
 
-  it('offers Data Science & AI only to students who entered through 2025-2026', () => {
+  it('offers Data Science & AI only to students who entered through 2025-2026, and the AI major only from 2026-2027', () => {
     expect(codes('2025-2026')).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
     expect(codes('2018-2019')).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
-    expect(codes('2026-2027')).toEqual(['core', 'cybersecurity', 'hpc'])
-    expect(codes('2030-2031')).toEqual(['core', 'cybersecurity', 'hpc'])
+    expect(codes('2026-2027')).toEqual(['core', 'cybersecurity', 'hpc', 'ai'])
+    expect(codes('2030-2031')).toEqual(['core', 'cybersecurity', 'hpc', 'ai'])
   })
   it('keeps a student\'s own program visible even after it closes', () => {
     expect(availablePrograms(programs, plans, '2026-2027', { currentId: id('dsai') }).map(p => p.code)).toContain('dsai')
@@ -120,11 +120,13 @@ describe('plan resolution agrees with the old entry-term rule', () => {
 })
 
 describe('groupByMajor / degreeTitle', () => {
-  it('puts the CSC concentrations under one major, in id order', () => {
+  it('puts the CSC concentrations under one major, in id order, and Artificial Intelligence under its own', () => {
     const groups = groupByMajor(programs)
-    expect(groups).toHaveLength(1)
+    expect(groups.map(g => g.majorName)).toEqual(['Computer Science', 'Artificial Intelligence'])
     expect(degreeTitle(groups[0])).toBe('B.S. Computer Science')
     expect(groups[0].programs.map(p => p.code)).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
+    expect(degreeTitle(groups[1])).toBe('B.S. Artificial Intelligence')
+    expect(groups[1].programs.map(p => p.code)).toEqual(['ai'])
   })
   it('keeps separate majors separate, a major with no concentrations being a group of one', () => {
     const rows = [

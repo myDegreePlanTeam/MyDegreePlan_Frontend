@@ -12,19 +12,21 @@
 // rest, fetched on first need (see localClient.js).
 //
 // The outputs are committed: Vercel builds from the frontend repo alone and cannot see the
-// prototype repo. Re-run this and commit whenever courses.json, degree_plans.json or
+// prototype repo. It also writes src/data/pools.json (pool labels, hours and membership, from degree_plans.json's
+// poolDefs). Re-run this and commit whenever courses.json, degree_plans.json or
 // test_equivalencies.sql change (courses.json itself comes from `node catalog/build_courses.mjs`
 // in the prototype repo).
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assembleCatalog, parseEquivalencies } from './catalogLib.mjs'
-import { POOL_COURSES } from '../src/lib/poolResolver.js'
+import { listFlightFoundationsCourses } from '../src/lib/flightFoundations.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const protoDir = resolve(here, '../../MyDegreePlan_Prototype')
 const outFile = resolve(here, '../src/data/catalog.json')
 const descriptionsFile = resolve(here, '../src/data/catalog.descriptions.json')
+const poolsFile = resolve(here, '../src/data/pools.json')
 
 const readJson = name => JSON.parse(readFileSync(resolve(protoDir, name), 'utf8'))
 
@@ -33,9 +35,10 @@ async function main() {
   const degreePlans = readJson('degree_plans.json')
   const equivalencySql = readFileSync(resolve(protoDir, 'test_equivalencies.sql'), 'utf8')
   // The courses a plan can name: template slots, pool options, exam-equivalency awards.
+  const poolMembers = Object.values(degreePlans.poolDefs).flatMap(d => (d.kind === 'source' ? listFlightFoundationsCourses(d.category) : d.courses ?? []))
   const coreCodes = new Set([
     ...degreePlans.plans.flatMap(p => p.slots.map(slot => slot.classCode)),
-    ...Object.values(POOL_COURSES).filter(list => list !== null).flat(),
+    ...poolMembers,
     ...parseEquivalencies(equivalencySql).map(r => r.awarded_course_code),
   ])
   const { catalog, descriptions, totals } = assembleCatalog({
@@ -50,6 +53,8 @@ async function main() {
   mkdirSync(dirname(outFile), { recursive: true })
   writeFileSync(outFile, JSON.stringify(catalog) + '\n')
   writeFileSync(descriptionsFile, JSON.stringify(descriptions) + '\n')
+  // The pools (label, hours, resolved membership) as data for poolResolver.js; one pool a line so a change reads as a small diff.
+  writeFileSync(poolsFile, `{\n${Object.entries(degreePlans.poolDefs).map(([code, def]) => `  ${JSON.stringify(code)}: ${JSON.stringify(def)}`).join(',\n')}\n}\n`)
   const t = catalog.tables
   console.log(
     `catalog.json: ${t.courses.length} courses (${Object.keys(descriptions).length} descriptions deferred), `

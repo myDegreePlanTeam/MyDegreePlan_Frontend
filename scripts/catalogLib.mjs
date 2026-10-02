@@ -151,6 +151,7 @@ export function assembleCatalog({ courses, degreePlans, equivalencySql, previous
       catalog_year: plan.catalogYear,
       slot_key: slot.key,
       map_semester: slot.mapSemester ?? null,
+      replaces: slot.replaces ?? null, // a matching hint for planSlotSync (a renamed slot keeps its row); never stored
     }))
     const existing = prevSlots.filter(s => s.concentration_id === concentration_id
       && s.gened_program === plan.genedProgram

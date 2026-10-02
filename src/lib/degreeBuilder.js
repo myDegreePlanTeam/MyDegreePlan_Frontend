@@ -20,7 +20,7 @@
 
 import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
 import { resolveMathPlacement } from './mathPlacement'
-import { POOL_COURSES, POOL_CREDIT_ESTIMATES, REQUIREMENT_POOLS } from './poolResolver'
+import { POOL_COURSES, POOL_CREDIT_ESTIMATES, POOL_FLOORS, REQUIREMENT_POOLS } from './poolResolver'
 
 // ─── Math chain data ──────────────────────────────────────────────────────────
 
@@ -64,13 +64,8 @@ const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
 // Pools whose every option needs this course first — a floor under the
 // option-by-option check in poolEarliest(). When prior credit covers the
 // course it has no active slot and the floor drops to semester 1.
-const IMPLICIT_POOL_PREREQ = {
-  ENG_LIT:            'ENGL1020',
-  CSC_UPPER_ELECTIVE: 'CSC1310',
-  CSC_ELECTIVE:       'CSC1310',
-  CSC_HPC_ELECTIVE:   'CSC1310',
-  CSC_LOWER_ELECTIVE: 'CSC1300',
-}
+// (the floors are pool data: POOL_FLOORS in poolResolver.js, from pools.json)
+const IMPLICIT_POOL_PREREQ = POOL_FLOORS
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
