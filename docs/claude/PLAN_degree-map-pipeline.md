@@ -1,6 +1,6 @@
 # Plan: degree-map pipeline, 2026-27 maps, full Coursedog catalog
 
-> Status (2026-10-01): decisions locked; P0, P1 and P2 are built (unpushed, branch `feat/degree-spec-pipeline`); P3 is in progress.
+> Status (2026-10-01): decisions locked; P0, P1 and P2 are built (unpushed, branch `feat/degree-spec-pipeline`); P3 is built (branch `feat/degree-docx-extractor`).
 > Inputs: `RE__Request_for_Updated_CSC_AI_Degree_Plans.zip` (CS, Cyber, HPC, AI 2026-2027 Degree Map .docx).
 
 ## Goal
@@ -82,7 +82,7 @@ New year: `degrees:new-year` copies the previous spec as a draft.
 - **P0 spike (no merge):** gzip size measurement; map-vs-template diff; confirm Coursedog has the AI program record.
 - **P1 `feat/full-catalog`:** normalizer, prerequisite parser, overrides, chunking, parity tests. Shippable alone.
 - **P2 `feat/degree-spec-pipeline`:** spec format, generator, schema columns, `catalog_year` filtering, program-aware onboarding.
-- **P3 `feat/degree-docx-extractor`:** extractor + validators.
+- **P3 `feat/degree-docx-extractor`:** extractor + validators (done 2026-10-01, see P3 results).
 - **P4 `feat/degree-maps-2026-27`:** four specs, pools as data, map-first placement, conformance test.
 - **P5:** release, runbook, update both CLAUDE.md copies (canonical: this repo's `docs/claude/CLAUDE.md`).
 
@@ -312,3 +312,42 @@ source files live in `degree-specs/sources/<dept>/<year>/`.
 
 **Tests:** synthetic docx built in-test (every grammar case and every rule failing on purpose) plus the four real maps as
 golden inputs.
+
+---
+
+## P3 results (2026-10-01): the degree-map extractor; branch `feat/degree-docx-extractor` in Prototype and Frontend, unpushed
+
+**Delivered** (Prototype `degree-specs/extract/`, `npm run degrees:extract` / `degrees:extract:check`; 132 Prototype tests, 39 new)
+- Adapter `ttu-degree-map-docx` (dependency-free: `zip.mjs`, `xml.mjs`, `docxRead.mjs`) into a format-neutral map document.
+  Footnote markers are read as real superscript runs, so no glued-digit guessing is needed for these files; a digit pasted onto
+  a number or label is still caught (`footnote-glued`). Notes are the numbered list; option lines under a note belong to it.
+- Drafter + `vocabulary.json` (label -> pool, either/or set -> pool) producing a draft spec with stable keys, map semesters,
+  offering terms, footnotes, and `unresolved` slots for anything it cannot place.
+- Checks (rule table in `degree-specs/README.md`), previous-plan diff with `replaces` suggestions, deterministic Markdown review,
+  per-folder `manifest.json` (per-file options, department `decisions`), CLI with `--all` and `--check`.
+- Sources and drafts committed: `degree-specs/sources/csc/2026-2027/` (the four .docx + manifest) and
+  `degree-specs/drafts/csc/{core,cybersecurity,hpc,ai}/2026-2027.{draft.json,review.md}`; a test keeps the drafts current.
+
+**What it finds on the four real maps** (0 errors on all four; every draft is "not ready" because of open questions)
+- All four: 120 hours, every printed semester total equals its rows, every course matches the catalog, department paths respect
+  prerequisites and offering terms (HPC "spring even years" lands in spring 2030 for a fall 2026 entrant).
+- All four: PHYS 2110/2120 are 5 hours against the maps' 4 (question).
+- HPC: "Science Sequence3" is read as note 2 (question to confirm). AI: the Natural Science option list reads two ways (2
+  lines), "Elective3 (2000-level or higher)" cannot be expressed by a free-elective pool, "Upper Division Elective" names no
+  department, and program `ai` is not in `programs.json` (the review prints the entry to add).
+- Against the plans being replaced: CSC 4615 -> CSC 4620 in Core/Cyber/HPC (suggested `replaces` hint), Core free-elective
+  bucket 8 -> 5 hrs and +2 CSC_ELECTIVE, Cyber CSC_ELECTIVE 3 -> 9 hrs and free 5 -> 2, HPC +1 CSC_ELECTIVE; AI vs DSAI adds
+  AI3000/3100/3200/4200, CSC4760 and the FF pools and drops six fixed CSC courses and GEN_ED x6.
+
+**Deviations / decisions**
+- Gen-ed program is inferred from the HIST pair or any FF pool (so a map missing HIST 2020 fails the FF rules instead of being read
+  as legacy).
+- Free-elective rows in the same semester without a note are merged into one hours bucket (the planner's model); a restricted
+  one is kept separate and asked about.
+- Nothing is promoted to a spec: the draft carries review-only fields (`label`, `hours`, `offering`, `notes`, `source`). Promotion,
+  pools as data, `offering`/`replaces` in the generator and schema, and the conformance test are P4.
+- Waiver reasons on the three 2026-27 specs corrected to the recounted cause.
+
+**Not done / open**
+- The department's answers to the questions are not recorded yet (`manifest.json` `decisions` is empty).
+- Only the Word adapter exists; the `ADAPTERS` map is the extension point.

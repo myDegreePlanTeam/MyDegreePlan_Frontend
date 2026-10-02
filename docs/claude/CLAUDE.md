@@ -97,7 +97,8 @@ MDP/
     ├── migration_tier12–20.sql        ← later tiers; see each file's header
     ├── migration_tier21.sql           ← gened_program on requirement_slots / student_profiles
     ├── degree-specs/                  ← degree plans as specs (one per program per catalog year), programs.json, pools.json,
-    │                                     the validator and generator; see degree-specs/README.md
+    │                                     the validator and generator, and extract/ (a department's Word map -> a draft spec
+    │                                     + review); sources/ holds the department's files; see degree-specs/README.md
     ├── degree_plans.json              ← GENERATED from degree-specs/ by `node degree-specs/build.mjs`; seed.js and build:catalog read it
     ├── catalog_scrape/                ← Coursedog catalog scraper + Flight Foundations reference data
     ├── test_equivalencies.sql         ← seed data for the test_equivalencies table
@@ -258,6 +259,13 @@ program or a catalog year). `node degree-specs/build.mjs` validates them and gen
   waiver that no longer fires fails the build.
 - Upgrade path verified against a real Postgres seeded by the previous release: all slots adopted, 0 inserted or
   removed, id fingerprint unchanged, student rows intact, a second seed run changes nothing.
+- **Extractor** (`degree-specs/extract/`, `npm run degrees:extract`): a department's degree map (Word today) is read by an
+  adapter into a format-neutral map document, drafted into slots (`vocabulary.json` maps row labels and either/or sets to
+  pools), and checked: printed semester totals, catalog existence and hours, footnotes, option-list hours (PHYS 2110/2120
+  are 5 hrs, the maps count 4), offering terms, prerequisite order (concurrent-aware), gen-ed rules. Output is
+  `drafts/<dept>/<program>/<year>.draft.json` plus a Markdown review (errors, department questions, changes against the plan
+  it replaces). Source files, a per-folder `manifest.json` and the department's answers (`decisions`) live in
+  `degree-specs/sources/`. A draft is a draft: promotion to a spec is P4.
 
 ## Docker stack and releases
 
@@ -309,8 +317,8 @@ See [`README.md`](./README.md) for branch prefixes and commit types. Additional 
 - `src/tests/[featureName].test.js` — primary suite
 - `src/lib/__tests__/[featureName].test.js` — collocated lib tests
 
-The suite is 43 files / 827 tests as of 2026-10-01 (plus 93 in the Prototype repo: `npm test` there covers the
-catalog parser and build, the degree-spec validator and slot sync); `ls src/tests src/lib/__tests__` is the
+The suite is 43 files / 827 tests as of 2026-10-01 (plus 132 in the Prototype repo: `npm test` there covers the
+catalog parser and build, the degree-spec validator and slot sync, and the degree-map extractor); `ls src/tests src/lib/__tests__` is the
 current list. `poolRemainder.test.js` covers the Free Elective bucket and its effect on semester
 totals and standing; `planExportModel.test.js` covers the PDF side.
 
