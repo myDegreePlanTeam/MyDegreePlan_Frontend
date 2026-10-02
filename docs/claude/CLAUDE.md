@@ -199,17 +199,19 @@ See [`README.md`](./README.md) for branch prefixes and commit types. Additional 
 ## Test Protocol
 
 - **Test runner:** Vitest 4
-- **Run with:** `npm run test` (from `MyDegreePlan_Frontend/`)
+- **Run with:** `npm run test` (from `MyDegreePlan_Frontend/`). `npm run verify` runs lint, tests and the build and prints one line each
+  when green (failures come with their names and the first lines of the error); `-- --skip-build` leaves out the build.
 - **Watch mode:** `npm run test:watch`
 
 **Test file locations:**
 - `src/tests/[featureName].test.js` — primary suite
 - `src/lib/__tests__/[featureName].test.js` — collocated lib tests
 
-`ls src/tests src/lib/__tests__` is the current list (no counts here: they went stale every phase). `npm test` in the Prototype repo
+`ls src/tests src/lib/__tests__` is the current list (no counts here: they went stale every phase). `npm test` in the Prototype repo (a terse reporter: two lines when green; `node --test --test-reporter=spec` lists every test)
 covers the catalog parser and build, the degree-spec validator and slot sync, and the degree-map extractor. `poolRemainder.test.js` covers the Free Elective bucket and its effect on semester
 totals and standing; `planExportModel.test.js` covers the PDF side.
 
+`docsReferences.test.js` fails when a link, or a pointer that says to see a named section, in the instruction docs names something that is not there.
 All existing tests must pass before any commit. New tests go in `src/tests/[featureName].test.js`. Before a commit also run
 `npm run lint:changed` (eslint on the files you changed; prints one line when clean). `npm run hooks:install` (once per clone)
 turns that into a pre-commit hook on the staged files; it does not run the tests.
