@@ -603,7 +603,7 @@ required). Used by `CompletionBadge` and `Dashboard`.
 
 - **Edit input and backslashes.** A `\b` or `\d` typed inside an edit script (Python, node, shell) can reach the file as a
   backspace character or as a bare `d`. Write `[0-9]` instead of `\d`, `chr(92)` for a backslash, and prefer
-  `scripts/multi_replace.py`, which refuses control characters. `src/tests/sourceHygiene.test.js` (Frontend) and
+  `local-deploy/tools/multi_replace.py`, which refuses control characters. `src/tests/sourceHygiene.test.js` (Frontend) and
   `sourceHygiene.test.mjs` (Prototype) fail on any control character below 0x20 in source; the second one caught a
   real `/^\s*none<BS>/` in `catalog/prereqParser.mjs`. A dropped backslash is not a control character, so check the
   written line (`sed -n Np file | cat -A`) after editing a regex.
@@ -665,12 +665,16 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 4. Run `npm run test` from `MyDegreePlan_Frontend/` and confirm all tests pass before making changes
 5. Create a branch before starting work — never work directly on main
 6. Do not assume file names or function signatures — use Glob/Grep to find them
-7. For exact-text edits across several files, or in CRLF files, run `scripts/multi_replace.py` from the `MDP/` folder
-   (`python scripts/multi_replace.py - <<'EOF'` with `@@@ file` / `@@@ old` / `@@@ new` blocks; `--dry-run` previews)
+7. For exact-text edits across several files, or in CRLF files, run `local-deploy/tools/multi_replace.py` from the `MDP/` folder
+   (`python local-deploy/tools/multi_replace.py - <<'EOF'` with `@@@ file PATH` / `@@@ old` / `@@@ new` blocks; `--dry-run` previews)
    instead of writing a throwaway script: it writes nothing unless every edit matches, keeps CRLF and refuses control
-   characters. It lives in the workspace root, which is not a git repo (like the root `CLAUDE.md`).
+   characters. The tools live in `local-deploy/tools/` (its README lists them) and are tracked in the Deploy repo.
    For a **structural** JSON edit (a catalog override, a manifest decision, a vocabulary entry) run
-   `node scripts/json_patch.mjs SPEC|- [--dry-run]` instead: ops `set` / `add` / `replace` / `remove` / `merge` / `test` on
+   `node local-deploy/tools/json_patch.mjs SPEC|- [--dry-run]` instead: ops `set` / `add` / `replace` / `remove` / `merge` / `test` on
    RFC 6901 paths (`/courses/CSC2400/why`, `/slots/-`), all-or-nothing, indent / EOL / BOM kept. It refuses a file whose
    layout `JSON.stringify` would not reproduce (the generated specs under `degree-specs/<dept>/`, `catalog/equivalents.json`:
-   inline arrays), so edit those with `multi_replace.py`. Tests: `node --test scripts/test_json_patch.mjs`.
+   inline arrays), so edit those with `multi_replace.py`. The Deploy repo's CI runs the tools' tests.
+8. To finish a PR (wait for CI, squash-merge, fast-forward local `main`, delete the local branch), run
+   `bash local-deploy/tools/finish_pr.sh <repo-folder> <pr> [--dry-run]` from `MDP/`. It deletes the branch only if its tip
+   is the merged head, and keeps it (saying how many commits it holds beyond the PR) otherwise. `ccd_pr get_status` reports
+   only the session-bound PR: use `gh pr checks <n> --repo <owner/repo>` for a PR in another repo.
