@@ -324,8 +324,8 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 6. Do not assume file names or function signatures — use Glob/Grep to find them
 7. For exact-text edits across several files, or in CRLF files, run `local-deploy/tools/multi_replace.py` from the `MDP/` folder
    (`python local-deploy/tools/multi_replace.py - <<'EOF'`; `--dry-run` previews). Format: one `@@@ file PATH` line per file, then
-   any number of `@@@ old` / `@@@ new` pairs for it (a second `@@@ file` for the same path is refused; a trailing `@@@ old`
-   with no `@@@ new` makes the whole call write nothing)
+   any number of `@@@ old` / `@@@ new` pairs for it (a second `@@@ file` for the same path is merged in the order written, with a
+   note; a trailing `@@@ old` with no `@@@ new` makes the whole call write nothing)
    instead of writing a throwaway script: it writes nothing unless every edit matches, keeps CRLF and refuses control
    characters. The tools live in `local-deploy/tools/` (its README lists them) and are tracked in the Deploy repo.
    For a **structural** JSON edit (a catalog override, a manifest decision, a vocabulary entry) run
