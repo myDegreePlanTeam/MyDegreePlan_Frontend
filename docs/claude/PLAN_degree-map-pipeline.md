@@ -432,8 +432,16 @@ golden inputs.
   carries the new `degree_plans.json` (program `ai`, `CSC_HPC_ELECTIVE_2026`, the three `replaces` hints).
 - **Housekeeping:** a stale duplicate Release run (36925287964, dispatched 44 s after v0.1.6 on the same commit) was holding the
   workflow's concurrency lane and the approval queue; it was cancelled.
-- **Not verified:** the in-app Update button on an existing install (v0.1.6 -> v0.2.0), and the migrate + seed against a
-  *production-like* data set beyond the throwaway test stack (that check passed: P4 results).
+- **Update on the owner's real v0.1.6 install (2026-10-02):** applied to 0.2.0 by the updater's **automatic mode**
+  (`settings.json` `auto: true`), not by pressing the button, shortly after the release was approved. Observed: the
+  `mdp-updater-apply` helper ran and exited, the stack came back (db, auth, migrate, rest, seed, web, updater), the updater
+  reports `Updated to 0.2.0`, the web container is the release's `mdp-web` digest and serves the new build, a pre-update
+  snapshot `pre-1790888452-to-1790913591.tar.gz` (9.9 MB) was taken first, and the database has 5 programs, 8 plans, 358
+  slots (155 with a department semester), 6,183 courses; 5 profiles, 134 plan rows, 15 prior credits, 0 orphaned plan rows. The
+  HPC student's saved CSC 4615 row now sits on the CSC 4620 slot, same row, semester 8, as the throwaway-stack test predicted.
+- **Not verified:** the **Update now button** itself (progress screen, reload) on this install: automatic mode got there first,
+  so there is no newer release to press it for. To test it, turn automatic updates off in Settings before the next release
+  (v0.2.1). The isolated button test from 2026-09-29 (Deploy README) still stands.
 - **Still open:** the department's answers (PHYS 2110/2120 hours, HPC "Science Sequence3", AI science list, AI "Elective 2000+",
   AI "Upper Division Elective") are recorded assumptions in `degree-specs/sources/csc/2026-2027/manifest.json`. When they
   arrive: update `decisions`, run `npm run degrees:extract` and `npm run degrees:promote`, rebuild the catalog, release.
