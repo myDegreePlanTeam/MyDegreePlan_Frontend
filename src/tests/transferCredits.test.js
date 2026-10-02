@@ -432,7 +432,7 @@ describe('resolveTransferCredits — BUG-23 onboarding archival parity', () => {
   // Onboarding places the plan with the rows it is about to INSERT, which
   // have no id yet. Keyed on id, every such row was `undefined`, so only the
   // first could archive a slot and the rest were planned as courses to take.
-  const withoutId = ({ id, ...row }) => row
+  const withoutId = pc => { const row = { ...pc }; delete row.id; return row }
 
   it('archives every covered slot when the rows have no id yet (as Onboarding passes them)', () => {
     const result = resolveTransferCredits(

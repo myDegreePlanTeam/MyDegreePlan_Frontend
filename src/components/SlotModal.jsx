@@ -103,8 +103,9 @@ export default function SlotModal({
 
     setCourses(resolvePool(slot.class_code, courseMap) ?? [])
     if (existingCourse) setSelected(existingCourse)
+    // Depend on slot.id only — stable identity per modal open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot.id])
-  // Depend on slot.id only — stable identity per modal open.
   // courseMap, planSlots, slots are all stable objects by the time
   // the modal opens and don't need to be dependencies here.
 
@@ -244,6 +245,8 @@ export default function SlotModal({
         const order = { available: 0, locked: 1, taken: 2 }
         return order[a.status] - order[b.status]
       })
+    // `annotate` is rebuilt every render from the inputs listed here (and `creditsBefore`, fixed while the modal is open).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courses, freeOptions, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes])
 
   useEffect(() => {

@@ -111,9 +111,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [resetKey, setResetKey]                   = useState(0)
   const [extraSemesters, setExtraSemesters]         = useState([])
   const [extraSemesterTerms, setExtraSemesterTerms] = useState({})
-  const [showAddSemesterModal, setShowAddSemesterModal] = useState(false)
-  const [addSemSeason, setAddSemSeason]                 = useState('Fall')
-  const [addSemYear,   setAddSemYear]                   = useState(new Date().getFullYear())
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -434,6 +431,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     loadPlan()
+    // Reload only when the program or a reset changes; the rest of `profile` is read once per load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.concentration_id, resetKey])
 
   // ── One-shot archive sync after initial load (BUG-23) ─────────────
@@ -1674,25 +1673,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setExtraSemesters([])
     setExtraSemesterTerms({})
     onProfileChange({ ...profile, concentration_id: newConc.id, ...planFields, concentrations: newConc })
-  }
-
-  // ── Add semester wizard ───────────────────────────────────────────
-  async function handleAddSemesterConfirm() {
-    const newSemNum = allSemesterNumbers.length > 0 ? Math.max(...allSemesterNumbers) + 1 : maxTemplateSem + 1
-    await db.from('student_semester_notes').upsert({
-      student_id:           profile.id,
-      concentration_id:     profile.concentration_id,
-      semester_number:      newSemNum,
-      note_text:            '',
-      updated_at:           new Date().toISOString(),
-      completed_by_student: false,
-      term_season:          addSemSeason,
-      term_year:            addSemYear,
-    }, { onConflict: 'student_id, concentration_id, semester_number' })
-
-    setExtraSemesters(prev => [...prev, newSemNum])
-    setExtraSemesterTerms(prev => ({ ...prev, [newSemNum]: { season: addSemSeason, year: addSemYear } }))
-    setShowAddSemesterModal(false)
   }
 
   // ── Render ────────────────────────────────────────────────────────
