@@ -1,6 +1,6 @@
 # Integration test: College of Engineering (ME x4, NE), 2026-2027
 
-Branch `test/mne-degree-maps` in `MyDegreePlan_Prototype` and `MyDegreePlan_Frontend`. Question tested: can the app take a major
+Branch `integration/mne-degree-maps` in `MyDegreePlan_Prototype` and `MyDegreePlan_Frontend`. Question tested: can the app take a major
 that is not Computer Science, from a department's own degree map, with no hand-built data? Five PDFs from
 tntech.edu/engineering: Mechanical Engineering (base, Aerospace, Mechatronics & Robotics, Vehicle Engineering) and Nuclear
 Engineering. Each is 128 hours.
