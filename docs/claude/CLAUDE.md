@@ -272,6 +272,15 @@ that section before changing the module. Rules that must hold even if you do not
   ```
 
   Wait about 150 ms between steps (`await new Promise(r => setTimeout(r, 150))`) so React re-renders.
+- **Paths and the shell's working directory.** The Bash tool's working directory drifts after any `cd`, so a relative path or
+  `git -C <relative folder>` from an earlier call fails ("cannot change to ..."). Use absolute paths
+  (`/c/Users/brady/github/MDP/...`), or `cd` in the same command.
+- **No `git stash` in a verification chain.** A stray `git stash` in a test command moved staged work out of the tree, and
+  the Frontend checkout can hold another session's stash. Verify without stashing: a clean checkout or a `git worktree`.
+- **Line endings.** With `core.autocrlf` the working copies are CRLF while the index is LF, and a grep for a carriage return
+  can report 0 on a CRLF file. Check with `git ls-files --eol <file>` (`i/lf w/crlf`), and edit through `multi_replace.py`, which keeps CRLF.
+- **Cross-repo PR references.** Open the PR that another PR will cite first (`open_pr.sh` prints its URL), then quote that
+  number. A number guessed in advance was wrong once and had to be corrected after the PR was created.
 
 ## Core Principles (read before every session)
 
