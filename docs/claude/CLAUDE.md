@@ -238,7 +238,7 @@ that section before changing the module. Rules that must hold even if you do not
 - `mathPlacement.js` is the one copy of the math placement table; `MyDegreePlan_Prototype/math_sequences.json` mirrors it, so change both.
 - `classifyPrereq`'s `prereqCode` parameter is unused on purpose; do not remove it.
 - A slot key is a slot's identity: never rename or reuse one. `catalog.json` and `pools.json` are generated (`npm run build:catalog`, then commit);
-  degree plans are generated from `degree-specs/` (`node degree-specs/build.mjs`).
+  degree plans are generated from `degree-specs/` (`node degree-specs/build.mjs`); `regen.sh` runs the whole chain (see "What to Do at the Start of Every Session", step 11).
 
 ---
 
@@ -346,3 +346,10 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 10. To see where tool-output tokens go (by category, against the recorded baseline) and whether an earlier retro fix held, run
    `node local-deploy/tools/token_audit.mjs --check-log` from `MDP/` (read-only; `--record --label NAME` appends a row to
    `.claude/retro/metrics.tsv`). When a logged friction gets fixed, the retro appends a `FIXED` line to `.claude/retro/log.md`.
+11. After a change to seed data (a course override, a spec, `pools.json`, an exam equivalency), run
+   `bash local-deploy/tools/regen.sh` from `MDP/` instead of the three generators by hand. It runs `build_courses.mjs`, then
+   `degree-specs/build.mjs`, then `npm run build:catalog` (about 3 s), and lists which of the five generated files changed and
+   what to commit where (Prototype first). `--check` restores every file and exits 1 if a committed one is stale. It never
+   commits, and the network scrape (`catalog_scrape/scrape_catalog.mjs`) is not part of it. Its changed/unchanged verdict is a
+   byte comparison: trust it over `git status`, which shows the Frontend's `src/data/` as modified under `core.autocrlf` when
+   it is not.
