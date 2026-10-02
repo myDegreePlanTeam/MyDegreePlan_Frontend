@@ -662,3 +662,12 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 4. Run `npm run test` from `MyDegreePlan_Frontend/` and confirm all tests pass before making changes
 5. Create a branch before starting work — never work directly on main
 6. Do not assume file names or function signatures — use Glob/Grep to find them
+7. For exact-text edits across several files, or in CRLF files, run `scripts/multi_replace.py` from the `MDP/` folder
+   (`python scripts/multi_replace.py - <<'EOF'` with `@@@ file` / `@@@ old` / `@@@ new` blocks; `--dry-run` previews)
+   instead of writing a throwaway script: it writes nothing unless every edit matches, keeps CRLF and refuses control
+   characters. It lives in the workspace root, which is not a git repo (like the root `CLAUDE.md`).
+   For a **structural** JSON edit (a catalog override, a manifest decision, a vocabulary entry) run
+   `node scripts/json_patch.mjs SPEC|- [--dry-run]` instead: ops `set` / `add` / `replace` / `remove` / `merge` / `test` on
+   RFC 6901 paths (`/courses/CSC2400/why`, `/slots/-`), all-or-nothing, indent / EOL / BOM kept. It refuses a file whose
+   layout `JSON.stringify` would not reproduce (the generated specs under `degree-specs/<dept>/`, `catalog/equivalents.json`:
+   inline arrays), so edit those with `multi_replace.py`. Tests: `node --test scripts/test_json_patch.mjs`.
