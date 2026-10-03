@@ -292,7 +292,9 @@ describe('against the real catalog', () => {
   it('answers the queries Onboarding and DegreePlan make', async () => {
     const real = createLocalClient({ loadCatalog: async () => catalog, storage: createMemoryStorage() })
     const concs = (await real.from('concentrations').select('id, code, name, total_hours').order('id', { ascending: true })).data
-    expect(concs.map(c => c.code)).toEqual(['core', 'cybersecurity', 'dsai', 'hpc', 'ai', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne'])
+    // program ids are stable: the first ten are the programs that were here before the wave 1 programs were appended
+    expect(concs.slice(0, 10).map(c => c.code)).toEqual(['core', 'cybersecurity', 'dsai', 'hpc', 'ai', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne'])
+    expect(concs.map(c => c.id)).toEqual(concs.map((_, i) => i + 1))
     const ff = (await real.from('requirement_slots').select('id, class_code, gened_program').eq('concentration_id', concs[0].id).eq('gened_program', 'flight_foundations')).data
     expect(ff.length).toBeGreaterThan(0)
     expect(ff.some(s => s.class_code === 'FF_SOCIAL')).toBe(true)

@@ -342,6 +342,16 @@ describe('buildDegreePlan — gen-ed interleaving', () => {
 describe('buildDegreePlan — math chain', () => {
   const activeMath = r => r.active.map(s => s.class_code).filter(c => /^MATH\d/.test(c))
 
+  it('a plan without Calculus I has no placement chain: its math courses are ordinary requirements a score does not skip', () => {
+    // Business: MATH 1710 and MATH 1530, no calculus. A high ACT score must not archive them.
+    const courses = { ...COURSES, ENGL1010: { credits: 3 }, MATH1530: { credits: 3 }, MATH1710: { credits: 3 } }
+    for (const act_math of [29, 20, null]) {
+      const r = plan({ act_math }, { slotEntries: ['ENGL1010', 'MATH1710', 'MATH1530', 'MATH1720'], courses, prereqs: {}, coreqs: {} })
+      expect(Object.keys(r.archived)).toEqual([])
+      expect(activeMath(r).sort()).toEqual(['MATH1530', 'MATH1710', 'MATH1720'])
+    }
+  })
+
   it('ACT 29 new student: MATH1910 → MATH2010, everything else not_applicable', () => {
     const r = plan()
     expect(activeMath(r).sort()).toEqual(['MATH1910', 'MATH2010'])

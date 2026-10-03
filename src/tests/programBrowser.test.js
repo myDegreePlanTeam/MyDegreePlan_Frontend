@@ -141,15 +141,41 @@ describe('the generated college list and the real programs', () => {
     for (const { majors } of tree) for (const m of majors) expect(m.programs.filter(p => p.is_base).length, m.key).toBeLessThanOrEqual(1)
   })
 
-  it('puts the programs the app has under Engineering: Computer Science, Artificial Intelligence, Mechanical and Nuclear Engineering', () => {
+  it('puts the programs under Business and Engineering so far, with the majors each college has', () => {
     const tree = groupByCollege(programs)
-    expect(tree.map(c => c.college.code)).toEqual(['engineering'])
+    expect(tree.map(c => c.college.code)).toEqual(['business', 'engineering'])
     expect(tree[0].majors.map(m => degreeTitleOf(m))).toEqual([
-      'Artificial Intelligence, B.S.', 'Computer Science, B.S.', 'Mechanical Engineering, B.S.M.E.', 'Nuclear Engineering, B.S.N.E.',
+      'Accounting, B.S.B.A.', 'Business AI & Analytics, B.S.B.A.', 'Business Information and Technology, B.S.B.A.', 'Business Management, B.S.B.A.',
+      'Economics, B.S.', 'Finance, B.S.B.A.', 'Marketing, B.S.B.A.',
     ])
-    const me = tree[0].majors.find(m => m.key === 'mechanical_engineering')
+    expect(tree[1].majors.map(m => degreeTitleOf(m))).toEqual([
+      'Artificial Intelligence, B.S.', 'Chemical Engineering, B.S.CH.E.', 'Civil Engineering, B.S.C.E.', 'Computer Engineering, B.S.CMP.E.',
+      'Computer Science, B.S.', 'Electrical Engineering, B.S.E.E.', 'Engineering Technology, B.S.E.T.', 'General Engineering, B.S.E.',
+      'Mechanical Engineering, B.S.M.E.', 'Nuclear Engineering, B.S.N.E.',
+    ])
+  })
+
+  it('a major with its own map offers it first, one that needs a concentration does not', () => {
+    const tree = groupByCollege(programs)
+    const find = (college, key) => tree.find(c => c.college.code === college).majors.find(m => m.key === key)
+    const me = find('engineering', 'mechanical_engineering')
     expect(me.base.code).toBe('me')
     expect(me.concentrations.map(p => p.code)).toEqual(['me_aero', 'me_mechatronics', 'me_vehicle'])
+    const mgmt = find('business', 'business_management')
+    expect(mgmt.base).toBeNull()
+    expect(mgmt.concentrationRequired).toBe(true)
+    expect(mgmt.concentrations.map(p => p.name)).toEqual(['General Management', 'Human Resource Management', 'Operations and Supply Chain Management'])
+    const et = find('engineering', 'engineering_technology')
+    expect(et.concentrationRequired).toBe(true)
+    expect(et.concentrations).toHaveLength(3)
+  })
+
+  it('keeps the Artificial Intelligence degree (Engineering) apart from Business AI & Analytics (Business)', () => {
+    const ai = programs.find(p => p.code === 'ai')
+    const bai = programs.find(p => p.code === 'bai_bsba')
+    expect([ai.college, ai.major_code]).toEqual(['engineering', 'artificial_intelligence'])
+    expect([bai.college, bai.major_code]).toEqual(['business', 'business_ai_and_analytics'])
+    expect(searchPrograms(programs, 'artificial intelligence').map(p => p.code)).toEqual(['ai'])
   })
 
   // src/data/colleges.json is written by `npm run build:catalog` from the Prototype's degree-specs/colleges.json (through degree_plans.json)

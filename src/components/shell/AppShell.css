@@ -142,6 +142,12 @@
 
 /* Plan header */
 .ds-plan { display: flex; flex-direction: column; min-height: 100vh; }
+.ds-plan-note {
+  margin: 0; padding: 10px 32px;
+  background: rgba(var(--gold-rgb), .08); border-bottom: 1px solid var(--bg-light);
+  font-size: 12px; line-height: 1.6; color: var(--text-muted);
+}
+.ds-plan-note strong { color: var(--text); font-weight: 500; }
 .ds-plan-header {
   padding: 24px 32px 20px;
   border-bottom: 1px solid var(--bg-light);

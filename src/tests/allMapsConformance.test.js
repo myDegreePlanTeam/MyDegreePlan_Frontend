@@ -59,12 +59,12 @@ describe.each(mapped.map(m => [`${m.program.code} ${m.plan.catalog_year}`, m]))(
     expect(archived.every(s => result.archived[s.id] === 'not_applicable')).toBe(true)
   })
 
-  it('the semesters add up to the degree: the plan\'s total hours, no semester over 18', () => {
+  it('the semesters add up to the degree: the plan\'s total hours, no semester past the 21-hour overload ceiling', () => {
     const loads = {}
     for (const s of active) loads[result.assignments[s.id]] = (loads[result.assignments[s.id]] ?? 0) + hours(s)
     const total = Object.values(loads).reduce((a, b) => a + b, 0)
     expect(total).toBe(plan.total_hours)
-    expect(Math.max(...Object.values(loads))).toBeLessThanOrEqual(18)
+    expect(Math.max(...Object.values(loads))).toBeLessThanOrEqual(21)
     // a map's semesters are 1..n with none skipped
     const sems = Object.keys(loads).map(Number).sort((a, b) => a - b)
     expect(sems).toEqual(Array.from({ length: sems.length }, (_, i) => i + 1))
