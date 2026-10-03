@@ -12,7 +12,7 @@ import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, get
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { fetchRequirementSlots } from '../lib/requirementSlots'
-import { catalogYearForProfile } from '../lib/catalogYears'
+import { approximatePlanOf, catalogYearForProfile } from '../lib/catalogYears'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { buildPlanIssues, countIssuesBySemester, FULL_TIME_MIN, HEAVY_LOAD_MAX } from '../lib/planIssues'
 import Semester from './Semester'
@@ -1973,6 +1973,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
                 </button>
               </div>
             </div>
+
+            {approximatePlanOf(profile) && (
+              <p className="ds-plan-note" role="note">
+                <strong>Approximate plan.</strong> It follows the {approximatePlanOf(profile).plan} degree map. You started in {profile.start_season} {profile.start_year}, under an earlier
+                catalog, so some requirements may differ: confirm them with your advisor.
+              </p>
+            )}
 
             <div className="ds-plan-body">
               <DndContext

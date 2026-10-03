@@ -6,7 +6,7 @@ import { validateSatMath, SAT_MATH_RANGE, mathCurriculumFor, planHasMathChain } 
 import { isMissingColumn, selectWithOptional } from '../lib/dbErrors'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
-import { academicYearOf, planForYear, termChoices } from '../lib/catalogYears'
+import { academicYearOf, isApproximateFit, planForYear, termChoices } from '../lib/catalogYears'
 import { termUnavailableNote } from '../lib/programBrowser'
 import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requirementSlots'
 import { fetchPlannerCatalog } from '../lib/plannerCatalog'
@@ -113,6 +113,9 @@ export default function Onboarding({ profileId, onComplete }) {
   const selectedProgram = concentrations.find(c => c.code === selectedCode) ?? null
   const termsFor        = type => termChoices(type, { program: selectedProgram, plans: degreePlans })
   const choices         = studentType ? termsFor(studentType) : []
+  // a start term before the program's first degree map: the plan will be that map, and the student is told so now
+  const entryPlan       = selectedProgram && entryYear ? planForYear(degreePlans, selectedProgram.id, entryYear) : null
+  const approximate     = !!entryPlan && isApproximateFit({ entryYear, planYear: entryPlan.catalog_year, genedProgram: entryPlan.gened_program, coversEarlier: entryPlan.covers_earlier })
 
   function handleSelectProgram(program) {
     if (program.code !== selectedCode) {
@@ -548,6 +551,13 @@ export default function Onboarding({ profileId, onComplete }) {
                   </select>
                 </div>
               </div>
+            )}
+
+            {approximate && (
+              <p className="program-note" role="note">
+                <strong>Approximate plan:</strong> you started before the {entryPlan.catalog_year} catalog, the first degree map {selectedProgram.name} has.
+                Your plan follows that map, so some requirements may differ from the ones you entered under: confirm them with your advisor.
+              </p>
             )}
 
             {error && <p className="onboarding-error">{error}</p>}
