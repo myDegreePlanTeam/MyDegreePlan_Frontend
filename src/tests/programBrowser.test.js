@@ -141,11 +141,14 @@ describe('the generated college list and the real programs', () => {
     for (const { majors } of tree) for (const m of majors) expect(m.programs.filter(p => p.is_base).length, m.key).toBeLessThanOrEqual(1)
   })
 
-  it('puts the programs under Arts and Sciences, Business and Engineering so far, with the majors each college has', () => {
+  it('puts the programs under Arts and Sciences, Business, Education and Engineering so far, with the majors each college has', () => {
     const tree = groupByCollege(programs)
-    expect(tree.map(c => c.college.code)).toEqual(['cas', 'business', 'engineering'])
-    const [cas, business, engineering] = tree
+    expect(tree.map(c => c.college.code)).toEqual(['cas', 'business', 'education', 'engineering'])
+    const [cas, business, education, engineering] = tree
     const titles = c => c.majors.map(m => degreeTitleOf(m))
+    for (const major of ['Early Childhood Education, B.S.', 'Elementary Education, B.S.', 'Exercise Science, B.S.', 'Multidisciplinary Studies, B.S.', 'Psychology, B.S.', 'Secondary Education, B.S.ED.', 'Special Education, B.S.']) {
+      expect(titles(education), major).toContain(major)
+    }
     for (const major of ['Biochemistry, B.S.', 'Biology, B.S.', 'Chemistry, B.S.', 'English, B.A.', 'Mathematics, B.S.', 'Physics, B.S.', 'Political Science, B.S.', 'Sociology, B.S.']) {
       expect(titles(cas), major).toContain(major)
     }

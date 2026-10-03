@@ -84,7 +84,7 @@ describe('a plan loads its own slice of the full catalog', () => {
       }
     }
     expect(compared).toBeGreaterThan(40)
-  })
+  }, 120000)   // every program x 12 students: the default 5 s is not enough once there are over a hundred programs
 })
 
 describe('a course added from the search box', () => {

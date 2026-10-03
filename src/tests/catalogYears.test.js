@@ -228,7 +228,7 @@ describe('latestCatalogYear / splitByOffering', () => {
     expect(closed.map(p => p.code)).toEqual(['dsai'])
     expect(current.map(p => p.code)).toEqual(programs.filter(p => p.code !== 'dsai').map(p => p.code))
     expect(current.slice(0, 9).map(p => p.code)).toEqual(['core', 'cybersecurity', 'hpc', 'ai', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne'])
-    expect(splitByOffering([{ id: 99, code: 'x' }], plans)).toEqual({ current: [], closed: [] })
+    expect(splitByOffering([{ id: 999999, code: 'x' }], plans)).toEqual({ current: [], closed: [] })
   })
 })
 
