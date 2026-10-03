@@ -146,6 +146,24 @@ export function splitByOffering(programs, plans) {
   return { current: withPlan.filter(p => isProgramOpen(p, latest)), closed: withPlan.filter(p => !isProgramOpen(p, latest)) }
 }
 
+/**
+ * Whether a plan is only an approximate fit for the term a student started in: a program's first plan stands in for every
+ * earlier year (`covers_earlier`), and when that first plan is Flight Foundations it is a catalog the student did not enter under
+ * (they started under the legacy gen-ed). The plan is still the department's best map for them, and they are told to confirm it.
+ * A legacy first plan covering earlier entrants is the department's own arrangement, not an approximation.
+ */
+export function isApproximateFit({ entryYear, planYear, genedProgram, coversEarlier = true }) {
+  return !!coversEarlier && genedProgram === 'flight_foundations' && yearStart(entryYear) !== null && yearStart(planYear) !== null
+    && compareCatalogYears(entryYear, planYear) < 0
+}
+
+/** The same question for a saved profile: { entry, plan } catalog years when its plan is an approximate fit, else null. */
+export function approximatePlanOf(profile) {
+  const entry = academicYearOf(profile?.start_season, profile?.start_year)
+  const plan = catalogYearForProfile(profile)
+  return entry && isApproximateFit({ entryYear: entry, planYear: plan, genedProgram: profile.gened_program }) ? { entry, plan } : null
+}
+
 // Profiles saved before catalog years existed carry only their gen-ed program. Those two programs were
 // exactly two plans: legacy (every entrant before Fall 2026) and Flight Foundations (Fall 2026 on).
 const COMPAT_YEAR = { legacy: '2025-2026', flight_foundations: '2026-2027' }

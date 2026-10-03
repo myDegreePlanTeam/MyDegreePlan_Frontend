@@ -24,7 +24,7 @@
 //   archived    : { [slotId]: archiveReason }   — 'not_applicable' | 'prior_credit'
 
 import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
-import { resolveMathPlacement, mathCurriculumFor } from './mathPlacement'
+import { resolveMathPlacement, mathCurriculumFor, planHasMathChain } from './mathPlacement'
 import { isEnrollmentAllowed } from './semesterRestrictions'
 import { POOL_COURSES, POOL_CREDIT_ESTIMATES, POOL_FLOORS, REQUIREMENT_POOLS } from './poolResolver'
 
@@ -55,6 +55,9 @@ const ALL_MATH_CHAIN_CODES = new Set([
 
 const CREDIT_TARGET = 15   // aim for this per semester
 const CREDIT_MAX    = 18   // never exceed this
+// A department may print a semester above CREDIT_MAX (the Chemical Engineering maps have a 19-hour semester): that is an
+// overload the student takes with permission, and the department's path is still its path. Beyond this ceiling it is a mistake.
+const MAP_LOAD_MAX  = 21
 const SUMMER_TARGET = 6    // lighter load for summer semesters
 const SUMMER_MAX    = 9
 const SEMESTER_CAP  = 20   // standing checks never push a course past this
@@ -138,8 +141,12 @@ function archivedSlots({ slots, priorCredits, studentProfile }) {
   const { student_type, act_math, sat_math } = studentProfile
   const studentChain = getStudentMathChain({ act_math, sat_math }, mathCurriculumFor(slots, student_type))
   const archived = {}
-  for (const slot of slots) {
-    if (ALL_MATH_CHAIN_CODES.has(slot.class_code) && !studentChain.has(slot.class_code)) archived[slot.id] = 'not_applicable'
+  // Placement decides the math only for a plan that goes through Calculus I. In one without it (Business: MATH 1710 and
+  // MATH 1530) every math course is an ordinary requirement a test score does not skip.
+  if (planHasMathChain(slots)) {
+    for (const slot of slots) {
+      if (ALL_MATH_CHAIN_CODES.has(slot.class_code) && !studentChain.has(slot.class_code)) archived[slot.id] = 'not_applicable'
+    }
   }
   for (const slotId of Object.keys(resolveTransferCredits(priorCredits, {}, slots))) archived[slotId] = 'prior_credit'
   return archived
@@ -162,10 +169,10 @@ function mapFirstPlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, stu
 }
 
 function mapPathHolds({ active, assignments, archived, slots, courseMap, prereqMap, coreqMap, priorCredits }) {
-  // the department path may not overload a semester
+  // the department path may not overload a semester past the overload ceiling
   const loads = {}
   for (const s of active) loads[assignments[s.id]] = (loads[assignments[s.id]] ?? 0) + slotCredits(s, courseMap)
-  if (Object.values(loads).some(load => load > CREDIT_MAX)) return false
+  if (Object.values(loads).some(load => load > MAP_LOAD_MAX)) return false
 
   const semOf = {}
   for (const s of active) if (!s.is_pool) semOf[s.class_code] = assignments[s.id]

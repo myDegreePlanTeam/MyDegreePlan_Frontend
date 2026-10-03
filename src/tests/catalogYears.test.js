@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   yearStart, academicYearOf, compareCatalogYears, planForYear, isProgramOpen, availablePrograms,
   groupByMajor, degreeTitle, catalogYearForProfile,
-  NEW_CURRICULUM_YEAR, termAvailable, termChoices, latestCatalogYear, splitByOffering,
+  NEW_CURRICULUM_YEAR, termAvailable, termChoices, latestCatalogYear, splitByOffering, isApproximateFit, approximatePlanOf,
 } from '../lib/catalogYears'
 import { getGenEdProgram } from '../lib/flightFoundations'
 import catalog from '../data/catalog.json'
@@ -83,7 +83,8 @@ describe('isProgramOpen', () => {
 describe('programs available in the real catalog', () => {
   const codes = year => availablePrograms(programs, plans, year).map(p => p.code)
   const ENGINEERING = ['me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne']
-  const csc = year => codes(year).filter(c => !ENGINEERING.includes(c))
+  const CSC = ['core', 'cybersecurity', 'dsai', 'hpc', 'ai']
+  const csc = year => codes(year).filter(c => CSC.includes(c))
 
   it('offers Data Science & AI only to students who entered through 2025-2026, and the AI major only from 2026-2027', () => {
     expect(csc('2025-2026')).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
@@ -91,10 +92,17 @@ describe('programs available in the real catalog', () => {
     expect(csc('2026-2027')).toEqual(['core', 'cybersecurity', 'hpc', 'ai'])
     expect(csc('2030-2031')).toEqual(['core', 'cybersecurity', 'hpc', 'ai'])
   })
-  it('offers the engineering programs from 2026-2027 on: the department has published no earlier map', () => {
-    expect(codes('2025-2026').filter(c => ENGINEERING.includes(c))).toEqual([])
-    expect(codes('2026-2027').filter(c => ENGINEERING.includes(c))).toEqual(ENGINEERING)
-    expect(codes('2030-2031').filter(c => ENGINEERING.includes(c))).toEqual(ENGINEERING)
+  it('offers the engineering programs to earlier entrants too: their first plan (2026-2027) stands in for every earlier year', () => {
+    for (const year of ['2018-2019', '2025-2026', '2026-2027', '2030-2031']) {
+      expect(codes(year).filter(c => ENGINEERING.includes(c)), year).toEqual(ENGINEERING)
+    }
+  })
+  it('a program whose first plan is Flight Foundations follows it for an entrant before it: the fit is approximate, and tells', () => {
+    const me = programs.find(p => p.code === 'me')
+    const plan = planForYear(plans, me.id, '2022-2023')
+    expect(plan.catalog_year).toBe('2026-2027')
+    expect(plan.gened_program).toBe('flight_foundations')
+    expect(plan.covers_earlier).toBe(true)
   })
   it('keeps a student\'s own program visible even after it closes', () => {
     expect(availablePrograms(programs, plans, '2026-2027', { currentId: id('dsai') }).map(p => p.code)).toContain('dsai')
@@ -118,8 +126,12 @@ describe('plan resolution agrees with the old entry-term rule', () => {
         const entry = academicYearOf(season, year)
         const old = getGenEdProgram(season, year)
         for (const p of availablePrograms(programs, plans, entry)) {
-          const got = planForYear(plans, p.id, entry).gened_program
-          if (got !== old) disagreements.push(`${season} ${year} ${p.code}: ${got} vs ${old}`)
+          const plan = planForYear(plans, p.id, entry)
+          // a program whose first plan is Flight Foundations covers entrants before it (approximately): that is the one
+          // place an entry term and its plan's gen-ed program may disagree
+          const approximate = plan.covers_earlier && plan.gened_program === 'flight_foundations' && yearStart(plan.catalog_year) > yearStart(entry)
+          if (plan.gened_program !== old && !approximate) disagreements.push(`${season} ${year} ${p.code}: ${plan.gened_program} vs ${old}`)
+          if (approximate) expect(plan.gened_program, `${p.code} ${entry}`).toBe('flight_foundations')
         }
       }
     }
@@ -178,10 +190,15 @@ describe('termChoices: the start terms a program can be started in', () => {
     expect(years(termChoices('incoming_freshman', { program: core, plans }))).toHaveLength(7)
   })
 
-  it('a program that starts with the 2026-2027 catalog has no returning student, and says so by having no terms', () => {
+  it('a program that starts with the 2026-2027 catalog and does not cover earlier entrants has no returning student, and says so by having no terms', () => {
+    const ai = programs.find(p => p.code === 'ai')
+    expect(termChoices('returning', { program: ai, plans })).toEqual([])
+    expect(find(termChoices('incoming_freshman', { program: ai, plans }), 2026)).toEqual(['Fall'])
+  })
+
+  it('a program whose first plan covers earlier entrants offers returning students every year (the fit is approximate)', () => {
     const me = programs.find(p => p.code === 'me')
-    expect(termChoices('returning', { program: me, plans })).toEqual([])
-    expect(find(termChoices('incoming_freshman', { program: me, plans }), 2026)).toEqual(['Fall'])
+    expect(years(termChoices('returning', { program: me, plans }))).toHaveLength(11)
   })
 
   it('a program closed to a catalog year has no new student after it', () => {
@@ -191,11 +208,11 @@ describe('termChoices: the start terms a program can be started in', () => {
   })
 
   it('a term is available only with a plan for its catalog year and an open program', () => {
-    const me = programs.find(p => p.code === 'me')
-    expect(termAvailable(me, plans, 'Fall', 2026)).toBe(true)
-    expect(termAvailable(me, plans, 'Spring', 2027)).toBe(true)
-    expect(termAvailable(me, plans, 'Summer', 2026)).toBe(false)   // 2025-2026: no plan
-    expect(termAvailable(me, plans, '', 2026)).toBe(false)
+    const ai = programs.find(p => p.code === 'ai')
+    expect(termAvailable(ai, plans, 'Fall', 2026)).toBe(true)
+    expect(termAvailable(ai, plans, 'Spring', 2027)).toBe(true)
+    expect(termAvailable(ai, plans, 'Summer', 2026)).toBe(false)   // 2025-2026: no plan
+    expect(termAvailable(ai, plans, '', 2026)).toBe(false)
   })
 })
 
@@ -209,8 +226,44 @@ describe('latestCatalogYear / splitByOffering', () => {
   it('separates the programs closed to the newest year (DSAI) from the ones still open, and drops a program with no plan', () => {
     const { current, closed } = splitByOffering(programs, plans)
     expect(closed.map(p => p.code)).toEqual(['dsai'])
-    expect(current.map(p => p.code)).toEqual(['core', 'cybersecurity', 'hpc', 'ai', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne'])
+    expect(current.map(p => p.code)).toEqual(programs.filter(p => p.code !== 'dsai').map(p => p.code))
+    expect(current.slice(0, 9).map(p => p.code)).toEqual(['core', 'cybersecurity', 'hpc', 'ai', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne'])
     expect(splitByOffering([{ id: 99, code: 'x' }], plans)).toEqual({ current: [], closed: [] })
+  })
+})
+
+describe('isApproximateFit / approximatePlanOf: a plan for a catalog the student did not enter under', () => {
+  it('is approximate only for a Flight Foundations first plan covering an earlier entrant', () => {
+    const base = { entryYear: '2022-2023', planYear: '2026-2027', genedProgram: 'flight_foundations', coversEarlier: true }
+    expect(isApproximateFit(base)).toBe(true)
+    expect(isApproximateFit({ ...base, entryYear: '2026-2027' })).toBe(false)             // entered under that catalog
+    expect(isApproximateFit({ ...base, entryYear: '2027-2028' })).toBe(false)             // a later entrant of the same plan
+    expect(isApproximateFit({ ...base, genedProgram: 'legacy', planYear: '2025-2026' })).toBe(false)   // the department's own coverage
+    expect(isApproximateFit({ ...base, coversEarlier: false })).toBe(false)
+    expect(isApproximateFit({ ...base, entryYear: null })).toBe(false)
+  })
+
+  it('reads a saved profile', () => {
+    const profile = { start_season: 'Fall', start_year: 2022, catalog_year: '2026-2027', gened_program: 'flight_foundations' }
+    expect(approximatePlanOf(profile)).toEqual({ entry: '2022-2023', plan: '2026-2027' })
+    expect(approximatePlanOf({ ...profile, start_year: 2026 })).toBeNull()
+    expect(approximatePlanOf({ ...profile, catalog_year: '2025-2026', gened_program: 'legacy' })).toBeNull()   // a CSC student on the 2025-2026 plan
+    expect(approximatePlanOf({})).toBeNull()
+    expect(approximatePlanOf(null)).toBeNull()
+  })
+
+  it('agrees with the real catalog: ME is approximate for a 2022 entrant and exact for a 2026 one; CSC Core is exact for both', () => {
+    const fit = (code, season, year) => {
+      const program = programs.find(p => p.code === code)
+      const entry = academicYearOf(season, year)
+      const plan = planForYear(plans, program.id, entry)
+      return isApproximateFit({ entryYear: entry, planYear: plan.catalog_year, genedProgram: plan.gened_program, coversEarlier: plan.covers_earlier })
+    }
+    expect(fit('me', 'Fall', 2022)).toBe(true)
+    expect(fit('me', 'Fall', 2026)).toBe(false)
+    expect(fit('acct_bsba', 'Spring', 2024)).toBe(true)
+    expect(fit('core', 'Fall', 2022)).toBe(false)
+    expect(fit('core', 'Fall', 2026)).toBe(false)
   })
 })
 
