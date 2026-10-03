@@ -141,11 +141,17 @@ describe('the generated college list and the real programs', () => {
     for (const { majors } of tree) for (const m of majors) expect(m.programs.filter(p => p.is_base).length, m.key).toBeLessThanOrEqual(1)
   })
 
-  it('puts the programs under Arts and Sciences, Business, Education and Engineering so far, with the majors each college has', () => {
+  it('puts the programs under the colleges built so far, with the majors each has (new colleges are appended, so only known ones are listed)', () => {
     const tree = groupByCollege(programs)
-    expect(tree.map(c => c.college.code)).toEqual(['cas', 'business', 'education', 'engineering'])
-    const [cas, business, education, engineering] = tree
+    const codes = tree.map(c => c.college.code)
+    for (const code of ['cas', 'business', 'education', 'engineering', 'cahe', 'ceis', 'nursing', 'fine-arts']) expect(codes).toContain(code)
+    expect(codes).toEqual([...codes].sort((a, b) => colleges.find(c => c.code === a).short.localeCompare(colleges.find(c => c.code === b).short)))
+    const college = code => tree.find(c => c.college.code === code)
+    const [cas, business, education, engineering] = ['cas', 'business', 'education', 'engineering'].map(college)
     const titles = c => c.majors.map(m => degreeTitleOf(m))
+    expect(titles(college('nursing'))).toEqual(['Nursing, B.S.N.'])
+    for (const major of ['Interdisciplinary Studies, B.S.', 'Communication, B.S.', 'Interdisciplinary Computing, B.S.']) expect(titles(college('ceis')), major).toContain(major)
+    for (const major of ['Design Studies, B.S.', 'Human Ecology, B.S.H.E.']) expect(titles(college('cahe')), major).toContain(major)
     for (const major of ['Early Childhood Education, B.S.', 'Elementary Education, B.S.', 'Exercise Science, B.S.', 'Multidisciplinary Studies, B.S.', 'Psychology, B.S.', 'Secondary Education, B.S.ED.', 'Special Education, B.S.']) {
       expect(titles(education), major).toContain(major)
     }
