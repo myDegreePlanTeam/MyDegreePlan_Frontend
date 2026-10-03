@@ -141,14 +141,19 @@ describe('the generated college list and the real programs', () => {
     for (const { majors } of tree) for (const m of majors) expect(m.programs.filter(p => p.is_base).length, m.key).toBeLessThanOrEqual(1)
   })
 
-  it('puts the programs under Business and Engineering so far, with the majors each college has', () => {
+  it('puts the programs under Arts and Sciences, Business and Engineering so far, with the majors each college has', () => {
     const tree = groupByCollege(programs)
-    expect(tree.map(c => c.college.code)).toEqual(['business', 'engineering'])
-    expect(tree[0].majors.map(m => degreeTitleOf(m))).toEqual([
+    expect(tree.map(c => c.college.code)).toEqual(['cas', 'business', 'engineering'])
+    const [cas, business, engineering] = tree
+    const titles = c => c.majors.map(m => degreeTitleOf(m))
+    for (const major of ['Biochemistry, B.S.', 'Biology, B.S.', 'Chemistry, B.S.', 'English, B.A.', 'Mathematics, B.S.', 'Physics, B.S.', 'Political Science, B.S.', 'Sociology, B.S.']) {
+      expect(titles(cas), major).toContain(major)
+    }
+    expect(titles(business)).toEqual([
       'Accounting, B.S.B.A.', 'Business AI & Analytics, B.S.B.A.', 'Business Information and Technology, B.S.B.A.', 'Business Management, B.S.B.A.',
       'Economics, B.S.', 'Finance, B.S.B.A.', 'Marketing, B.S.B.A.',
     ])
-    expect(tree[1].majors.map(m => degreeTitleOf(m))).toEqual([
+    expect(titles(engineering)).toEqual([
       'Artificial Intelligence, B.S.', 'Chemical Engineering, B.S.CH.E.', 'Civil Engineering, B.S.C.E.', 'Computer Engineering, B.S.CMP.E.',
       'Computer Science, B.S.', 'Electrical Engineering, B.S.E.E.', 'Engineering Technology, B.S.E.T.', 'General Engineering, B.S.E.',
       'Mechanical Engineering, B.S.M.E.', 'Nuclear Engineering, B.S.N.E.',

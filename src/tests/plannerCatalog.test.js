@@ -22,16 +22,21 @@ describe('plannerCodes', () => {
     { class_code: 'SCIENCE', is_pool: true },
     { class_code: 'CSC1300', is_pool: false },
   ]
-  it('names the fixed courses, every pool option, and the extras, once each', () => {
+  it('names the fixed courses, the options of the pools the plan has, and the extras, once each', () => {
     const codes = plannerCodes(slots, ['CSC9999'])
     expect(codes).toContain('CSC1300')
     expect(codes).toContain('CSC9999')
     expect(codes).not.toContain('SCIENCE')               // a pool code is not a course
     expect(codes.filter(c => c === 'CSC1300')).toHaveLength(1)
     for (const c of POOL_COURSES.SCIENCE) expect(codes).toContain(c)
+    // another pool's options are not loaded: every pool of every program would outgrow the Docker API's 1000-row cap
+    const onlyInMathStats = POOL_COURSES.MATH_STATS.filter(c => !POOL_COURSES.SCIENCE.includes(c) && c !== 'CSC1300')
+    expect(onlyInMathStats.length).toBeGreaterThan(0)
+    for (const c of onlyInMathStats) expect(codes).not.toContain(c)
   })
   it('tolerates a missing slot list', () => {
-    expect(plannerCodes(undefined)).toEqual(expect.arrayContaining(POOL_COURSES.MATH_STATS))
+    expect(plannerCodes(undefined)).toEqual([])
+    expect(plannerCodes(undefined, ['CSC9999'])).toEqual(['CSC9999'])
   })
 })
 
