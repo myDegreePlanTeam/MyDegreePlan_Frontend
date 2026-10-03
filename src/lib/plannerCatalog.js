@@ -18,7 +18,9 @@ import { selectWithOptional } from './dbErrors'
  */
 export function plannerCodes(slots, extraCodes = []) {
   const fixed = (slots ?? []).filter(s => !s.is_pool).map(s => s.class_code)
-  const pooled = Object.values(POOL_COURSES).filter(list => list !== null).flat()
+  // only the pools this plan has a slot for: every pool of every program would pass the Docker API's 1000-row cap as programs are added
+  const poolCodes = new Set((slots ?? []).filter(s => s.is_pool).map(s => s.class_code))
+  const pooled = [...poolCodes].flatMap(code => POOL_COURSES[code] ?? [])
   return [...new Set([...fixed, ...pooled, ...extraCodes])]
 }
 
