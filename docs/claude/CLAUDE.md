@@ -97,8 +97,11 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
   group by `major_name` under "Other programs". The start-term step then offers only the terms the chosen program has a plan for
   (`termChoices` in `catalogYears.js`; a program whose first plan is 2026-2027 has none for a returning student, and the step says
   so); a closed program (DSAI) is behind "Show closed programs" and offers its replacement. The math sequence step is shown only
-  when the plan includes Calculus I (`planHasMathChain`). The rollout of every Tennessee Tech major is `PLAN_all-majors.md`; every
-  program with a map is checked by `allMapsConformance.test.js`.
+  when the plan includes Calculus I (`planHasMathChain`), and the degree builder applies the math placement chain only to such a plan
+  (Business's MATH 1710 / 1530 are ordinary requirements). A program's first plan covers earlier entrants (`covers_earlier`); when that
+  plan is Flight Foundations the fit is **approximate** (`isApproximateFit`): onboarding says so before they continue and the plan view
+  carries a notice. A department map may print a semester up to 21 hours (`MAP_LOAD_MAX`, the overload ceiling) and still be used. The
+  rollout of every Tennessee Tech major is `PLAN_all-majors.md`; every program with a map is checked by `allMapsConformance.test.js`.
 - Flight Foundations plans replace the six `GEN_ED` slots with fixed `HIST2010` + `HIST2020` and the pools `FF_SOCIAL`
   ×2 and `FF_HUMANITIES` ×2 (HPC also `FF_LITERACY`). English Literature is **not** a separate Flight Foundations
   requirement, so `ENG_LIT` exists only in legacy plans. SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are
@@ -300,7 +303,9 @@ that section before changing the module. Rules that must hold even if you do not
   ```
 
   Wait about 150 ms between steps (`await new Promise(r => setTimeout(r, 150))`) so React re-renders. To start over, delete the
-  site's IndexedDB (`indexedDB.databases()` then `deleteDatabase`) and clear localStorage; screenshots worked on 2026-10-02 with the pane open.
+  site's IndexedDB (`indexedDB.databases()` then `deleteDatabase`) and clear localStorage, or use Settings, Erase data. **Close the other
+  tabs of that origin first**: a delete blocked by another open tab stays queued and every later open of that origin hangs on the loading
+  skeleton until that tab is closed (it cost a session on 2026-10-02). Screenshots worked with the pane open.
 - **Paths and the shell's working directory.** The Bash tool's working directory drifts after any `cd`, so a relative path or
   `git -C <relative folder>` from an earlier call fails ("cannot change to ..."). Use absolute paths
   (`/c/Users/brady/github/MDP/...`), or `cd` in the same command.
