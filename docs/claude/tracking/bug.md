@@ -1,7 +1,7 @@
 # MyDegreePlan — Live Bugs
 
 Bugs that are open now. Fixed, intentional and not-a-bug entries live in [`tracking/bug_archive.md`](./bug_archive.md); Grep it for `BUG-N` to find why
-something was changed. Bug numbers are never reused: **the next number is BUG-56.**
+something was changed. Bug numbers are never reused: **the next number is BUG-57.**
 
 **When you log a bug,** add an entry below in the shape of the one that is there (Severity, File(s), Description, Impact, Suspected fix,
 Confidence) and update the counts. **When you close one** (fixed, found intentional, or found not to be a bug), delete its entry here,

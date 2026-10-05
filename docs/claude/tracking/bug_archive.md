@@ -145,6 +145,15 @@ Cross-file consistency included.
 >   `planSlots`, and `creditsBeforeSemester` (used by both `DegreePlan` and `SlotModal`) counts every non-archived slot in an earlier semester whether or not
 >   the semester is marked complete. It reads no completion state, so the two paths cannot diverge.
 
+> **2026-10-05 update:** BUG-56 found and fixed in the same session on `fix/pdf-header-from-program`. BUG-56 (Medium): the Advisement PDF printed
+> `Degree: BS` and `MAJOR: Computer Science` for every program (constants in `planExportModel.js`) and put a stand-alone major's name in the Concentration row.
+> The Artificial Intelligence major (CSC department, selectable today) printed as a Computer Science major; any other department would have inherited the same
+> header once opened. Cause: the header was hardcoded, and the profile's joined program carried only `id, code, name, total_hours`. Fix: `programHeader()`
+> (`programBrowser.js`) reads degree, major and concentration from the program; `withProgramDetails()` (`programDetails.js`, through `selectWithOptional`)
+> completes the loaded profile's program, so an install without the columns prints a dash, never another program's value; the catalog year printed is the
+> plan the student follows (`profile.catalog_year`), not the one their start term implies; Settings' row says "Degree program" with the full path for a
+> major. Not changed: the change-program modal still lists every program under one "Change" button (the Change major / Change concentration split is a separate PR).
+
 ---
 
 ## Audit notes

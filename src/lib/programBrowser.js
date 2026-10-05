@@ -124,3 +124,16 @@ export function programPath(program, colleges = collegeList) {
   const major = program.major_name ?? null
   return [college?.short ?? null, major, program.name === major ? null : program.name].filter(Boolean).join(' › ')
 }
+
+/**
+ * The three facts a printed degree map states about a program: its degree ("B.S.M.E."), its major, and its concentration
+ * (only a concentration has one: a major that stands alone has none). A fact the row does not carry (an install whose
+ * schema predates the column) is null, so the page prints a dash and never another program's value.
+ */
+export function programHeader(program) {
+  return {
+    degree: program?.degree ?? null,
+    major: program?.major_name ?? null,
+    concentration: program?.kind === 'concentration' ? program.name ?? null : null,
+  }
+}

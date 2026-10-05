@@ -38,7 +38,7 @@ const SLOT_SCIENCE  = { id: 4, class_code: 'SCIENCE',  is_pool: true,  semester_
 const PROFILE = {
   start_season: 'Fall',
   start_year:   2026,
-  concentrations: { name: 'Data Science & AI', total_hours: 120 },
+  concentrations: { name: 'Data Science & AI', total_hours: 120, kind: 'concentration', degree: 'B.S.', major_name: 'Computer Science' },
 }
 
 const TERMS = {
@@ -376,10 +376,39 @@ describe('buildPlanExportModel — degree map', () => {
     const model = buildPlanExportModel(baseInput({
       profile: { ...PROFILE, act_composite: 33, act_english: 35, act_math: 32, act_reading: 33, act_science: 34 },
     }))
-    expect(model.degree).toBe('BS')
+    expect(model.degree).toBe('B.S.')
     expect(model.major).toBe('Computer Science')
+    expect(model.concentration).toBe('Data Science & AI')
     expect(model.catalogYear).toBe('2026-2027')
     expect(model.actScores).toEqual({ composite: 33, english: 35, math: 32, reading: 33, science: 34 })
+  })
+
+  it('prints the student\'s own program: the degree, major and concentration of an engineering concentration', () => {
+    const model = buildPlanExportModel(baseInput({
+      profile: { ...PROFILE, concentrations: { name: 'ME Aerospace', total_hours: 128, kind: 'concentration', degree: 'B.S.M.E.', major_name: 'Mechanical Engineering' } },
+    }))
+    expect([model.degree, model.major, model.concentration]).toEqual(['B.S.M.E.', 'Mechanical Engineering', 'ME Aerospace'])
+  })
+
+  it('leaves the concentration empty for a major that stands alone (the Artificial Intelligence major)', () => {
+    const model = buildPlanExportModel(baseInput({
+      profile: { ...PROFILE, concentrations: { name: 'Artificial Intelligence', total_hours: 120, kind: 'major', degree: 'B.S.', major_name: 'Artificial Intelligence' } },
+    }))
+    expect([model.degree, model.major, model.concentration]).toEqual(['B.S.', 'Artificial Intelligence', null])
+  })
+
+  it('never prints another program\'s values when the program row lacks the columns', () => {
+    const model = buildPlanExportModel(baseInput({ profile: { ...PROFILE, concentrations: { name: 'Core', total_hours: 120 } } }))
+    expect([model.degree, model.major, model.concentration]).toEqual([null, null, null])
+  })
+
+  it('prints the catalog year of the plan the student follows, not the one their start term implies', () => {
+    // a Fall 2024 start on a program whose first plan is 2026-2027 follows that plan
+    const followed = buildPlanExportModel(baseInput({ profile: { ...PROFILE, start_year: 2024, catalog_year: '2026-2027' } }))
+    expect(followed.catalogYear).toBe('2026-2027')
+    // a profile saved before catalog years has only its start term
+    const older = buildPlanExportModel(baseInput({ profile: { ...PROFILE, start_year: 2024 } }))
+    expect(older.catalogYear).toBe('2024-2025')
   })
 
   it('leaves ACT scores null when the student never entered them', () => {

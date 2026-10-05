@@ -7,7 +7,7 @@ import {
   academicYearOf, availablePrograms, catalogYearForProfile, degreeTitle, groupByMajor, planForYear,
 } from '../../lib/catalogYears'
 import { selectWithOptional } from '../../lib/dbErrors'
-import { COMING_SOON, groupByCollege, isProgramReady, searchPrograms } from '../../lib/programBrowser'
+import { COMING_SOON, groupByCollege, isProgramReady, programPath, searchPrograms } from '../../lib/programBrowser'
 import DeviceDataCard from './DeviceDataCard'
 
 export default function SettingsView({
@@ -35,9 +35,9 @@ export default function SettingsView({
         </button>
         <div className="ds-setting">
           <span className="ds-setting-text">
-            <span className="ds-setting-label">Concentration</span>
+            <span className="ds-setting-label">{profile.concentrations.kind === 'concentration' ? 'Concentration' : 'Degree program'}</span>
             <span className="ds-setting-desc">
-              Currently {profile.concentrations.name}. Switching clears your course selections; prior credits and ACT scores are kept.
+              Currently {programPath(profile.concentrations)}. Switching clears your course selections; prior credits and ACT scores are kept.
             </span>
           </span>
           <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenConcentration}>

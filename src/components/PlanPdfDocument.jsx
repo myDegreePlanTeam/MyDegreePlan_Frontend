@@ -471,7 +471,7 @@ export default function PlanPdfDocument({ model }) {
             ['CATALOG YEAR', model.catalogYear],
             ['Degree',       model.degree],
             ['MAJOR',        model.major],
-            ['Concentration', model.concentrationName],
+            ['Concentration', model.concentration],
           ].map(([label, value]) => (
             <Text key={label} style={styles.degreeItem}>
               <Text style={styles.degreeLabel}>{label}: </Text>

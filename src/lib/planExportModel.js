@@ -13,12 +13,7 @@
 
 import { POOL_COURSES, POOL_LABELS, SCIENCE_SEQUENCES } from './poolResolver'
 import { formatTermLabel } from './semesterTerms'
-
-// Only CSC-department programs can be chosen for now; see "Opening the other majors to students" in docs/claude/ROADMAP.md.
-// These print in the degree-map header and move into the concentration row
-// if another department is ever added.
-const DEGREE = 'BS'
-const MAJOR  = 'Computer Science'
+import { programHeader } from './programBrowser'
 
 // Year bands on the degree map. Semesters are paired in plan order, so a plan
 // longer than eight semesters (or one with a summer term) keeps going with
@@ -260,6 +255,8 @@ export function buildPlanExportModel({
     })
   }
 
+  const header = programHeader(profile?.concentrations)
+
   const startLabel = profile?.start_season && profile?.start_year
     ? `${profile.start_season} ${profile.start_year}`
     : null
@@ -281,9 +278,11 @@ export function buildPlanExportModel({
   return {
     concentrationName: profile?.concentrations?.name ?? null,
     totalHours:        profile?.concentrations?.total_hours ?? null,
-    degree:            DEGREE,
-    major:             MAJOR,
-    catalogYear:       deriveCatalogYear(profile?.start_season, profile?.start_year),
+    degree:            header.degree,
+    major:             header.major,
+    concentration:     header.concentration,
+    // the plan the student follows (stored at onboarding); a profile saved before catalog years has only its start term
+    catalogYear:       profile?.catalog_year ?? deriveCatalogYear(profile?.start_season, profile?.start_year),
     startLabel,
     graduationLabel:   formatTermLabel(graduation) ?? null,
     generatedOn:       formatLongDate(generatedAt),

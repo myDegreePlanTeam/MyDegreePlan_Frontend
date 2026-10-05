@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { db } from '../lib/dataClient'
 import { isMissingProgramColumn } from '../lib/requirementSlots'
+import { withProgramDetails } from '../lib/programDetails'
 import Onboarding from '../components/Onboarding'
 import DegreePlan from '../components/DegreePlan'
 import { OnboardingSkeleton } from '../components/Skeletons'
@@ -99,13 +100,14 @@ export default function Dashboard() {
             if (insertError) {
             setError(insertError.message)
             } else {
-            setProfile(newProfile)
+            setProfile(await withProgramDetails(db, newProfile))
             }
         }
         } else if (error) {
         if (!cancelled) setError(error.message)
         } else {
-        if (!cancelled) setProfile(data)
+        const detailed = await withProgramDetails(db, data)
+        if (!cancelled) setProfile(detailed)
         }
 
         if (!cancelled) setLoading(false)
