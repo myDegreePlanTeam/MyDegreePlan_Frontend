@@ -2,7 +2,7 @@
 
 > Aspirational and deferred work for the prototype. Items here are **not** in scope
 > for current sessions unless explicitly pulled in. If a task below becomes active,
-> move it out of this file and into a branch context doc.
+> move it out of this file and into the PR that starts it.
 >
 > Keep this file honest: when something ships, delete the entry. When a goal is
 > abandoned, delete the entry. No tombstones, no "completed" sections.
@@ -17,7 +17,9 @@ chosen: every other program is grayed out and tagged "Coming soon" in the onboar
 plans are generated from Coursedog maps and not yet reviewed (decisions still `assumed`, hours short on 34 plans). The gate is
 `READY_DEPARTMENTS` in `src/lib/programBrowser.js`; it only hides the choice, so a saved plan or an imported backup on any program still loads.
 To open a department: have it confirm the questions in the manifest's `decisions` (see "Department confirmations" below), check its maps against
-`allMapsConformance.test.js`, then add its code to `READY_DEPARTMENTS` and update the test in `programBrowser.test.js` that pins the ready list.
+`allMapsConformance.test.js`, add the department's fall-only and spring-only courses to `FALL_ONLY` / `SPRING_ONLY` in `semesterRestrictions.js` (they name
+only CSC and AI courses today, so no other program has a season rule: its offerings are not checked and a fall-only course can sit in a spring
+semester), then add its code to `READY_DEPARTMENTS` and update the test in `programBrowser.test.js` that pins the ready list.
 
 ### After every major: what is left of "all programs"
 Every undergraduate program with a Coursedog degree map is in the app (v0.4.0, 2026-10-03: 176 programs, 179 plans) except the Accelerated B.S.N.
@@ -71,7 +73,7 @@ A per-course toggle would need a new column on `student_plan_slots` (likely
 the existing prior-credit archiving flow or the "grid shows only what's left" principle.
 
 ### Plan history / versioning
-Let students snapshot a plan before major edits and restore it. Likely a
+Also a change history and a timeline of completed semesters. Let students snapshot a plan before major edits and restore it. Likely a
 `student_plan_snapshots` table keyed by `profile_id + created_at` with a JSONB blob of
 `student_plan_slots` + `student_free_add_slots` + `prior_credits` state.
 
@@ -116,7 +118,7 @@ captures a list of rule-typed entries, persists them per student, and
 reads/writes to a new `student_rules` table. Application of the rules to
 plan-modification actions can be staged after the data shape is in place.
 Couples to a summer-semester opt-in toggle, which belongs in this sidebar: season-aware
-terms and the Add Semester wizard shipped, the opt-in did not (see `feat/rules-filter-sidebar` in `tracking/BRANCH_QUEUE.md`).
+terms and the Add Semester wizard shipped, the opt-in did not.
 
 ### Class exemption / advisor-approval gating
 Some courses require advisor or instructor consent before a student can enroll.
@@ -128,6 +130,38 @@ prototype-grade gate would: (1) flag approval-required courses (data column on
 approval workflow (advisor sign-off, audit trail, exemption tokens) is
 deferred — this is the visible-cue version only.
 
+### Semester completion as a three-way control
+Today completion is semester-level only and only collapses the card (`student_semester_notes.completed_by_student`; it counts for nothing else, and
+standing reads slot positions, not completion). A fuller version: a three-way control at the top of each semester card (replacing the per-course
+planned / in-progress / completed badges); marking a semester complete also completes every earlier one and adds its hours to the header total;
+completed semesters leave the active grid and roll into Prior Coursework as a "Completed semesters" group; one click undoes a mis-click. Needs a
+product call on which per-course signals the control replaces, and a new entry shape on `prior_credits` or a parallel table. Completed semesters
+would then have to pre-qualify prerequisites the way AP and transfer credit does (the earlier-semesters-only rule stays).
+
+### Grid redesign: what is left
+The desktop app shell (Plan / Issues / Advisement / Settings tabs), paired semester cards and a drag-conflict modal shipped in September; the
+original redesign list was not re-checked against them. From it: a tab structure with a read-only Plan beside a What-If grid; mobile tap-to-move and
+a bottom drawer for Prior Coursework; a persistent right sidebar for Prior Coursework on desktop; a hard block on an invalid drag with an override
+dialog and a persistent flag; dashed, italic placeholders for pool slots; purple for progress and gold for prerequisite warnings only. Reference: the
+Claude Design mockup (`first_prototype.png`, not in the repo).
+
+### What-if planning and a recommendation engine
+Beyond saving a plan snapshot (see "Plan history / versioning"): compare other programs, double majors and minors side by side (see "A try three
+majors view" above), and plan summer classes. A naive recommendation engine would generate the shortest valid plan from prior credits and the
+program's plan, and be improved after launch; the rules sidebar above is its input.
+
+### Advisor view
+Read and write access to student plans for Tennessee Tech advisors. Needs the university's backing and real authentication and row-level security
+work. Not the student-facing Advisement tab (an in-page preview of the degree map PDF).
+
+### Transferable-course database
+Transfer, Dual Credit and Dual Enrollment entry in the prior-credit wizard is disabled ("Coming soon") since the April interim fix, waiting for a
+list of courses that transfer. The wizard still carries the code for transfer entry (course search, catalog validation). The catalog now holds the
+full Tennessee Tech course list, so check whether that is enough before building anything; this is BUG-22 in `tracking/bug.md`.
+
+### App icon
+`public/favicon.svg` is still the Vite default from the initial commit. No design asset exists; one must be created or sourced first.
+
 ---
 
 ## Infrastructure
@@ -137,6 +171,20 @@ Everything is plain JS today. A migration would start with `src/lib/` (pure logi
 highest test coverage, clearest contracts) and work outward to components. Not blocking
 anything, but the `checkPrereqs` / `checkCoreqs` / `resolveTransferCredits` signatures
 would benefit from being enforced at compile time given how strict the invariants are.
+
+### Legacy data files in the Prototype
+`MyDegreePlan_Prototype/coursesFile.json` (about 30,000 lines) and `degrees.json` are read by no script, test or build step (checked 2026-10-05):
+the catalog comes from `courses.json` and `degree_plans.json`, and `seed.js` and `build:catalog` do not read them. Decide whether to delete them.
+Until then, editing either changes nothing in the app.
+
+### Manual checks never recorded as run
+Listed before their branches merged; nothing in the repo shows they were run. The degree builder changed since (a standard student now gets the
+department's map), so the placement items may no longer apply as written.
+- Local-first backend (Frontend #5): onboard on a real phone, reload, confirm the plan persists; export on one device and import on another.
+- Placement stack (merged 2026-09-11): a DSAI plan at ACT 30 has MATH_STATS before CSC3220 / CSC4220; at ACT Math 27 MATH2010 and CSC2700 land
+  after MATH1906, and PHYS2110 / MATH3470 show the "MATH1920 isn't in your plan" note until MATH1920 is added; Reset Plan at ACT Math 30 puts the
+  SCIENCE pair in the first three semesters, COMM_REQ in the first and no semester above 18 credits; a student with AP English Language and AP
+  credit for ENG_LIT plus four GEN_EDs sees every covered slot in Prior Coursework on first load, with no semester holes.
 
 ---
 

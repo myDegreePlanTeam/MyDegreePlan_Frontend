@@ -74,12 +74,15 @@ on a synthetic mismatch. No CSC slot or map semester changes.
 - **ME 4140 Robotics** needs ECE 3260 in the catalog, but the map offers ECE 3260 only in the semester after it.
 - Earlier catalog years: only 2026-2027 maps exist, so no engineering program is offered to a student who entered before Fall 2026.
 
-## Noticed in the app, not changed
+## Noticed in the app, not changed (triaged 2026-10-05)
 
-- Onboarding step 4 ("Your Math Sequence") always appends the CSC statistics fork (MATH 3070/3470) and, for Nuclear Engineering,
-  lists MATH 2010 (not on its map); it omits MATH 2110/2120.
-- Wording such as "Choose your concentration" is generic, but Mechanical Engineering's base program is a *major*, not a concentration.
-- `semesterRestrictions.js` lists term rules only for CSC and AI courses. The engineering PDFs print no offering terms, so nothing is checked for them; a course that is genuinely fall-only in engineering would not be enforced until its term is recorded.
+- Onboarding step 4 ("Your Math Sequence") appends the CSC statistics fork (MATH 3070/3470) to every chain and builds the chain from fixed tables, so
+  Nuclear Engineering listed MATH 2010 (not on its map) and omitted MATH 2110/2120. Still true in the code (read, not re-run since the program-first
+  onboarding): logged as BUG-55 in `tracking/bug.md`.
+- Wording such as "Choose your concentration" for Mechanical Engineering, whose base program is a major: fixed. The program picker says "Concentration
+  (optional)" for a major that has a base program, and Settings says "program" for a major.
+- `semesterRestrictions.js` lists term rules only for CSC and AI courses, so nothing is checked for the engineering programs: now a step in
+  "Opening the other majors to students" in `ROADMAP.md`.
 
 ## Not tested
 
