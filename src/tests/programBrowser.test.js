@@ -258,16 +258,18 @@ describe('the generated college list and the real programs', () => {
 })
 
 describe('isProgramReady', () => {
-  it('opens only the Computer Science department until the other majors are finished', () => {
+  it('opens only the Computer Science department, and the majors named one by one, until the other majors are finished', () => {
     expect(world.filter(isProgramReady).map(p => p.code)).toEqual(['core', 'cyber', 'hpc'])
     expect(isProgramReady(null)).toBe(false)
+    expect(isProgramReady({ department: 'MNE', major_code: 'mechanical_engineering' })).toBe(true)
+    expect(isProgramReady({ department: 'MNE', major_code: 'nuclear_engineering' })).toBe(false)
   })
 
-  it('covers every program the CSC department publishes, the AI major included, and nothing from another department', () => {
+  it('covers every program the CSC department publishes (the AI major included) and Mechanical Engineering with its concentrations, and nothing else', () => {
     const programs = catalog.tables.concentrations
     const ready = programs.filter(isProgramReady).map(p => p.code).sort()
-    expect(ready).toEqual(['ai', 'core', 'cybersecurity', 'dsai', 'hpc'])
-    expect(programs.filter(p => !isProgramReady(p)).every(p => p.department !== 'CSC')).toBe(true)
+    expect(ready).toEqual(['ai', 'core', 'cybersecurity', 'dsai', 'hpc', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle'])
+    expect(programs.filter(p => !isProgramReady(p)).every(p => p.department !== 'CSC' && p.major_code !== 'mechanical_engineering')).toBe(true)
   })
 })
 
