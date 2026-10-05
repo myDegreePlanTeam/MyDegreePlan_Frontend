@@ -297,8 +297,8 @@ category exists and is active in the seeded catalog, and a template invariant te
   gen-ed program columns, `flightFoundations.js` / `requirementSlots.js`, the new templates and migration
   tier 21 (next is 22); the ROADMAP gen-ed item was rewritten. The workspace-root CLAUDE.md is outside any
   git repo, so it is edited in place and not versioned.
-- `plans/SCHEMA_PLAN_dynamic-degree-construction.md` Q8 (GEN_ED sub-requirement enforcement in the
-  builder) is now answered: enforce by category.
+- Q8 of the earlier dynamic-degree-construction schema plan (GEN_ED sub-requirement enforcement in the
+  builder; that plan was deleted on 2026-10-05, git history has it) is now answered: enforce by category.
 - `MyDegreePlan_Site` / `local-deploy`: any copy that describes the legacy program or the wrong
   university should change (the site memory says no Tennessee Tech branding there — confirm
   that still holds; naming "Flight Foundations" is factual, not branding).
