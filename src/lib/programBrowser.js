@@ -20,10 +20,13 @@ const byName = (a, b) => a.name.localeCompare(b.name)
 // Only these departments' programs can be chosen for now: every other major has room in the data but its plan is not
 // finished, and a student must not be handed a broken degree. Add a department here when its plans are ready.
 export const READY_DEPARTMENTS = ['CSC']
+// A major opened ahead of the rest of its department (by `major_code`, with its concentrations): Mechanical Engineering is
+// with a department advisor for testing, and its department (MNE) also holds Nuclear Engineering, which is not.
+export const READY_MAJORS = ['mechanical_engineering']
 export const COMING_SOON = 'Coming soon'
 
-/** Whether a student may choose this program yet (see READY_DEPARTMENTS). */
-export const isProgramReady = p => READY_DEPARTMENTS.includes(p?.department)
+/** Whether a student may choose this program yet (see READY_DEPARTMENTS and READY_MAJORS). */
+export const isProgramReady = p => READY_DEPARTMENTS.includes(p?.department) || READY_MAJORS.includes(p?.major_code)
 
 /** The major a program belongs to: its code, else its name (an older database has only `major_name`). */
 export const majorKeyOf = p => p.major_code ?? slug(p.major_name ?? p.name)

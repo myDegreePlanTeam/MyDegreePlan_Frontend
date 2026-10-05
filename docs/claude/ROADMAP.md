@@ -16,6 +16,9 @@ The app holds 176 programs, but only the Computer Science department's (`CSC`: t
 chosen: every other program is grayed out and tagged "Coming soon" in the onboarding picker and Settings' change-program modal, because those
 plans are generated from Coursedog maps and not yet reviewed (decisions still `assumed`, hours short on 34 plans). The gate is
 `READY_DEPARTMENTS` in `src/lib/programBrowser.js`; it only hides the choice, so a saved plan or an imported backup on any program still loads.
+One major can be opened ahead of its department through `READY_MAJORS` (by `major_code`): Mechanical Engineering and its three concentrations were opened
+that way on 2026-10-05 for testing by a department advisor, with `MNE`'s other major, Nuclear Engineering, still closed. Its caveats are the ones below
+(season rules unchecked, decisions still `assumed`), plus BUG-55 (the onboarding math step).
 To open a department: have it confirm the questions in the manifest's `decisions` (see "Department confirmations" below), check its maps against
 `allMapsConformance.test.js`, add the department's fall-only and spring-only courses to `FALL_ONLY` / `SPRING_ONLY` in `semesterRestrictions.js` (they name
 only CSC and AI courses today, so no other program has a season rule: its offerings are not checked and a fall-only course can sit in a spring
