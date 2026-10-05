@@ -3,7 +3,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import catalog from '../data/catalog.json'
 import colleges from '../data/colleges.json'
-import { groupByCollege, isProgramReady, majorKeyOf, programPath, searchPrograms, termUnavailableNote, OTHER_COLLEGE } from '../lib/programBrowser'
+import { groupByCollege, isProgramReady, majorKeyOf, programHeader, programPath, searchPrograms, termUnavailableNote, OTHER_COLLEGE } from '../lib/programBrowser'
+import { PROGRAM_DETAIL_COLUMNS, withProgramDetails } from '../lib/programDetails'
+import { createLocalClient } from '../lib/data/localClient'
+import { createMemoryStorage } from '../lib/data/storage'
+import descriptions from '../data/catalog.descriptions.json'
 
 // Programs as the picker gets them: concentrations rows. A small world with two colleges, a major whose concentrations are all
 // required (Biology), a major with a base program and optional concentrations (Computer Science), and one with neither.
@@ -16,6 +20,52 @@ const world = [
   { id: 6, code: 'hist_ba', name: 'History', major_name: 'History', degree: 'B.A.', department: 'HIST', college: 'cas', major_code: 'history_ba', is_base: true, aliases: null },
   { id: 7, code: 'hist_bs', name: 'History', major_name: 'History', degree: 'B.S.', department: 'HIST', college: 'cas', major_code: 'history_bs', is_base: true, aliases: null },
 ]
+
+describe('programHeader', () => {
+  it('names the degree, major and (for a concentration) the concentration', () => {
+    expect(programHeader({ ...world[1], kind: 'concentration' })).toEqual({ degree: 'B.S.', major: 'Computer Science', concentration: 'CSC Cybersecurity' })
+  })
+  it('has no concentration for a program that is a major, and nothing for a program without the columns', () => {
+    expect(programHeader({ name: 'Nuclear Engineering', kind: 'major', degree: 'B.S.N.E.', major_name: 'Nuclear Engineering' }).concentration).toBeNull()
+    expect(programHeader({ name: 'Core' })).toEqual({ degree: null, major: null, concentration: null })
+    expect(programHeader(null)).toEqual({ degree: null, major: null, concentration: null })
+  })
+  it('reads every real program: a major is never printed as its own concentration', () => {
+    for (const p of catalog.tables.concentrations) {
+      const h = programHeader(p)
+      expect(h.major, p.code).toBeTruthy()
+      expect(h.degree, p.code).toBeTruthy()
+      expect(h.concentration === null, p.code).toBe(p.kind !== 'concentration')
+    }
+  })
+})
+
+describe('withProgramDetails', () => {
+  const client = () => createLocalClient({ loadCatalog: async () => structuredClone(catalog), loadDescriptions: async () => descriptions, storage: createMemoryStorage() })
+  const joined = { id: 6, concentration_id: 6, concentrations: { id: 6, code: 'me', name: 'Mechanical Engineering', total_hours: 128 } }
+
+  it('completes the program the profile loaded with only id, code, name and hours', async () => {
+    const out = await withProgramDetails(client(), joined)
+    expect(out.concentrations).toMatchObject({ id: 6, name: 'Mechanical Engineering', total_hours: 128, kind: 'major', degree: 'B.S.M.E.', major_name: 'Mechanical Engineering', college: 'engineering' })
+    expect(PROGRAM_DETAIL_COLUMNS.every(c => c in out.concentrations)).toBe(true)
+    expect(out.id).toBe(6)
+  })
+  it('leaves the profile as it was when the read fails or the program is unknown', async () => {
+    const failing = { from: () => { throw new Error('offline') } }
+    expect(await withProgramDetails(failing, joined)).toBe(joined)
+    expect(await withProgramDetails(client(), { id: 1, concentrations: { id: 99999, name: 'x' } })).toEqual({ id: 1, concentrations: { id: 99999, name: 'x' } })
+    expect(await withProgramDetails(client(), null)).toBeNull()
+  })
+  it('drops a column the database does not have and keeps the rest', async () => {
+    const rows = [{ id: 6, kind: 'major', degree: 'B.S.M.E.', major_name: 'Mechanical Engineering' }]
+    const old = { from: () => ({ select: cols => ({ eq: async () => (/\bcollege\b/.test(cols)
+      ? { data: null, error: { code: '42703', message: 'column concentrations.college does not exist' } }
+      : { data: rows, error: null }) }) }) }
+    const out = await withProgramDetails(old, joined)
+    expect(out.concentrations.degree).toBe('B.S.M.E.')
+    expect('college' in out.concentrations).toBe(false)
+  })
+})
 
 describe('groupByCollege', () => {
   const tree = groupByCollege(world)
