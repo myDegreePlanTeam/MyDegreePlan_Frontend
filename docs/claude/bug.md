@@ -122,84 +122,9 @@
 |---|---|
 | Critical | 0  |
 | High     | 1  |
-| Medium   | 3  |
-| Low      | 3  |
-| **Total** | **7** |
-
----
-
-### BUG-9: `computePlanCredits` dedup key collides on repeated pool pool_codes
-
-**Severity:** Medium
-**File(s):** `src/lib/transferCredits.js:196-211`
-
-**Description:** Pass 2 iterates `slots`; for a non-pool slot it uses `code = slot.class_code`. Templates never repeat non-pool `class_code`s, so that path is safe. But for pool slots, the `code` is the course the student picked — different slots should be independent. That's fine. The subtle case: for an *unfilled* pool slot the function `continue`s (line 202), so no dedup key is set — correct. For a *filled* pool slot, if two pool slots in different semesters happen to select the same course (which is disallowed by `takenCodes`, but the validation is UI-only), the second one is silently dropped from the breakdown.
-
-**Impact:** If `takenCodes` enforcement ever fails (see BUG-2 and the stale satisfiedCodes/takenCodes patterns in `SlotModal`), or if two pool slots somehow resolve to the same course via drag-and-drop, credit totals undercount by the shared course's credits rather than double-counting. Behavior is arguably correct (dedup semantics), but it masks a data-integrity problem upstream rather than surfacing it.
-
-**Suspected fix:** Intentional per spec; no fix required — but flag duplicate pool selections at save time and reject them at the UI layer.
-
-**Confidence:** Medium
-
----
-
-### BUG-14: `computePlanCredits` allows flex pool slots to claim the configured `flex_credits` even when the selected pool course has a different catalog `credits`
-
-**Severity:** Medium
-**File(s):** `src/lib/transferCredits.js:200-207`
-
-**Description:** For a pool slot the function computes `credits = (courses ?? {})[code]?.credits ?? slot.flex_credits ?? 3`. If the catalog course exists, catalog wins (correct). If not (course missing from catalog), it falls back to `flex_credits ?? 3`. In well-seeded environments, every pool member is in the catalog, so `flex_credits` is rarely used. But `FREE_ELECTIVE` slots that bank leftover hours rely on `flex_credits` exclusively when the course is not in the catalog. Meanwhile `usePlanCompleteness` counts unfilled `FREE_ELECTIVE` slots as filled (documented TODO), so the credit number reflects "planned" hours, not "earned" hours.
-
-**Impact:** Total-earned and total-planned are conflated for free-elective slots. The completeness guard masks a conceptual gap until a proper free-elective resolver lands.
-
-**Suspected fix:** Distinguish earned vs planned in `computePlanCredits`, or explicitly gate `FREE_ELECTIVE` slots out of "earned" totals until a student fills them.
-
-**Confidence:** Medium
-
----
-
-### BUG-15: `test_equivalencies.test_type` CHECK constraint still lists `'dual_enrollment'` after Tier 11
-
-**Severity:** Low
-**File(s):** `MyDegreePlan_Prototype/migration_tier11.sql:19-23`
-
-**Description:** Tier 11 explicitly states: *"the test_equivalencies.test_type CHECK constraint (which still lists 'dual_enrollment' from Tier 10) is intentionally NOT updated here. Removing the rows is sufficient"*. `CLAUDE.md` (this project's canonical schema doc) lists `test_equivalencies.test_type` as `ap_credit | test_out | ib_credit | cambridge | act_credit` — excluding `dual_enrollment`. The migration's behavior contradicts the spec doc.
-
-**Impact:** Schema is technically wider than documented; a direct INSERT of a dual_enrollment row would not be rejected by the DB. No frontend code issues such an INSERT today, so the risk is latent.
-
-**Suspected fix:** Either add a constraint tightening to a future migration, or update CLAUDE.md to match the actual constraint.
-
-**Confidence:** High
-
----
-
-### BUG-16: Placement-tests fixtures use the removed `'dual_enrollment'` credit_type
-
-**Severity:** Low
-**File(s):** `src/tests/prereqCheckerPlacement.test.js` (per earlier summary; lines ~126, ~143)
-
-**Description:** Two fixtures still use `credit_type: 'dual_enrollment'`. Tier 11 removed that value from the `prior_credits.credit_type` CHECK constraint and deleted any matching rows. `checkPrereqs` does not read `credit_type`, only `satisfies_course_code`, so tests still pass — but the fixtures represent schema state that no longer exists.
-
-**Impact:** Tests pass under false assumptions; a future contributor copying the fixture pattern will produce code that violates the live DB constraint.
-
-**Suspected fix:** Update fixtures to use `'transfer_credit'` or another still-valid value. No behavior change expected.
-
-**Confidence:** High
-
----
-
-### BUG-19: `classifyPrereq` accepts a `prereqCode` parameter it never uses
-
-**Severity:** Low
-**File(s):** `src/lib/classifyPrereq.js:37-56`
-
-**Description:** The function signature is `classifyPrereq(courseCode, prereqCode, courseMap)`; the parameter is explicitly reserved for future use. `prereqChecker.js` already passes `null` in its only call site. Not a bug — a documented API debt — but means every caller (tests and code) carries a dead parameter. Deferred per `CLAUDE.md` principles.
-
-**Impact:** None at runtime. Minor API clutter.
-
-**Suspected fix:** Either begin using `prereqCode` for per-edge classification (not deferred work today) or drop the parameter when the feature is declared out of scope permanently.
-
-**Confidence:** High
+| Medium   | 0  |
+| Low      | 0  |
+| **Total** | **1** |
 
 ---
 
@@ -211,6 +136,12 @@
 
 **Severity:** High
 **File(s):** `src/components/PriorCreditWizard.jsx`, `src/components/Onboarding.jsx`
+
+**Status (2026-10-05):** Partly addressed. Onboarding now asks the student type (incoming freshman or returning), and the wizard carries the code for transfer
+entry (hidden from incoming freshmen, a course search, catalog validation). But the Transfer Credit, Dual Credit and Dual Enrollment buttons are still
+`disabled` ("Coming soon") in `CREDIT_TYPES`, so no student can reach it: the interim grey-out from BUG-26, which waited on a transferable-course database
+(`data/transferable-course-database` in `BRANCH_QUEUE.md`). The catalog now holds the full Tennessee Tech course list, so whether that blocker still applies is the first thing to check. The original
+description below is the April state.
 
 **Description:** The "Any prior credits or placement scores?" onboarding step surfaces only AP/IB/ACT/placement-style credits — the kinds relevant to Semester 1 course placement. It does not support full prior coursework onboarding for transfer students, continuing students, or dual-enrollment students who may have completed 30–60 credits before arriving. A transfer student using the wizard has no path to enter their completed coursework except manually after onboarding, one entry at a time, through the Prior Coursework panel.
 
@@ -229,34 +160,25 @@
 
 ---
 
-### BUG-33: Manual semester completion credits not counted toward standing thresholds in SlotModal
-
-**Severity:** Medium
-**File(s):** `src/components/SlotModal.jsx` (`creditsBefore`), `src/components/DegreePlan.jsx` (manual completion path)
-
-**Description:** `creditsBefore` in `SlotModal` now correctly counts prior credits
-(AP, transfer, etc.) toward junior/senior standing thresholds after the BUG-5 fix.
-However, credits from manually completed semesters (`completed_by_student = true` on
-`student_semester_notes`) are not counted the same way. A student who marks 60+ credits
-complete in the grid does not see the junior standing threshold clear in the modal —
-the two paths feed different calculations.
-
-**Impact:** Students with manually completed semesters see incorrect standing
-requirements in slot modals. Inconsistent with the prior-credits path which now
-works correctly after BUG-5.
-
-**Suspected fix:** Include credits from completed semesters in the `creditsBefore`
-sum, consistent with how `computePlanCredits` handles completion state. Coordinate
-with the mark-complete behavior fix (Phase 2, `fix/mark-complete-behavior`) since
-that branch will overhaul how completion credits are tracked.
-
-**Confidence:** High
-
----
-
 > **2026-05-07 update:** BUG-46 (heavy-load threshold) and BUG-47 (prior credits deleted on
 > concentration switch) fixed in `fix/credits-and-concentration`. Entries removed below;
 > severity counts updated (High 2→1, Low 4→3, Total 9→7).
+
+---
+
+> **2026-10-05 triage:** the remaining six entries were checked against the code and removed; counts are now High 1, Total 1.
+> - **BUG-9** (dedup key on repeated pool codes): intentional. A course counts once (`CLAUDE.md`, `computePlanCredits`), and the pickers already refuse a code in
+>   `getTakenCodes` (BUG-34), so the silent drop it feared is guarded upstream.
+> - **BUG-14** (earned versus planned hours): `DegreePlan`'s `creditTotals` already splits `computePlanCredits`'s breakdown into completed and planned by status,
+>   unfilled pool slots are not counted, and the catalog is complete, so the `flex_credits` fallback is rarely reached. The `FREE_ELECTIVE` TODO it cited sits in
+>   `usePlanCompleteness`, which nothing calls.
+> - **BUG-15** (CHECK constraint kept `dual_enrollment`): fixed. `000_baseline.sql` lists `ap_credit`, `test_out`, `ib_credit`, `cambridge`, `act_credit` and
+>   `act_placement` for `test_equivalencies.test_type`, and the `prior_credits` constraint has no `dual_enrollment` either.
+> - **BUG-16** (fixtures used `dual_enrollment`): fixed in `prereqCheckerPlacement.test.js`.
+> - **BUG-19** (`classifyPrereq`'s unused `prereqCode`): not a bug; `CLAUDE.md` says to keep it on purpose.
+> - **BUG-33** (manual completion not counted toward standing): not reproducible by design. Completing a semester only collapses its card; its slots stay in
+>   `planSlots`, and `creditsBeforeSemester` (used by both `DegreePlan` and `SlotModal`) counts every non-archived slot in an earlier semester whether or not
+>   the semester is marked complete. It reads no completion state, so the two paths cannot diverge.
 
 ---
 
