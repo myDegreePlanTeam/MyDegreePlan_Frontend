@@ -121,9 +121,9 @@ describe('checkPrereqs — priorCredits satisfies prereqs', () => {
     expect(result.missing).toContain('MATH1730')
   })
 
-  it('prior credit via dual enrollment satisfies an AND prereq', () => {
+  it('prior credit via transfer credit satisfies an AND prereq', () => {
     const priorCredits = [
-      { satisfies_course_code: 'CSC2100', credits_awarded: 3, credit_type: 'dual_enrollment' },
+      { satisfies_course_code: 'CSC2100', credits_awarded: 3, credit_type: 'transfer_credit' },
     ]
     // OR group still unmet — only AND group covered
     const result = checkPrereqs(
@@ -140,7 +140,7 @@ describe('checkPrereqs — priorCredits satisfies prereqs', () => {
 
   it('multiple prior credits together satisfy all groups', () => {
     const priorCredits = [
-      { satisfies_course_code: 'CSC2100', credits_awarded: 3, credit_type: 'dual_enrollment' },
+      { satisfies_course_code: 'CSC2100', credits_awarded: 3, credit_type: 'ap_credit' },
       { satisfies_course_code: 'CSC2570', credits_awarded: 3, credit_type: 'transfer_credit' },
     ]
     const result = checkPrereqs(
