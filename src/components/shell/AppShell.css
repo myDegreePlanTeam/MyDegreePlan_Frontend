@@ -626,6 +626,7 @@ button.ds-setting:hover { background: var(--ds-hover); }
   background: transparent; cursor: pointer; color: var(--text); text-align: left;
 }
 .ds-option:hover { background: var(--bg-light); }
+.ds-option:disabled { opacity: .45; cursor: not-allowed; background: none; }
 .ds-option-selected { background: rgba(var(--gold-rgb), .1); }
 .ds-option-mark { font-size: 12px; flex-shrink: 0; color: var(--text-muted); }
 .ds-option-selected .ds-option-mark { color: var(--gold); }

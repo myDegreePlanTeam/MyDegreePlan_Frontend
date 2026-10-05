@@ -7,7 +7,7 @@ import {
   academicYearOf, availablePrograms, catalogYearForProfile, degreeTitle, groupByMajor, planForYear,
 } from '../../lib/catalogYears'
 import { selectWithOptional } from '../../lib/dbErrors'
-import { groupByCollege, searchPrograms } from '../../lib/programBrowser'
+import { COMING_SOON, groupByCollege, isProgramReady, searchPrograms } from '../../lib/programBrowser'
 import DeviceDataCard from './DeviceDataCard'
 
 export default function SettingsView({
@@ -249,6 +249,7 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
                         <button
                           key={c.id}
                           className={`ds-option${selected?.id === c.id ? ' ds-option-selected' : ''}`}
+                          disabled={!isProgramReady(c) && c.id !== currentId}
                           onClick={() => setSelected(c)}
                         >
                           <span className="ds-option-mark" aria-hidden="true">{selected?.id === c.id ? '●' : '○'}</span>
@@ -256,7 +257,7 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
                             <span className="ds-setting-label">{c.name}</span>
                           </span>
                           <span className="ds-option-meta">
-                            {c.id === currentId ? 'current' : `${c.total_hours} hrs`}
+                            {c.id === currentId ? 'current' : isProgramReady(c) ? `${c.total_hours} hrs` : COMING_SOON}
                           </span>
                         </button>
                       ))}

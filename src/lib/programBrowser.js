@@ -17,6 +17,14 @@ export const OTHER_COLLEGE = { code: 'other', name: 'Other programs', short: 'Ot
 const slug = text => String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
 const byName = (a, b) => a.name.localeCompare(b.name)
 
+// Only these departments' programs can be chosen for now: every other major has room in the data but its plan is not
+// finished, and a student must not be handed a broken degree. Add a department here when its plans are ready.
+export const READY_DEPARTMENTS = ['CSC']
+export const COMING_SOON = 'Coming soon'
+
+/** Whether a student may choose this program yet (see READY_DEPARTMENTS). */
+export const isProgramReady = p => READY_DEPARTMENTS.includes(p?.department)
+
 /** The major a program belongs to: its code, else its name (an older database has only `major_name`). */
 export const majorKeyOf = p => p.major_code ?? slug(p.major_name ?? p.name)
 
