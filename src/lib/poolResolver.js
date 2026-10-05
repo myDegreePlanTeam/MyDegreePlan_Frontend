@@ -48,6 +48,58 @@ export const POOL_LABELS = Object.fromEntries(Object.entries(POOL_DEFS).map(([co
 
 export const POOL_CREDIT_ESTIMATES = Object.fromEntries(Object.entries(POOL_DEFS).map(([code, def]) => [code, def.credits]))
 
+// ── Pool limits and notes ─────────────────────────────────────────────────────
+// A pool may carry `limits`: rules about the picks across all its slots, from the catalog ("at most 3 hours of these count as
+// Area of Emphasis"; "at least 9 of the 15 hours from the ME list", written as at most 6 from outside it). A limit is
+// { label, why, maxHours, courses | except }: it counts the hours of the picks inside `courses`, or of every pick outside
+// `except`. And a `note`: what the app cannot check (an approval) shown with the pool. Both come from pools.json.
+
+export const POOL_LIMITS = Object.fromEntries(Object.entries(POOL_DEFS).filter(([, def]) => def.limits?.length).map(([code, def]) => [code, def.limits]))
+export const POOL_NOTES  = Object.fromEntries(Object.entries(POOL_DEFS).filter(([, def]) => def.note).map(([code, def]) => [code, def.note]))
+
+const inLimit = (limit, code) => (limit.courses ? limit.courses.includes(code) : !limit.except.includes(code))
+
+// The courses chosen in a pool's active slots: [{ slotId, code, hours }] (hours as the student's plan counts them)
+function poolPicks(poolCode, planSlots, slots, courses, planArchived) {
+  return slots
+    .filter(s => s.is_pool && s.class_code === poolCode && !planArchived[s.id] && planSlots[s.id])
+    .map(s => ({ slotId: s.id, code: planSlots[s.id], hours: courses[planSlots[s.id]]?.credits ?? POOL_CREDIT_ESTIMATES[poolCode] ?? 0 }))
+}
+
+/**
+ * Which picks break a limit of their pool: { [slotId]: [{ label, why, hours, maxHours }] }. Every pick the limit counts
+ * is flagged, so the student sees which slots add up to too many hours.
+ */
+export function getPoolLimitWarnings(planSlots, slots, courses, planArchived = {}) {
+  const out = {}
+  for (const [poolCode, limits] of Object.entries(POOL_LIMITS)) {
+    const picks = poolPicks(poolCode, planSlots, slots, courses, planArchived)
+    for (const limit of limits) {
+      const counted = picks.filter(p => inLimit(limit, p.code))
+      const hours = counted.reduce((sum, p) => sum + p.hours, 0)
+      if (hours <= limit.maxHours) continue
+      for (const p of counted) (out[p.slotId] ??= []).push({ label: limit.label, why: limit.why, hours, maxHours: limit.maxHours })
+    }
+  }
+  return out
+}
+
+/**
+ * The message for the first limit that choosing `candidate` for this slot would break, or null. The slot's own current pick
+ * is replaced, not added.
+ */
+export function limitBrokenByPick(slot, candidate, planSlots, slots, courses, planArchived = {}) {
+  const limits = POOL_LIMITS[slot.class_code]
+  if (!limits) return null
+  const others = poolPicks(slot.class_code, planSlots, slots, courses, planArchived).filter(p => p.slotId !== slot.id)
+  for (const limit of limits) {
+    if (!inLimit(limit, candidate.code)) continue
+    const hours = others.filter(p => inLimit(limit, p.code)).reduce((sum, p) => sum + p.hours, 0) + (candidate.credits ?? 0)
+    if (hours > limit.maxHours) return limit.why
+  }
+  return null
+}
+
 // ── Helper function ───────────────────────────────────────────────────────────
 // Given a pool code and the full course catalog (as the courseMap object
 // from DegreePlan), returns an array of course objects valid for that slot.

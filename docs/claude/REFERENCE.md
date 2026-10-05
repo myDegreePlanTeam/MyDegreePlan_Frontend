@@ -276,7 +276,7 @@ batch and `rowsOfKind` splits it, so tabs switch without searching again (`AddCo
 
 ### `src/lib/poolResolver.js`
 
-Exports `POOL_COURSES`, `POOL_LABELS`, `resolvePool`, `resolveScience`, `getScienceWarnings`,
+Exports `POOL_COURSES`, `POOL_LABELS`, `POOL_LIMITS`, `POOL_NOTES`, `getPoolLimitWarnings`, `limitBrokenByPick`, `resolvePool`, `resolveScience`, `getScienceWarnings`,
 `getGenEdStatus`, `resolveFreeElective`.
 
 Pools are **data**, not code: this file derives `POOL_COURSES`, `POOL_LABELS`, `POOL_CREDIT_ESTIMATES`, `POOL_FLOORS` and
@@ -286,6 +286,13 @@ The order of the keys matters (`resolveSatisfiesPool` takes the first pool on a 
 `REQUIREMENT_POOLS` is ordered by each pool's `gates` rank. `POOL_COURSES` is the list of valid course codes for each
 pool (null for an open pool: Free Elective, Nuclear Engineering's Area of Emphasis; `resolvePool` and `SlotModal` search the whole catalog for it). `resolvePool(poolCode, courseMap)` returns filtered course objects from the live
 catalog.
+
+**Pool limits and notes.** A pool def may carry `limits` and a `note` (pools.json, validated by the Prototype's `specLib`). A limit is
+`{ label, why, maxHours, courses | except }`: at most `maxHours` hours from the picks inside `courses`, or from every pick outside `except`
+("at least 9 of 15 hours from the ME list" is written as at most 6 outside it). `getPoolLimitWarnings(planSlots, slots, courses, planArchived)`
+returns `{ [slotId]: [{ label, why, hours, maxHours }] }` for the grid row note and the Issues list (`planIssues`); `limitBrokenByPick(slot, course, ...)`
+is what `SlotModal` uses to grey out a pick that would break one (the slot's own pick is replaced, not added). Today only `ME_ELECTIVE` has limits.
+`POOL_NOTES` is shown in the picker for what only a person can approve.
 
 ### `src/lib/poolRemainder.js`
 

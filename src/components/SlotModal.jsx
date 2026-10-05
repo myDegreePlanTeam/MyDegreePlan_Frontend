@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
   resolvePool, resolveScience, resolveFreeElective, excludeFreeElectiveCodes,
-  POOL_LABELS, POOL_COURSES, formatMissingForDisplay,
+  POOL_LABELS, POOL_COURSES, POOL_NOTES, limitBrokenByPick, formatMissingForDisplay,
   GEN_ED_CATEGORIES, getGenEdStatus,
 } from '../lib/poolResolver'
 import { getFlightFoundationsStatus, FF_POOL_CATEGORIES } from '../lib/flightFoundations'
@@ -183,6 +183,9 @@ export default function SlotModal({
     if (takenCodes.has(course.code)) {
       return { ...course, status: 'taken' }
     }
+    // A pool's own limit ("at most 3 hours of these count as Area of Emphasis"): this pick would go over it
+    const limitHint = limitBrokenByPick(slot, course, planSlots, slots, courseMap, planArchived)
+    if (limitHint) return { ...course, status: 'locked', limitHint }
     // Standing check — must come before prereqs so the message is clear
     if (course.standing_req === 'senior' && creditsBefore < 90) {
       return {
@@ -247,7 +250,7 @@ export default function SlotModal({
       })
     // `annotate` is rebuilt every render from the inputs listed here (and `creditsBefore`, fixed while the modal is open).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courses, freeOptions, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes])
+  }, [courses, freeOptions, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes, slots, planSlots, planArchived])
 
   useEffect(() => {
     if (selected) setHours(String(selected.credits))
@@ -401,6 +404,12 @@ export default function SlotModal({
           </div>
         )}
 
+        {POOL_NOTES[slot.class_code] && (
+          <div className="modal-autofill-notice">
+            {POOL_NOTES[slot.class_code]}
+          </div>
+        )}
+
         <div className="modal-search-wrap">
           <input
             className="modal-search"
@@ -511,11 +520,14 @@ function CourseRow({ course, selected, onSelect, sectionDisabled = false }) {
           )}
           {course.status === 'locked' && (
             <span className="modal-status-badge locked">
-              {course.standingHint ? 'Standing needed' : 'Prereqs needed'}
+              {course.limitHint ? 'Limit reached' : course.standingHint ? 'Standing needed' : 'Prereqs needed'}
             </span>
           )}
         </div>
         <span className="modal-course-name">{course.name}</span>
+        {course.status === 'locked' && course.limitHint && (
+          <span className="modal-prereq-hint">{course.limitHint}</span>
+        )}
         {course.status === 'locked' && course.standingHint && (
           <span className="modal-prereq-hint">{course.standingHint}</span>
         )}

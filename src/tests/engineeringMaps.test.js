@@ -3,7 +3,7 @@ import catalog from '../data/catalog.json'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { mathCurriculumFor } from '../lib/mathPlacement'
-import { POOL_CREDIT_ESTIMATES, POOL_COURSES, resolvePool } from '../lib/poolResolver'
+import { POOL_CREDIT_ESTIMATES, POOL_COURSES, POOL_LABELS, resolvePool } from '../lib/poolResolver'
 
 // The College of Engineering's 2026-2027 maps (Mechanical Engineering x4, Nuclear Engineering), end to end through the same
 // builder the CSC maps use, from the bundled catalog. The reference student: Fall start, no prior credit, ACT 29 (MATH 1910).
@@ -105,6 +105,17 @@ describe('Nuclear Engineering\'s Area of Emphasis is an open pool, searched like
     expect(resolvePool('NE_EMPHASIS', courseMap)).toBeNull()
     expect(resolvePool('FREE_ELECTIVE', courseMap)).toBeNull()
     expect(resolvePool('ME_ELECTIVE', courseMap).length).toBeGreaterThan(10)
+  })
+
+  it('ME_ELECTIVE is the catalog\'s Area of Emphasis list (a list, no longer a guessed rule)', () => {
+    const aoe = POOL_COURSES.ME_ELECTIVE
+    expect(POOL_LABELS.ME_ELECTIVE).toBe('ME AOE Elective')
+    // Category 1 (ME courses, special topics and research included), 2 (math), 3, and the pre-approved MET courses of Category 4
+    for (const c of ['ME4020', 'ME4810', 'ME4900', 'ME4990', 'MATH3470', 'MATH4530', 'BMGT3510', 'ENGR4510', 'ENTR4500', 'MET4400', 'MET4650']) expect(aoe, c).toContain(c)
+    // Senior Design is not an AOE, and the ME 4000-level courses the catalog's list leaves out are no longer offered
+    for (const c of ['ME4410', 'ME4414', 'ME4416', 'ME4420', 'ME4424', 'ME4426', 'ME4170', 'ME4230', 'ME4270', 'ME4390', 'ME4820', 'ME4860', 'ME4920']) expect(aoe, c).not.toContain(c)
+    expect(aoe.every(c => courseMap[c]), 'every named course is in the catalog data').toBe(true)
+    expect(resolvePool('ME_ELECTIVE', courseMap)).toHaveLength(aoe.length)
   })
 
   it('the algorithm places all six emphasis slots for a student off the map (ACT 25, or a Spring start)', () => {
