@@ -2509,6 +2509,15 @@
   gap: 0.5rem;
 }
 
+/* .add-credit-results floats under its input in the Add course modal, where the input's wrapper is positioned. Here
+   nothing is positioned, so it fell below the card and out of sight: keep it in the flow, so the modal grows to hold it
+   (.wizard-body scrolls when it cannot). */
+.wizard-course-search .add-credit-results {
+  position: static;
+  max-height: 260px;
+  box-shadow: none;
+}
+
 /* Confirm step */
 .wizard-confirm-header {
   font-size: 0.9rem;
