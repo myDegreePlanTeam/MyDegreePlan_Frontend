@@ -11,21 +11,43 @@
 
 ## Scope expansion
 
-### Beyond CSC — other TTU departments
-Current prototype covers TTU Computer Science only (4 concentrations). The long-term
-vision is a planner covering all **178 TTU bachelor's programs**. Order of attack
-not yet decided; likely driven by which departments request it or have clean catalog data.
+### Opening the other majors to students
+The app holds 176 programs, but only the Computer Science department's (`CSC`: the four concentrations and the Artificial Intelligence major) can be
+chosen: every other program is grayed out and tagged "Coming soon" in the onboarding picker and Settings' change-program modal, because those
+plans are generated from Coursedog maps and not yet reviewed (decisions still `assumed`, hours short on 34 plans). The gate is
+`READY_DEPARTMENTS` in `src/lib/programBrowser.js`; it only hides the choice, so a saved plan or an imported backup on any program still loads.
+To open a department: have it confirm the questions in the manifest's `decisions` (see "Department confirmations" below), check its maps against
+`allMapsConformance.test.js`, then add its code to `READY_DEPARTMENTS` and update the test in `programBrowser.test.js` that pins the ready list.
 
-**What this requires before it's a real project, not a goal:**
-- A concentration template ingestion pipeline (currently hand-authored `csc_*.json` per concentration).
-- Catalog-wide validation: pool definitions in `poolResolver.js` currently encode CSC-specific pools (`CSC_LOWER_ELECTIVE`, `CSC_HPC_ELECTIVE`, etc.). Expanding beyond CSC means either per-department pool tables or moving pool membership into the DB.
-- Gen-ed category enforcement (see below) — Flight Foundations is implemented as the campus-wide baseline; per-major restrictions (e.g. the American History exemption for some engineering majors) are not.
-- **Template import check — pool prerequisites.** No CSC template has a required course whose
-  prereq is satisfiable only through a pool other than COMM_REQ / MATH_STATS, but other
-  programs will (e.g. a course requiring a lab science). `degreeBuilder` handles these for the
-  requirement pools (`REQUIREMENT_POOLS`, including SCIENCE sequels) — for each new template,
-  run the builder across ACT scores and confirm no course lands before its pool. Elective
-  pools are deliberately excluded from gating; a template that needs one would need new logic.
+### After every major: what is left of "all programs"
+Every undergraduate program with a Coursedog degree map is in the app (v0.4.0, 2026-10-03: 176 programs, 179 plans) except the Accelerated B.S.N.
+The rollout, its decisions and the wave results are in [`PLAN_all-majors.md`](./PLAN_all-majors.md). What a later project could take, each with
+the first step that would make it real:
+
+- **The Accelerated B.S.N. (`nurs_absn`, 63 hours).** A second-degree program: the plan is not a 120-hour bachelor's (no gen-ed, a prior degree).
+  Needs a plan kind that declares fewer hours and skips the gen-ed checks; the manifest holds it as `blocked`.
+- **Earlier catalog years.** Every first plan covers earlier entrants and is flagged "approximate". Coursedog serves older versions
+  (`effectiveDatesRange`), so the 2025-26 and earlier plans could be back-filled per program, replacing the flag with the entrant's own year. Slot
+  ids already stay stable across regenerations (`planSlotSync`).
+- **A yearly refresh.** The 2027-28 catalog arrives around August: re-run the scraper (`catalog_scrape/scrape_programs.mjs`), diff the manifest
+  (new, renamed or closed programs), add the new year's plans beside the old ones. The tools exist; the missing piece is a checklist and a diff report.
+- **Hours a student sees.** 34 of the 175 2026-27 plans declare fewer than 120 hours (as low as 113) because a fixed course with a credit range
+  counts its minimum and the math placement chain counts only its top track. Fixing it is app work: a chosen-hours default for fixed ranged courses (the map's own hours), carried in
+  `student_plan_slots.selected_credits`.
+- **Department confirmations.** Every answer in the manifest's `decisions` is `assumed`. A report grouped by college (one page of questions per
+  department: waivers, hours, overrides) and a way to flip an answer to `confirmed` would turn the assumptions into signed-off data.
+- **Elective restrictions.** Most elective families are open pools labelled with the map's wording ("upper-division HIST"); the restriction is not
+  enforced. Wordings with a clean rule could become rule pools, as "any 4000-level CEE course" did.
+- **A "try three majors" view.** About 970 undergraduates sit in holding categories (Interest Groups, Interest in Nursing, Basic Business and
+  Engineering, non-degree) and have no plan to open; only 22% of Interest Groups freshmen were still in it a year later. A compare-and-switch view
+  across two or three programs would serve them.
+- **Graduate programs.** About 57 graduate programs (Nursing MSN, MBA, Counseling, Curriculum and Instruction, Engineering PhD, ...) have no plans.
+  Not scoped: first check whether Coursedog carries degree maps for them.
+- **Certificates and minors.** Excluded (`excluded` in the manifest). A minor would be a second program on one student, which the data model (one
+  program per profile) does not allow yet.
+
+The demand, funding and fill-ability data behind the wave order is `MDP_TTU_Demand_Funding_Fillability.xlsx` (not in the repo); the plan doc
+records how it was used.
 
 ### Banner / university SIS integration
 Import transcripts directly so students don't hand-enter prior coursework. The schema is
