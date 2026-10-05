@@ -20,12 +20,17 @@ const BASE_COLUMNS = 'code, name, credits, subject_code'
  *   more    true when the batch was full, so counts may undercount
  */
 export async function searchCourses(db, text, kind = 'undergraduate', { limit = 40 } = {}) {
-  const term = `%${escapeIlikeValue(text.trim())}%`
+  const typed = escapeIlikeValue(text.trim())
+  const term = `%${typed}%`
+  // A code has no space ("MATH1910") but students type one ("MATH 1910"). The closed-up text is also tried against the
+  // code only: the name still matches the text as typed ("Physics 1").
+  const closed = typed.replace(/([A-Za-z])\s+(\d)/g, '$1$2')
+  const codeTerms = closed === typed ? [term] : [term, `%${closed}%`]
   const { data, error } = await selectWithOptional(
     columns => db
       .from('courses')
       .select(columns)
-      .or(`code.ilike."${term}",name.ilike."${term}"`)
+      .or([...codeTerms.map(t => `code.ilike."${t}"`), `name.ilike."${term}"`].join(','))
       .order('code', { ascending: true })
       .limit(FETCH_LIMIT),
     BASE_COLUMNS,
