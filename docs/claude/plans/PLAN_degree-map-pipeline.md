@@ -28,7 +28,7 @@ vision is all 178 TTU bachelor's programs; see ROADMAP "Beyond CSC"). Plus: repl
   name a department.
 - Differences from current templates: CSC 4620 (3 hr) replaces CSC 4615 (2 hr) in Core; MATH 3070 or 3470 is a required
   either/or in all four; new "CSC Elective (2000+)" pool; Cyber and HPC require many more fixed courses; fall-only /
-  spring-only / spring-even-year offerings appear (relates to `history/BRANCH_semester-terms.md`).
+  spring-only / spring-even-year offerings appear (relates to `semesterRestrictions.js`, see `REFERENCE.md`).
 - AI needs `AI3000`, `AI3100`, `AI3200`, `AI4200`: absent from `prototype.json`, present in `catalog_raw.json`.
 - `catalog_raw.json`: 7,444 records, 1,255 Inactive, 33 duplicate codes, 267 subjects. Prerequisites: 4,928 none,
   ~278 structured, 2,125 narrative text only. ~540 KB without descriptions, ~2.1 MB with, vs 153 KB for today's

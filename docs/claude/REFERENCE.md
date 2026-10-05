@@ -404,7 +404,25 @@ result to `student_plan_slots` with `position_source = 'algorithm'`.
   in, only if every standing threshold that held still holds.
 - Tests: `src/tests/degreeBuilder.test.js` (live-catalog fixtures).
 
+### `src/lib/semesterTerms.js` and `src/lib/semesterRestrictions.js`
+
+Real term labels on the semester cards ("Fall 2026") and the fall-only / spring-only course rule. Tests: `semesterTerms.test.js`,
+`semesterRestrictions.test.js`.
+
+- `computeSemesterTerms(startSeason, startYear, templateSemNums, extraTerms)` sequences the **template** semesters only, alternating
+  Fall and Spring (Fall to Spring adds a year; the templates contain no Summer). A semester the student added (the Add Semester
+  wizard, any season including Summer) carries its own `{ season, year }` in `extraTerms`, which overwrites the computed value for that
+  number and does not shift the template sequence. Extras persist as `term_season` / `term_year` on `student_semester_notes`.
+- Writes to `student_semester_notes` upsert on `onConflict: 'student_id, concentration_id, semester_number'`; do not change that key.
+- `FALL_ONLY` and `SPRING_ONLY` are hard-coded sets of course codes taken from the 2026-27 CSC-department maps (`degreeMaps.test.js` checks
+  the specs agree with them). **They name only CSC and AI courses, so no other program has a season rule yet.** A program's offerings
+  have to be added to these sets before that program is opened to students.
+- `isEnrollmentAllowed(code, season)` is true for an unrestricted course, true when the season is unknown (`null`: do not block),
+  false for any restricted course in Summer, else true only when the season matches. A pool code such as `GEN_ED` is in neither
+  set, so an unfilled pool slot can be moved to any semester. Used by the course picker, the drag path and the degree builder
+  (`degreeBuilder.js`, which assumes odd semesters are Fall and even ones Spring).
+
 ### `src/lib/usePlanCompleteness.js`
 
 React hook that computes plan completeness metrics (total slots, filled slots, credits earned vs.
-required). Used by `CompletionBadge` and `Dashboard`.
+required). Nothing outside its tests calls it yet: no component renders a completeness panel (see the Gen-ed entry in `ROADMAP.md`).
