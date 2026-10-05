@@ -21,7 +21,7 @@ To open a department: have it confirm the questions in the manifest's `decisions
 
 ### After every major: what is left of "all programs"
 Every undergraduate program with a Coursedog degree map is in the app (v0.4.0, 2026-10-03: 176 programs, 179 plans) except the Accelerated B.S.N.
-The rollout, its decisions and the wave results are in [`PLAN_all-majors.md`](./PLAN_all-majors.md). What a later project could take, each with
+The rollout, its decisions and the wave results are in [`plans/PLAN_all-majors.md`](./plans/PLAN_all-majors.md). What a later project could take, each with
 the first step that would make it real:
 
 - **The Accelerated B.S.N. (`nurs_absn`, 63 hours).** A second-degree program: the plan is not a 120-hour bachelor's (no gen-ed, a prior degree).
@@ -116,7 +116,7 @@ captures a list of rule-typed entries, persists them per student, and
 reads/writes to a new `student_rules` table. Application of the rules to
 plan-modification actions can be staged after the data shape is in place.
 Couples to a summer-semester opt-in toggle, which belongs in this sidebar: season-aware
-terms and the Add Semester wizard shipped, the opt-in did not (see `feat/rules-filter-sidebar` in `BRANCH_QUEUE.md`).
+terms and the Add Semester wizard shipped, the opt-in did not (see `feat/rules-filter-sidebar` in `tracking/BRANCH_QUEUE.md`).
 
 ### Class exemption / advisor-approval gating
 Some courses require advisor or instructor consent before a student can enroll.

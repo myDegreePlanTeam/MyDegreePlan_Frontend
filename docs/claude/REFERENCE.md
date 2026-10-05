@@ -155,7 +155,7 @@ program or a catalog year). `node degree-specs/build.mjs` validates them and gen
   college and major, and whether a department's own file is the source (the nine CSC and engineering programs) or Coursedog is
   (`planned`, rolled out in waves). The adapter hands the same drafter finished rows, so nothing after it changed. The **parity
   gate** (`extract/coursedogParity.test.mjs`) requires it to reproduce those nine plans before anything is promoted from Coursedog.
-  Rollout plan, findings and what each wave needs: `docs/claude/PLAN_all-majors.md`.
+  Rollout plan, findings and what each wave needs: `docs/claude/plans/PLAN_all-majors.md`.
 
 ---
 

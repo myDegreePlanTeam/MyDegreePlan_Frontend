@@ -28,7 +28,7 @@
 
 > **2026-05-02 update (3):** Package N merged as `feat/theme-pass` (coordinated with `feat/branding` and `feat/dark-mode`). BUG-38 (site-wide WCAG AA contrast failures) resolved by: TTU purple palette in `index.css` (dark default + light theme via `data-theme` attribute), backward-compat aliases so Dashboard.css/Auth.css need zero variable-name edits, 16 hardcoded hex values replaced with `--status-*` vars in Dashboard.css, rgba() gold channels updated, `--text-muted`/`--gold`/`--gold-light` darkened in light theme for AA compliance, and a dark-mode toggle with localStorage + `prefers-color-scheme` fallback. Tests held at 266. **9 open bugs** — 0 Critical, 1 High, 4 Medium, 4 Low. Recommended next: Package M.
 
-> **2026-05-04 update:** Package M merged as `fix/drag-to-prior-coursework-flicker`. BUG-36 (visual flicker on drag-to-Prior-Coursework) fixed by moving `setPlanArchived`/`setPlanSlots` optimistic state updates before the `handleAddPriorCredit` await chain in `handleDragEnd`; rollback restores on `archErr`. UI timing only; no test changes (count held at 266). **8 open bugs** — 0 Critical, 1 High, 4 Medium, 3 Low. Recommended next: `data/strip-course-descriptions-prototype` (BUG-32, queued in `BRANCH_QUEUE.md`).
+> **2026-05-04 update:** Package M merged as `fix/drag-to-prior-coursework-flicker`. BUG-36 (visual flicker on drag-to-Prior-Coursework) fixed by moving `setPlanArchived`/`setPlanSlots` optimistic state updates before the `handleAddPriorCredit` await chain in `handleDragEnd`; rollback restores on `archErr`. UI timing only; no test changes (count held at 266). **8 open bugs** — 0 Critical, 1 High, 4 Medium, 3 Low. Recommended next: `data/strip-course-descriptions-prototype` (BUG-32, queued in `tracking/BRANCH_QUEUE.md`).
 
 > **2026-05-05 update:** BUG-44 found and fixed in the Package M session before merge. Atomicity guard added to the `prior_credit` drag-back path in `handleDragEnd`: if the course being un-prior-credited is already in the plan (via `takenCodes`), the drag blocks before any DB write. Previously, `handleRemovePriorCredit` deleted the record first, then `handleAddCourse` silently failed — data loss for `act_placement` entries (ACT Math 27+). Tests held at 266; bug counts unchanged (found and fixed in same session).
 
@@ -38,17 +38,17 @@
 
 Before code:
 
-1. Read `MyDegreePlan_Frontend/CLAUDE.md` and `docs/claude/SESSION_PREAMBLE.md`
+1. Read `MyDegreePlan_Frontend/CLAUDE.md` and `docs/claude/prompts/SESSION_PREAMBLE.md`
    in full.
-2. Read `docs/claude/PROMPT_write-branch-prompt.md` — the meta-prompt for
+2. Read `docs/claude/prompts/PROMPT_write-branch-prompt.md` — the meta-prompt for
    generating the per-branch planning artifacts. Apply it for the chosen
    package: produces `BRANCH_<name>.md` + `PROMPT_<name>.md` + one docs commit
    on `main`.
 3. Then create the branch, confirm baseline tests, implement per the branch
-   doc's Plan section, close-out (remove bug entry, update `BRANCH_QUEUE.md`,
+   doc's Plan section, close-out (remove bug entry, update `tracking/BRANCH_QUEUE.md`,
    delete the branch and prompt docs), merge `--ff-only`, push.
 
-Standing rules (per `SESSION_PREAMBLE.md`):
+Standing rules (per `prompts/SESSION_PREAMBLE.md`):
 
 - Scope discipline: do not fix bugs not listed in the chosen package.
 - Tests must pass at every commit boundary.
@@ -166,7 +166,7 @@ Each row is a candidate branch. Pick one and apply the standing procedure.
 
 ## Already queued (own branches; need their own kickoff)
 
-Documented in `BRANCH_QUEUE.md` under **Queued Branches** — when you pick one,
+Documented in `tracking/BRANCH_QUEUE.md` under **Queued Branches** — when you pick one,
 generate planning artifacts via the meta-prompt:
 
 - `data/strip-course-descriptions-prototype` — BUG-32 (strip redundant prereq
@@ -181,7 +181,7 @@ generate planning artifacts via the meta-prompt:
 | BUG-22 (High) | Large feature — full prior-coursework onboarding for transfer students. Belongs in its own initiative, not a bug-fix branch. |
 | BUG-9 (Medium) | Audit marks "no fix required" — intentional dedup behavior. Could fold a UI-side duplicate-pool-rejection into Package C follow-up if desired. |
 | BUG-14 (Medium) | Conflates with the `usePlanCompleteness` "earned vs planned" gap. Best handled when a free-elective resolver lands. |
-| BUG-33 (Medium) | Coordinate with the future `fix/mark-complete-behavior` branch (Phase 2 in `BRANCH_QUEUE.md`). |
+| BUG-33 (Medium) | Coordinate with the future `fix/mark-complete-behavior` branch (Phase 2 in `tracking/BRANCH_QUEUE.md`). |
 | BUG-19 (Low) | Documented API debt in `classifyPrereq` (unused `prereqCode` parameter). Per `CLAUDE.md`, leave until placement-classification feature is decided. |
 | BUG-15, BUG-16 (Low) | Two-branch `chore/remove-stale-dual-enrollment` cleanup. Need a product call: tighten the schema constraint or close as docs-only since `CLAUDE.md` is already correct. |
 
@@ -205,6 +205,6 @@ Rationale:
 ## Final note
 
 After all five "Now-tier" packages clear, the bug count drops to ~10 and the
-remaining work is predominantly Phase 2 / 3 features in `BRANCH_QUEUE.md`. At
+remaining work is predominantly Phase 2 / 3 features in `tracking/BRANCH_QUEUE.md`. At
 that point a fresh planning conversation about Phase 2 scoping is the right
 next step rather than another bug-fix sequence.

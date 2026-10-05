@@ -331,7 +331,7 @@ describe('resolveTransferCredits — pool archiving for specific courses', () =>
   })
 
   it('archives both filled SCIENCE pool slots when AP Chem awards SCIENCE x2 (BUG-42)', () => {
-    // Reproduction from bug_archive.md BUG-42: student fills both SCIENCE slots with
+    // Reproduction from tracking/bug_archive.md BUG-42: student fills both SCIENCE slots with
     // CHEM1110 + CHEM1120, then claims AP Chemistry (STEM) score 5.  Both
     // pool slots should archive; the student's selections are preserved on
     // the DB row by syncArchivedSlots.
