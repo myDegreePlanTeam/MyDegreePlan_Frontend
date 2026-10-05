@@ -9,7 +9,7 @@ Everything else in `docs/claude/` is read on demand, not up front:
 - [`README.md`](docs/claude/README.md): branch and commit naming, when you create a branch or commit
 - [`REFERENCE.md`](docs/claude/REFERENCE.md): repository tree, pipelines and per-module notes; Grep for the heading you need
 - [`ROADMAP.md`](docs/claude/ROADMAP.md): deferred work, before proposing a feature
-- `docs/claude/tracking/` (live bugs `bug.md`, closed ones `bug_archive.md`, `BRANCH_QUEUE.md`), `plans/` and `prompts/`: what each holds is
+- `docs/claude/tracking/` (live bugs `bug.md`, closed ones `bug_archive.md`) and `plans/` (rollout plans and findings): what each holds is
   in the Layout section of [`README.md`](docs/claude/README.md)
 
 > `docs/claude/CLAUDE.md` is the canonical source of truth. Do not rely on memory or assumptions about prior sessions.

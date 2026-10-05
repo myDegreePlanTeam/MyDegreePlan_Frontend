@@ -18,9 +18,10 @@ For Commit naming use following conventions:
 Layout of docs/claude (paths in the docs are written from this folder):
 - Top level, the files a session loads or reads first: `CLAUDE.md` (imported by the workspace root, so it never moves), `REFERENCE.md`,
   `ROADMAP.md` and this file.
-- `tracking/`: what is open now. `bug.md` (live bugs), `bug_archive.md` (every closed bug), `BRANCH_QUEUE.md` (queued, active and merged
-  branches), and the `BRANCH_<name>.md` context doc of a branch in progress (deleted when it merges).
+- `tracking/`: bugs. `bug.md` (live bugs) and `bug_archive.md` (every closed bug).
 - `plans/`: designs and rollouts: `PLAN_*.md` and `INTEGRATION_*.md` for a new-major trial. Status is at the top of each.
-- `prompts/`: text to paste into a session: `SESSION_PREAMBLE.md`, the `PROMPT_*.md` kickoff prompts and the meta-prompt that writes them.
+
+Where work is tracked: live bugs in `tracking/bug.md`, deferred work in `ROADMAP.md`, merged work in the GitHub pull-request list and `git log`
+(there is no branch queue; the PR description is the plan for a branch).
 
 A new document goes in the folder that matches what it is; do not add files to the top level without a reason.
