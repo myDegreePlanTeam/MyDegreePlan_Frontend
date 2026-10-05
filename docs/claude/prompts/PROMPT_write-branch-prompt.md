@@ -58,14 +58,15 @@ Capture from the queue entry:
 branches, read the two most recently merged docs from git history:
 
 ```
-git log --all --oneline --diff-filter=D -- "docs/claude/BRANCH_*.md" "docs/claude/tracking/BRANCH_*.md" | head
+git log --all --oneline --name-only --diff-filter=D -- "docs/claude/BRANCH_*.md" "docs/claude/*/BRANCH_*.md" | head
 ```
 
-For each of the two most recent, retrieve the file as it existed immediately before
-deletion:
+The folder differs by age (the top of `docs/claude/` before 2026-10-05, then `history/`, now `tracking/`), so
+`--name-only` prints the path each one had. For each of the two most recent, retrieve the file as it existed
+immediately before deletion:
 
 ```
-git show <delete-commit>~1:docs/claude/BRANCH_<old-name>.md
+git show <delete-commit>~1:<path printed above>
 ```
 
 If only one (or zero) historical merged docs exist, also read the current
