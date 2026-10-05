@@ -410,7 +410,9 @@ the database allows only those two values.
   backfill.
 - **Pool prerequisites:** a prereq group no fixed course or prior credit can satisfy resolves to
   the requirement pool that provides it (`REQUIREMENT_POOLS`: SCIENCE, COMM_REQ, MATH_STATS,
-  ENG_LIT, GEN_ED) — CSC3040 waits for COMM_REQ, DSAI's CSC4220 for MATH_STATS. A sequel
+  ENG_LIT, GEN_ED, the Flight Foundations pools, ME_DESIGN) — CSC3040 waits for COMM_REQ, DSAI's CSC4220 for MATH_STATS,
+  ME 4420's concurrent "ME 4020 or ME 4720" for ME_DESIGN (an empty gating slot also stands in for the prerequisite or corequisite in the
+  plan's warnings, so the pool needs `gates` to count). A sequel
   (CHEM1120) waits for as many of the pool's slots as its in-pool chain is long. Elective pools
   never gate (CSC1200 in CSC1300's prereqs would form a cycle). A pool slot can't precede its
   options' own prereqs (`poolEarliest`).

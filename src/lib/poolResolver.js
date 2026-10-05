@@ -451,7 +451,10 @@ function formatOne(entry) {
   for (const [poolCode, poolList] of Object.entries(POOL_COURSES)) {
     if (!Array.isArray(poolList)) continue                // skip FREE_ELECTIVE (null)
     const owned = codes.filter(c => poolList.includes(c))
-    if (owned.length >= 2 && (!chosenMembers || owned.length > chosenMembers.length)) {
+    // A pool a course can depend on is the better name when two pools list the same courses (ME 4020 / ME 4720 are in both
+    // Machine or Thermal Design and the Area of Emphasis list).
+    const better = chosenMembers && owned.length === chosenMembers.length && REQUIREMENT_POOLS.has(poolCode) && !REQUIREMENT_POOLS.has(chosenPool)
+    if (owned.length >= 2 && (!chosenMembers || owned.length > chosenMembers.length || better)) {
       chosenPool    = poolCode
       chosenMembers = owned
     }
