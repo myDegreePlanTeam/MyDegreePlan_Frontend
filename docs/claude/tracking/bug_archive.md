@@ -154,6 +154,16 @@ Cross-file consistency included.
 > plan the student follows (`profile.catalog_year`), not the one their start term implies; Settings' row says "Degree program" with the full path for a
 > major. Not changed: the change-program modal still lists every program under one "Change" button (the Change major / Change concentration split is a separate PR).
 
+> **2026-10-05 update (2):** BUG-55 fixed, with the engineering math placement it hid, on `fix/me-math-placement`. BUG-55 (Low): onboarding's math step showed the
+> CSC statistics fork and fixed chains for every program (Mechanical Engineering listed MATH 3070 / 3470 and no MATH 2110 / 2120). Found beside it while testing ME as a
+> student (High once ME is open, not reachable before): the chain tables sent a student placed on the extended track (ACT 27-28) through MATH 1904, 1906 and 2010
+> only, so MATH 1920 was archived as not applicable and MATH 2110 / 2120 (which need it) were placed in the first year; and a student below Calculus I
+> fell to the CSC-shaped placement, which ordered ME courses (no prerequisite rows in the catalog) by code, putting Senior Design in the second year. Fix:
+> `mathChainFor` / `mathSequenceFor` (`mathPlacement.js`) are the one copy of the chains, read from the plan's own slots when its map requires MATH 1920 (the
+> degree builder and onboarding no longer keep their own tables); on such a plan `degreeBuilder` floors every slot at its `map_semester` and orders ties by it.
+> Computer Science plans are untouched (their tables and the fork are as before). Open question, not changed: a *returning* Computer Science student on the extended
+> track also has no MATH 1920 in the table (`MATH_CHAINS.returning.MATH1904`); the department has not said whether that is intended.
+
 ---
 
 ## Audit notes

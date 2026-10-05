@@ -15,8 +15,8 @@ A bug found and fixed in one session goes straight to the archive and leaves the
 | Critical | 0  |
 | High     | 1  |
 | Medium   | 0  |
-| Low      | 1  |
-| **Total** | **2** |
+| Low      | 0  |
+| **Total** | **1** |
 
 ---
 
@@ -39,24 +39,5 @@ description below is the April state.
 **Suspected fix:** Expand the wizard to cover all `credit_type` values across all semesters. Add a branching question at onboarding: "Are you a first-time freshman?" → Yes: current AP/ACT flow. No: full prior coursework entry flow covering transfer credits, dual enrollment, CLEP, and completed TTU courses by semester. Mandatory for the prototype to serve non-freshman users.
 
 **Confidence:** High
-
----
-
-### BUG-55: Onboarding's math-sequence step shows the CSC statistics fork and a fixed chain, whatever the program
-
-**Severity:** Low (display only, and not reachable while only CSC-department programs can be chosen)
-**File(s):** `src/components/Onboarding.jsx` (`MATH_FORK_CODES`, step 4), `src/lib/mathPlacement.js` (`mathCurriculumFor`, the chain tables)
-
-**Description:** Step 4 appends MATH 3070 and MATH 3470 (the CSC statistics fork) to every chain, and builds the chain from fixed tables chosen by
-curriculum, not from the courses the chosen plan itself contains. Found in the 2026-10-01 Engineering trial: Nuclear Engineering's chain listed
-MATH 2010, which is not on its map, and omitted MATH 2110 and MATH 2120. The trial's picker and wording findings were fixed by the program-first
-onboarding (#24); this one was not re-run after it.
-
-**Impact:** once a non-CSC program is opened, its students see an inaccurate math sequence at onboarding. Placement is unaffected (the degree builder
-decides it).
-
-**Suspected fix:** build the chain from the plan's own math slots, and show the statistics fork only when the plan has it.
-
-**Confidence:** Medium (read from the code, not re-run)
 
 ---

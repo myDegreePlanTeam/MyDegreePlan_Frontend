@@ -252,6 +252,12 @@ scores. MATH1730 is equivalent to MATH1710 + MATH1720 (`equivalents`; `requireme
 `MyDegreePlan_Prototype/math_sequences.json` mirrors the tiers; change both together. `mathCurriculumFor(slots, studentType)`
 picks the new or the returning chains: a plan whose department map names MATH1920 (the engineering majors take Calculus I-III)
 is returning for every student, otherwise the student type decides. The Prototype's `specLib.mathCurriculumOf` reads the same evidence.
+`mathChainFor(startCode, slots, studentType)` is the one copy of the placement chains (the degree builder and onboarding both read it): a plan
+whose map requires Calculus II (`planRequiresCalculusII`) is read from its own slots (the lead-in to Calculus I, then MATH1920 and MATH2010 where the
+plan has them, so the extended track still takes Calculus II and Nuclear Engineering has no MATH2010); every other plan keeps the new / returning tables.
+`mathSequenceFor` is what onboarding shows: that chain, then the plan's other fixed MATH courses in map order (`later`: MATH2120, MATH2110), then the
+statistics choice (`fork`) only when the plan has a `MATH_STATS` slot. `math_sequences.json` still repeats the two tables (the Prototype reads only
+the top track).
 
 ### `src/lib/creditHours.js`
 
@@ -388,6 +394,10 @@ the database allows only those two values.
   grid's standing warnings use, so a course two exams award (AP English Language and ACT
   English 27+ both award ENGL1010) counts once. Summing `credits_awarded` placed senior
   courses on hours the student did not have and the grid then flagged them (BUG-53).
+- **A plan that follows a department map through Calculus II (engineering) keeps the map's order for every student:** the catalog gives most of
+  its courses no prerequisites, so a student placed below Calculus I or on the extended track is delayed against the map and no slot starts before its
+  `map_semester` (`minSem` floor), and the slots in one semester are ordered by it. Other plans do not use `map_semester` outside the map-first path.
+  `engineeringPlacement.test.js` pins this for every ME and NE program and six placements.
 - Archives math-chain courses outside the student's math placement (`not_applicable`; ACT or SAT, no score = MATH1000) and slots
   covered by prior credit. Required courses pack first (15 cr target, 18 max), then pools
   backfill.

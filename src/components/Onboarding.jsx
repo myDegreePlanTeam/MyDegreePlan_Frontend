@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { db, isLocalBackend } from '../lib/dataClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveMathPlacementRow, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
-import { validateSatMath, SAT_MATH_RANGE, mathCurriculumFor, planHasMathChain } from '../lib/mathPlacement'
+import { validateSatMath, SAT_MATH_RANGE, mathSequenceFor, planHasMathChain } from '../lib/mathPlacement'
 import { isMissingColumn, selectWithOptional } from '../lib/dbErrors'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
@@ -17,25 +17,6 @@ import { getBrand } from '../lib/brand'
 import './Dashboard.css'
 
 // New-curriculum chains (incoming_freshman / transfer): MATH1920 not required.
-const MATH_CHAINS_NEW = {
-  MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
-  MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
-  MATH1730: ['MATH1730', 'MATH1910', 'MATH2010'],
-  MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
-  MATH1910: ['MATH1910', 'MATH2010'],
-}
-// Old-curriculum chains (returning students): MATH1920 sits between MATH1910 and MATH2010.
-const MATH_CHAINS_RETURNING = {
-  MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH1920', 'MATH2010'],
-  MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH1920', 'MATH2010'],
-  MATH1730: ['MATH1730', 'MATH1910', 'MATH1920', 'MATH2010'],
-  MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
-  MATH1910: ['MATH1910', 'MATH1920', 'MATH2010'],
-}
-function getMathChains(curriculum) {
-  return curriculum === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
-}
-const MATH_FORK_CODES = ['MATH3070', 'MATH3470']
 
 const STUDENT_TYPES = [
   { value: 'incoming_freshman', label: 'Incoming Freshman' },
@@ -189,8 +170,8 @@ export default function Onboarding({ profileId, onComplete }) {
   useEffect(() => {
     if (step !== 4) return
     const placement = resolveMathPlacementRow(placementScores)
-    const chainCodes = getMathChains(mathCurriculumFor(concSlots, studentType))[placement.satisfies_course_code] ?? []
-    const allCodes = [...chainCodes, ...MATH_FORK_CODES]
+    const seq = mathSequenceFor(placement.satisfies_course_code, concSlots, studentType)
+    const allCodes = [...seq.chain, ...seq.later, ...seq.fork]
     setMathChainLoading(true)
     db
       .from('courses')
@@ -643,7 +624,8 @@ export default function Onboarding({ profileId, onComplete }) {
         {step === 4 && (() => {
           const placement = resolveMathPlacementRow(placementScores)
           const startCode = placement.satisfies_course_code
-          const chainCodes = getMathChains(mathCurriculumFor(concSlots, studentType))[startCode] ?? []
+          const seq = mathSequenceFor(startCode, concSlots, studentType)
+          const chainCodes = [...seq.chain, ...seq.later]
           const noScore = actScores.math === '' && actScores.satMath === ''
           const courseMap = {}
           for (const c of mathChainData) courseMap[c.code] = c
@@ -673,10 +655,10 @@ export default function Onboarding({ profileId, onComplete }) {
                         </span>
                       )
                     })}
-                    <span className="math-chain-segment">
+                    {seq.fork.length > 0 && <span className="math-chain-segment">
                       <span className="math-chain-arrow" aria-hidden="true">→</span>
                       <div className="math-chain-fork">
-                        {MATH_FORK_CODES.map((code, i) => {
+                        {seq.fork.map((code, i) => {
                           const course = courseMap[code]
                           return (
                             <span key={code}>
@@ -690,7 +672,7 @@ export default function Onboarding({ profileId, onComplete }) {
                           )
                         })}
                       </div>
-                    </span>
+                    </span>}
                   </div>
                 </div>
               )}
