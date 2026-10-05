@@ -29,7 +29,7 @@ Read these files in this order. Do not skip any. Do not assume contents from mem
 1. `MyDegreePlan_Frontend/docs/claude/CLAUDE.md` — project structure, schema, core principles
 2. `MyDegreePlan_Frontend/docs/claude/SESSION_PREAMBLE.md` — working agreements, tone
 3. `MyDegreePlan_Frontend/docs/claude/BRANCH_QUEUE.md` — the queue of branches to work
-4. `MyDegreePlan_Frontend/docs/claude/bug.md` — current audit, indexed by BUG-N
+4. `MyDegreePlan_Frontend/docs/claude/bug.md` — the live bugs, indexed by BUG-N (fixed ones are in `bug_archive.md`)
 5. `MyDegreePlan_Frontend/docs/claude/README.md` — branch and commit naming conventions
 6. `MyDegreePlan_Frontend/docs/claude/ROADMAP.md` — what is explicitly deferred
 
@@ -114,7 +114,7 @@ Match the structure of the two reference docs from Step 3. The required sections
 12. **Manual Verification** — golden-path scenarios a human can run in `npm run dev`.
     Before/after expected behavior.
 13. **Post-branch Checklist** — tests green, manual verification passed, `bug.md`
-    updated to remove fixed BUG-N entries, `BRANCH_QUEUE.md` updated, branch doc
+    updated to remove fixed BUG-N entries (with a dated note in `bug_archive.md`), `BRANCH_QUEUE.md` updated, branch doc
     deleted, branch merged.
 
 **Quality rules:**
@@ -165,7 +165,8 @@ Order** section. One commit per bug, in that order, using the messages in the
 When all bugs are implemented and verified:
 
 - Update `MyDegreePlan_Frontend/docs/claude/bug.md` — remove the fixed BUG-N
-  entries (do not renumber existing entries unless explicitly instructed).
+  entries (do not renumber existing entries unless explicitly instructed) and
+  append a dated note for each to the end of `bug_archive.md`.
 - Update `MyDegreePlan_Frontend/docs/claude/BRANCH_QUEUE.md` — move the branch
   to the **Merged Branches** table with today's date.
 - Delete `MyDegreePlan_Frontend/docs/claude/BRANCH_<name>.md`.
