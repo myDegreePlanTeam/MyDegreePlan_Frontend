@@ -217,7 +217,7 @@ objects carry `semester_number` and `slot_order` from the query result.
 
 ---
 
-#### `DegreePlan.jsx` — [src/components/DegreePlan.jsx](../src/components/DegreePlan.jsx)
+#### `DegreePlan.jsx` — [src/components/DegreePlan.jsx](../../../src/components/DegreePlan.jsx)
 
 **Direct `requirement_slots` query (line 159–162):**
 ```js
@@ -261,7 +261,7 @@ the query and order in JS by the algorithm-assigned semester numbers from
 
 ---
 
-#### `SlotModal.jsx` — [src/components/SlotModal.jsx](../src/components/SlotModal.jsx)
+#### `SlotModal.jsx` — [src/components/SlotModal.jsx](../../../src/components/SlotModal.jsx)
 
 **Reads `slot.semester_number` in two `useMemo` hooks (lines 97, 100, 130, 143):**
 ```js
@@ -290,7 +290,7 @@ every slot has a written position.
 
 ---
 
-#### `PriorCreditWizard.jsx` — [src/components/PriorCreditWizard.jsx](../src/components/PriorCreditWizard.jsx)
+#### `PriorCreditWizard.jsx` — [src/components/PriorCreditWizard.jsx](../../../src/components/PriorCreditWizard.jsx)
 
 **Reads `slot.semester_number` for display only (line 499):**
 ```jsx

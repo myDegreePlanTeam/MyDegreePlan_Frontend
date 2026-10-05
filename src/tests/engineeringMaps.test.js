@@ -50,7 +50,7 @@ describe.each(Object.keys(PRINTED))('%s', program => {
 
 // The department's own path is used only when it holds up against the catalog. Every engineering map puts PHYS 2110 (4 hours) in the
 // same semester as MATH 1920, so the catalog must say MATH 1920 may be taken alongside and PHYS 2110 is 4 hours; if either regresses
-// the builder rejects the path and falls back to its own algorithm (see docs/claude/INTEGRATION_mne-engineering.md).
+// the builder rejects the path and falls back to its own algorithm (see docs/claude/plans/INTEGRATION_mne-engineering.md).
 describe.each(Object.keys(PRINTED))('%s: the reference student gets the department map', program => {
   const slots = slotsOf(program)
   const result = build(slots)

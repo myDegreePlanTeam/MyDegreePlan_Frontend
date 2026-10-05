@@ -14,7 +14,7 @@
 import { POOL_COURSES, POOL_LABELS, SCIENCE_SEQUENCES } from './poolResolver'
 import { formatTermLabel } from './semesterTerms'
 
-// The app is scoped to TTU Computer Science (BS) only; see SESSION_PREAMBLE.
+// The app is scoped to TTU Computer Science (BS) only; see docs/claude/prompts/SESSION_PREAMBLE.md.
 // These print in the degree-map header and move into the concentration row
 // if another department is ever added.
 const DEGREE = 'BS'

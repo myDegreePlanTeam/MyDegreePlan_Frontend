@@ -101,7 +101,7 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
   (Business's MATH 1710 / 1530 are ordinary requirements). A program's first plan covers earlier entrants (`covers_earlier`); when that
   plan is Flight Foundations the fit is **approximate** (`isApproximateFit`): onboarding says so before they continue and the plan view
   carries a notice. A department map may print a semester up to 21 hours (`MAP_LOAD_MAX`, the overload ceiling) and still be used. The
-  rollout of every Tennessee Tech major is `PLAN_all-majors.md`; every program with a map is checked by `allMapsConformance.test.js`.
+  rollout of every Tennessee Tech major is `plans/PLAN_all-majors.md`; every program with a map is checked by `allMapsConformance.test.js`.
 - Flight Foundations plans replace the six `GEN_ED` slots with fixed `HIST2010` + `HIST2020` and the pools `FF_SOCIAL`
   ×2 and `FF_HUMANITIES` ×2 (HPC also `FF_LITERACY`). English Literature is **not** a separate Flight Foundations
   requirement, so `ENG_LIT` exists only in legacy plans. SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are

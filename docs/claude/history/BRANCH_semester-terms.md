@@ -92,7 +92,7 @@ export function computeSemesterTerms(startSeason, startYear, templateSemNums, ex
   let year   = startYear
   for (const n of templateSemNums) {
     result[n] = { season, year }
-    const next = ADVANCE[season](year)
+    const next = ADVANCE[season](../year)
     season = next.season
     year   = next.year
   }
@@ -452,6 +452,6 @@ Confirm "Summer 2025" card appears. Reload — confirm it persists. Delete it; r
 - [ ] `npm run test` — 16 files, ≥ 303 tests passed
 - [ ] Tier 14 migration applied in Supabase **before** first `npm run dev`
 - [ ] Manual verification for all three items passes
-- [ ] `docs/claude/BRANCH_QUEUE.md` — move `schema/semester-terms` to Merged Branches; annotate `feat/dynamic-semester-count` as "superseded by feat/plan-controls + schema/semester-terms"
-- [ ] `docs/claude/BRANCH_semester-terms.md` deleted in close-out commit
+- [ ] `docs/claude/tracking/BRANCH_QUEUE.md` — move `schema/semester-terms` to Merged Branches; annotate `feat/dynamic-semester-count` as "superseded by feat/plan-controls + schema/semester-terms"
+- [ ] `docs/claude/history/BRANCH_semester-terms.md` deleted in close-out commit
 - [ ] Merge to `main`. Do not force-push.

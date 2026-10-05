@@ -76,6 +76,6 @@ Before adding a prompt to the library, it should pass all of these:
 - [ ] Stays under ~200 words (if it's longer, it's probably two prompts)
 - [ ] Names inputs and outputs explicitly
 - [ ] Works in all three environments (Claude.ai, Claude Code, Antigravity) OR declares which one it's for
-- [ ] Doesn't duplicate context already in `SESSION_PREAMBLE.md`
+- [ ] Doesn't duplicate context already in `prompts/SESSION_PREAMBLE.md`
 
 ## End of outline
