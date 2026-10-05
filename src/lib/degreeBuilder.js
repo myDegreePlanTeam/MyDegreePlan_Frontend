@@ -24,32 +24,10 @@
 //   archived    : { [slotId]: archiveReason }   — 'not_applicable' | 'prior_credit'
 
 import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
-import { resolveMathPlacement, mathCurriculumFor, planHasMathChain } from './mathPlacement'
+import { resolveMathPlacement, mathChainFor, planHasMathChain, planRequiresCalculusII, ALL_MATH_CHAIN_CODES } from './mathPlacement'
 import { isEnrollmentAllowed } from './semesterRestrictions'
 import { POOL_COURSES, POOL_CREDIT_ESTIMATES, POOL_FLOORS, REQUIREMENT_POOLS } from './poolResolver'
 
-// ─── Math chain data ──────────────────────────────────────────────────────────
-
-const MATH_CHAINS_NEW = {
-  MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
-  MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
-  MATH1730: ['MATH1730', 'MATH1910', 'MATH2010'],
-  MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
-  MATH1910: ['MATH1910', 'MATH2010'],
-}
-
-const MATH_CHAINS_RETURNING = {
-  MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH1920', 'MATH2010'],
-  MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH1920', 'MATH2010'],
-  MATH1730: ['MATH1730', 'MATH1910', 'MATH1920', 'MATH2010'],
-  MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
-  MATH1910: ['MATH1910', 'MATH1920', 'MATH2010'],
-}
-
-const ALL_MATH_CHAIN_CODES = new Set([
-  'MATH1000', 'MATH1710', 'MATH1720', 'MATH1730',
-  'MATH1904', 'MATH1906', 'MATH1910', 'MATH1920', 'MATH2010',
-])
 
 // ─── Semester credit targets ──────────────────────────────────────────────────
 
@@ -80,10 +58,9 @@ const IMPLICIT_POOL_PREREQ = POOL_FLOORS
 
 // The chain follows the student's math placement (mathPlacement.js): ACT or SAT Math, whichever places higher,
 // and MATH1000 when there is no score at all.
-function getStudentMathChain({ act_math, sat_math }, curriculum) {
+function getStudentMathChain({ act_math, sat_math }, slots, studentType) {
   const startCode = resolveMathPlacement({ act: act_math, sat: sat_math }).course
-  const chains = curriculum === 'returning' ? MATH_CHAINS_RETURNING : MATH_CHAINS_NEW
-  return new Set(chains[startCode] ?? ['MATH1910', 'MATH2010'])
+  return new Set(mathChainFor(startCode, slots, studentType))
 }
 
 function slotCredits(slot, courseMap) {
@@ -139,7 +116,7 @@ function planLength({ assignments }) {
 // credit covers ('prior_credit').
 function archivedSlots({ slots, priorCredits, studentProfile }) {
   const { student_type, act_math, sat_math } = studentProfile
-  const studentChain = getStudentMathChain({ act_math, sat_math }, mathCurriculumFor(slots, student_type))
+  const studentChain = getStudentMathChain({ act_math, sat_math }, slots, student_type)
   const archived = {}
   // Placement decides the math only for a plan that goes through Calculus I. In one without it (Business: MATH 1710 and
   // MATH 1530) every math course is an ordinary requirement a test score does not skip.
@@ -359,8 +336,12 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
     return best === Infinity ? floor : Math.max(floor, best)
   }
 
+  // A department map that goes through Calculus II (engineering) is the only record of the order of its own courses: the
+  // catalog gives most of them no prerequisites. A student whose math starts below Calculus I (or on the extended track) is
+  // delayed against the map, never ahead of it, so no course starts earlier than the semester the map gives it.
+  const followsMap = planRequiresCalculusII(slots)
   const minSem = {}
-  for (const slot of activeSlots) minSem[slot.id] = 1
+  for (const slot of activeSlots) minSem[slot.id] = followsMap && Number.isInteger(slot.map_semester) ? slot.map_semester : 1
 
   let changed = true
   let safetyIter = 0
@@ -472,8 +453,11 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
     return 4   // pool slots fill last
   }
 
+  // On a plan that follows a department map, what the map puts earlier takes the seats first (math still leads).
+  const mapOrder = slot => (slotPriority(slot) === 0 ? -1 : slot.map_semester ?? 99)
   const sorted = [...activeSlots].sort((a, b) => {
     if (minSem[a.id] !== minSem[b.id]) return minSem[a.id] - minSem[b.id]
+    if (followsMap && mapOrder(a) !== mapOrder(b)) return mapOrder(a) - mapOrder(b)
     const pa = slotPriority(a), pb = slotPriority(b)
     if (pa !== pb) return pa - pb
     return (a.class_code ?? '').localeCompare(b.class_code ?? '')

@@ -18,6 +18,8 @@
 //
 // MATH 1730 is equivalent to MATH 1710 plus MATH 1720.
 
+import { POOL_COURSES } from './poolResolver'
+
 export const MATH_PLACEMENT = {
   effective: '2026-2027',
 
@@ -53,8 +55,81 @@ export const MATH_PLACEMENT = {
  * The Prototype's specLib.mathCurriculumOf reads the same evidence, so the validator and the app agree.
  */
 export function mathCurriculumFor(slots, studentType) {
-  if ((slots ?? []).some(s => s.class_code === 'MATH1920' && s.map_semester != null)) return 'returning'
+  if (planRequiresCalculusII(slots)) return 'returning'
   return studentType === 'returning' ? 'returning' : 'new'
+}
+
+/** Whether the plan's department map puts MATH1920 in a semester: Calculus II is required of every student on it (engineering). */
+export function planRequiresCalculusII(slots) {
+  return (slots ?? []).some(s => s.class_code === 'MATH1920' && s.map_semester != null)
+}
+
+// ── placement chains ─────────────────────────────────────────────────────────
+//
+// The math courses a student takes, from the placement course onward. Slots for the other chain courses are archived
+// as 'not_applicable' by the degree builder; onboarding shows the chain. The Prototype's math_sequences.json repeats the
+// two tables below for the seed side (it reads only the top track): keep them in step.
+
+export const ALL_MATH_CHAIN_CODES = new Set([
+  'MATH1000', 'MATH1710', 'MATH1720', 'MATH1730',
+  'MATH1904', 'MATH1906', 'MATH1910', 'MATH1920', 'MATH2010',
+])
+
+const MATH_CHAINS = {
+  new: {
+    MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
+    MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH2010'],
+    MATH1730: ['MATH1730', 'MATH1910', 'MATH2010'],
+    MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
+    MATH1910: ['MATH1910', 'MATH2010'],
+  },
+  // MATH1920 sits between MATH1910 and MATH2010 (a returning student on the old curriculum)
+  returning: {
+    MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910', 'MATH1920', 'MATH2010'],
+    MATH1710: ['MATH1710', 'MATH1720', 'MATH1910', 'MATH1920', 'MATH2010'],
+    MATH1730: ['MATH1730', 'MATH1910', 'MATH1920', 'MATH2010'],
+    MATH1904: ['MATH1904', 'MATH1906', 'MATH2010'],
+    MATH1910: ['MATH1910', 'MATH1920', 'MATH2010'],
+  },
+}
+
+// From each placement to Calculus I (MATH1906 stands in for MATH1910 downstream: requirementMap.js)
+const LEAD_IN = {
+  MATH1000: ['MATH1000', 'MATH1710', 'MATH1720', 'MATH1910'],
+  MATH1710: ['MATH1710', 'MATH1720', 'MATH1910'],
+  MATH1730: ['MATH1730', 'MATH1910'],
+  MATH1904: ['MATH1904', 'MATH1906'],
+  MATH1910: ['MATH1910'],
+}
+
+/**
+ * The placement-chain courses a student starting in `startCode` takes on this plan. A plan whose department map requires
+ * Calculus II (engineering) is read from its own slots: the lead-in to Calculus I, then MATH1920 and MATH2010 where the
+ * plan has them (Nuclear Engineering has no MATH2010; a student who starts in MATH1904 still takes MATH1920). Any other
+ * plan follows the two tables above, as it always has.
+ */
+export function mathChainFor(startCode, slots, studentType) {
+  if (planRequiresCalculusII(slots)) {
+    const onward = ['MATH1920', 'MATH2010'].filter(code => slots.some(s => s.class_code === code))
+    return [...(LEAD_IN[startCode] ?? LEAD_IN.MATH1910), ...onward]
+  }
+  return MATH_CHAINS[mathCurriculumFor(slots, studentType)][startCode] ?? ['MATH1910', 'MATH2010']
+}
+
+/**
+ * What onboarding shows as the math sequence: the chain, then the rest of the plan's own required math in the department's
+ * order (`later`: Calculus III and Differential Equations in the engineering maps), then the statistics choice when the plan
+ * has a statistics slot (`fork`). None of the last two is assumed: a plan without them shows neither.
+ */
+export function mathSequenceFor(startCode, slots, studentType) {
+  const chain = mathChainFor(startCode, slots, studentType)
+  const taken = new Set(chain)
+  const later = (slots ?? [])
+    .filter(s => !s.is_pool && /^MATH[0-9]{4}$/.test(s.class_code) && !ALL_MATH_CHAIN_CODES.has(s.class_code) && !taken.has(s.class_code))
+    .sort((a, b) => (a.map_semester ?? 99) - (b.map_semester ?? 99) || a.class_code.localeCompare(b.class_code))
+    .map(s => s.class_code)
+  const fork = (slots ?? []).some(s => s.is_pool && s.class_code === 'MATH_STATS') ? [...(POOL_COURSES.MATH_STATS ?? [])] : []
+  return { chain, later: [...new Set(later)], fork }
 }
 
 /**
