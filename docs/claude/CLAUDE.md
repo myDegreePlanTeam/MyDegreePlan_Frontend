@@ -261,7 +261,7 @@ that section before changing the module. Rules that must hold even if you do not
   `n` write a real newline, before `d` lose the backslash, and before `b` make a backspace: it broke two test runs, put
   backspace characters into source files, and made a counting regex count single backslashes. Put a script that needs a
   literal backslash in a file with the Write tool and run it, or build the character with `chr(92)` / `String.fromCharCode(92)`;
-  `guard_bash.mjs` adds a hint when it sees two backslashes before an escape character in a Python or node script. A single
+  `guard_bash.mjs` blocks a command with two backslashes before an escape character in a Python or node script. A single
   `\b` or `\d` typed inside an edit script can also reach the file as a backspace character or as a bare `d`. Write `[0-9]`
   instead of `\d`, `chr(92)` for a backslash, and prefer
   `local-deploy/tools/multi_replace.py`, which refuses control characters. `src/tests/sourceHygiene.test.js` (Frontend) and
@@ -269,7 +269,9 @@ that section before changing the module. Rules that must hold even if you do not
   real `/^\s*none<BS>/` in `catalog/prereqParser.mjs`. A dropped backslash is not a control character, so check the
   written line (`sed -n Np file | cat -A`) after editing a regex. To change text that contains a backslash or an escaped
   newline, use the Edit tool, not `sed`, `node -e` or a nested heredoc (they re-escape it, and a heredoc inside a heredoc
-  hangs the shell until the timeout). An empty heredoc fed to `python3 -` is the worst case here: Python 3.13 starts its
+  hangs the shell until the timeout). A long edit or a setup script (backticks, apostrophes, several heredocs in one call)
+  goes through the Write or Edit tool, never a Bash heredoc: a `multi_replace` heredoc full of quotes failed to parse on
+  2026-10-03 and again on 2026-10-05. An empty heredoc fed to `python3 -` is the worst case here: Python 3.13 starts its
   interactive prompt and loops (20 MB of output). A PreToolUse hook (`local-deploy/tools/guard_bash.mjs`, wired in
   `MDP/.claude/settings.json`) now refuses that, an unclosed heredoc and a bare `python`/`node` before they run; put
   `# guard_bash: allow` in a command to run one deliberately.
@@ -281,8 +283,9 @@ that section before changing the module. Rules that must hold even if you do not
   other sessions and the CLAUDE.md and memory loaded at session start can predate them: on 2026-10-02 the first answer proposed a
   session-start status script and a CLAUDE.md drift check that already existed.
 - **Driving onboarding in the browser pane** (no screenshots: they time out while the pane is hidden). The pane keeps a
-  saved plan per origin, so Onboarding only shows on an origin with none: use `http://127.0.0.1:5173/` when
-  `localhost:5173` already has a plan, rather than erasing it. React ignores a plain `el.value = x`; use the native setter
+  saved plan per origin, so Onboarding only shows on an origin with none. For any check that creates a plan, start the
+  `MyDegreePlan-verify` dev server (port 5175, in `MDP/.claude/launch.json`): nothing is saved there, and 5173 and 5174 hold
+  plans that are not Claude's to erase (do not add and remove a temporary launch.json entry each time). React ignores a plain `el.value = x`; use the native setter
   and dispatch an event. Pick the **year before the season**: changing the year clears the season. Verified 2026-10-02:
 
   ```js
@@ -293,13 +296,14 @@ that section before changing the module. Rules that must hold even if you do not
   }
   const btn = t => [...document.querySelectorAll('button')].find(b => b.textContent.trim().startsWith(t))
   // step 1: the program. With one college the list starts at the majors (button.program-major); with several, first
-  // button.program-college. A major with concentrations then shows .concentration-card buttons, or use the search box.
+  // button.program-college. A major with concentrations then shows .concentration-card buttons. The search box
+  // (input[type=search], also .onboarding-input, so it is the first one on step 1) lists programs as results to click.
   btn('Computer Science, B.S.').click(); btn('CSC Cybersecurity').click(); btn('Continue').click()
   // step 2: start term, limited to what the program has a plan for
   btn('Incoming Freshman').click()
   setVal(document.querySelectorAll('select.onboarding-select')[1], '2026')   // the year select is the second one
   setVal(document.querySelectorAll('select.onboarding-select')[0], 'Fall')
-  btn('Continue').click()      // step 3: 6 input.onboarding-input (ACT/SAT); Continue again: step 4 (math, only if the plan has Calculus I), then step 5
+  btn('Continue').click()      // step 3: 6 input.onboarding-input in the order ACT Math, English, Science, Reading, Composite, then SAT Math; Continue again: step 4 (math, only if the plan has Calculus I), then step 5
   ```
 
   Wait about 150 ms between steps (`await new Promise(r => setTimeout(r, 150))`) so React re-renders. To start over, delete the
@@ -307,8 +311,10 @@ that section before changing the module. Rules that must hold even if you do not
   tabs of that origin first**: a delete blocked by another open tab stays queued and every later open of that origin hangs on the loading
   skeleton until that tab is closed (it cost a session on 2026-10-02). Screenshots worked with the pane open.
 - **Paths and the shell's working directory.** The Bash tool's working directory drifts after any `cd`, so a relative path or
-  `git -C <relative folder>` from an earlier call fails ("cannot change to ..."). Use absolute paths
-  (`/c/Users/brady/github/MDP/...`), or `cd` in the same command.
+  `git -C <relative folder>` from an earlier call fails ("cannot change to ..."). Start every Bash call with
+  `cd /c/Users/brady/github/MDP/<folder> &&`, or use absolute paths. This line alone did not hold (six failures on 2026-10-02,
+  10-03 and 10-05), so `guard_bash.mjs` now blocks a relative path that is missing in the shell's directory but exists under
+  `MDP/` or one repo folder, and its message names the folder.
 - **No `git stash` in a verification chain.** A stray `git stash` in a test command moved staged work out of the tree, and
   the Frontend checkout can hold another session's stash. Verify without stashing: a clean checkout or a `git worktree`.
 - **Line endings.** With `core.autocrlf` the working copies are CRLF while the index is LF, and a grep for a carriage return
@@ -321,7 +327,9 @@ that section before changing the module. Rules that must hold even if you do not
 - **Scope.** Do only what was asked. Do not silently generalize a fix from one course or program to others: name them and ask. If a change should
   cascade, list the cascade and wait for a go-ahead.
 - **Doubt.** If you do not know something about Tennessee Tech's catalog, the schema or an earlier decision, say so and ask; do not guess. Prefer
-  pasted primary material (the file, the error, the catalog page) to a description of it.
+  pasted primary material (the file, the error, the catalog page) to a description of it. Asking is not the only step: before
+  saying what a doc, a plan or an earlier decision says, grep it (a plan's "answered" question was stated from memory on
+  2026-10-05 and was wrong), and quote a number from a script or a file, not from memory.
 - **Data is load-bearing.** Students will rely on the curriculum data. Edit the source (specs, overrides, the inputs to `courses.json`),
   regenerate, and call out any entry that disagrees with the catalog; never hand-edit a generated file.
 - **Docs follow the code.** When a doc and the code disagree, the code wins: say so, and fix the doc in the same PR.
@@ -361,7 +369,8 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 2. Read the relevant source files before writing any code — do not assume file contents
 3. Do not write a migration file (no more Supabase migrations). A schema change edits `local-deploy/setup/sql/000_baseline.sql` and the `localClient.js` defaults; see "No more Supabase migrations"
 4. Run `npm run test` from `MyDegreePlan_Frontend/` and confirm all tests pass before making changes
-5. Create a branch before starting work — never work directly on main
+5. Create a branch before starting work — never work directly on main: `bash local-deploy/tools/start_branch.sh <repo-folder> type/short-name`
+   from `MDP/` (fetch, fast-forward `main`, branch from it; it refuses on uncommitted tracked changes or a name already taken)
 6. Do not assume file names or function signatures — use Glob/Grep to find them
 7. For exact-text edits across several files, or in CRLF files, run `local-deploy/tools/multi_replace.py` from the `MDP/` folder
    (`python local-deploy/tools/multi_replace.py - <<'EOF'`; `--dry-run` previews). Format: one `@@@ file PATH` line per file, then
@@ -375,7 +384,8 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
    layout `JSON.stringify` would not reproduce (the generated specs under `degree-specs/<dept>/`, `catalog/equivalents.json`:
    inline arrays), so edit those with `multi_replace.py`. The Deploy repo's CI runs the tools' tests.
 8. To open a PR, commit on a branch (explicit paths, never `git add -A`), then run
-   `bash local-deploy/tools/open_pr.sh <repo-folder> --title "type(scope): text" --body-file FILE` from `MDP/`: a dry run that prints
+   `bash local-deploy/tools/open_pr.sh <repo-folder> --title "type(scope): text" --body-file - <<'EOF'` from `MDP/` (the body on stdin: no
+   temp file to write and delete; `FILE` also works): a dry run that prints
    the plan; add `--yes` to push and create it (never forced; refuses on `main`, with no new commits, or if a PR is already open).
    To finish a PR (wait for CI, squash-merge, fast-forward local `main`, delete the local branch), run
    `bash local-deploy/tools/finish_pr.sh <repo-folder> <pr> [--dry-run]` from `MDP/`. It deletes the branch only if its tip
