@@ -23,6 +23,7 @@ import { formatCredits, isVariableCredit, validateHours } from '../lib/creditHou
 import CourseKindTabs from './CourseKindTabs'
 import CreditHoursField from './CreditHoursField'
 import { getBrand } from '../lib/brand'
+import { previousStep } from '../lib/wizardSteps'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1.
@@ -41,7 +42,7 @@ const CREDIT_TYPES = [
   { value: 'test_out',        label: 'CLEP Exam',                hasScore: true  },
   { value: 'ib_credit',       label: 'IB Exam',                  hasScore: true  },
   { value: 'cambridge',       label: 'Cambridge International',  hasScore: false },
-  { value: 'transfer_credit', label: 'Transfer Credit',          hasScore: false, disabled: true },
+  { value: 'transfer_credit', label: 'Transfer Credit',          hasScore: false },
   { value: 'dual_credit',     label: 'Dual Credit',              disabled: true  },
   { value: 'dual_enrollment', label: 'Dual Enrollment',          disabled: true  },
 ]
@@ -253,7 +254,7 @@ export default function PriorCreditWizard({
   // ── Navigation ────────────────────────────────────────────────────
   function goBack() {
     if (step === 1) { onClose(); return }
-    setStep(s => s - 1)
+    setStep(previousStep(step, !!typeConfig?.hasScore))
     if (step === 2) { setSelectedExam(null); setExamOptions([]); setCourseSearch(''); setCourseFound({ all: [], counts: null, more: false }) }
     if (step === 3) { setSelectedScore(null); setScoreOptions([]) }
     if (step === 4) { setAwards([]) }

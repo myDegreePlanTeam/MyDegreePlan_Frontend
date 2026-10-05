@@ -154,10 +154,11 @@ program's plan, and be improved after launch; the rules sidebar above is its inp
 Read and write access to student plans for Tennessee Tech advisors. Needs the university's backing and real authentication and row-level security
 work. Not the student-facing Advisement tab (an in-page preview of the degree map PDF).
 
-### Transferable-course database
-Transfer, Dual Credit and Dual Enrollment entry in the prior-credit wizard is disabled ("Coming soon") since the April interim fix, waiting for a
-list of courses that transfer. The wizard still carries the code for transfer entry (course search, catalog validation). The catalog now holds the
-full Tennessee Tech course list, so check whether that is enough before building anything; this is BUG-22 in `tracking/bug.md`.
+### Dual Credit and Dual Enrollment entry
+Transfer Credit entry in the prior-credit wizard works again (2026-10-05, `fix/bug-22-transfer-entry`): the April grey-out waited on a
+transferable-course list, and the full Tennessee Tech catalog search now covers it. Dual Credit and Dual Enrollment are still greyed out
+("Coming soon") and have no code behind them: `prior_credits.credit_type` does not accept either value (`000_baseline.sql`), and a dual-enrollment
+course is entered today as Transfer Credit. Decide whether they are separate types before building anything; this is what is left of BUG-22 in `tracking/bug.md`.
 
 ### App icon
 `public/favicon.svg` is still the Vite default from the initial commit. No design asset exists; one must be created or sourced first.

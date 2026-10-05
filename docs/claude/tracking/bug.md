@@ -25,10 +25,11 @@ A bug found and fixed in one session goes straight to the archive and leaves the
 **Severity:** High
 **File(s):** `src/components/PriorCreditWizard.jsx`, `src/components/Onboarding.jsx`
 
-**Status (2026-10-05):** Partly addressed. Onboarding now asks the student type (incoming freshman or returning), and the wizard carries the code for transfer
-entry (hidden from incoming freshmen, a course search, catalog validation). But the Transfer Credit, Dual Credit and Dual Enrollment buttons are still
-`disabled` ("Coming soon") in `CREDIT_TYPES`, so no student can reach it: the interim grey-out from BUG-26, which waited on a transferable-course database
-("Transferable-course database" in `ROADMAP.md`). The catalog now holds the full Tennessee Tech course list, so whether that blocker still applies is the first thing to check. The original
+**Status (2026-10-05):** Mostly addressed. Onboarding asks the student type (incoming freshman or returning), and the wizard's Transfer Credit entry (hidden from
+incoming freshmen, a course search, catalog validation) is enabled on `fix/bug-22-transfer-entry`: its blocker, BUG-26's empty search against the April catalog, is gone
+(checked in the app: MATH1910, a non-CSC course and a graduate course are all found, and a transfer saves and removes). Back from the confirm step also returned to a
+score step that a transfer and Cambridge never use; fixed there too (`lib/wizardSteps.js`). Left: Dual Credit and Dual Enrollment stay `disabled` in `CREDIT_TYPES` with no
+code or `credit_type` behind them (`ROADMAP.md`, "Dual Credit and Dual Enrollment entry"), and a returning student still enters transfer credits one at a time. The original
 description below is the April state.
 
 **Description:** The "Any prior credits or placement scores?" onboarding step surfaces only AP/IB/ACT/placement-style credits — the kinds relevant to Semester 1 course placement. It does not support full prior coursework onboarding for transfer students, continuing students, or dual-enrollment students who may have completed 30–60 credits before arriving. A transfer student using the wizard has no path to enter their completed coursework except manually after onboarding, one entry at a time, through the Prior Coursework panel.
