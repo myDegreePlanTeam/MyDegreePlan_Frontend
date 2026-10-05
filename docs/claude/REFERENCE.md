@@ -373,7 +373,9 @@ MATH1920). `getPlanCodes` / `getRemovedCodes` derive the inputs from plan state.
 
 Pure placement algorithm. Called from `Onboarding.jsx`, `ProfileSettings.jsx` (ACT-score
 change), and `DegreePlan.jsx` (first load with unplaced slots, Reset Plan). Callers write the
-result to `student_plan_slots` with `position_source = 'algorithm'`.
+result to `student_plan_slots` with `position_source = 'algorithm'`. That column records who placed a row: `'algorithm'` (written from
+`buildDegreePlan`'s result), `'student'` (the student dragged the slot to another semester), or `null` for an archived or unplaced slot;
+the database allows only those two values.
 - **Map-first:** a *standard* student (Fall start, no prior credit at all, top-track math placement) gets the department's
   own path: each slot's `map_semester`. It is used only when every active slot has one and the path holds up (prerequisites
   and corequisites between the plan's courses, offering terms by season, standing, no semester over 18 hours); otherwise,
