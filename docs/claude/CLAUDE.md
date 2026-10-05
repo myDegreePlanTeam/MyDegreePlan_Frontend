@@ -316,6 +316,16 @@ that section before changing the module. Rules that must hold even if you do not
 - **Cross-repo PR references.** Open the PR that another PR will cite first (`open_pr.sh` prints its URL), then quote that
   number. A number guessed in advance was wrong once and had to be corrected after the PR was created.
 
+## Working agreements
+
+- **Scope.** Do only what was asked. Do not silently generalize a fix from one course or program to others: name them and ask. If a change should
+  cascade, list the cascade and wait for a go-ahead.
+- **Doubt.** If you do not know something about Tennessee Tech's catalog, the schema or an earlier decision, say so and ask; do not guess. Prefer
+  pasted primary material (the file, the error, the catalog page) to a description of it.
+- **Data is load-bearing.** Students will rely on the curriculum data. Edit the source (specs, overrides, the inputs to `courses.json`),
+  regenerate, and call out any entry that disagrees with the catalog; never hand-edit a generated file.
+- **Docs follow the code.** When a doc and the code disagree, the code wins: say so, and fix the doc in the same PR.
+
 ## Core Principles (read before every session)
 
 1. **The degree plan grid shows only what a student still needs to complete.** Archived slots
