@@ -34,6 +34,7 @@ export default function Semester({
   selectedKey        = null,
   onAddCourse,
   scienceWarnings    = {},
+  poolLimitWarnings  = {},
   prereqWarnings     = {},
   coreqWarnings      = {},
   standingWarnings   = {},
@@ -137,6 +138,7 @@ export default function Semester({
                 isSelected={selectedKey === slot.id}
                 onSelect={() => onSelectSlot(slot)}
                 scienceWarning={scienceWarnings[slot.id]}
+                poolLimitWarning={poolLimitWarnings[slot.id]}
                 prereqMissing={prereqWarnings[slot.id]}
                 coreqMissing={coreqWarnings[slot.id]}
                 standingWarning={standingWarnings[slot.id]}
@@ -203,7 +205,7 @@ export default function Semester({
 // ── Row presentation ──────────────────────────────────────────────────────────
 // Picks the dot, note text, and note tone for a row. Warnings outrank status
 // so a problem is never hidden behind a "planned" dot.
-function describeRow({ status, prereqMissing, coreqMissing, scienceWarning, standingWarning, fallbackNote, isEmptyPool }) {
+function describeRow({ status, prereqMissing, coreqMissing, scienceWarning, poolLimitWarning, standingWarning, fallbackNote, isEmptyPool }) {
   if (prereqMissing?.length > 0) {
     return { dot: 'blocked', tone: 'blocked', note: `Needs ${formatMissingForDisplay(prereqMissing)} in an earlier term` }
   }
@@ -217,6 +219,10 @@ function describeRow({ status, prereqMissing, coreqMissing, scienceWarning, stan
         ? `Complete your ${scienceWarning.sequenceName} sequence`
         : 'Science sequence conflict',
     }
+  }
+  if (poolLimitWarning?.length > 0) {
+    const w = poolLimitWarning[0]
+    return { dot: 'blocked', tone: 'blocked', note: `${w.hours} hrs: ${w.label.toLowerCase()}; at most ${w.maxHours} count` }
   }
   if (standingWarning) {
     return { dot: 'info', tone: 'info', note: `${standingWarning === 'senior' ? 'Senior' : 'Junior'} standing required` }
@@ -261,7 +267,7 @@ function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPo
 function SlotRow({
   slot, course, selectedCode, selectedCourse, status, openCredits,
   isSelected, onSelect,
-  scienceWarning, prereqMissing, coreqMissing, standingWarning,
+  scienceWarning, poolLimitWarning, prereqMissing, coreqMissing, standingWarning,
   isTransferFilled, transferLabel,
 }) {
   const { dragProps, isDragging } = useRowDrag(slot.id, 'requirement_slot')
@@ -274,7 +280,7 @@ function SlotRow({
         ? (selectedCourse?.name ?? 'Selected')
         : 'Choose a course'
     const view = describeRow({
-      status, prereqMissing, coreqMissing, scienceWarning, standingWarning,
+      status, prereqMissing, coreqMissing, scienceWarning, poolLimitWarning, standingWarning,
       fallbackNote, isEmptyPool: !filled && !isTransferFilled,
     })
     return (

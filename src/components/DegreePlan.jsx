@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { db } from '../lib/dataClient'
-import { getScienceWarnings, POOL_LABELS, POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver'
+import { getScienceWarnings, getPoolLimitWarnings, POOL_LABELS, POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver'
 import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
 import { applyChosenHours } from '../lib/creditHours'
 import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
@@ -541,6 +541,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
     return out
   }, [activeSlots, planSlots, courses, freeAddSlots])
+
+  // ── Pool limits (the Area of Emphasis hours, for Mechanical Engineering) ──
+  const poolLimitWarnings = useMemo(
+    () => getPoolLimitWarnings(planSlots, slots, courses, planArchived),
+    [planSlots, slots, courses, planArchived]
+  )
 
   // ── Transfer credit slot satisfaction ────────────────────────────
   const transferFilled = useMemo(
@@ -1738,7 +1744,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       semNum: n, label: semLabels[n], credits: semCredits(n),
       completed: !!planSemesterCompleted[n], items: semItems(n),
     })),
-    prereqWarnings, coreqWarnings, standingWarnings, scienceWarnings, incompleteSlots,
+    prereqWarnings, coreqWarnings, standingWarnings, scienceWarnings, poolLimitWarnings, incompleteSlots,
   })
   const issueCounts = countIssuesBySemester(issues)
 
@@ -2016,6 +2022,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                         selectedKey={selKey}
                         onAddCourse={() => setAddCourseTarget(semNum)}
                         scienceWarnings={scienceWarnings}
+                        poolLimitWarnings={poolLimitWarnings}
                         prereqWarnings={prereqWarnings}
                         coreqWarnings={coreqWarnings}
                         standingWarnings={standingWarnings}

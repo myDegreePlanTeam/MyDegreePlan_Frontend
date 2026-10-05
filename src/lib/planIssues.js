@@ -31,6 +31,7 @@ export function buildPlanIssues({
   coreqWarnings    = {},
   standingWarnings = {},
   scienceWarnings  = {},
+  poolLimitWarnings = {},
 }) {
   const issues = []
 
@@ -81,6 +82,15 @@ export function buildPlanIssues({
           body: science.type === 'incomplete'
             ? `${item.code} is half of a two-course sequence. Choose its partner course in another science slot.`
             : `${item.code} does not pair with the science course chosen in your other science slot.`,
+        })
+      }
+
+      for (const limit of poolLimitWarnings[item.key] ?? []) {
+        push({
+          id: `pool-limit:${item.key}:${limit.label}`, key: item.key, severity: 'warning',
+          title: `Too many hours of ${limit.label.toLowerCase()}`,
+          where: `${item.code} · ${sem.label}`,
+          body:  `${limit.hours} hours are chosen and at most ${limit.maxHours} count. ${limit.why} Choose a different course for one of these slots.`,
         })
       }
 
