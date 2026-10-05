@@ -55,8 +55,8 @@ already primed: `student_plan_slots.archive_reason = 'banner_import'` is reserve
 path. **Do not implement archive logic for this value** until the integration is real.
 
 ### Admin catalog UI
-Right now course catalog edits go through `MyDegreePlan_Prototype/prototype.json` and the
-`csc_*.json` templates → `npm run build:catalog` (local backend) or `seed.js` (Docker stack). A future admin UI would let department staff edit `courses`,
+Right now course catalog edits go through the Prototype's course overrides and the `degree-specs/` files → `bash local-deploy/tools/regen.sh`
+(regenerates `catalog.json` for the local backend) or `seed.js` (Docker stack). A future admin UI would let department staff edit `courses`,
 `prerequisite_entries`, `corequisite_entries`, and `requirement_slots` directly against the DB
 with RLS-scoped write access.
 
@@ -79,7 +79,8 @@ Let students snapshot a plan before major edits and restore it. Likely a
 Flight Foundations (Tennessee Tech's gen-ed program, entering Fall 2026+) is implemented in
 `flightFoundations.js`: eight requirement areas, the 4 shared flex hours, the introductory-language
 cap, and per-plan evaluation, used by the FF pools and the slot modal. Still open:
-- A dashboard panel for the 41-hour summary (the evaluator and `getFlightFoundationsStatus` exist).
+- A dashboard panel for the 41-hour summary. The evaluator and `getFlightFoundationsStatus` exist, and `usePlanCompleteness` already shapes
+  their rows for a panel, but nothing outside its tests calls that hook and no component renders a completeness panel.
 - Per-major rules on top of the baseline: the American History exemption (Chemical, Civil,
   Computer, Electrical, General and Mechanical Engineering), other majors' category restrictions,
   and the minimum-grade rules (C or better in ENGL 1010 before ENGL 1020).
@@ -90,15 +91,10 @@ cap, and per-plan evaluation, used by the FF pools and the slot modal. Still ope
 science courses. A stricter future version would prevent the invalid pairing entirely
 at selection time, with an override path for department-approved exceptions.
 
-### Cambridge exam credit wizard step
-DB schema already allows `test_type='cambridge'` in `test_equivalencies` and
-`credit_type='cambridge'` in `prior_credits`. Just needs a step in `PriorCreditWizard`
-analogous to the AP/IB/ACT steps, plus seed rows in `test_equivalencies.sql`.
-
-### Full-text course search
-Currently all course pickers filter by exact substring match on `class_code`. A
-full-text search across `name` and `description` would help students who know the topic
-but not the code.
+### Course search by description
+Course pickers already match a typed term against the course code or name (`ilike` in `courseSearch.js` and `AddCourseModal`). Searching the
+description as well (full-text) would help students who know the topic but not the title; descriptions load on demand
+(`catalog.descriptions.json`), so the local backend would need them fetched before it can match.
 
 ### Pool-slot drag-back restoration
 When a student drags a prior credit row back onto a semester, pool slots come back empty
@@ -119,16 +115,8 @@ auto-fill flow honor. Skeleton scope for the prototype: a sidebar/modal that
 captures a list of rule-typed entries, persists them per student, and
 reads/writes to a new `student_rules` table. Application of the rules to
 plan-modification actions can be staged after the data shape is in place.
-Strongly couples to summer-semester opt-in (see `BRANCH_QUEUE.md`
-`schema/semester-terms` and `feat/dynamic-semester-count`).
-
-### Toggleable light/dark mode
-Theme is currently dark-only via root CSS variables in `src/index.css`. A
-toggle requires (1) a second variable set, (2) a persisted user preference
-(localStorage minimum, `student_profiles.theme` ideal), (3) a system-preference
-fallback via `prefers-color-scheme`. Coordinate with `BUG-38` (contrast audit)
-and `feat/branding` (TTU purple) so all three variable sets share the same
-contrast budget.
+Couples to a summer-semester opt-in toggle, which belongs in this sidebar: season-aware
+terms and the Add Semester wizard shipped, the opt-in did not (see `feat/rules-filter-sidebar` in `BRANCH_QUEUE.md`).
 
 ### Class exemption / advisor-approval gating
 Some courses require advisor or instructor consent before a student can enroll.
