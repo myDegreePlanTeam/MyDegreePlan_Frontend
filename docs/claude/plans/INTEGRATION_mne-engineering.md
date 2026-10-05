@@ -66,9 +66,11 @@ on a synthetic mismatch. No CSC slot or map semester changes.
 - **Historical Foundations.** Flight Foundations requires HIST 2010 + 2020 (6 hours). None of the five maps lists them. Read as the
   college's own arrangement; the plans carry no history. If wrong, the plans are 134 hours.
 - **Literature row.** ENGL 2130/2235/2330 (a legacy `ENG_LIT` pool) beside one Humanities elective. Read as two Humanities choices.
-- **Elective lists.** The maps and the department page publish none: `ME_ELECTIVE` ("AOE Elective", Aerospace "Mechanical Engineering
-  Elective") is any 4000-level ME course of 3+ hours except senior design and research; Nuclear Engineering's six "Area of Emphasis"
-  courses are an open choice. Needs the real lists.
+- **Elective lists.** *Updated 2026-10-05:* the catalog's own degree maps carry the Area of Emphasis (AOE) list, and `ME_ELECTIVE` ("ME AOE Elective")
+  is now that list (ME courses, the math list, BMGT 3510, ENGR 4510, ENTR 4500 and the pre-approved MET courses) instead of the rule "any 4000-level ME
+  course of 3+ hours except senior design and research" this note first recorded. Not enforced: at least 9 of the 15 AOE hours from the ME courses, at most 3 from
+  Category 3, approval cases. ME 4160 and ME 4490 are on the list but not in the catalog data. Nuclear Engineering's six "Area of Emphasis"
+  courses are still an open choice (its catalog map names no list).
 - **Literacy row** "(FIN 2000, CSC2220, or CSC 2570)": read as the Flight Foundations literacy list, the parenthesis as examples.
 - **Mechatronics "Controls - ECE 3260 and ECE 3210 or ME 4810" (3 hours):** ECE 3260 is 1 hour. Read as ECE 3210 or ME 4810.
 - **ME 4140 Robotics** needs ECE 3260 in the catalog, but the map offers ECE 3260 only in the semester after it.

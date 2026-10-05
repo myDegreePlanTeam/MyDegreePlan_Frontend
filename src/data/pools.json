@@ -13,7 +13,7 @@
   "CSC_HPC_ELECTIVE": {"label":"HPC Elective","credits":3,"floor":"CSC1310","kind":"courses","courses":["CSC4040","CSC4220","CSC4400","CSC4575","CSC4710"]},
   "CSC_HPC_ELECTIVE_2026": {"label":"HPC Elective","credits":3,"floor":"CSC1310","succeeds":"CSC_HPC_ELECTIVE","kind":"courses","courses":["CSC4040","CSC4220","CSC4575"]},
   "FREE_ELECTIVE": {"label":"Free Elective","credits":3,"kind":"open"},
-  "ME_ELECTIVE": {"label":"ME Elective","credits":3,"kind":"rule","rule":{"subject":"ME","from":4000,"to":4999,"minHours":3,"exclude":["ME4410","ME4414","ME4416","ME4420","ME4424","ME4426","ME4990"]},"courses":["ME4020","ME4060","ME4120","ME4140","ME4170","ME4180","ME4190","ME4210","ME4220","ME4230","ME4260","ME4270","ME4310","ME4370","ME4380","ME4390","ME4450","ME4460","ME4480","ME4510","ME4610","ME4620","ME4630","ME4640","ME4710","ME4720","ME4730","ME4810","ME4820","ME4860","ME4900","ME4920","ME4930"]},
+  "ME_ELECTIVE": {"label":"ME AOE Elective","credits":3,"kind":"courses","courses":["ME4020","ME4060","ME4120","ME4140","ME4180","ME4190","ME4210","ME4220","ME4260","ME4310","ME4370","ME4380","ME4450","ME4460","ME4480","ME4510","ME4610","ME4620","ME4630","ME4640","ME4710","ME4720","ME4730","ME4810","ME4900","ME4930","ME4990","MATH3470","MATH3810","MATH4210","MATH4220","MATH4250","MATH4510","MATH4530","MATH4710","BMGT3510","ENGR4510","ENTR4500","MET4400","MET4450","MET4650"]},
   "ME_DESIGN": {"label":"Machine or Thermal Design","credits":3,"kind":"courses","courses":["ME4020","ME4720"]},
   "ME_AERO_CORE": {"label":"Aerospace Core","credits":3,"kind":"courses","courses":["ME4310","ME4510","ME4710"]},
   "ME_AERO_ELECTIVE": {"label":"Aerospace Elective","credits":3,"kind":"courses","courses":["ME4060","ME4380","ME4620","ME4810","ME4930"]},
