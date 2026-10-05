@@ -47,6 +47,18 @@ describe('searchCourses over the real catalog', () => {
     const { rows } = await searchCourses(db(), 'AGBE4940')
     expect(rows[0]).toMatchObject({ code: 'AGBE4940', credits: 1, credits_max: 4 })
   })
+  it('finds a course by its code typed with a space, in any case', async () => {
+    for (const q of ['MATH 1910', 'math 1910', 'MATH  1910', ' ENGL 1010 ']) {
+      const { rows } = await searchCourses(db(), q)
+      expect(rows.map(c => c.code), q).toContain(q.trim().toUpperCase().replace(/\s+/g, ''))
+    }
+  })
+  it('still matches a name that contains a letter, a space and a digit', async () => {
+    const name = catalog.tables.courses.find(c => /[A-Za-z] \d/.test(c.name))
+    expect(name, 'the catalog has such a course name').toBeTruthy()
+    const { all } = await searchCourses(db(), name.name)
+    expect(all.map(c => c.code)).toContain(name.code)
+  })
   it('caps the list at 40', async () => {
     const { rows } = await searchCourses(db(), 'a')
     expect(rows.length).toBeLessThanOrEqual(40)
