@@ -35,7 +35,8 @@ describe('pool data', () => {
     const codes = Object.keys(POOL_COURSES)
     expect(codes.indexOf('ENG_LIT')).toBeLessThan(codes.indexOf('FF_HUMANITIES'))
     expect(codes.indexOf('FF_LITERACY')).toBeLessThan(codes.indexOf('CSC_ELECTIVE'))
-    expect([...REQUIREMENT_POOLS]).toEqual(['SCIENCE', 'COMM_REQ', 'MATH_STATS', 'ENG_LIT', 'GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY'])
+    // ME_DESIGN (Machine or Thermal Design) is last: Senior Design II takes one of its courses alongside or before it
+    expect([...REQUIREMENT_POOLS]).toEqual(['SCIENCE', 'COMM_REQ', 'MATH_STATS', 'ENG_LIT', 'GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY', 'ME_DESIGN'])
   })
 
   it('names the course every option of a pool needs first', () => {

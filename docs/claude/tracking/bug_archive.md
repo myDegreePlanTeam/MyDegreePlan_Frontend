@@ -164,6 +164,16 @@ Cross-file consistency included.
 > Computer Science plans are untouched (their tables and the fork are as before). Open question, not changed: a *returning* Computer Science student on the extended
 > track also has no MATH 1920 in the table (`MATH_CHAINS.returning.MATH1904`); the department has not said whether that is intended.
 
+> **2026-10-05 update (3):** BUG-57 found and fixed in the same session on `fix/me4420-false-blockers`. BUG-57 (Medium, Mechanical Engineering without a concentration):
+> every plan showed two unmet blockers on Senior Design II: "ME4420 needs ME3060, ME4910 completed in an earlier term" and "ME4420 needs ME AOE Elective in the same
+> term or earlier". Causes: (1) Coursedog lists ME 3060 and ME 4910 as prerequisites, but neither is on any 2026-27 map and ME 4910 is not a catalog course (the 2018-19
+> flowchart's Professional & Ethics, today's ME 2910); (2) the pool that provides the concurrent "ME 4020 or ME 4720" (`ME_DESIGN`) had no `gates` rank, so
+> its empty slot could not stand in for the co-requisite as other requirement pools do, and the warning named the elective pool that also lists those courses.
+> Fix: a curated override for ME 4420 (ME 4910 read as ME 2910, ME 3060 as not required: an assumption pending the department, recorded in the manifest);
+> `ME_DESIGN` gets `gates: 9`; `formatMissingForDisplay` prefers a gating pool when two pools list the same courses. `meBlockers.test.js` computes the warnings as the plan
+> view does and pins that a standard ME plan has none. Not changed: Mechatronics shows "ME4140 needs (ME3060 or ECE3210), ECE3260": ECE 3260 and ME 3060 are
+> open questions to the department.
+
 ---
 
 ## Audit notes
