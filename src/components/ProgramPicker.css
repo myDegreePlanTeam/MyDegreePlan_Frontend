@@ -61,6 +61,26 @@
   gap: 0.6rem;
 }
 
+/* a program that is not ready yet: dimmed and not clickable (a college is dimmed when none of its majors are ready, but stays open to browse) */
+.program-major:disabled,
+.concentration-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.program-major:disabled:hover,
+.concentration-card:disabled:hover {
+  border-color: var(--navy-light);
+}
+
+.program-college.program-soon {
+  opacity: 0.55;
+}
+
+.program-tag-soon {
+  color: var(--muted);
+}
+
 .program-tag {
   align-self: flex-start;
   font-family: var(--font-mono);

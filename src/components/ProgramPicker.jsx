@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { degreeTitle, splitByOffering } from '../lib/catalogYears'
-import { groupByCollege, programPath, searchPrograms } from '../lib/programBrowser'
+import { COMING_SOON, groupByCollege, isProgramReady, programPath, searchPrograms } from '../lib/programBrowser'
 import './ProgramPicker.css'
 
 /**
@@ -90,10 +90,12 @@ export default function ProgramPicker({ programs, plans, value, onChange, loadin
                 type="button"
                 className={`concentration-card ${selected?.code === p.code ? 'selected' : ''}`}
                 aria-pressed={selected?.code === p.code}
+                disabled={!isProgramReady(p)}
                 onClick={() => chooseFromSearch(p)}
               >
                 <span className="concentration-name">{p.name}</span>
                 <span className="concentration-desc">{programPath(p)}</span>
+                {!isProgramReady(p) && <span className="program-tag program-tag-soon">{COMING_SOON}</span>}
               </button>
             ))}
           </div>
@@ -106,7 +108,7 @@ export default function ProgramPicker({ programs, plans, value, onChange, loadin
                 <button
                   key={c.college.code}
                   type="button"
-                  className={`program-college ${college?.college.code === c.college.code ? 'selected' : ''}`}
+                  className={`program-college ${college?.college.code === c.college.code ? 'selected' : ''} ${c.majors.some(m => m.programs.some(isProgramReady)) ? '' : 'program-soon'}`}
                   aria-pressed={college?.college.code === c.college.code}
                   onClick={() => { setCollegeCode(c.college.code); setMajorKey(null) }}
                 >
@@ -121,20 +123,25 @@ export default function ProgramPicker({ programs, plans, value, onChange, loadin
             <div className="program-majors" role="group" aria-label={`Majors in ${college.college.short}`}>
               <p className="concentration-group-title">{tree.length > 1 ? `Majors in ${college.college.short}` : 'Majors'}</p>
               <div className="program-major-list">
-                {college.majors.map(m => (
-                  <button
-                    key={m.key}
-                    type="button"
-                    className={`program-major ${major?.key === m.key ? 'selected' : ''}`}
-                    aria-pressed={major?.key === m.key}
-                    onClick={() => chooseMajor(m)}
-                  >
-                    <span className="concentration-name">{degreeTitle(m)}</span>
-                    <span className="concentration-desc">
-                      {m.concentrations.length ? `${m.concentrations.length} concentration${m.concentrations.length === 1 ? '' : 's'}` : 'no concentrations'}
-                    </span>
-                  </button>
-                ))}
+                {college.majors.map(m => {
+                  const ready = m.programs.some(isProgramReady)
+                  return (
+                    <button
+                      key={m.key}
+                      type="button"
+                      className={`program-major ${major?.key === m.key ? 'selected' : ''}`}
+                      aria-pressed={major?.key === m.key}
+                      disabled={!ready}
+                      onClick={() => chooseMajor(m)}
+                    >
+                      <span className="concentration-name">{degreeTitle(m)}</span>
+                      <span className="concentration-desc">
+                        {m.concentrations.length ? `${m.concentrations.length} concentration${m.concentrations.length === 1 ? '' : 's'}` : 'no concentrations'}
+                      </span>
+                      {!ready && <span className="program-tag program-tag-soon">{COMING_SOON}</span>}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -151,6 +158,7 @@ export default function ProgramPicker({ programs, plans, value, onChange, loadin
                     type="button"
                     className={`concentration-card ${selected?.code === p.code ? 'selected' : ''}`}
                     aria-pressed={selected?.code === p.code}
+                    disabled={!isProgramReady(p)}
                     onClick={() => onChange(p)}
                   >
                     <span className="concentration-name">{p.name}</span>

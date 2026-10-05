@@ -7,7 +7,7 @@ import ProgramPicker from '../components/ProgramPicker'
 // the levels it should for the programs it is given, and fails loudly where it must (a loading skeleton, an error).
 
 const program = (id, code, name, over = {}) => ({
-  id, code, name, major_name: over.major_name ?? name, degree: 'B.S.', department: 'X', college: 'engineering', major_code: over.major_name ? over.major_name.toLowerCase().replace(/\W+/g, '_') : code,
+  id, code, name, major_name: over.major_name ?? name, degree: 'B.S.', department: 'CSC', college: 'engineering', major_code: over.major_name ? over.major_name.toLowerCase().replace(/\W+/g, '_') : code,
   is_base: false, description: `About ${name}`, last_catalog_year: null, aliases: null, ...over,
 })
 const plans = [1, 2, 3, 4, 5].map(id => ({ id, concentration_id: id, catalog_year: '2026-2027', covers_earlier: false }))
@@ -44,6 +44,26 @@ describe('ProgramPicker', () => {
     expect(html).toContain('Concentration (optional)')
     expect(html).toContain('No concentration')
     expect(html).toContain('aria-pressed="true"')
+  })
+
+  it('grays out a major that is not ready, with a Coming soon tag, and leaves a ready one clickable', () => {
+    const html = render({ programs: [program(1, 'cs', 'Computer Science', { is_base: true }), program(2, 'me', 'Mechanical Engineering', { is_base: true, department: 'MNE' })] })
+    const buttons = html.match(/<button[^>]*program-major[^>]*>/g)
+    expect(buttons).toHaveLength(2)
+    expect(buttons.filter(b => b.includes('disabled'))).toHaveLength(1)
+    expect(html).toContain('Coming soon')
+    expect(html.match(/<button[^>]*program-major[^>]*>(?:(?!<\/button>).)*Computer Science(?:(?!<\/button>).)*<\/button>/)[0]).not.toContain('Coming soon')
+  })
+
+  it('dims a college with no ready major but keeps it open to browse', () => {
+    const html = render({ programs: [
+      program(1, 'cs', 'Computer Science', { is_base: true }),
+      program(2, 'bio', 'Biology', { is_base: true, college: 'cas', department: 'BIOL' }),
+    ] })
+    const colleges = html.match(/<button[^>]*program-college[^>]*>/g)
+    expect(colleges).toHaveLength(2)
+    expect(colleges.filter(b => b.includes('program-soon'))).toHaveLength(1)
+    expect(colleges.some(b => b.includes('disabled'))).toBe(false)
   })
 
   it('a major whose concentrations are all required says so', () => {

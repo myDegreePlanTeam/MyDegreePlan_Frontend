@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import catalog from '../data/catalog.json'
 import colleges from '../data/colleges.json'
-import { groupByCollege, majorKeyOf, programPath, searchPrograms, termUnavailableNote, OTHER_COLLEGE } from '../lib/programBrowser'
+import { groupByCollege, isProgramReady, majorKeyOf, programPath, searchPrograms, termUnavailableNote, OTHER_COLLEGE } from '../lib/programBrowser'
 
 // Programs as the picker gets them: concentrations rows. A small world with two colleges, a major whose concentrations are all
 // required (Biology), a major with a base program and optional concentrations (Computer Science), and one with neither.
@@ -204,6 +204,20 @@ describe('the generated college list and the real programs', () => {
     expect(searchPrograms(programs, 'aerospace').map(p => p.code)).toEqual(['me_aero'])
     expect(searchPrograms(programs, 'nuclear').map(p => p.code)).toEqual(['ne'])
     expect(searchPrograms(programs, 'robotics').map(p => p.code)).toEqual(['me_mechatronics'])
+  })
+})
+
+describe('isProgramReady', () => {
+  it('opens only the Computer Science department until the other majors are finished', () => {
+    expect(world.filter(isProgramReady).map(p => p.code)).toEqual(['core', 'cyber', 'hpc'])
+    expect(isProgramReady(null)).toBe(false)
+  })
+
+  it('covers every program the CSC department publishes, the AI major included, and nothing from another department', () => {
+    const programs = catalog.tables.concentrations
+    const ready = programs.filter(isProgramReady).map(p => p.code).sort()
+    expect(ready).toEqual(['ai', 'core', 'cybersecurity', 'dsai', 'hpc'])
+    expect(programs.filter(p => !isProgramReady(p)).every(p => p.department !== 'CSC')).toBe(true)
   })
 })
 
