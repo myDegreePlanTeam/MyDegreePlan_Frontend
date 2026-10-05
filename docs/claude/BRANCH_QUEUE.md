@@ -1,28 +1,30 @@
 # MyDegreePlan — Branch Queue
 
-> Maintained in Claude.ai project workspace. Update after every merge or new branch decision.
-> Last updated: 2026-09-11 (placement stack merged)
+> Update after every merge or new branch decision. Since 2026-09-11 most work merged as numbered PRs (#5 to #33), summarised in the
+> Merged Branches table below; `git log` has the individual commits.
+> Last updated: 2026-10-05 (after PR #33). Refreshed in one pass from the git history: the Phase 2 to 4 entries below were checked against
+> the code on that date, and the manual checks owed since September were not re-run.
 
 ---
 
 ## Active Branches (not yet merged)
 
-### feat/local-first-backend
-Vercel build stops depending on hosted Supabase: static catalog + IndexedDB, with the Docker stack
-unchanged on the `remote` backend (see `CLAUDE.md` → Data backends). Client renamed
-`supabaseClient` → `dataClient` (`supabase` identifier → `db`).
+_None._ `main` holds everything; the Frontend has no open feature branch.
 
-**Manual checks owed before merging:**
+## Manual checks still owed (unconfirmed)
+
+These were listed before their branches merged, and nothing in the repo records that they were run. Treat them as open until someone does.
+Two caveats: the degree builder has changed since (a standard student now gets the department's map, `b8ca817`), so the placement checks
+below may describe behavior that no longer applies as written; and the old question of what to tell students on the hosted-Supabase site
+is moot, since the hosted project is retired.
+
+**Local-first backend (merged as PR #5, 2026-10-01):**
 - Deploy a preview to Vercel and onboard on a real phone; reload; confirm the plan persists.
 - Export on one device, Import from the onboarding screen on another.
-- Open the running Docker stack (`mdp start`): login still works and the update banner still appears.
-- Decide what to tell students already using the hosted-Supabase site: their plans stay in Supabase and
-  will not appear in the local-first build (no migration is written).
 
-The placement stack (`fix/pool-prereq-placement` → `fix/math-track-prereqs` →
-`feat/gen-ed-interleaving` → `fix/builder-prior-credit-accounting`) merged to `main` as one
-fast-forward on 2026-09-11 and is deployed. **Post-merge verification still owed** — the four
-branches were merged before their manual checks were run in the app:
+**Placement stack** (`fix/pool-prereq-placement` → `fix/math-track-prereqs` →
+`feat/gen-ed-interleaving` → `fix/builder-prior-credit-accounting`, merged to `main` as one fast-forward on 2026-09-11, before their
+manual checks were run in the app):
 
 - **Placement order (BUG-48):** DSAI, ACT 30 — MATH_STATS lands before CSC3220/CSC4220. Pick a
   Statistics and Communications course, change ACT Math in Profile Settings → picks survive,
@@ -75,7 +77,7 @@ _None._
 - Skeleton/prototype rules sidebar or modal where students set a priority
   list of plan constraints (max hours per semester, target graduation
   semester count, summer-semester opt-in, etc.).
-- Persist rules per student in a new `student_rules` table.
+- Persist rules per student in a new `student_rules` table (not created yet).
 - Read at plan-modification time so future auto-fill / recommendation work
   can honor them.
 **Notes:**
@@ -83,8 +85,8 @@ _None._
   Application of the rules to recommendation/auto-fill is deferred to
   `feat/recommendation-engine` (Phase 4) — but the rules data must exist
   for that to consume.
-- The summer-semester opt-in toggle from `schema/semester-terms` lives here
-  once both branches land.
+- The summer-semester opt-in toggle belongs here: `schema/semester-terms` shipped the season-aware terms (`semesterTerms.js`, the Add
+  Semester wizard), not the opt-in.
 **Prompt:** Not yet written
 
 ### fix/mark-complete-behavior
@@ -137,6 +139,10 @@ _None._
 ## Phase 3 Branches (after Phase 2 merged)
 
 ### feat/grid-redesign
+**Partly delivered (2026-09-18 and 2026-09-29):** a desktop app shell from the Claude Design handoff with Plan | Issues | Advisement |
+Settings tabs (`components/shell/`), semester cards laid out in pairs, a loading skeleton that mirrors the shell, and a drag-conflict
+modal. The tab structure below (Plan read-only | What-If | Requirements | History) was not adopted as written; the remaining targets
+were not re-checked against the shell.
 **Targets:**
 - Tab structure: Plan (read-only) | What-If (current grid) | Requirements | History (deferred)
 - Mobile: tap-to-move, bottom drawer for Prior Coursework
@@ -169,10 +175,7 @@ _None._
 ### feat/advisor-view
 - Read/write access to student plans for TTU advisors
 - Requires university backing + additional auth/RLS work
-
-### feat/non-csc-departments
-- Expand beyond CSC to other TTU departments
-- Requires concentration template ingestion pipeline
+- Not the same as the student-facing Advisement tab (an in-page PDF preview of the degree map, shipped 2026-09-18).
 
 ---
 
@@ -180,12 +183,13 @@ _None._
 
 ### feat/branding-icon
 - App icon / logo for MyDegreePlan
-- No design asset exists yet — icon must be created or sourced before implementation
+- No design asset exists yet — `public/favicon.svg` is still the Vite default from the initial commit
 - Deferred from `feat/theme-pass` which handled palette and dark mode but not the icon
 
 ### data/strip-course-descriptions-coursesFile
-- Same as BUG-32 fix but for `coursesFile.json` (30,000 lines)
-- Separate session, separate branch, after `prototype.json` strip is validated
+- Same as BUG-32 fix but for `coursesFile.json` (30,000 lines, in `MyDegreePlan_Prototype/`)
+- As of 2026-10-05 no script, test or doc references that file, and the catalog now comes from `courses.json`. First decide whether to
+  delete it rather than strip it.
 
 ### data/transferable-course-database
 - Required to un-grey-out transfer credit entry (BUG-26 full fix)
@@ -225,10 +229,22 @@ _None._
 | `schema/semester-terms` | 2026-05-07 | TERM-1 (Fall/Spring labels on semester cards), TERM-3 (fall-only/spring-only enrollment restrictions), TERM-2 (Add Semester wizard with season+year, persisted to student_semester_notes, Tier 14 migration) |
 | `data/math-sequence-2026` | 2026-05-08 | Remove MATH1920 from all four concentration templates; move MATH2010 to Semester 2; re-seed |
 | `feat/math-placement-gateway` | 2026-05-08 | ACT/SAT math placement entry in wizard; stored as act_placement prior credit; Math Placement group in Prior Coursework panel |
-| `feat/plan-balancer` | 2026-05-08 | Two-pass constrained backfill (< 12 / < 15 credits); auto-trigger on load + priorCredits change; Rebalance Plan button; rebalance undo record; math placement chain gate; science pair integrity |
+| `feat/plan-balancer` | 2026-05-08 | Two-pass constrained backfill (< 12 / < 15 credits); auto-trigger on load + priorCredits change; Rebalance Plan button; rebalance undo record; math placement chain gate; science pair integrity. **Reverted 2026-05-15** (`ba509fe`): the balancer lib, its tests, the button and the auto-balance effect are gone |
 | `feat/act-math-chain-display` | 2026-05-14 | New Onboarding Step 4: left-to-right math sequence chain display driven by ACT Math score; shows course code, name, credits; MATH3070/MATH3470 fork with "or" indicator; display-only, no DB writes |
 | `fix/pool-prereq-placement` | 2026-09-11 | BUG-48, BUG-49, BUG-50 |
 | `fix/math-track-prereqs` | 2026-09-11 | BUG-51 + MATH1920 note on PHYS2110 / MATH3470 in the picker |
 | `feat/gen-ed-interleaving` | 2026-09-11 | Gen-eds interleaved with the major instead of filling the final semesters |
 | `fix/builder-prior-credit-accounting` | 2026-09-11 | BUG-52, BUG-53 |
 | `migration/requirement-slots-refactor` | 2026-05-14 | Tier 17: drop unique constraint on requirement_slots(concentration_id, semester_number, slot_order); make both columns nullable; seed.js delete-then-insert; DegreePlan derives templateSemNums and expandedMap from algorithm positions; auto-balance seeds student_plan_slots on first load |
+| Degree-builder placement, ACT settings, plan issues | 2026-09-11 / 2026-09-18 | Builder placement, drag-conflict modal, `planIssues.js`, ACT settings page |
+| PDF export, app shell, Advisement tab | 2026-09-18 | Plan downloads as the department Degree Map PDF; desktop app shell (Plan / Issues / Advisement / Settings); in-page PDF preview |
+| Pool slots and ACT fixes, paired grid | 2026-09-29 | Unfilled pool slots provisionally satisfy prerequisites; all five ACT scores kept after onboarding; Free Elective picker hides planned courses; semester cards in pairs; Vercel SPA rewrite; in-app update banner and runtime config for the Docker install; DSAI hidden from Change concentration |
+| Institution wording, Flight Foundations | 2026-09-30 | Runtime-overridable institution wording (#3, #4); Flight Foundations gen-ed program |
+| `feat/local-first-backend` | 2026-10-01 (#5) | Static catalog + IndexedDB by default, Docker stack unchanged on the `remote` backend |
+| Free Elective remainder, full catalog, catalog years | 2026-10-01 | Leftover Free Elective hours become a follow-up pick; full Coursedog catalog with on-demand descriptions; catalog years and data-driven programs; 2026-27 math placement and SAT Math; ranged-credit courses; pools as data; map-first degree builder (released v0.2.0) |
+| `integration/mne-degree-maps` | 2026-10-02 | Mechanical Engineering x4 and Nuclear Engineering maps (released v0.3.0) |
+| Program-first onboarding | 2026-10-02 (#24) | College, major and concentration picker; start terms limited to what the program has a plan for |
+| All-majors waves 1 to 6 | 2026-10-02 (#25 to #31) | 176 programs from the Coursedog degree maps, with the approximate-fit notice (released v0.4.0, 2026-10-03); this closes the old `feat/non-csc-departments` entry |
+| Workspace tooling and docs | 2026-10-02 (#6 to #23) | verify script, hygiene tests, pre-commit lint, `docs/claude` reorganised, `open_pr.sh` / `finish_pr.sh` / `regen.sh` documented |
+| `feat/gray-out-non-csc` | 2026-10-05 (#32) | Programs outside the CSC department are grayed out and unselectable (`READY_DEPARTMENTS`) |
+| `docs/roadmap-open-majors` | 2026-10-05 (#33) | Roadmap rewritten after all-majors; the gate documented |
