@@ -1,0 +1,155 @@
+# MyDegreePlan — Bug Archive
+
+Every bug that is fixed, closed as intentional, or found not to be a bug. **Live bugs are in [`bug.md`](./bug.md).** This file started as
+the static-analysis audit of 2026-04-17 and kept growing as bugs were fixed; nothing here is open. Entries are dated notes in the order
+they happened, newest last, and the bug numbers are never reused. Read it to find why something was changed or how a bug was
+reproduced; Grep for `BUG-N`.
+
+**The audit that started it** (2026-04-17): branch audited `main` (both `MyDegreePlan_Frontend` and `MyDegreePlan_Prototype`), excluding
+`fix/act-wizard-and-equivalencies` and `fix/prereq-coreq-logic`. Static analysis only: no code changes, no fixes, no issues filed.
+Cross-file consistency included.
+
+> **2026-04-17 update:** The original BUG-1 (HPC declared hours did not match slot total) has been fixed. `csc_hpc.json` Semester 8 now includes a second `GEN_ED` slot, bringing the concentration to 120 hrs, and `migration_tier12.sql` backfills the same slot into the live `requirement_slots` table. Remaining bugs below are renumbered accordingly.
+
+> **2026-04-20 update:** Six new bugs (BUG-20 through BUG-25) added from live onboarding session testing. Identified through manual user-flow testing, not static analysis. All are in the onboarding and prior credit wizard flow. Severity counts updated: Critical +1, High +3, Medium +1, Total +6. New totals: Critical 1, High 10, Medium 8, Low 5, Total 25.
+
+> **2026-04-21 update:** Seven new bugs (BUG-26 through BUG-32) added from post-merge
+> onboarding session review. Identified through live testing of the merged
+> fix/onboarding-prior-credit branch. Severity counts updated: High +3, Medium +3,
+> Low +1, Total +7. New totals: Critical 1, High 13, Medium 11, Low 6, Total 32.
+
+> **2026-04-24 update:** `fix/onboarding-wizard-overhaul` merged. BUG-4 (concentration-agnostic transfer-credit pool resolution), BUG-8 (`validatePriorCredit` did not enforce `min_score`), BUG-27 (no back button on onboarding step 3), BUG-28 (ACT Math gate inaccessible post-freshman-branch removal), BUG-29 (wizard output string concatenation), and BUG-30 (Prior Coursework panel unsorted) are fixed. BUG-26 received its planned interim fix (transfer-credit option disabled + greyed as "Coming soon"). The full fix for BUG-26 is tracked in `BRANCH_QUEUE.md` under Deferred Data Tasks (`data/transferable-course-database`), so the BUG-26 entry is removed from this list. The freshman/non-freshman onboarding branching was removed as part of the same merge. Entries for the seven fixed bugs are deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-24 update (2):** `fix/slot-modal-prereq-credits` merged. BUG-1 (`SlotModal.annotate` dropped prior credits, catalog, and coreqs from `checkPrereqs`), BUG-2 (`SlotModal.satisfiedCodes` was not restricted to prior semesters), and BUG-5 (`SlotModal.creditsBefore` ignored `priorCredits` and `planSemesterOverrides`) are fixed. Entries deleted below; remaining bug numbering is unchanged. BUG-33 still references "after the BUG-5 fix" — historical pointer, intentional.
+
+> **2026-04-24 update (3):** Audit reconciliation — BUG-20, BUG-21, BUG-23, and BUG-24 were implemented in prior branches but never deleted from this document. Verified against `main`:
+> - **BUG-20** (transfer-credit course-code validation): fixed in `src/lib/validatePriorCredit.js` Rule 3 (rejects course codes absent from the catalog); the wizard's transfer-credit option is also disabled ("Coming soon") per the 2026-04-24 BUG-26 interim.
+> - **BUG-21** (user-editable credits field for transfer entries): no longer applicable — the wizard auto-populates `credits_awarded` from the catalog at `PriorCreditWizard.jsx` Step 4 and Step 2 results are read-only; transfer option is also disabled.
+> - **BUG-23** (AP/placement credits don't archive slots on first load): fixed by the one-shot sync effect in `DegreePlan.jsx` keyed on `[loading, slots, priorCredits, planArchived]`, explicitly labelled "BUG-23" inline.
+> - **BUG-24** (drag-to-Prior-Coursework duplicates prior-credit rows): fixed by the dedup guards in `DegreePlan.jsx` `handleDragEnd` for both `requirement_slot` and `free_add` drag sources, explicitly labelled "BUG-24" inline.
+>
+> Entries deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-27 update:** `fix/transfer-credits-divergence-and-freeadd` merged. BUG-3 (`resolveTransferCredits`/`resolveTransferDetails` Rule 1 divergence) and BUG-6 (`computePlanCredits` did not include `student_free_add_slots`) are fixed. The two resolver functions now share a private `matchPriorCreditsToSlots` helper so they cannot drift again; `computePlanCredits` accepts an optional `freeAddSlots` parameter and dedups across all three sources via a shared `seen` set. Tests grew from 194 → 210 (parity coverage for `resolveTransferDetails`, free-add coverage for `computePlanCredits`). Entries deleted below; remaining bug numbering is unchanged. BUG-34 added in the same pass — see new entry at the bottom of the list.
+
+> **2026-04-29 update:** `fix/concentration-switch-clears-notes` merged. BUG-7 (`handleConcentrationSwitch` did not clear `student_semester_notes`) is fixed by adding the missing delete call alongside the existing sibling deletes for plan slots, free-adds, and prior credits. Audit framing was partially stale: the table is keyed by `(student_id, concentration_id, semester_number)` (Tier 9), so old-concentration notes did not bleed into the new concentration's view, but switch-back resurrection (notes reappearing after Core → HPC → Core) was the real visible symptom. Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-29 update (2):** `fix/science-pool-warnings` merged. BUG-10 (`getScienceWarnings` used label equality, missing `BIOL1123 + BIOL2310` as an invalid pair), BUG-11 (`resolveScience` indexed `selectedScienceCodes[0]`, biased to the first filled slot), BUG-17 (redundant reversed `GEOL1040/GEOL1045` entry in `SCIENCE_SEQUENCES`), and BUG-18 (`getScienceWarnings` destructured only the first two SCIENCE slots) are fixed. `getScienceWarnings` now compares against `SCIENCE_SEQUENCES` membership and iterates pairwise across all SCIENCE slots; `resolveScience` is multi-code-aware. Tests grew from 210 → 226 (10 new `getScienceWarnings` cases — no prior coverage — plus 3 `resolveScience` regression cases). Entries deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-29 update (3):** `fix/free-add-dedup-guard` merged. BUG-34 (free-add picker accepted course codes already in the plan) is fixed by a new pure helper `getTakenCodes` in `src/lib/transferCredits.js` that mirrors `computePlanCredits`'s Pass-1/2/3 dedup keyspace exactly. `DegreePlan` memoizes the Set and threads it into `AddCourseModal`, which greys out matching rows and disables selection; `handleAddCourse` adds a final guard before the Supabase insert. Existing `.modal-course-row.status-taken` and `.modal-status-badge.taken` styles are reused — no new CSS. Tests grew from 226 → 237 (11 new cases in `src/tests/getTakenCodes.test.js`). Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-29 update (4):** `fix/prereq-warnings-semester-order` merged. BUG-13 (`prereqWarnings`/`coreqWarnings` treated any completed-semester code as satisfied regardless of direction) is fixed by dropping the redundant `planSemesterCompleted` clause from both memos. The first clause `p.sem < item.sem` already counts every code in a strictly earlier semester as satisfied, so restricting the completion check to "earlier" — per the audit's suggested fix — makes the clause redundant. Aligns with `CLAUDE.md` core principle 3: semester completion is a UI collapse affordance, not prereq-satisfaction semantics. No test changes (memo not extracted; existing `checkPrereqs`/`checkCoreqs` coverage holds). Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-29 update (5):** `fix/postgrest-input-sanitization` merged. BUG-12 (raw user input interpolated into PostgREST `.or()` filters in `AddCourseModal` and `PriorCreditWizard`) is fixed by a new helper `src/lib/postgrestEscape.js` exporting `escapeIlikeValue` (strips backslashes and double quotes). Both call sites now wrap each ilike value in PostgREST's double-quote literal syntax so commas and parentheses pass through as literal bytes. Tests grew from 237 → 245 (8 new cases). Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-29 update (6):** Audit reconciliation — BUG-25 (notes field in transfer credit wizard with no product purpose) was already addressed in prior work and never deleted from this document. Verified against `main`:
+> - `src/components/PriorCreditWizard.jsx` contains exactly one `<input>` element (line 416), the course-search field used by the transfer-credit step. There is no free-text notes input anywhere in the wizard.
+> - Every write to `prior_credits.note` in the codebase is either auto-generated by `buildNote()` in the wizard (`PriorCreditWizard.jsx:312`) or a system-generated drag-context label (`DegreePlan.jsx:869, 912` — `"Dragged from Semester N"`). No path exposes the field to user free text.
+> - Likely removed during `fix/onboarding-wizard-overhaul` (2026-04-24) when the freshman-branch onboarding was deleted, but the audit entry was not deleted at that time.
+>
+> Entry deleted below; remaining bug numbering is unchanged. No fix branch was opened.
+
+> **2026-04-29 update (7):** Seven new bugs (BUG-35 through BUG-41) added from a developer meeting. Identified through review of student-facing UX, accessibility, and the prior-credit wizard. New severity additions: Medium +3, Low +4. New totals: Critical 0, High 1, Medium 8, Low 7, Total 16. The meeting also produced several feature requests and scope expansions that are tracked outside `bug.md` — see `BRANCH_QUEUE.md` (Phase 2 scope expansions for `fix/mark-complete-behavior`, `feat/branding`, `schema/semester-terms`; new entries `feat/rules-filter-sidebar`, `feat/dynamic-semester-count`, `feat/dark-mode`, `feat/exemption-gating`) and `ROADMAP.md`.
+
+> **2026-04-29 update (8):** `fix/wizard-step3-cleanup` merged. BUG-39 (`PriorCreditWizard` Step 3 prematurely showed credit-hour award) is fixed by dropping the `wizard-score-detail` ternary block from the Step 3 render. Step 3 now shows only "Score X+" buttons; Step 4's existing per-award cards remain the single disclosure surface for credit-bearing and placement-only outcomes. Pure render edit; no test changes (no wizard-component coverage today). Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-29 update (9):** `fix/ap-chem-stem-filter` merged. BUG-35 (AP Chemistry STEM/non-STEM duplicate rows in the wizard) is fixed by adding a single-line filter to the wizard's Step 2 exam loader: any `test_equivalencies.test_name` containing `"(Non-STEM)"` is skipped. The filter applies unconditionally because every prototype concentration is STEM (all CSC). The proper long-term implementation (a `stem_only` column on `test_equivalencies` plus a `stem` flag on `concentrations`) is left deferred. Pure UI filter, no schema change, no test changes. Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-29 update (10):** Two new bugs (BUG-42 and BUG-43) added from a developer flow walkthrough. Both surface in the prior-credit / pool-slot interaction. BUG-42 is a transfer-credit archive correctness issue (filled pool slots not archiving when a prior credit covers the same pool). BUG-43 is a sub-pool granularity gap in GEN_ED selection — partially overlaps with the existing `ROADMAP.md` entry "GEN_ED sub-requirement enforcement" but adds concrete UX scope (modal sub-category surfacing, wizard Step 4 sub-pool labeling). New severity additions: Medium +2. New totals: Critical 0, High 1, Medium 9, Low 6, Total 16.
+
+> **2026-04-30 update:** `fix/pool-archive-filled-slots` merged. BUG-42 (filled pool slots not archived when a prior credit's `satisfies_pool` covers the same pool) is fixed by removing the `if (planSlotsMap[slot.id]) continue` guard from Rule 2 of the shared `matchPriorCreditsToSlots` helper in `src/lib/transferCredits.js`. Rule 2 is now purely class-code-driven: pool credit beats student selection. `syncArchivedSlots` reads `planSlots[slot.id]` for the upserted `selected_course_code`, so the student's selection is preserved on the DB row and the slot restores correctly within the session if the prior credit is later removed (cross-reload restoration is the deferred ROADMAP "Pool-slot drag-back restoration" item). Two existing tests that asserted the prior contract were flipped; one new BUG-42 regression test was added. Tests grew from 245 → 246. Drag-handler comment in `DegreePlan.jsx` refreshed to reflect the new contract; the explicit upsert in that branch now functions as defensive belt-and-suspenders. Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-30 update (2):** `fix/prereq-pool-name-display` merged. BUG-37 (prereq warnings list individual pool member codes instead of the pool name) is fixed by adding a pure display helper `formatMissingForDisplay` to `src/lib/poolResolver.js` and routing the seven `missing.join(', ')` consumer sites in `SlotModal.jsx` (1) and `Semester.jsx` (6) through it. Pool-member codes inside an OR group collapse to the pool's `POOL_LABELS` value when ≥2 codes from the same pool appear; mixed groups keep individual codes alongside the label (e.g. `(Communications or MATH1910)`); single pool members never collapse. `checkPrereqs` and `checkCoreqs` signatures and return shapes are unchanged per `CLAUDE.md`. Tests grew from 246 → 257 (11 new cases in `src/tests/formatMissingForDisplay.test.js`). Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-04-30 update (3):** `fix/gen-ed-sub-pool-surfacing` merged. BUG-43 (GEN_ED slot selection lacks sub-pool granularity) is fixed by surfacing the existing History / Humanities & Arts / Social Science split in two places: (a) `SlotModal` renders GEN_ED courses in three labeled sub-sections when search is empty, with already-satisfied sub-pools dimmed via a new `.modal-section-satisfied` CSS rule; (b) `PriorCreditWizard` Step 4's `wizard-award-pool` line now reads "Also satisfies: General Education — History sub-pool" (or Humanities & Arts / Social Science) for GEN_ED awards and uses `POOL_LABELS` for non-GEN_ED awards. New helper `getGenEdSubCategory` in `poolResolver.js`; `GEN_ED_CATEGORIES` is now exported. Soft greying only — students may still pick from a satisfied sub-pool. Schema-level GEN_ED splitting (ROADMAP "GEN_ED sub-requirement enforcement") remains deferred. Tests grew from 257 → 262 (5 new cases in `src/tests/getGenEdSubCategory.test.js`). Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-05-02 update:** `feat/theme-pass` merged. BUG-38 (site-wide low contrast, WCAG 2.1 AA failures) is resolved by the coordinated theme overhaul: TTU purple palette replaces navy, `--status-*` semantic variables cover the six hardcoded hex values in Dashboard.css, rgba() gold channels updated throughout, and `--text-muted`/`--gold`/`--gold-light` carry per-theme overrides that pass AA in light mode. A toggleable dark/light mode with localStorage persistence and `prefers-color-scheme` fallback is included. Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-05-04 update:** `fix/drag-to-prior-coursework-flicker` merged. BUG-36 (visual flicker when dragging a course to Prior Coursework) is fixed by moving `setPlanArchived`/`setPlanSlots` optimistic state updates to before the `handleAddPriorCredit` await chain in `handleDragEnd`. Added `prevArchived`/`prevPlanSlots` rollback variables to restore state on `archErr`. UI timing only; no test changes (count held at 266). Entry deleted below; remaining bug numbering is unchanged.
+
+> **2026-05-05 update:** BUG-44 found and fixed in the same session. When a user dragged an `act_placement` prior credit (e.g. ACT Math 27+, `credits_awarded = 0`) back to a semester card, `handleRemovePriorCredit` deleted the record from the DB before the guard in `handleAddCourse` fired — the student permanently lost the placement credit with no compensating free-add created. Root cause: `act_placement` entries never archive a slot (`credits_awarded = 0` is excluded from `resolveTransferCredits`), so `freedSlots` is always empty for them; `handleAddCourse` then fires and fails because the course (e.g. MATH1910) is already in `takenCodes` via Pass 2 (requirement slot). Fix: add an atomicity guard in the `prior_credit` drag-back path that checks whether `handleAddCourse` would fail before any DB write, and blocks the drag with the same error message if so. Tests held at 266. Entry deleted below; bug counts unchanged (found and fixed in same session).
+
+> **2026-05-06 update:** BUG-45 added from developer walkthrough. GEN_ED sub-pool credit tracking has three related gaps: `getGenEdStatus` ignores `priorCredits`, the `SlotModal` and `DegreePlan` call sites don't pass them, and `matchPriorCreditsToSlots` archives GEN_ED slots without sub-pool saturation awareness — causing excess prior credits in one sub-pool to consume slots needed for the other two. New severity additions: High +1. New totals: Critical 0, High 2, Medium 3, Low 3, Total 8.
+
+> **2026-05-06 update (2):** `fix/gen-ed-prior-credit-tracking` merged. BUG-45 (GEN_ED sub-pool credit tracking ignores prior credits; archiving is sub-pool-unaware) is fixed across three facets: `getGenEdStatus` now accepts `priorCredits = []` as a fourth parameter and sums credits by sub-pool category; `SlotModal.renderGenEdSections` and `DegreePlan.genEdStatus` memo both pass `priorCredits`; `matchPriorCreditsToSlots` Rule 2 embeds a sub-pool saturation check inside the `find()` predicate so credits from a full sub-pool are skipped, letting credits from unsatisfied sub-pools match instead. `GEN_ED_CATEGORIES` imported into `transferCredits.js` from `poolResolver.js`. Tests grew from 266 → 279 (9 new cases in `getGenEdStatus.test.js`, 4 new cases in `transferCredits.test.js`). Entry deleted below; severity counts updated (High 2→1, Total 8→7).
+
+> **2026-05-07 update:** BUG-46 (heavy-load threshold) and BUG-47 (prior credits deleted on
+> concentration switch) fixed in `fix/credits-and-concentration`. Entries removed below;
+> severity counts updated (High 2→1, Low 4→3, Total 9→7).
+
+> **2026-09-11 update:** BUG-48, BUG-49, and BUG-50 found and fixed in the same session on `fix/pool-prereq-placement`. BUG-48 (High): `degreeBuilder` mapped only fixed courses to slots, so prereq groups made of pool options were silently skipped — DSAI's CSC3220/CSC4220 landed before MATH_STATS and CSC3040 could land before COMM_REQ. Prereq groups only a requirement pool can satisfy now resolve to that pool's slot, pool slots can't precede their options' prereqs, and gating pools backfill first. BUG-49 (High): the ACT-change re-run in `ProfileSettings.jsx` fetched courses without `standing_req`, disabling junior/senior placement (44 ordering violations across concentrations vs 10 at onboarding). BUG-50 (High): the same re-run upserted `selected_course_code: null` for every undragged pool slot, wiping the student's picks on each score change. Real seed data, 4 concentrations × ACT 15–33: violations 10 → 0 (54 → 0 counting the ACT-change path); only 6 DSAI plans change and none get longer. Tests grew 365 → 370. Bug counts unchanged (found and fixed in the same session).
+
+> **2026-09-11 update (2):** BUG-51 found and fixed in the same session on `fix/math-track-prereqs`. BUG-51 (Medium): students on the MATH1904 → MATH1906 track (ACT 27–28) never satisfied a MATH1910 prerequisite — the planner put MATH2010 and CSC2700 in their first semester beside MATH1904, and MATH3070 / CSC1300 / CSC1310 had no reachable calculus prereq. The catalog lists MATH1904 + MATH1906 as equivalent to MATH1910; new `src/lib/requirementMap.js` applies `REQUIREMENT_SUBSTITUTES` (`MATH1910 → MATH1906`) to every prereq and coreq map as it is built, replacing three hand-rolled loaders. Same branch: the course picker now notes when an option's prereq is a course the student's math placement removed (PHYS2110 / MATH3470 → MATH1920). Tests grew 370 → 393. Bug counts unchanged (found and fixed in the same session).
+
+> **2026-09-11 update (3):** BUG-52 and BUG-53 found and fixed in the same session on
+> `fix/builder-prior-credit-accounting`, from a reported DSAI plan (AP English Language + ACT
+> English 34 + four AP GEN_EDs) with 10-credit semesters, CSC3220 placed before the statistics
+> pool, and CSC4610 flagged for senior standing. BUG-52 (High): `matchPriorCreditsToSlots`
+> tracked spent credits by `pc.id`, but `Onboarding.handleComplete` places the plan with the
+> rows it is *about to* INSERT, which have no id yet — every one keyed as `undefined`, so the
+> first match consumed them all and exactly one slot was archived. The builder then planned the
+> student's other covered courses (ENGL1020, ENG_LIT and four GEN_EDs for the reported student)
+> as courses still to take; the load-time sync (BUG-23) archived them on first load, and since
+> nothing re-places a slot after archiving, their semesters kept the holes. Identity now falls
+> back to the row itself when it has no id. BUG-53 (High): the builder summed `credits_awarded`
+> for prior hours while the grid counts a course code once (`creditsBeforeSemester`) — two exams
+> awarding the same course inflated standing by 6 hours, placing CSC4610 where the grid then
+> flagged it (89 of 90 hours). The builder now calls `creditsBeforeSemester`, so placement and
+> warning read from one function. Real seed data, 4 concentrations × ACT 15–33 × 3 student types
+> × 3 start seasons × both entry points (2016 plans): standing flags 179 → 0, slots
+> planned-then-archived 1512 → 0, no semester over 18 credits; 54 plans gain a semester, 48 of
+> them to clear a standing flag the student would otherwise have hit, none flagged after. Tests
+> grew 397 → 402. Bug counts unchanged (found and fixed in the same session).
+
+> **2026-09-11 update (4):** BUG-54 found and fixed in the same session on
+> `fix/gen-ed-slot-capacity` (both repos), from a reported plan whose General Education
+> requirement collapsed to a single slot while the student still owed 6 hrs of US History.
+> BUG-54 (High): the flat concentration templates added in `migration: tiers 18-20` under-provision
+> the GEN_ED pool. `GEN_ED_CATEGORIES` requires 6 hrs each of History, Humanities & Arts and
+> Social Science — 18 hrs, six slots — but `csc_core`, `csc_cybersecurity` and `csc_dsai` shipped
+> five and `csc_hpc` four. This is a regression of the original BUG-1 (see the 2026-04-17 update):
+> the HPC slot restored by `migration_tier12.sql` was lost when the templates were rewritten flat,
+> and the same shortfall spread to the other three. Every template was exactly 3 hrs (or 6 for HPC)
+> under its own declared 120; all four now total 120 exactly with six GEN_ED slots.
+> The reported student (AP Macro + AP Human Geography = Social 6/6, AP World History ×2 =
+> Humanities 6/6) legitimately archived four slots, leaving one seat for HIST2010 + HIST2020.
+> Second facet: `getGenEdStatus` counted archived slots as open capacity, so `overallAtRisk`
+> measured the shortfall against seats that no longer exist and the student saw no warning at all.
+> It now takes `planArchived` as an optional fifth parameter and filters archived slots out of
+> `genEdSlots`; `DegreePlan.genEdStatus` and `SlotModal.renderGenEdSections` pass it. The same
+> filter stops a selection preserved on an archived slot (BUG-42) from counting toward a sub-pool.
+> `matchPriorCreditsToSlots` is unchanged — its BUG-45 saturation guard caps each sub-pool at
+> 6 hrs, which is exactly two slots, so six slots make over-archiving impossible.
+> Real seed data, 4 concentrations: the reported student leaves 2 GEN_ED slots in every one, and
+> History reads 0/6 not-at-risk. 84 built plans (4 concentrations x ACT 15-33 x 3 student types):
+> every slot placed, heaviest semester 17 credits. Tests grew 402 -> 409. Bug counts unchanged
+> (found and fixed in the same session).
+>
+> **Deploy:** re-run `seed.js` from `MyDegreePlan_Prototype/`. `planSlotSync` matches by
+> (class_code, nth occurrence), so the five existing GEN_ED rows keep their ids and only the new
+> one is inserted — no student plan is wiped. The inserted slot has a null position, so
+> `DegreePlan`'s Step 7.5 unplaced-slot pass places it on each student's next load. No migration
+> file is needed.
+
+> **2026-10-05 triage:** the remaining six entries were checked against the code and removed; counts are now High 1, Total 1.
+> - **BUG-9** (dedup key on repeated pool codes): intentional. A course counts once (`CLAUDE.md`, `computePlanCredits`), and the pickers already refuse a code in
+>   `getTakenCodes` (BUG-34), so the silent drop it feared is guarded upstream.
+> - **BUG-14** (earned versus planned hours): `DegreePlan`'s `creditTotals` already splits `computePlanCredits`'s breakdown into completed and planned by status,
+>   unfilled pool slots are not counted, and the catalog is complete, so the `flex_credits` fallback is rarely reached. The `FREE_ELECTIVE` TODO it cited sits in
+>   `usePlanCompleteness`, which nothing calls.
+> - **BUG-15** (CHECK constraint kept `dual_enrollment`): fixed. `000_baseline.sql` lists `ap_credit`, `test_out`, `ib_credit`, `cambridge`, `act_credit` and
+>   `act_placement` for `test_equivalencies.test_type`, and the `prior_credits` constraint has no `dual_enrollment` either.
+> - **BUG-16** (fixtures used `dual_enrollment`): fixed in `prereqCheckerPlacement.test.js`.
+> - **BUG-19** (`classifyPrereq`'s unused `prereqCode`): not a bug; `CLAUDE.md` says to keep it on purpose.
+> - **BUG-33** (manual completion not counted toward standing): not reproducible by design. Completing a semester only collapses its card; its slots stay in
+>   `planSlots`, and `creditsBeforeSemester` (used by both `DegreePlan` and `SlotModal`) counts every non-archived slot in an earlier semester whether or not
+>   the semester is marked complete. It reads no completion state, so the two paths cannot diverge.
+
+---
+
+## Audit notes
+
+- Templates `csc_core.json`, `csc_cybersecurity.json`, `csc_dsai.json`, and (after the 2026-04-17 fix) `csc_hpc.json` each sum exactly to their declared `hours` (120).
+- Pool codes referenced in all four JSONs (`GEN_ED`, `ENG_LIT`, `SCIENCE`, `COMM_REQ`, `MATH_STATS`, `CSC_LOWER_ELECTIVE`, `CSC_UPPER_ELECTIVE`, `CSC_ELECTIVE`, `CSC_HPC_ELECTIVE`, `FREE_ELECTIVE`) all exist in `POOL_COURSES` and `POOL_LABELS` and are all in `SATISFIABLE_POOLS`. No orphan pool codes.
+- `test_equivalencies` seed awards several course codes that are not obviously used by any CSC concentration template (e.g. `ACCT2110`, `HEC2200`, `DS2810`, `PSY2210`, `MATH1630`, `MATH1000`). They still satisfy Rule 3 (unmatched credits count toward total hours). Not a bug — noted for completeness.
+- Cumulative-model invariant in `test_equivalencies.sql` (each `awarded_course_code` appears at exactly one `min_score` per exam) holds for every exam I spot-checked. Any violation would manifest as duplicate `prior_credit` INSERTs in the wizard's Step 4.
