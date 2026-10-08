@@ -94,9 +94,13 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
   (`groupByCollege`, `searchPrograms`, `programPath`, `termUnavailableNote`) and `components/ProgramPicker.jsx` do it; Settings'
   change-program modal groups the same way. `src/data/colleges.json` is generated from the Prototype's `degree-specs/colleges.json`
   by `npm run build:catalog` (programs carry only the college code). A database that lacks the new columns still works: programs
-  group by `major_name` under "Other programs". The start-term step then offers only the terms the chosen program has a plan for
-  (`termChoices` in `catalogYears.js`; a program whose first plan is 2026-2027 has none for a returning student, and the step says
-  so); a closed program (DSAI) is behind "Show closed programs" and offers its replacement. The math sequence step is shown only
+  group by `major_name` under "Other programs". The start-term step asks one thing, the student's first semester at Tennessee Tech
+  (year, then semester), and offers only the terms the chosen program has a plan for (`termChoices` in `catalogYears.js`; a program
+  whose first plan is 2026-2027 starts at Fall 2026, and `termNotes` in `programBrowser.js` says so). There is no question about
+  being a freshman, transfer or returning student: `curriculumTypeForTerm` derives `student_type` from the term (before Fall 2026 is
+  `'returning'`, which the math chain reads; later is `'incoming_freshman'`, which only means the new curriculum, because the column's CHECK
+  allows no other value). A closed program (DSAI) is behind "Show closed programs", which turns into "Hide closed programs" (hiding
+  also drops a closed selection), and the step offers its replacement. Prior credit types, transfer credit included, are shown to everyone. The math sequence step is shown only
   when the plan includes Calculus I (`planHasMathChain`), and the degree builder applies the math placement chain only to such a plan
   (Business's MATH 1710 / 1530 are ordinary requirements). A program's first plan covers earlier entrants (`covers_earlier`); when that
   plan is Flight Foundations the fit is **approximate** (`isApproximateFit`): onboarding says so before they continue and the plan view
@@ -299,10 +303,9 @@ that section before changing the module. Rules that must hold even if you do not
   // button.program-college. A major with concentrations then shows .concentration-card buttons. The search box
   // (input[type=search], also .onboarding-input, so it is the first one on step 1) lists programs as results to click.
   btn('Computer Science, B.S.').click(); btn('CSC Cybersecurity').click(); btn('Continue').click()
-  // step 2: start term, limited to what the program has a plan for
-  btn('Incoming Freshman').click()
-  setVal(document.querySelectorAll('select.onboarding-select')[1], '2026')   // the year select is the second one
-  setVal(document.querySelectorAll('select.onboarding-select')[0], 'Fall')
+  // step 2: first semester, limited to what the program has a plan for (no student-type buttons any more)
+  setVal(document.querySelectorAll('select.onboarding-select')[0], '2026')   // the year select is the first one
+  setVal(document.querySelectorAll('select.onboarding-select')[1], 'Fall')    // then the semester select (disabled until a year is chosen)
   btn('Continue').click()      // step 3: 6 input.onboarding-input in the order ACT Math, English, Science, Reading, Composite, then SAT Math; Continue again: step 4 (math, only if the plan has Calculus I), then step 5
   ```
 

@@ -80,6 +80,8 @@ describe('ProgramPicker', () => {
     const chosen = render({ programs, plans: oldPlans, value: 'old' })
     expect(chosen).not.toContain('Show closed programs')
     expect(chosen).toContain('Old Program')
+    expect(chosen).toContain('Hide closed programs')
+    expect(hidden).not.toContain('Hide closed programs')
   })
 
   it('drops a program that has no plan, and shows a skeleton while loading and the error when it fails', () => {

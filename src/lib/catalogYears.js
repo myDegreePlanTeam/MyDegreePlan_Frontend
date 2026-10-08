@@ -102,8 +102,21 @@ export function degreeTitle(group) {
  */
 export const NEW_CURRICULUM_YEAR = 2026
 const SEASONS = ['Fall', 'Spring', 'Summer']
-const RETURNING_SPAN = 10   // a returning student may have started up to this many years before the switch
-const NEW_SPAN = 6          // and a new one may start up to this many years after it
+const RETURNING_SPAN = 10   // a student may have started up to this many years before the switch
+const NEW_SPAN = 6          // and may start up to this many years after it
+
+/**
+ * Which curriculum a start term falls under, in the words student_profiles.student_type has always used ('returning' is
+ * what the math placement chain reads: it keeps MATH 1920). Students are no longer asked what kind of student they are;
+ * the start term decides. 'incoming_freshman' only means "the new curriculum" here: the column's CHECK allows no other
+ * value for it, and a transfer student follows the same plan.
+ * @returns {'returning'|'incoming_freshman'|null}  null when the term is incomplete
+ */
+export function curriculumTypeForTerm(season, year) {
+  const entry = yearStart(academicYearOf(season, year))
+  if (entry === null) return null
+  return entry < NEW_CURRICULUM_YEAR ? 'returning' : 'incoming_freshman'
+}
 
 /** Whether a student starting in this term can follow the program: it is open to that catalog year and has a plan for it. */
 export function termAvailable(program, plans, season, year) {
@@ -112,19 +125,14 @@ export function termAvailable(program, plans, season, year) {
 }
 
 /**
- * The start terms a student of this type can choose, as [{ year, seasons }] in year order. With a program, only the terms in
- * which that program has a plan: a program whose first plan is 2026-2027 has none for a returning student, and that is
- * said out loud rather than hidden. Without one: every term the student type allows.
+ * The start terms a student can choose as their first semester at Tennessee Tech, as [{ year, seasons }] in year order. With
+ * a program, only the terms in which that program has a plan (a program whose first plan is 2026-2027 has none before
+ * Fall 2026; the start-term step says so, see termNotes in programBrowser.js). Without one: every term in range.
  */
-export function termChoices(studentType, { program = null, plans = [] } = {}) {
-  const returning = studentType === 'returning'
-  const first = returning ? NEW_CURRICULUM_YEAR - RETURNING_SPAN : NEW_CURRICULUM_YEAR
-  const last = returning ? NEW_CURRICULUM_YEAR : NEW_CURRICULUM_YEAR + NEW_SPAN
+export function termChoices({ program = null, plans = [] } = {}) {
   const choices = []
-  for (let year = first; year <= last; year++) {
-    let seasons = SEASONS
-    if (year === NEW_CURRICULUM_YEAR) seasons = returning ? ['Spring', 'Summer'] : ['Fall']
-    if (program) seasons = seasons.filter(season => termAvailable(program, plans, season, year))
+  for (let year = NEW_CURRICULUM_YEAR - RETURNING_SPAN; year <= NEW_CURRICULUM_YEAR + NEW_SPAN; year++) {
+    const seasons = program ? SEASONS.filter(season => termAvailable(program, plans, season, year)) : SEASONS
     if (seasons.length) choices.push({ year, seasons })
   }
   return choices

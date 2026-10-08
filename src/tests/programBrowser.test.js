@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import catalog from '../data/catalog.json'
 import colleges from '../data/colleges.json'
-import { groupByCollege, isProgramReady, majorKeyOf, programHeader, programPath, searchPrograms, termUnavailableNote, OTHER_COLLEGE } from '../lib/programBrowser'
+import { groupByCollege, isProgramReady, majorKeyOf, programHeader, programPath, searchPrograms, termNotes, closedDisclosure, OTHER_COLLEGE } from '../lib/programBrowser'
 import { PROGRAM_DETAIL_COLUMNS, withProgramDetails } from '../lib/programDetails'
 import { createLocalClient } from '../lib/data/localClient'
 import { createMemoryStorage } from '../lib/data/storage'
@@ -158,17 +158,33 @@ describe('programPath', () => {
   })
 })
 
-describe('termUnavailableNote', () => {
-  const plans = [{ id: 1, concentration_id: 10, catalog_year: '2026-2027' }]
-  it('says why a returning student has no plan, and why a new student has none in a closed program', () => {
-    const me = { id: 10, code: 'me', name: 'Mechanical Engineering' }
-    expect(termUnavailableNote('returning', me, plans).text).toMatch(/begin with the 2026-2027 catalog/)
+describe('termNotes', () => {
+  const plans = [{ id: 1, concentration_id: 10, catalog_year: '2026-2027', covers_earlier: false }]
+  it('says why an earlier start has no plan, and that a closed program closed (with what replaces it)', () => {
+    const ai = { id: 10, code: 'ai', name: 'Artificial Intelligence', supersedes: 'dsai' }
+    const [early] = termNotes(ai, plans)
+    expect(early.text).toMatch(/begin with the 2026-2027 catalog, so a start before Fall 2026 has no plan/)
     const dsai = { id: 11, code: 'dsai', name: 'Data Science & AI', last_catalog_year: '2025-2026' }
-    const ai = { id: 12, code: 'ai', name: 'Artificial Intelligence', supersedes: 'dsai' }
-    const note = termUnavailableNote('incoming_freshman', dsai, [{ id: 2, concentration_id: 11, catalog_year: '2025-2026' }], [dsai, ai])
-    expect(note.text).toMatch(/closed to new students after the 2025-2026 catalog; Artificial Intelligence replaces it/)
-    expect(note.replacement).toBe(ai)
-    expect(termUnavailableNote('transfer', me, []).text).toMatch(/no degree plan yet/)
+    const [closed] = termNotes(dsai, [{ id: 2, concentration_id: 11, catalog_year: '2025-2026', covers_earlier: true }], [dsai, ai])
+    expect(closed.text).toMatch(/closed to new students after the 2025-2026 catalog; Artificial Intelligence replaces it/)
+    expect(closed.replacement).toBe(ai)
+    expect(termNotes(ai, [])[0].text).toMatch(/no degree plan yet/)
+  })
+
+  it('says nothing about a program whose first plan covers earlier starts and that is still open', () => {
+    const me = { id: 10, code: 'me', name: 'Mechanical Engineering' }
+    expect(termNotes(me, [{ id: 1, concentration_id: 10, catalog_year: '2026-2027', covers_earlier: true }])).toEqual([])
+  })
+})
+
+describe('closedDisclosure', () => {
+  it('offers to show the closed programs, then to hide them, and nothing when there are none', () => {
+    expect(closedDisclosure({ closedCount: 2, showClosed: false, selectedIsClosed: false })).toBe('show')
+    expect(closedDisclosure({ closedCount: 2, showClosed: true, selectedIsClosed: false })).toBe('hide')
+    expect(closedDisclosure({ closedCount: 0, showClosed: true, selectedIsClosed: false })).toBeNull()
+  })
+  it('lists the closed programs while one is the selection, so that is when hiding must drop it', () => {
+    expect(closedDisclosure({ closedCount: 2, showClosed: false, selectedIsClosed: true })).toBe('hide')
   })
 })
 

@@ -102,22 +102,33 @@ export function searchPrograms(programs, query, colleges = collegeList) {
 }
 
 /**
- * Why a student type has no start term for a program, in words, and the program to offer instead when one replaces it.
- * Said out loud on the start-term step: a student must never be left wondering why a button is dead.
- * @returns {{ text: string, replacement: object|null }}
+ * What limits the start terms of a program, in words, and the program to offer instead when one replaces it. Said out loud on
+ * the start-term step: a student must never be left wondering why a term is missing.
+ * @returns {Array<{ text: string, replacement: object|null }>}  empty when nothing limits the program
  */
-export function termUnavailableNote(studentType, program, plans, programs = []) {
-  const years = (plans ?? []).filter(p => p.concentration_id === program.id && yearStart(p.catalog_year) !== null)
-    .map(p => p.catalog_year).sort(compareCatalogYears)
-  if (!years.length) return { text: `${program.name} has no degree plan yet.`, replacement: null }
-  if (studentType === 'returning') {
-    return { text: `${program.name}'s plans begin with the ${years[0]} catalog, so a student who started earlier has no plan here yet.`, replacement: null }
+export function termNotes(program, plans, programs = []) {
+  const own = (plans ?? []).filter(p => p.concentration_id === program.id && yearStart(p.catalog_year) !== null)
+    .sort((a, b) => compareCatalogYears(a.catalog_year, b.catalog_year))
+  if (!own.length) return [{ text: `${program.name} has no degree plan yet.`, replacement: null }]
+  const notes = []
+  if (!own[0].covers_earlier) {
+    notes.push({ text: `${program.name}'s plans begin with the ${own[0].catalog_year} catalog, so a start before Fall ${yearStart(own[0].catalog_year)} has no plan here yet.`, replacement: null })
   }
   if (program.last_catalog_year) {
     const replacement = (programs ?? []).find(p => p.supersedes === program.code) ?? null
-    return { text: `${program.name} closed to new students after the ${program.last_catalog_year} catalog${replacement ? `; ${replacement.name} replaces it` : ''}.`, replacement }
+    notes.push({ text: `${program.name} closed to new students after the ${program.last_catalog_year} catalog${replacement ? `; ${replacement.name} replaces it` : ''}.`, replacement })
   }
-  return { text: `${program.name} has no plan for a start in these years.`, replacement: null }
+  return notes
+}
+
+/**
+ * The picker's disclosure for programs that are no longer offered: 'show' while they are hidden, 'hide' once they are
+ * listed (a closed program that is the student's selection is always listed, so hiding it also drops the selection), null
+ * when there are none.
+ */
+export function closedDisclosure({ closedCount, showClosed, selectedIsClosed }) {
+  if (!closedCount) return null
+  return showClosed || selectedIsClosed ? 'hide' : 'show'
 }
 
 /** "Engineering › Mechanical Engineering › ME Aerospace", the path a selection is shown as. */

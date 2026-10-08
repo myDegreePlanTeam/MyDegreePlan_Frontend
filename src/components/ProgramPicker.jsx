@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { degreeTitle, splitByOffering } from '../lib/catalogYears'
-import { COMING_SOON, groupByCollege, isProgramReady, programPath, searchPrograms } from '../lib/programBrowser'
+import { COMING_SOON, closedDisclosure, groupByCollege, isProgramReady, programPath, searchPrograms } from '../lib/programBrowser'
 import './ProgramPicker.css'
 
 /**
@@ -34,7 +34,9 @@ export default function ProgramPicker({ programs, plans, value, onChange, loadin
 
   const { current, closed } = splitByOffering(programs, plans)
   const selected = programs.find(p => p.code === value) ?? null
-  const closedShown = showClosed || (!!selected && closed.includes(selected))
+  const selectedIsClosed = !!selected && closed.includes(selected)
+  const closedShown = showClosed || selectedIsClosed
+  const disclosure = closedDisclosure({ closedCount: closed.length, showClosed, selectedIsClosed })
   const visible = closedShown ? [...current, ...closed] : current
   const tree = groupByCollege(visible)
 
@@ -46,6 +48,15 @@ export default function ProgramPicker({ programs, plans, value, onChange, loadin
   function chooseMajor(m) {
     setMajorKey(m.key)
     if (m.programs.length === 1) onChange(m.programs[0])
+  }
+  // Hiding the closed programs also drops a closed program that was the selection: it would otherwise stay chosen with no way to see it.
+  function hideClosed() {
+    setShowClosed(false)
+    if (selectedIsClosed) {
+      setCollegeCode(null)
+      setMajorKey(null)
+      onChange(null)
+    }
   }
   function chooseFromSearch(p) {
     setQuery('')
@@ -170,10 +181,16 @@ export default function ProgramPicker({ programs, plans, value, onChange, loadin
             </div>
           )}
 
-          {closed.length > 0 && !closedShown && (
+          {disclosure === 'show' && (
             <p className="program-closed">
               Looking for a program that is no longer offered?{' '}
               <button type="button" className="program-link" onClick={() => setShowClosed(true)}>Show closed programs</button>
+            </p>
+          )}
+          {disclosure === 'hide' && (
+            <p className="program-closed">
+              Closed programs are listed with the others.{' '}
+              <button type="button" className="program-link" onClick={hideClosed}>Hide closed programs</button>
             </p>
           )}
         </>
