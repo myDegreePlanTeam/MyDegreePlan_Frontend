@@ -14,7 +14,9 @@
 import { formatMissingForDisplay } from './poolResolver'
 
 export const FULL_TIME_MIN = 12
-export const HEAVY_LOAD_MAX = 18
+// Tennessee Tech's undergraduate catalog ("Student Course Load"): the maximum load for a student in good standing is
+// 20 hours; more needs the major department chair's and the dean's approval. (Probation caps it at 16, not tracked here.)
+export const HEAVY_LOAD_MAX = 20
 
 const STANDING_CREDITS = { junior: 60, senior: 90 }
 const SEVERITY_ORDER   = { blocker: 0, warning: 1, info: 2 }
@@ -118,7 +120,7 @@ export function buildPlanIssues({
         push({
           id: `load-high:${sem.semNum}`, severity: 'warning',
           title: 'Heavy course load',
-          body:  `This term carries ${sem.credits} credits. Loads above ${HEAVY_LOAD_MAX} usually need advisor approval.`,
+          body:  `This term carries ${sem.credits} credits. Loads above ${HEAVY_LOAD_MAX} need approval from your major department chair and your dean.`,
         })
       }
     }
