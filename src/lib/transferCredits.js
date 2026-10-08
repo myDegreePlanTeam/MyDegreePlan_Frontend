@@ -1,3 +1,4 @@
+// @ts-check
 // transferCredits.js
 import { GEN_ED_CATEGORIES, POOL_CREDIT_ESTIMATES } from './poolResolver.js'
 import { isRemainderPool, getPoolRemainder } from './poolRemainder.js'
@@ -369,14 +370,14 @@ export function getTakenCodes(planSlots, slots, priorCredits, freeAddSlots = [])
  * the two can't disagree.
  *
  * @param {number} targetSem
- * @param {Object} plan
- * @param {Array}  plan.slots                 – requirement_slots rows
- * @param {Object} plan.planSlots             – { [slotId]: selectedCourseCode }
- * @param {Object} plan.planSemesterOverrides – { [slotId]: semesterNumber }
- * @param {Object} plan.planArchived          – { [slotId]: truthy when archived }
- * @param {Array}  plan.priorCredits          – prior_credits rows
- * @param {Object} plan.courses               – { [courseCode]: { credits, ... } }
- * @param {Array}  plan.freeAddSlots          – student_free_add_slots rows
+ * @param {Object} [plan]
+ * @param {Array}  [plan.slots]                 - requirement_slots rows
+ * @param {Object} [plan.planSlots]             - { [slotId]: selectedCourseCode }
+ * @param {Object} [plan.planSemesterOverrides] - { [slotId]: semesterNumber }
+ * @param {Object} [plan.planArchived]          - { [slotId]: truthy when archived }
+ * @param {Array}  [plan.priorCredits]          - prior_credits rows
+ * @param {Object} [plan.courses]               - { [courseCode]: { credits, ... } }
+ * @param {Array}  [plan.freeAddSlots]          - student_free_add_slots rows
  * @returns {number}
  */
 export function creditsBeforeSemester(targetSem, {
