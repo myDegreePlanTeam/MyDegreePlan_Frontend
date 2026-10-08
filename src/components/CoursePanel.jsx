@@ -92,7 +92,7 @@ export default function CoursePanel({
               ))}
             </div>
             <p className="ds-panel-fine" style={{ marginTop: 16 }}>
-              Terms that would break a prerequisite, corequisite, or seasonal offering are shown but cannot be chosen.
+              A term that would break a prerequisite or corequisite asks you to confirm first. A term the course is not offered in cannot be chosen.
             </p>
           </>
         )}
