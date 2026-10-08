@@ -24,6 +24,10 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // A const read before its declaration in the same scope throws at render (a TDZ error the unit tests do not reach and
+      // only the browser showed, 2026-10-08). `variables: false` leaves alone a reference from inside a nested function
+      // (a handler that uses a const declared further down), which is fine, and flags only the same-scope read that is not.
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: false }],
     },
   },
 ])
