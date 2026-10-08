@@ -550,17 +550,6 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-pill-in_progress { --ds-pill: var(--status-progress); --ds-pill-rgb: var(--status-progress-rgb); }
 .ds-pill-planned     { --ds-pill: var(--gold);            --ds-pill-rgb: var(--gold-rgb); }
 .ds-pill-blocked     { --ds-pill: var(--danger);          --ds-pill-rgb: var(--danger-rgb); }
-.ds-status-picker { display: flex; gap: 4px; margin: -8px 0 18px; }
-.ds-status-picker button {
-  flex: 1; min-height: 30px; border-radius: 6px;
-  background: transparent; border: 1px solid var(--bg-light);
-  color: var(--text-muted); font-size: 10.5px; cursor: pointer;
-}
-.ds-status-picker button:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
-.ds-status-picker button.ds-status-active {
-  background: rgba(var(--gold-rgb), .12); border-color: var(--gold); color: var(--gold);
-}
-.ds-status-picker button:disabled { cursor: not-allowed; }
 .ds-panel-label {
   margin: 0 0 8px; font-size: 9.5px; letter-spacing: .16em;
   text-transform: uppercase; color: var(--text-muted);

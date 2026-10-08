@@ -67,7 +67,9 @@ export function buildPlanIssues({
           id: `incomplete:${item.key}`, key: item.key,
           severity: dependents.length > 0 ? 'warning' : 'info',
           title: `Incomplete selection: ${incomplete.label}`,
-          body:  `Choose a course for this ${incomplete.label} slot.`
+          body:  (sem.completed
+            ? `This semester is over. Choose the course you took for this ${incomplete.label} slot.`
+            : `Choose a course for this ${incomplete.label} slot.`)
             + (dependents.length > 0
               ? ` ${dependents.join(', ')} ${dependents.length === 1 ? 'depends' : 'depend'} on it to meet ${dependents.length === 1 ? 'its' : 'their'} prerequisite.`
               : ''),

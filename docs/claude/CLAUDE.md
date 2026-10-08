@@ -65,7 +65,7 @@ All catalog tables have public read RLS; student tables are scoped to `auth.uid(
 | `requirement_slots` | A degree plan's slots: `catalog_year`, stable `slot_key`, `map_semester` (the department's recommended semester), `gened_program` |
 | `student_profiles` | One row per student; anchors all student state; references `auth.users.id`. ACT scores plus `sat_math` (optional; either test, both or neither), `gened_program`, and `catalog_year` (the plan year their slots belong to, stored at onboarding) |
 | `student_plan_slots` | Student's plan state per template slot: selected course, locked, archived, drag overrides. `selected_credits` is the hours chosen for a pick whose course carries a credit range |
-| `student_semester_notes` | Per-student, per-semester notes + `completed_by_student` toggle |
+| `student_semester_notes` | Per-student, per-semester notes (`completed_by_student` is no longer used) |
 | `student_free_add_slots` | Courses the student added outside the degree template. `fills_slot_id` (nullable → `requirement_slots.id`, `ON DELETE CASCADE`) marks a follow-up pick that fills a Free Elective slot's open hours; NULL for ordinary "+ Add course" rows. `credits` is the hours chosen for an added course whose catalog entry carries a range |
 | `prior_credits` | Transfer credits, AP/IB/CLEP credit, dual enrollment, placement scores |
 | `test_equivalencies` | Exam-to-TTU-course mappings; drives the PriorCreditWizard. `option_key` marks an exam whose credit is one of several courses (AP Biology and Physics C: "PHYS 2010 or 2110"): rows of one exam sharing a key are one choice, and `lib/examOptions.js` picks the one the student's plan requires or the wizard asks |
@@ -345,9 +345,12 @@ that section before changing the module. Rules that must hold even if you do not
 2. **Archiving is only triggered by prior credits** (`archive_reason = 'prior_credit'`) or
    reserved for future Banner import (`archive_reason = 'banner_import'`).
 
-3. **Manual per-course completion toggling is not implemented.** Completion is semester-level
-   only: `completed_by_student` on `student_semester_notes`. When a student toggles a semester
-   complete, the card collapses to a summary row. The underlying slot data is untouched.
+3. **Progress is derived from the calendar, never marked.** A course in a past term counts as passed, one in the current term
+   is in progress, one in a later term is planned (`lib/termPhase.js`; Summer sits between Spring and Fall). There is no per-course or
+   per-semester completion toggle: a student who did not pass a course removes it or moves it to a later term (a retake), and past
+   semesters start collapsed. `student_plan_slots.status`, `student_free_add_slots.status` and `student_semester_notes.completed_by_student`
+   are no longer read or written by the plan view; the columns stay so stored data and backups still load. Prerequisites and standing
+   never read completion: they read a course's position in the plan.
 
 4. **`credits_awarded` on `prior_credits` is always read from `test_equivalencies`** and is
    never user-editable when a `test_type` and `course_code` are selected in the wizard.

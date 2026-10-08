@@ -6,6 +6,7 @@ import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
 import { applyChosenHours } from '../lib/creditHours'
 import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
+import { semesterPhases, statusForPhase, splitCreditsByPhase } from '../lib/termPhase'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqsProvisional } from '../lib/prereqChecker'
 import { getMoveConflicts } from '../lib/dragConflicts'
@@ -92,7 +93,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [selection, setSelection]                 = useState(null)
   const [lastSavedAt, setLastSavedAt]             = useState(null)
   const [planSlots, setPlanSlots]                 = useState({})
-  const [planStatuses, setPlanStatuses]           = useState({})
   const [planCreditsRemaining, setPlanCreditsRemaining] = useState({})
   // planSemesterOverrides: { reqSlotId: number } — student's drag-moved semesters
   const [planSemesterOverrides, setPlanSemesterOverrides] = useState({})
@@ -135,12 +135,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // toggles until that integration defines the source of truth.
   const [planArchived, setPlanArchived]           = useState({})
 
-  // planSemesterCompleted: { [semNum]: boolean } — student-toggled completion
-  // (Concept 1 / Bug 1). Persisted as completed_by_student in student_semester_notes.
-  const [planSemesterCompleted, setPlanSemesterCompleted] = useState({})
-
   // semesterExpanded: { [semNum]: boolean } — local collapse/expand state
-  // Initialized from planSemesterCompleted (completed = collapsed by default).
+  // Past semesters start collapsed (the effect after semesterPhase).
   const [semesterExpanded, setSemesterExpanded]   = useState({})
 
   const [undoStack, setUndoStack]                 = useState([])
@@ -193,7 +189,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
           selected_course_code: slot.is_pool
             ? (planSlots[slot.id] ?? null)
             : slot.class_code,
-          status:               planStatuses[slot.id]          ?? 'planned',
           semester_number:      planSemesterOverrides[slot.id]  ?? null,
           credits_remaining:    planCreditsRemaining[slot.id]   ?? 0,
           archived:             true,
@@ -253,14 +248,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
       if (savedSlotsError) { setError(savedSlotsError.message); setLoading(false); return }
 
       const planSlotsMap             = {}
-      const planStatusesMap          = {}
       const planSemesterOverridesMap = {}
       const planCreditsRemainingMap  = {}
       const planArchivedMap          = {}
       const planSelectedCreditsMap   = {}
       for (const row of savedSlots) {
         planSlotsMap[row.requirement_slot_id]    = row.selected_course_code
-        planStatusesMap[row.requirement_slot_id] = row.status
         if (row.semester_number != null)
           planSemesterOverridesMap[row.requirement_slot_id] = row.semester_number
         if (row.credits_remaining > 0)
@@ -311,19 +304,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       const coreqMapBuilt = buildRequirementMap(coreqData)
 
-      // Step 7 — semester notes + completion state
+      // Step 7 — semester notes and the terms of added semesters
       const { data: notesData } = await db
         .from('student_semester_notes')
-        .select('semester_number, note_text, completed_by_student, term_season, term_year')
+        .select('semester_number, note_text, term_season, term_year')
         .eq('student_id', profile.id)
         .eq('concentration_id', profile.concentration_id)
 
       const semNotesMap     = {}
-      const semCompletedMap = {}
       const extraTermsMap   = {}
       for (const row of notesData ?? []) {
         semNotesMap[row.semester_number] = row.note_text
-        if (row.completed_by_student) semCompletedMap[row.semester_number] = true
         if (row.term_season && row.term_year)
           extraTermsMap[row.semester_number] = { season: row.term_season, year: row.term_year }
       }
@@ -369,7 +360,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
             student_id:           profile.id,
             requirement_slot_id:  slot.id,
             selected_course_code: planSlotsMap[slot.id] ?? (slot.is_pool ? null : slot.class_code),
-            status:               planStatusesMap[slot.id] ?? 'planned',
             credits_remaining:    planCreditsRemainingMap[slot.id] ?? 0,
           }
           if (archived[slot.id]) {
@@ -394,19 +384,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
         }
       }
 
-      // Build initial expanded state: completed semesters start collapsed.
-      // Use the student's saved position (planSemesterOverridesMap) when available;
-      // fall back to the template hint (s.semester_number) for slots not yet
-      // written by the algorithm.
-      const allSemNums = [...new Set([
-        ...slotData.map(s => planSemesterOverridesMap[s.id] ?? s.semester_number),
-        ...(freeAdds ?? []).map(f => f.semester_number),
-      ])]
-      const expandedMap = {}
-      for (const semNum of allSemNums) {
-        expandedMap[semNum] = !semCompletedMap[semNum]
-      }
-
       // Step 8 — commit all state at once
       // MATH1920 and other inapplicable math-chain courses are archived by the
       // degree-builder algorithm at onboarding (archive_reason = 'not_applicable').
@@ -418,14 +395,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setCoreqMap(coreqMapBuilt)
       setPlanSlots(planSlotsMap)
       setPlanSelectedCredits(planSelectedCreditsMap)
-      setPlanStatuses(planStatusesMap)
       setPlanSemesterOverrides(planSemesterOverridesMap)
       setPlanCreditsRemaining(planCreditsRemainingMap)
       setPlanArchived(planArchivedMap)
       setFreeAddSlots(freeAdds ?? [])
       setSemesterNotes(semNotesMap)
-      setPlanSemesterCompleted(semCompletedMap)
-      setSemesterExpanded(expandedMap)
       setPriorCredits(priorCreditsData ?? [])
       setExtraSemesterTerms(extraTermsMap)
       setLoading(false)
@@ -506,6 +480,29 @@ export default function DegreePlan({ profile, onProfileChange }) {
     [profile.start_season, profile.start_year, templateSemNums, extraSemesterTerms]
   )
 
+  // ── Past, current and future terms, from the calendar ─────────────────
+  // A course in a past term counts as passed, one in the current term is in progress, one in a later term is planned
+  // (lib/termPhase.js). A student who did not pass a course removes it or moves it to a later term. Nothing is marked.
+  const [today] = useState(() => new Date())
+  const semesterPhase = useMemo(() => semesterPhases(semesterTerms, today), [semesterTerms, today])
+  const planStatuses = useMemo(() => {
+    const statuses = {}
+    for (const slot of slots) {
+      statuses[slot.id] = statusForPhase(semesterPhase[planSemesterOverrides[slot.id] ?? slot.semester_number])
+    }
+    return statuses
+  }, [slots, planSemesterOverrides, semesterPhase])
+  const statusOfFreeAdd = fa => statusForPhase(semesterPhase[fa.semester_number])
+
+  // Past semesters start collapsed, once, when the plan has loaded; the student can still open them.
+  const collapsedPastRef = useRef(false)
+  useEffect(() => {
+    if (loading || collapsedPastRef.current) return
+    collapsedPastRef.current = true
+    const past = Object.entries(semesterPhase).filter(([, phase]) => phase === 'past').map(([n]) => [n, false])
+    if (past.length) setSemesterExpanded(prev => ({ ...Object.fromEntries(past), ...prev }))
+  }, [loading, semesterPhase])
+
   // ── Science sequence warnings ─────────────────────────────────────
   const scienceWarnings = useMemo(
     () => getScienceWarnings(planSlots, slots),
@@ -566,27 +563,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const { breakdown } = computePlanCredits(
       planSlots, priorCredits, activeSlots, courses, freeAddSlots
     )
-
-    let completed = 0
-    let planned   = 0
-
-    for (const item of breakdown) {
-      if (item.source === 'transfer') {
-        completed += item.credits
-      } else if (item.source === 'free_add') {
-        if (item.status === 'completed') completed += item.credits
-        else                             planned   += item.credits
-      } else {
-        const status = item.slotId != null
-          ? (planStatuses[item.slotId] ?? 'planned')
-          : 'planned'
-        if (status === 'completed') completed += item.credits
-        else                        planned   += item.credits
-      }
-    }
-
-    return { completed, planned }
-  }, [activeSlots, planSlots, planStatuses, courses, freeAddSlots, priorCredits])
+    // earned = prior credit and courses in past terms; the rest is still ahead
+    const semesterOfItem = item => item.slotId != null
+      ? (planSemesterOverrides[item.slotId] ?? activeSlots.find(sl => sl.id === item.slotId)?.semester_number)
+      : freeAddSlots.find(f => f.id === item.freeAddId)?.semester_number
+    return splitCreditsByPhase(breakdown, semesterOfItem, semesterPhase)
+  }, [activeSlots, planSlots, planSemesterOverrides, semesterPhase, courses, freeAddSlots, priorCredits])
 
   // ── Transfer details (richer info for badge labels) ───────────────
   const transferDetails = useMemo(
@@ -718,25 +700,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return warnings
   }, [slots, activeSlots, planSlots, planArchived, freeAddSlots, planSemesterOverrides, courses, priorCredits])
 
-  // ── Per-semester warning gate ─────────────────────────────────────
-  // A semester cannot be marked complete if it has unresolved prereq/coreq warnings.
-  const semesterHasWarnings = useMemo(() => {
-    const result = {}
-    for (const semNum of semesterNumbers) {
-      const slotKeys = (semesterMap[semNum] ?? []).map(s => s.id)
-      const faKeys   = (freeAddBySemester[semNum] ?? []).map(fa => `fa_${fa.id}`)
-      result[semNum] = [...slotKeys, ...faKeys].some(k =>
-        (prereqWarnings[k]?.length > 0) || (coreqWarnings[k]?.length > 0)
-      )
-    }
-    return result
-  }, [semesterNumbers, semesterMap, freeAddBySemester, prereqWarnings, coreqWarnings])
-
   // ── Save a pool/required course selection (optimistic) ────────────
   // hours: how many credit hours the student chose for a course that carries a range (null otherwise)
   function handleSave(slot, course, hours = null) {
-    const existingStatus = planStatuses[slot.id] ?? 'planned'
-
     let creditsRemaining = 0
     if (slot.is_pool && slot.flex_credits > 0) {
       const diff = slot.flex_credits - (hours ?? course.credits)
@@ -744,19 +710,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     const prevSlots            = planSlots
-    const prevStatuses         = planStatuses
     const prevCreditsRemaining = planCreditsRemaining
     const prevSelectedCredits  = planSelectedCredits
 
     pushUndo({
       type: 'pool_select', slotId: slot.id, label: `Chose ${course.code}`,
       prevCourseCode: planSlots[slot.id] ?? null,
-      prevStatus: planStatuses[slot.id] ?? null,
       prevCreditsRemaining: planCreditsRemaining[slot.id] ?? 0,
       prevSelectedCredits: planSelectedCredits[slot.id] ?? null,
     })
     setPlanSlots(prev          => ({ ...prev, [slot.id]: course.code }))
-    setPlanStatuses(prev       => ({ ...prev, [slot.id]: existingStatus }))
     setPlanCreditsRemaining(prev => ({ ...prev, [slot.id]: creditsRemaining }))
     setPlanSelectedCredits(prev => {
       const next = { ...prev }
@@ -769,78 +732,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
         student_id:           profile.id,
         requirement_slot_id:  slot.id,
         selected_course_code: course.code,
-        status:               existingStatus,
         semester_number:      planSemesterOverrides[slot.id] ?? null,
         credits_remaining:    creditsRemaining,
       }, hours)
       .then(({ error }) => {
         if (error) {
           setPlanSlots(prevSlots)
-          setPlanStatuses(prevStatuses)
           setPlanCreditsRemaining(prevCreditsRemaining)
           setPlanSelectedCredits(prevSelectedCredits)
           showSaveError(hours != null && isMissingColumn(error)
             ? 'Choosing credit hours needs a database update. Restart the stack so its setup step can apply it.'
             : 'Course selection could not be saved. Please try again.')
-        } else {
-          markSaved()
-        }
-      })
-  }
-
-  // ── Cycle a slot's status ─────────────────────────────────────────
-  // TODO: individual course completion status will be driven by Banner transcript
-  // data on university integration. Do not add manual per-course completion
-  // toggles until that integration defines the source of truth.
-  function handleStatusChange(slot, newStatus) {
-    const courseCode = slot.is_pool ? planSlots[slot.id] : slot.class_code
-    if (slot.is_pool && !courseCode) return
-
-    pushUndo({
-      type: 'slot_status', slotId: slot.id, prevStatus: planStatuses[slot.id] ?? 'planned',
-      label: `Status of ${courseCode}`,
-    })
-    const prevStatuses = planStatuses
-    setPlanStatuses(prev => ({ ...prev, [slot.id]: newStatus }))
-
-    db
-      .from('student_plan_slots')
-      .upsert({
-        student_id:           profile.id,
-        requirement_slot_id:  slot.id,
-        selected_course_code: courseCode,
-        status:               newStatus,
-        semester_number:      planSemesterOverrides[slot.id] ?? null,
-        credits_remaining:    planCreditsRemaining[slot.id] ?? 0,
-      }, { onConflict: 'student_id, requirement_slot_id' })
-      .then(({ error }) => {
-        if (error) {
-          setPlanStatuses(prevStatuses)
-          showSaveError('Status change could not be saved. Please try again.')
-        } else {
-          markSaved()
-        }
-      })
-  }
-
-  // ── Cycle a free-add slot's status ───────────────────────────────
-  function handleFreeAddStatusChange(freeAdd, newStatus) {
-    pushUndo({
-      type: 'free_status', freeAddId: freeAdd.id, prevStatus: freeAdd.status,
-      label: `Status of ${freeAdd.course_code}`,
-    })
-    const prev = freeAddSlots
-    setFreeAddSlots(list =>
-      list.map(f => f.id === freeAdd.id ? { ...f, status: newStatus } : f)
-    )
-    db
-      .from('student_free_add_slots')
-      .update({ status: newStatus })
-      .eq('id', freeAdd.id)
-      .then(({ error }) => {
-        if (error) {
-          setFreeAddSlots(prev)
-          showSaveError('Status change could not be saved. Please try again.')
         } else {
           markSaved()
         }
@@ -857,7 +759,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
     if (!error) {
       setPlanSlots(prev    => { const n = { ...prev }; delete n[slot.id]; return n })
-      setPlanStatuses(prev => { const n = { ...prev }; delete n[slot.id]; return n })
       setPlanCreditsRemaining(prev => { const n = { ...prev }; delete n[slot.id]; return n })
       markSaved()
     } else {
@@ -876,7 +777,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
         await handleRemove(slots.find(s => s.id === record.slotId))
       } else {
         setPlanSlots(prev => ({ ...prev, [record.slotId]: record.prevCourseCode }))
-        setPlanStatuses(prev => ({ ...prev, [record.slotId]: record.prevStatus ?? 'planned' }))
         setPlanCreditsRemaining(prev => ({ ...prev, [record.slotId]: record.prevCreditsRemaining ?? 0 }))
         setPlanSelectedCredits(prev => {
           const next = { ...prev }
@@ -887,58 +787,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
         await upsertPlanSlot({
           student_id: profile.id, requirement_slot_id: record.slotId,
           selected_course_code: record.prevCourseCode,
-          status: record.prevStatus ?? 'planned',
           semester_number: planSemesterOverrides[record.slotId] ?? null,
           credits_remaining: record.prevCreditsRemaining ?? 0,
         }, record.prevSelectedCredits ?? null)
       }
 
-    } else if (record.type === 'slot_status') {
-      setPlanStatuses(prev => ({ ...prev, [record.slotId]: record.prevStatus }))
-      const slot = slots.find(s => s.id === record.slotId)
-      const courseCode = slot?.is_pool ? planSlots[record.slotId] : slot?.class_code
-      if (courseCode) {
-        await db.from('student_plan_slots').upsert({
-          student_id: profile.id, requirement_slot_id: record.slotId,
-          selected_course_code: courseCode, status: record.prevStatus,
-          semester_number: planSemesterOverrides[record.slotId] ?? null,
-          credits_remaining: planCreditsRemaining[record.slotId] ?? 0,
-        }, { onConflict: 'student_id, requirement_slot_id' })
-      }
-
-    } else if (record.type === 'free_status') {
-      setFreeAddSlots(list => list.map(f => f.id === record.freeAddId ? { ...f, status: record.prevStatus } : f))
-      await db.from('student_free_add_slots').update({ status: record.prevStatus }).eq('id', record.freeAddId)
-
     } else if (record.type === 'free_add') {
       const fa = freeAddSlots.find(f => f.id === record.freeAddId)
       if (fa) handleRemoveFreeAdd(fa)
-
-    } else if (record.type === 'sem_complete') {
-      setPlanSemesterCompleted(prev => ({ ...prev, [record.semNum]: record.prevCompleted }))
-      setSemesterExpanded(prev => ({ ...prev, [record.semNum]: record.prevCompleted ? false : true }))
-      setPlanStatuses(prev => ({ ...prev, ...record.prevStatuses }))
-      setFreeAddSlots(list => list.map(f => {
-        const saved = record.prevFreeAdds.find(pf => pf.id === f.id)
-        return saved ? { ...f, status: saved.status } : f
-      }))
-      await db.from('student_semester_notes').upsert({
-        student_id: profile.id, concentration_id: profile.concentration_id,
-        semester_number: record.semNum, note_text: semesterNotes[record.semNum] ?? '',
-        updated_at: new Date().toISOString(), completed_by_student: record.prevCompleted,
-      }, { onConflict: 'student_id, concentration_id, semester_number' })
-      const semSlotIds = Object.keys(record.prevStatuses)
-      if (semSlotIds.length > 0) {
-        for (const slotId of semSlotIds) {
-          await db.from('student_plan_slots')
-            .update({ status: record.prevStatuses[slotId] })
-            .eq('student_id', profile.id)
-            .eq('requirement_slot_id', Number(slotId))
-        }
-      }
-      for (const pf of record.prevFreeAdds) {
-        await db.from('student_free_add_slots').update({ status: pf.status }).eq('id', pf.id)
-      }
 
     } else if (record.type === 'note') {
       setSemesterNotes(prev => ({ ...prev, [record.semNum]: record.prevNote }))
@@ -955,7 +811,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
       await db.from('student_plan_slots').upsert({
         student_id: profile.id, requirement_slot_id: record.slotId,
         selected_course_code: slot?.is_pool ? planSlots[record.slotId] ?? null : slot?.class_code ?? null,
-        status: planStatuses[record.slotId] ?? 'planned',
         semester_number: prevSem,
         credits_remaining: planCreditsRemaining[record.slotId] ?? 0,
       }, { onConflict: 'student_id, requirement_slot_id' })
@@ -1096,96 +951,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
     markSaved()
   }
 
-  // ── Semester completion toggle ────────────────────────────────────
-  // Concept 1: semester-level completion toggled by student.
-  // Rule B: completing also batch-sets all slot statuses to 'completed';
-  // undoing reverts to 'planned'.
-  async function handleSemesterComplete(semNum, value) {
-    const prevCompleted = planSemesterCompleted
-    const prevExpanded  = semesterExpanded
-    const prevStatuses  = planStatuses
-    const prevFreeAdds  = freeAddSlots
-
-    const newStatus    = value ? 'completed' : 'planned'
-    const semSlotIds   = (semesterMap[semNum] ?? []).map(s => s.id)
-
-    const undoPrevStatuses = Object.fromEntries(semSlotIds.map(id => [id, planStatuses[id] ?? 'planned']))
-    const undoPrevFreeAdds = freeAddSlots
-      .filter(f => f.semester_number === semNum)
-      .map(f => ({ id: f.id, status: f.status }))
-    pushUndo({
-      type: 'sem_complete', semNum,
-      label: `${value ? 'Completed' : 'Reopened'} ${formatTermLabel(semesterTerms[semNum]) ?? `semester ${semNum}`}`,
-      prevCompleted: planSemesterCompleted[semNum] ?? false,
-      prevStatuses: undoPrevStatuses,
-      prevFreeAdds: undoPrevFreeAdds,
-    })
-
-    // Optimistic updates
-    setPlanSemesterCompleted(prev => ({ ...prev, [semNum]: value }))
-    setSemesterExpanded(prev => ({ ...prev, [semNum]: !value }))
-    if (semSlotIds.length > 0) {
-      setPlanStatuses(prev => {
-        const next = { ...prev }
-        for (const id of semSlotIds) next[id] = newStatus
-        return next
-      })
-    }
-    setFreeAddSlots(list =>
-      list.map(f => f.semester_number === semNum ? { ...f, status: newStatus } : f)
-    )
-
-    // Persist semester completion flag
-    const { error: noteErr } = await db
-      .from('student_semester_notes')
-      .upsert({
-        student_id:           profile.id,
-        concentration_id:     profile.concentration_id,
-        semester_number:      semNum,
-        note_text:            semesterNotes[semNum] ?? '',
-        updated_at:           new Date().toISOString(),
-        completed_by_student: value,
-      }, { onConflict: 'student_id, concentration_id, semester_number' })
-
-    if (noteErr) {
-      setPlanSemesterCompleted(prevCompleted)
-      setSemesterExpanded(prevExpanded)
-      setPlanStatuses(prevStatuses)
-      setFreeAddSlots(prevFreeAdds)
-      showSaveError('Semester completion could not be saved. Please try again.')
-      return
-    }
-
-    // Rule B: batch update template slot statuses
-    if (semSlotIds.length > 0) {
-      const { error: slotErr } = await db
-        .from('student_plan_slots')
-        .update({ status: newStatus })
-        .eq('student_id', profile.id)
-        .in('requirement_slot_id', semSlotIds)
-
-      if (slotErr) {
-        setPlanStatuses(prevStatuses)
-        showSaveError('Slot statuses could not be updated. Please try again.')
-        return
-      }
-    }
-
-    // Rule B: batch update free-add slot statuses
-    const { error: faErr } = await db
-      .from('student_free_add_slots')
-      .update({ status: newStatus })
-      .eq('student_id', profile.id)
-      .eq('semester_number', semNum)
-
-    if (faErr) {
-      setFreeAddSlots(prevFreeAdds)
-      showSaveError('Some free-add slot statuses could not be updated.')
-      return
-    }
-    markSaved()
-  }
-
   // ── Global collapse / expand control ─────────────────────────────
   // Undefined means expanded (see isExpanded on Semester), so "any open"
   // is "any not explicitly false".
@@ -1285,7 +1050,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
           student_id:           profile.id,
           requirement_slot_id:  slotId,
           selected_course_code: courseCode ?? null,
-          status:               planStatuses[slotId] ?? 'planned',
           semester_number:      newSemester,
           credits_remaining:    planCreditsRemaining[slotId] ?? 0,
           position_source:      'student',
@@ -1385,7 +1149,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
           student_id:           profile.id,
           requirement_slot_id:  slot.id,
           selected_course_code: courseCode,
-          status:               planStatuses[slot.id]          ?? 'planned',
           semester_number:      planSemesterOverrides[slot.id]  ?? null,
           credits_remaining:    planCreditsRemaining[slot.id]   ?? 0,
           archived:             true,
@@ -1598,7 +1361,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   const graduation   = lastNonSummerTerm(semesterTerms, allSemesterNumbers)
   const gradSemNum   = [...allSemesterNumbers].reverse().find(n => isSameTerm(semesterTerms[n], graduation))
-  const nowTerm      = termForDate(new Date())
+  const nowTerm      = termForDate(today)
   const firstTerm    = formatTermLabel(semesterTerms[allSemesterNumbers[0]])
 
   // ── Per-semester view data ────────────────────────────────────────
@@ -1641,7 +1404,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const issues = buildPlanIssues({
     semesters: allSemesterNumbers.map(n => ({
       semNum: n, label: semLabels[n], credits: semCredits(n),
-      completed: !!planSemesterCompleted[n], items: semItems(n),
+      completed: semesterPhase[n] === 'past', items: semItems(n),
     })),
     prereqWarnings, coreqWarnings, standingWarnings, scienceWarnings, poolLimitWarnings, incompleteSlots,
   })
@@ -1689,7 +1452,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const moveTargets = selCode ? allSemesterNumbers.map(n => {
     const base = { semNum: n, name: semLabels[n] }
     if (n === selSem) return { ...base, note: 'here', tone: 'here', disabled: true, isHere: true }
-    if (planSemesterCompleted[n]) return { ...base, note: 'completed', tone: null, disabled: true }
     if (!isEnrollmentAllowed(selCode, semesterTerms[n]?.season)) {
       return { ...base, note: `${getSeasonRestriction(selCode)} only`, tone: 'bad', disabled: true }
     }
@@ -1703,7 +1465,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const before = semCredits(n)
     const after  = before + (selCourse?.credits ?? 0)
     const tone   = after > HEAVY_LOAD_MAX || after < FULL_TIME_MIN ? 'warn' : 'ok'
-    return { ...base, note: `${before} → ${after} cr`, tone, disabled: false }
+    return { ...base, note: `${before} → ${after} cr${semesterPhase[n] === 'past' ? ' · past term' : ''}`, tone, disabled: false }
   }) : []
 
   function selectSlot(slot) {
@@ -1754,8 +1516,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
       courseMap={courses}
       prereqMap={prereqMap}
       coreqMap={coreqMap}
-      status={selSlot ? planStatuses[selSlot.id] : selFree?.status}
-      statusLocked={!!planSemesterCompleted[selSem]}
+      status={selSlot ? planStatuses[selSlot.id] : (selFree ? statusOfFreeAdd(selFree) : null)}
+      phase={semesterPhase[selSem] ?? 'future'}
       warnings={{
         prereq:   prereqWarnings[selKey],
         coreq:    coreqWarnings[selKey],
@@ -1795,9 +1557,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
           onClose={onBack}
         />
       )}
-      onStatusChange={status => selSlot
-        ? handleStatusChange(selSlot, status)
-        : handleFreeAddStatusChange(selFree, status)}
       onMove={n => moveToSemester(selSlot ? 'requirement_slot' : 'free_add', selSlot?.id ?? selFree.id, n)}
       onRemove={() => (selFree ? handleRemoveFreeAdd(selFree) : handleRemove(selSlot))}
       onClose={() => setSelection(null)}
@@ -1815,7 +1574,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     semesterTerms,
     profile,
     graduation,
-    semesterCompleted: planSemesterCompleted,
+    semesterCompleted: Object.fromEntries(Object.entries(semesterPhase).map(([n, phase]) => [n, phase === 'past'])),
     priorCredits,
     remainders,
   }
@@ -1901,16 +1660,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
                 />
 
                 <div className="ds-grid">
-                  {allSemesterNumbers.map((semNum, idx) => {
-                    const priorComplete = allSemesterNumbers
-                      .slice(0, idx)
-                      .every(n => planSemesterCompleted[n])
+                  {allSemesterNumbers.map(semNum => {
                     return (
                       <Semester
                         key={semNum}
                         semesterNumber={semNum}
                         slots={semesterMap[semNum] ?? []}
-                        freeAddSlots={freeAddBySemester[semNum] ?? []}
+                        freeAddSlots={(freeAddBySemester[semNum] ?? []).map(f => ({ ...f, status: statusOfFreeAdd(f) }))}
                         courseMap={courses}
                         planSlots={planSlots}
                         planStatuses={planStatuses}
@@ -1937,10 +1693,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                             [semNum]: !(prev[semNum] !== false),
                           }))
                         }
-                        isCompleted={!!planSemesterCompleted[semNum]}
-                        onMarkComplete={value => handleSemesterComplete(semNum, value)}
-                        hasWarnings={!!semesterHasWarnings[semNum]}
-                        priorSemestersAllComplete={priorComplete}
+                        isPast={semesterPhase[semNum] === 'past'}
                         termLabel={semLabels[semNum]}
                         isCurrent={isSameTerm(semesterTerms[semNum], nowTerm)}
                         isGraduation={semNum === gradSemNum}

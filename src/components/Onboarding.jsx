@@ -8,6 +8,7 @@ import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { academicYearOf, curriculumTypeForTerm, isApproximateFit, planForYear, termChoices } from '../lib/catalogYears'
 import { termNotes } from '../lib/programBrowser'
+import { termPhase } from '../lib/termPhase'
 import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requirementSlots'
 import { fetchPlannerCatalog } from '../lib/plannerCatalog'
 import PriorCreditWizard from './PriorCreditWizard'
@@ -89,6 +90,8 @@ export default function Onboarding({ profileId, onComplete }) {
   const selectedProgram = concentrations.find(c => c.code === selectedCode) ?? null
   const choices         = termChoices({ program: selectedProgram, plans: degreePlans })
   const notes           = selectedProgram ? termNotes(selectedProgram, degreePlans, concentrations) : []
+  // a start term that is over: its semesters are shown as passed (lib/termPhase.js)
+  const startedInPast   = !!startSeason && !!startYear && termPhase({ season: startSeason, year: Number(startYear) }, new Date()) === 'past'
   // a start term before the program's first degree map: the plan will be that map, and the student is told so now
   const entryPlan       = selectedProgram && entryYear ? planForYear(degreePlans, selectedProgram.id, entryYear) : null
   const approximate     = !!entryPlan && isApproximateFit({ entryYear, planYear: entryPlan.catalog_year, genedProgram: entryPlan.gened_program, coversEarlier: entryPlan.covers_earlier })
@@ -506,6 +509,13 @@ export default function Onboarding({ profileId, onComplete }) {
                 </select>
               </div>
             </div>
+
+            {startedInPast && (
+              <p className="program-note" role="note">
+                <strong>Past semesters count as passed.</strong> The semesters before the current one are shown as done. If you did not
+                pass a course, remove it from your plan or move it to a later semester to retake it.
+              </p>
+            )}
 
             {approximate && (
               <p className="program-note" role="note">
