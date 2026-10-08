@@ -68,7 +68,7 @@ All catalog tables have public read RLS; student tables are scoped to `auth.uid(
 | `student_semester_notes` | Per-student, per-semester notes + `completed_by_student` toggle |
 | `student_free_add_slots` | Courses the student added outside the degree template. `fills_slot_id` (nullable → `requirement_slots.id`, `ON DELETE CASCADE`) marks a follow-up pick that fills a Free Elective slot's open hours; NULL for ordinary "+ Add course" rows. `credits` is the hours chosen for an added course whose catalog entry carries a range |
 | `prior_credits` | Transfer credits, AP/IB/CLEP credit, dual enrollment, placement scores |
-| `test_equivalencies` | Exam-to-TTU-course mappings; drives the PriorCreditWizard |
+| `test_equivalencies` | Exam-to-TTU-course mappings; drives the PriorCreditWizard. `option_key` marks an exam whose credit is one of several courses (AP Biology and Physics C: "PHYS 2010 or 2110"): rows of one exam sharing a key are one choice, and `lib/examOptions.js` picks the one the student's plan requires or the wizard asks |
 
 ### Programs, catalog years and gen-ed programs
 

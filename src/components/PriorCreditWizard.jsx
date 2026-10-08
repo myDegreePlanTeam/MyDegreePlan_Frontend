@@ -14,7 +14,7 @@
 // credits_awarded and satisfies_pool are auto-populated from the table —
 // students never set these manually.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { db } from '../lib/dataClient'
 import { resolveSatisfiesPool, mapSatisfiesPoolForPlan, POOL_LABELS, getGenEdSubCategory } from '../lib/poolResolver'
 import { validatePriorCredit } from '../lib/validatePriorCredit'
@@ -25,6 +25,7 @@ import CreditHoursField from './CreditHoursField'
 import { getBrand } from '../lib/brand'
 import { previousStep } from '../lib/wizardSteps'
 import { scoreLabels } from '../lib/scoreLabels'
+import { optionKeysOf, awardsForOption, chooseOption } from '../lib/examOptions'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1.
@@ -78,7 +79,10 @@ export default function PriorCreditWizard({
   const [creditType, setCreditType] = useState(null)
   const [selectedExam, setSelectedExam] = useState(null) // { test_name, ... } or course object
   const [selectedScore, setSelectedScore] = useState(null)
-  const [awards, setAwards]       = useState([])  // final list of { awarded_course_code, credits_awarded, satisfies_pool }
+  const [awards, setAwards]       = useState([])  // every award of the exam and score: { awarded_course_code, credits_awarded, satisfies_pool, option_key }
+  // An exam whose credit is one of several courses (examOptions.js): the choice the student made, or null until they do
+  // (the plan may decide it for them).
+  const [chosenOption, setChosenOption] = useState(null)
   // Raw test_equivalencies rows that produced the awards for this exam+type,
   // retained so handleApply can validate awards against min_score (BUG-8).
   const [equivalencyRows, setEquivalencyRows] = useState([])
@@ -202,7 +206,7 @@ export default function PriorCreditWizard({
       const dbType = effectiveTestType(selectedExam, creditType)
       let query = db
         .from('test_equivalencies')
-        .select('awarded_course_code, credits_awarded, satisfies_pool, min_score, test_type, test_name')
+        .select('awarded_course_code, credits_awarded, satisfies_pool, min_score, test_type, test_name, option_key')
         .eq('test_type', dbType)
         .eq('test_name', selectedExam.test_name)
 
@@ -232,6 +236,7 @@ export default function PriorCreditWizard({
         // test_equivalencies names the legacy pool ('GEN_ED'); a Flight Foundations
         // plan has FF_SOCIAL / FF_HUMANITIES slots instead, so resolve against the plan.
         satisfies_pool:      mapSatisfiesPoolForPlan(row.satisfies_pool, row.awarded_course_code, slots),
+        option_key:          row.option_key ?? null,
         course_name:         courseMap[row.awarded_course_code]?.name ?? row.awarded_course_code,
       })))
     }
@@ -259,7 +264,7 @@ export default function PriorCreditWizard({
     setStep(previousStep(step, !!typeConfig?.hasScore))
     if (step === 2) { setSelectedExam(null); setExamOptions([]); setCourseSearch(''); setCourseFound({ all: [], counts: null, more: false }) }
     if (step === 3) { setSelectedScore(null); setScoreOptions([]) }
-    if (step === 4) { setAwards([]) }
+    if (step === 4) { setAwards([]); setChosenOption(null) }
   }
 
   function handleTypeSelect(type) {
@@ -267,6 +272,7 @@ export default function PriorCreditWizard({
     setSelectedExam(null)
     setSelectedScore(null)
     setAwards([])
+    setChosenOption(null)
     setStep(2)
   }
 
@@ -276,6 +282,7 @@ export default function PriorCreditWizard({
     // wizard to the correct DB test_type.
     setSelectedExam({ test_name: exam.test_name, test_type: exam.test_type })
     setSelectedScore(null)
+    setChosenOption(null)
     if (typeConfig?.hasScore) {
       setStep(3)
     } else {
@@ -293,6 +300,7 @@ export default function PriorCreditWizard({
 
   function handleScoreSelect(score) {
     setSelectedScore(score)
+    setChosenOption(null)
     setStep(4)
   }
 
@@ -303,9 +311,15 @@ export default function PriorCreditWizard({
   const selectedScoreLabel = selectedScore == null
     ? null
     : scoreOptions.find(o => o.score === selectedScore)?.label ?? String(selectedScore)
+  // The choices of an exam with alternatives. What the student's plan requires decides when it can; otherwise the student
+  // chooses, and the first choice stands in until they do.
+  const optionKeys = optionKeysOf(awards)
+  const planChoice = useMemo(() => chooseOption(awards, slots, planArchived), [awards, slots, planArchived])
+  const activeOption = optionKeys.length < 2 ? null : (chosenOption ?? planChoice?.key ?? optionKeys[0])
+  const optionAwards = optionKeys.length < 2 ? awards : awardsForOption(awards, activeOption)
   const shownAwards = transferVariable
-    ? awards.map(a => ({ ...a, credits_awarded: Number(transferHours) }))
-    : awards
+    ? optionAwards.map(a => ({ ...a, credits_awarded: Number(transferHours) }))
+    : optionAwards
 
   // ── Apply ─────────────────────────────────────────────────────────
   async function handleApply() {
@@ -323,7 +337,7 @@ export default function PriorCreditWizard({
     // DB test_type, not the wizard category key.
     const dbType = effectiveTestType(selectedExam, creditType)
     if (creditType !== 'transfer_credit' && typeConfig?.hasScore) {
-      for (const award of awards) {
+      for (const award of shownAwards) {
         const { valid, error } = validatePriorCredit(
           dbType,
           award.awarded_course_code,
@@ -515,6 +529,38 @@ export default function PriorCreditWizard({
 
               {awards.length === 0 && (
                 <p className="wizard-empty">Loading award details…</p>
+              )}
+
+              {optionKeys.length > 1 && (
+                <fieldset className="wizard-options">
+                  <legend className="wizard-options-legend">
+                    Tech lists these as separate courses for the same credit. Which one will you take credit for?
+                  </legend>
+                  {optionKeys.map(key => {
+                    const mine = awards.filter(a => a.option_key === key)
+                    const hours = mine.reduce((sum, a) => sum + (a.credits_awarded ?? 0), 0)
+                    return (
+                      <label key={key} className={`wizard-option${activeOption === key ? ' selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="exam-option"
+                          checked={activeOption === key}
+                          onChange={() => setChosenOption(key)}
+                        />
+                        <span className="wizard-option-body">
+                          <span className="wizard-option-codes">{mine.map(a => a.awarded_course_code).join(' & ')} · {hours} cr</span>
+                          <span className="wizard-option-names">{mine.map(a => a.course_name).join('; ')}</span>
+                        </span>
+                      </label>
+                    )
+                  })}
+                  <p className="wizard-options-note">
+                    {chosenOption == null && planChoice?.reason === 'required' && 'Selected because your degree plan requires it. '}
+                    {chosenOption == null && planChoice?.reason === 'pool' && 'Selected because it fills a requirement in your degree plan. '}
+                    {chosenOption == null && !planChoice && 'Your degree plan accepts either, so the choice is yours. '}
+                    You can change it before you apply. Not sure? Ask the Tennessee Tech Admissions Office (admissions@tntech.edu).
+                  </p>
+                </fieldset>
               )}
 
               {transferVariable && (
