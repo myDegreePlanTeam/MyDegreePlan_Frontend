@@ -74,11 +74,12 @@ describe('buildPlanIssues', () => {
     const issues = buildPlanIssues({
       semesters: [
         sem(1, 'Fall 2025',   [{ key: 1, code: 'A' }], 10),
-        sem(2, 'Spring 2026', [{ key: 2, code: 'B' }], 19),
+        sem(2, 'Spring 2026', [{ key: 2, code: 'B' }], 21),
         sem(3, 'Fall 2026',   [], 0),
         sem(4, 'Spring 2027', [{ key: 4, code: 'D' }], 9, true),
         sem(5, 'Fall 2027',   [{ key: 5, code: 'E' }], 12),
-        sem(6, 'Spring 2028', [{ key: 6, code: 'F' }], 18),
+        sem(6, 'Spring 2028', [{ key: 6, code: 'F' }], 20),
+        sem(7, 'Fall 2028',   [{ key: 7, code: 'G' }], 19),
       ],
     })
     expect(issues.map(i => [i.semNum, i.title])).toEqual([
