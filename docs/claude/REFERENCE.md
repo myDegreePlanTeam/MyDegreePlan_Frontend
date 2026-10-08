@@ -46,7 +46,7 @@ MDP/
 │       │   ├── usePlanCompleteness.js ← React hook for plan-completeness tracking
 │       │   ├── dataClient.js          ← the one data client components import (`db`); picks the backend
 │       │   ├── data/                  ← backend.js (selection), localClient.js (query engine), storage.js (IndexedDB),
-│       │   │                             backup.js (export/import), remoteClient.js (Docker stack)
+│       │   │                             backup.js (export/import), remoteClient.js (Docker stack), remoteBackup.js (its export/import/erase)
 │       │   └── __tests__/
 │       │       ├── poolResolver.test.js
 │       │       └── prereqChecker.test.js

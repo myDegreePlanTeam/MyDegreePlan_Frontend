@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { db, isLocalBackend } from '../../lib/dataClient'
+import { db } from '../../lib/dataClient'
 import {
   ACT_FIELDS, validateScore, describeActScore, saveActScoresAndRebuild,
 } from '../../lib/actScores'
@@ -52,7 +52,7 @@ export default function SettingsView({
         onSaved={onActSaved}
       />
 
-      {isLocalBackend && <DeviceDataCard />}
+      <DeviceDataCard />
 
       <div className="ds-danger-card">
         <span className="ds-setting-text">

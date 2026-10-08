@@ -3,7 +3,7 @@
 //
 //   db.from('table').select(...)...   queries
 //   db.auth.getSession() / ...        the (single, implicit) session in local mode
-//   db.local                          per-device backup/erase controls; undefined on the remote backend
+//   db.planData                       export / import / erase of the student's plan; both backends have it
 import { chooseBackend } from './data/backend'
 import { createLocalClient } from './data/localClient'
 import { createIndexedDbStorage, requestPersistence } from './data/storage'

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { db, isLocalBackend } from '../lib/dataClient'
+import { db } from '../lib/dataClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveMathPlacementRow, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
 import { validateSatMath, SAT_MATH_RANGE, mathSequenceFor, planHasMathChain } from '../lib/mathPlacement'
@@ -441,18 +441,16 @@ export default function Onboarding({ profileId, onComplete }) {
               Continue
             </button>
 
-            {/* Local backend only: a new device has no plan, so this is where a backup from another one is loaded. */}
-            {isLocalBackend && (
-              <p className="onboarding-import">
-                Moving from another device?{' '}
-                <ImportBackupButton
-                  className="onboarding-import-btn"
-                  onError={setError}
-                >
-                  Import a backup
-                </ImportBackupButton>
-              </p>
-            )}
+            {/* A new device or install has no plan, so this is where a backup from another one is loaded. */}
+            <p className="onboarding-import">
+              Moving from another device or install?{' '}
+              <ImportBackupButton
+                className="onboarding-import-btn"
+                onError={setError}
+              >
+                Import a backup
+              </ImportBackupButton>
+            </p>
           </div>
         )}
 
