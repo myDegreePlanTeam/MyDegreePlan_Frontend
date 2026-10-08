@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   yearStart, academicYearOf, compareCatalogYears, planForYear, isProgramOpen, availablePrograms,
   groupByMajor, degreeTitle, catalogYearForProfile,
-  NEW_CURRICULUM_YEAR, termAvailable, termChoices, latestCatalogYear, splitByOffering, isApproximateFit, approximatePlanOf,
+  NEW_CURRICULUM_YEAR, curriculumTypeForTerm, termAvailable, termChoices, latestCatalogYear, splitByOffering, isApproximateFit, approximatePlanOf,
 } from '../lib/catalogYears'
 import { getGenEdProgram } from '../lib/flightFoundations'
 import catalog from '../data/catalog.json'
@@ -173,38 +173,45 @@ describe('termChoices: the start terms a program can be started in', () => {
   const years = c => c.map(x => x.year)
   const find = (c, y) => c.find(x => x.year === y)?.seasons
 
-  it('without a program, offers what the student type allows: returning before the 2026 switch, new from it', () => {
-    const returning = termChoices('returning')
-    expect(years(returning)).toEqual(Array.from({ length: 11 }, (_, i) => 2016 + i))
-    expect(find(returning, NEW_CURRICULUM_YEAR)).toEqual(['Spring', 'Summer'])
-    expect(find(returning, 2020)).toEqual(['Fall', 'Spring', 'Summer'])
-    const fresh = termChoices('incoming_freshman')
-    expect(years(fresh)).toEqual(Array.from({ length: 7 }, (_, i) => 2026 + i))
-    expect(find(fresh, NEW_CURRICULUM_YEAR)).toEqual(['Fall'])
-    expect(termChoices('transfer')).toEqual(fresh)
+  it('without a program, offers every year from ten before the 2026 switch to six after it, every season', () => {
+    const all = termChoices()
+    expect(years(all)).toEqual(Array.from({ length: 17 }, (_, i) => 2016 + i))
+    expect(find(all, NEW_CURRICULUM_YEAR)).toEqual(['Fall', 'Spring', 'Summer'])
   })
 
-  it('a program whose first plan covers earlier entrants is open to returning students too', () => {
+  it('a program whose first plan covers earlier entrants is open from the first year', () => {
     const core = programs.find(p => p.code === 'core')
-    expect(years(termChoices('returning', { program: core, plans }))).toHaveLength(11)
-    expect(years(termChoices('incoming_freshman', { program: core, plans }))).toHaveLength(7)
+    expect(years(termChoices({ program: core, plans }))).toHaveLength(17)
   })
 
-  it('a program that starts with the 2026-2027 catalog and does not cover earlier entrants has no returning student, and says so by having no terms', () => {
+  it('a program that starts with the 2026-2027 catalog and does not cover earlier entrants starts at Fall 2026', () => {
     const ai = programs.find(p => p.code === 'ai')
-    expect(termChoices('returning', { program: ai, plans })).toEqual([])
-    expect(find(termChoices('incoming_freshman', { program: ai, plans }), 2026)).toEqual(['Fall'])
+    const all = termChoices({ program: ai, plans })
+    expect(years(all)[0]).toBe(2026)
+    expect(find(all, 2026)).toEqual(['Fall'])
   })
 
-  it('a program whose first plan covers earlier entrants offers returning students every year (the fit is approximate)', () => {
+  it('a program whose first plan covers earlier entrants offers every year (the fit is approximate)', () => {
     const me = programs.find(p => p.code === 'me')
-    expect(years(termChoices('returning', { program: me, plans }))).toHaveLength(11)
+    expect(years(termChoices({ program: me, plans }))).toHaveLength(17)
   })
 
-  it('a program closed to a catalog year has no new student after it', () => {
+  it('a program closed to a catalog year has no term after it', () => {
     const dsai = programs.find(p => p.code === 'dsai')
-    expect(termChoices('incoming_freshman', { program: dsai, plans })).toEqual([])
-    expect(termChoices('returning', { program: dsai, plans }).length).toBeGreaterThan(0)
+    const all = termChoices({ program: dsai, plans })
+    expect(all.length).toBeGreaterThan(0)
+    expect(years(all).at(-1)).toBe(2026)
+    expect(find(all, 2026)).toEqual(['Spring', 'Summer'])
+  })
+
+  it('the start term decides the curriculum, now that students are not asked what kind of student they are', () => {
+    expect(curriculumTypeForTerm('Fall', 2026)).toBe('incoming_freshman')
+    expect(curriculumTypeForTerm('Spring', 2027)).toBe('incoming_freshman')
+    expect(curriculumTypeForTerm('Summer', 2026)).toBe('returning')
+    expect(curriculumTypeForTerm('Spring', 2026)).toBe('returning')
+    expect(curriculumTypeForTerm('Fall', 2022)).toBe('returning')
+    expect(curriculumTypeForTerm('', 2026)).toBeNull()
+    expect(curriculumTypeForTerm('Fall', '')).toBeNull()
   })
 
   it('a term is available only with a plan for its catalog year and an open program', () => {

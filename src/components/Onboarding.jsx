@@ -6,8 +6,8 @@ import { validateSatMath, SAT_MATH_RANGE, mathSequenceFor, planHasMathChain } fr
 import { isMissingColumn, selectWithOptional } from '../lib/dbErrors'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
-import { academicYearOf, isApproximateFit, planForYear, termChoices } from '../lib/catalogYears'
-import { termUnavailableNote } from '../lib/programBrowser'
+import { academicYearOf, curriculumTypeForTerm, isApproximateFit, planForYear, termChoices } from '../lib/catalogYears'
+import { termNotes } from '../lib/programBrowser'
 import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requirementSlots'
 import { fetchPlannerCatalog } from '../lib/plannerCatalog'
 import PriorCreditWizard from './PriorCreditWizard'
@@ -17,12 +17,6 @@ import { getBrand } from '../lib/brand'
 import './Dashboard.css'
 
 // New-curriculum chains (incoming_freshman / transfer): MATH1920 not required.
-
-const STUDENT_TYPES = [
-  { value: 'incoming_freshman', label: 'Incoming Freshman' },
-  { value: 'transfer',          label: 'Transfer Student'  },
-  { value: 'returning',         label: 'Returning Student' },
-]
 
 function validateActScore(val) {
   if (val === '' || val === null || val === undefined) return null
@@ -37,10 +31,11 @@ const FLOW_WITHOUT_MATH = [1, 2, 3, 5]
 
 export default function Onboarding({ profileId, onComplete }) {
   const [step, setStep]                   = useState(1)
-  const [studentType, setStudentType]     = useState(null)
   const [selectedCode, setSelectedCode]   = useState(null)
   const [startSeason, setStartSeason]     = useState('')
   const [startYear, setStartYear]         = useState('')
+  // Not asked: the first semester at Tennessee Tech decides the curriculum (catalogYears.js, curriculumTypeForTerm).
+  const studentType = curriculumTypeForTerm(startSeason, startYear)
   const [actScores, setActScores]         = useState({ math: '', english: '', science: '', reading: '', composite: '', satMath: '' })
   const [actErrors, setActErrors]         = useState({})
   const [loading, setLoading]             = useState(false)
@@ -92,25 +87,24 @@ export default function Onboarding({ profileId, onComplete }) {
   // follows is the program's latest one not newer than their entry year (catalogYears.js).
   const entryYear       = academicYearOf(startSeason, startYear)
   const selectedProgram = concentrations.find(c => c.code === selectedCode) ?? null
-  const termsFor        = type => termChoices(type, { program: selectedProgram, plans: degreePlans })
-  const choices         = studentType ? termsFor(studentType) : []
+  const choices         = termChoices({ program: selectedProgram, plans: degreePlans })
+  const notes           = selectedProgram ? termNotes(selectedProgram, degreePlans, concentrations) : []
   // a start term before the program's first degree map: the plan will be that map, and the student is told so now
   const entryPlan       = selectedProgram && entryYear ? planForYear(degreePlans, selectedProgram.id, entryYear) : null
   const approximate     = !!entryPlan && isApproximateFit({ entryYear, planYear: entryPlan.catalog_year, genedProgram: entryPlan.gened_program, coversEarlier: entryPlan.covers_earlier })
 
   function handleSelectProgram(program) {
+    // null: the picker dropped a closed program it was hiding
+    if (!program) {
+      setSelectedCode(null)
+      return
+    }
     if (program.code !== selectedCode) {
       setSelectedCode(program.code)
       // the start term was chosen for another program: ask again rather than keep one this program may not have a plan for
       setStartSeason('')
       setStartYear('')
     }
-  }
-
-  function handleStudentTypeChange(type) {
-    setStudentType(type)
-    setStartSeason('')
-    setStartYear('')
   }
 
   // Step 1 → 2: a program
@@ -121,7 +115,7 @@ export default function Onboarding({ profileId, onComplete }) {
 
   // Step 2 → 3: a start term. Its slots are loaded here: they say whether the math step applies.
   async function handleGoToStep3() {
-    if (!studentType || !startSeason || !startYear) return
+    if (!startSeason || !startYear) return
     await loadConcSlots()
     setStep(3)
   }
@@ -387,20 +381,19 @@ export default function Onboarding({ profileId, onComplete }) {
 
   // ── Render ────────────────────────────────────────────────────────
 
-  const startDateLabel = studentType === 'returning' ? 'When did you start?' : 'When do you start?'
   const flow = hasMath ? FLOW_WITH_MATH : FLOW_WITHOUT_MATH
   const seasonsForYear = choices.find(c => c.year === startYear)?.seasons ?? []
 
   const STEP_TITLES = {
     1: 'What are you studying?',
-    2: 'Tell us about yourself',
+    2: 'When do you start?',
     3: 'Test Scores',
     4: 'Your Math Sequence',
     5: 'Any prior credits?',
   }
   const STEP_SUBS = {
     1: 'Pick your college, major and concentration. This determines your required courses and recommended plan.',
-    2: 'Your start term picks the catalog year your degree plan follows.',
+    2: 'Pick the semester you first started, or will start, at Tennessee Tech. It picks the catalog year your degree plan follows.',
     3: 'Enter the scores you have and leave the rest blank. Your ACT or SAT Math score sets where your math starts; with neither, it starts in MATH 1000.',
     4: 'Based on your math placement, here are the courses in your math sequence.',
     5: "We'll use these to pre-fill your plan and skip false prereq warnings.",
@@ -460,79 +453,59 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 2: Student type + start term, for the chosen program ── */}
+        {/* ── Step 2: first semester at Tennessee Tech, for the chosen program ── */}
         {step === 2 && (
           <div className="onboarding-body">
-            <p className="onboarding-toggle-prompt">What best describes you?</p>
-            <div className="onboarding-toggle-row">
-              {STUDENT_TYPES.map(t => {
-                const unavailable = termsFor(t.value).length === 0
-                return (
+            <p className="onboarding-toggle-prompt">Your first semester at Tennessee Tech</p>
+
+            {notes.map((note, i) => (
+              <p key={i} className="program-note">
+                {note.text}{' '}
+                {note.replacement && (
                   <button
-                    key={t.value}
-                    className={`onboarding-toggle-btn ${studentType === t.value ? 'selected' : ''}`}
-                    onClick={() => handleStudentTypeChange(t.value)}
-                    disabled={unavailable}
-                    title={unavailable ? `${selectedProgram?.name} has no plan for this kind of student` : undefined}
+                    type="button"
+                    className="program-link"
+                    onClick={() => handleSelectProgram(note.replacement)}
                   >
-                    {t.label}
+                    Choose {note.replacement.name} instead
                   </button>
-                )
-              })}
-            </div>
+                )}
+              </p>
+            ))}
 
-            {selectedProgram && STUDENT_TYPES.map(t => {
-              const note = termsFor(t.value).length === 0 ? termUnavailableNote(t.value, selectedProgram, degreePlans, concentrations) : null
-              return note && (
-                <p key={t.value} className="program-note">
-                  <strong>{t.label}:</strong> {note.text}{' '}
-                  {note.replacement && (
-                    <button
-                      type="button"
-                      className="program-link"
-                      onClick={() => { handleSelectProgram(note.replacement); setStudentType(null) }}
-                    >
-                      Choose {note.replacement.name} instead
-                    </button>
-                  )}
-                </p>
-              )
-            })}
-
-            {studentType && (
-              <div className="season-year-row">
-                <div className="onboarding-field">
-                  <label className="onboarding-label">{startDateLabel}</label>
-                  <select
-                    className="onboarding-select"
-                    value={startSeason}
-                    onChange={e => setStartSeason(e.target.value)}
-                  >
-                    <option value="">Select season</option>
-                    {seasonsForYear.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="onboarding-field">
-                  <label className="onboarding-label">Year</label>
-                  <select
-                    className="onboarding-select"
-                    value={startYear}
-                    onChange={e => {
-                      setStartYear(e.target.value ? Number(e.target.value) : '')
-                      setStartSeason('')
-                    }}
-                  >
-                    <option value="">Select year</option>
-                    {choices.map(c => (
-                      <option key={c.year} value={c.year}>{c.year}</option>
-                    ))}
-                  </select>
-                </div>
+            <div className="season-year-row">
+              <div className="onboarding-field">
+                <label className="onboarding-label">Year</label>
+                <select
+                  className="onboarding-select"
+                  value={startYear}
+                  onChange={e => {
+                    setStartYear(e.target.value ? Number(e.target.value) : '')
+                    setStartSeason('')
+                  }}
+                >
+                  <option value="">Select year</option>
+                  {choices.map(c => (
+                    <option key={c.year} value={c.year}>{c.year}</option>
+                  ))}
+                </select>
               </div>
-            )}
+
+              <div className="onboarding-field">
+                <label className="onboarding-label">Semester</label>
+                <select
+                  className="onboarding-select"
+                  value={startSeason}
+                  onChange={e => setStartSeason(e.target.value)}
+                  disabled={!startYear}
+                >
+                  <option value="">Select semester</option>
+                  {seasonsForYear.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             {approximate && (
               <p className="program-note" role="note">
@@ -554,7 +527,7 @@ export default function Onboarding({ profileId, onComplete }) {
               <button
                 className="onboarding-btn"
                 onClick={handleGoToStep3}
-                disabled={!studentType || !startSeason || !startYear}
+                disabled={!startSeason || !startYear}
               >
                 Continue
               </button>
@@ -795,7 +768,6 @@ export default function Onboarding({ profileId, onComplete }) {
           onClose={() => setShowWizard(false)}
           planSlots={{}}
           slots={concSlots}
-          studentType={studentType}
         />
       )}
     </div>

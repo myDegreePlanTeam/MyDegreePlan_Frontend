@@ -71,7 +71,7 @@ function effectiveTestType(selectedExam, creditType) {
 }
 
 export default function PriorCreditWizard({
-  onSave, onClose, slots, studentType = null, existingCredits = [],
+  onSave, onClose, slots, existingCredits = [],
   planSemesterOverrides = {}, planArchived = {},
 }) {
   const [step, setStep]           = useState(1)
@@ -403,10 +403,6 @@ export default function PriorCreditWizard({
           {step === 1 && (
             <div className="wizard-type-grid">
               {CREDIT_TYPES
-                .filter(t => {
-                  if (t.value === 'transfer_credit' && studentType === 'incoming_freshman') return false
-                  return true
-                })
                 .map(t => (
                   <button
                     key={t.value}
