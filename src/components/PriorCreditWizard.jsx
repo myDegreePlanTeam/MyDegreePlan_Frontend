@@ -24,6 +24,7 @@ import CourseKindTabs from './CourseKindTabs'
 import CreditHoursField from './CreditHoursField'
 import { getBrand } from '../lib/brand'
 import { previousStep } from '../lib/wizardSteps'
+import { scoreLabels } from '../lib/scoreLabels'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1.
@@ -96,7 +97,7 @@ export default function PriorCreditWizard({
   const searchTimerRef = useRef(null)
 
   // Step 3 data
-  // Each entry: { score, awardedCodes, totalCredits, isPlacementOnly }
+  // Each entry: { score, label, awardedCodes, totalCredits, isPlacementOnly }
   const [scoreOptions, setScoreOptions] = useState([])
 
   const typeConfig = CREDIT_TYPES.find(t => t.value === creditType)
@@ -158,12 +159,13 @@ export default function PriorCreditWizard({
         // Each threshold shows everything a student earns at that score
         // (i.e. all rows with min_score <= threshold), matching the Step 4 query.
         const allScores = [...new Set(rows.map(r => r.min_score))].sort((a, b) => a - b)
+        const labels = scoreLabels(allScores, dbType)
         const options = allScores.map(score => {
           const cumulativeRows = rows.filter(r => r.min_score <= score)
           const totalCredits   = cumulativeRows.reduce((s, r) => s + (r.credits_awarded ?? 0), 0)
           const awardedCodes   = [...new Set(cumulativeRows.map(r => r.awarded_course_code).filter(Boolean))]
           const isPlacementOnly = cumulativeRows.every(r => (r.credits_awarded ?? 0) === 0)
-          return { score, awardedCodes, totalCredits, isPlacementOnly }
+          return { score, label: labels[score], awardedCodes, totalCredits, isPlacementOnly }
         })
         setScoreOptions(options)
       })
@@ -297,6 +299,10 @@ export default function PriorCreditWizard({
   // A transfer course with a range of credit hours takes the hours the student says they transferred.
   const transferVariable = creditType === 'transfer_credit' && !!selectedExam && isVariableCredit(selectedExam)
   const transferHoursOk  = !transferVariable || validateHours(selectedExam, transferHours) === null
+  // The score as the student saw it on the button they pressed ("4+", "5"); the same text goes into the saved note.
+  const selectedScoreLabel = selectedScore == null
+    ? null
+    : scoreOptions.find(o => o.score === selectedScore)?.label ?? String(selectedScore)
   const shownAwards = transferVariable
     ? awards.map(a => ({ ...a, credits_awarded: Number(transferHours) }))
     : awards
@@ -334,7 +340,7 @@ export default function PriorCreditWizard({
       }
     }
 
-    const note = buildNote(dbType, selectedExam, selectedScore)
+    const note = buildNote(dbType, selectedExam, selectedScoreLabel)
 
     // Pass all awarded rows as a single array so the parent can batch-insert
     // them atomically and update priorCredits state once.  Calling onSave in
@@ -493,7 +499,7 @@ export default function PriorCreditWizard({
                   className="wizard-score-btn"
                   onClick={() => handleScoreSelect(opt.score)}
                 >
-                  <span className="wizard-score-num">Score {opt.score}+</span>
+                  <span className="wizard-score-num">Score {opt.label}</span>
                 </button>
               ))}
             </div>
@@ -507,7 +513,7 @@ export default function PriorCreditWizard({
                   {selectedExam?.test_name ?? selectedExam?.code}
                 </span>
                 {selectedScore != null && (
-                  <span className="wizard-confirm-score"> — Score {selectedScore}+</span>
+                  <span className="wizard-confirm-score"> — Score {selectedScoreLabel}</span>
                 )}
               </div>
 
