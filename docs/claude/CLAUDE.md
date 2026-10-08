@@ -239,6 +239,9 @@ line per suite, about 90 s) instead of chaining the individual `test_*.sh` scrip
 All existing tests must pass before any commit. New tests go in `src/tests/[featureName].test.js`. Before a commit also run
 `npm run lint:changed` (eslint on the files you changed; prints one line when clean). `npm run hooks:install` (once per clone)
 turns that into a pre-commit hook on the staged files; it does not run the tests.
+`npm run typecheck` (TypeScript's checker, a pilot; the app stays plain JS) reports errors only in the modules listed in
+`tsconfig.typecheck.json`, each of which starts with `// @ts-check`; fix what it reports with JSDoc, never a runtime change. It is
+not part of `verify`; `src/tests/typecheck.test.js` keeps the listed modules clean.
 
 ---
 

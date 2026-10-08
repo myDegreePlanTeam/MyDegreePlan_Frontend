@@ -1,3 +1,4 @@
+// @ts-check
 // degreeBuilder.js — Degree-plan placement algorithm
 //
 // Given a student's profile and the full requirement_slots for their
@@ -477,6 +478,10 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
   const assignments = {}
   const semCredits  = {}
 
+  /**
+   * @param {object} slot
+   * @param {(sem: number) => number} [ceilFn]  the most hours a semester may hold for this pass
+   */
   function packSlot(slot, ceilFn = creditMax) {
     const earliest = minSem[slot.id]
     const cr       = slotCredits(slot, courseMap)

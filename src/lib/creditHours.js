@@ -1,3 +1,4 @@
+// @ts-check
 // creditHours.js
 //
 // About 550 catalog courses carry a range of credit hours (a 1-4 hour topics course, a 1-18 hour elective
@@ -46,10 +47,10 @@ export function clampHours(course, hours) {
 /**
  * A copy of `courses` with the student's chosen hours applied.
  * @param {Object} courses  { [code]: course }
- * @param {object} chosen
- * @param {Array}  chosen.freeAdds            student_free_add_slots rows ({ course_code, credits })
- * @param {Object} chosen.planSlots           { [slotId]: selected course code }
- * @param {Object} chosen.planSelectedCredits { [slotId]: hours } from student_plan_slots.selected_credits
+ * @param {object} [chosen]
+ * @param {Array}  [chosen.freeAdds]            student_free_add_slots rows ({ course_code, credits })
+ * @param {Object} [chosen.planSlots]           { [slotId]: selected course code }
+ * @param {Object} [chosen.planSelectedCredits] { [slotId]: hours } from student_plan_slots.selected_credits
  * A choice for a course that is not variable, or outside its range, is ignored.
  */
 export function applyChosenHours(courses, { freeAdds = [], planSlots = {}, planSelectedCredits = {} } = {}) {
