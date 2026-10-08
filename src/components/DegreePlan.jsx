@@ -7,6 +7,7 @@ import { applyChosenHours } from '../lib/creditHours'
 import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { semesterPhases, statusForPhase, splitCreditsByPhase } from '../lib/termPhase'
+import { UNDO_LIMIT, stampUndo, pruneUndo, isUndoApplicable, loadUndo, saveUndo } from '../lib/undoStore'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqsProvisional } from '../lib/prereqChecker'
 import { getMoveConflicts } from '../lib/dragConflicts'
@@ -150,8 +151,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   // Every record carries a `label` — the Undo button reads "Undo — <label>".
+  // The stack is kept in the browser between visits (lib/undoStore.js), so a record carries the time it was made.
   function pushUndo(record) {
-    setUndoStack(prev => [...prev.slice(-19), record])
+    setUndoStack(prev => [...prev.slice(-(UNDO_LIMIT - 1)), stampUndo(record)])
   }
 
   function markSaved() {
@@ -402,6 +404,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setSemesterNotes(semNotesMap)
       setPriorCredits(priorCreditsData ?? [])
       setExtraSemesterTerms(extraTermsMap)
+      // the undo stack of the last visit, less any record whose slot or added course is gone
+      setUndoStack(pruneUndo(loadUndo(profile)).filter(r => isUndoApplicable(r, { slots: slotData, freeAddSlots: freeAdds ?? [] })))
       setLoading(false)
     }
 
@@ -493,6 +497,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return statuses
   }, [slots, planSemesterOverrides, semesterPhase])
   const statusOfFreeAdd = fa => statusForPhase(semesterPhase[fa.semester_number])
+
+  // Keep the undo stack in the browser. Not while loading: the stack of the last visit is read when the plan has loaded.
+  useEffect(() => {
+    if (!loading) saveUndo(profile, undoStack)
+  }, [loading, undoStack, profile])
 
   // Past semesters start collapsed, once, when the plan has loaded; the student can still open them.
   const collapsedPastRef = useRef(false)
@@ -771,6 +780,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (!undoStack.length) return
     const record = undoStack[undoStack.length - 1]
     setUndoStack(prev => prev.slice(0, -1))
+    // a stored record can outlive the course it refers to (removed since, or the plan was rebuilt)
+    if (!isUndoApplicable(record, { slots, freeAddSlots })) {
+      showSaveError('That change can no longer be undone: the course is no longer in your plan.')
+      return
+    }
 
     if (record.type === 'pool_select') {
       if (record.prevCourseCode === null) {

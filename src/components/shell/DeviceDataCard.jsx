@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { db } from '../../lib/dataClient'
 import { backupFileName, buildBackup } from '../../lib/data/backup'
 import ImportBackupButton from '../ImportBackupButton'
+import { clearAllUndo } from '../../lib/undoStore'
 
 // Settings card for the local-first backend only: the plan lives in this browser, so backing it up,
 // moving it to another device and wiping it are the student's job. Reloading after an import or an
@@ -36,6 +37,7 @@ export default function DeviceDataCard() {
     setBusy(true)
     try {
       await db.local.eraseAll()
+      clearAllUndo()
       window.location.reload()
     } catch (err) {
       setMessage({ text: `Could not erase: ${err.message}`, error: true })

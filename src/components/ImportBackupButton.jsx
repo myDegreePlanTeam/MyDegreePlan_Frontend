@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { db } from '../lib/dataClient'
 import { BackupError, parseBackup } from '../lib/data/backup'
+import { clearAllUndo } from '../lib/undoStore'
 
 // A button that opens a file picker and loads a plan backup into this browser (local backend only).
 // Shared by Settings and by the first onboarding step: importing is most needed on a device that has
@@ -32,6 +33,7 @@ export default function ImportBackupButton({ className, style, disabled, onBusy 
         return
       }
       await db.local.importData(tables)
+      clearAllUndo()
       window.location.reload()
     } catch (err) {
       onError(err instanceof BackupError ? err.message : `Could not import: ${err.message}`)

@@ -164,6 +164,11 @@ Vercel needs **no settings**: with no `__MDP_CONFIG__` the app is local-first. `
 - One implicit user per device: no sign-in, `db.auth` is a stub. Login/Signup are only reachable on the remote backend.
 - Plans do not sync between devices and can be lost if the browser clears site data. Settings has Export / Import / Erase (`DeviceDataCard`, `lib/data/backup.js`); the first onboarding step offers Import for a new device. Backups are format-versioned and drop rows that point at slots the current catalog no longer has.
 - `db.local` (export/import/erase, `persistent`) exists only on the local client.
+- The plan view's undo stack (20 records, plain data) is kept in localStorage per profile (`lib/undoStore.js`, key `mdp.undo.<profileId>`) so Undo
+  survives a reload. It is dropped when a record is over 30 days old, when the profile's program or catalog year differs from the one it was saved
+  under, when a record's slot or added course no longer exists (checked on load and again when undoing), and on Erase and Import (the local backend
+  reuses profile ids after an erase). A new undo record type must be added to `isUndoApplicable`, or it is never applied. Storage may be blocked: it is
+  guarded everywhere.
 - A new column on a student table needs its default in `STUDENT_TABLES` (`localClient.js`) as well as in `000_baseline.sql`.
 - Docker's stack and `seed.js` still serve the remote backend; its schema is `setup/sql/000_baseline.sql` (see "No more Supabase migrations" above).
 
