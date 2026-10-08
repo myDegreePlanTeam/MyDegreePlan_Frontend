@@ -109,7 +109,7 @@ export function validatePriorCredit(
     // and retain the pre-BUG-8 behavior of accepting any matching row.
     const rows = userScore == null
       ? allRows
-      : allRows.filter(r => r.min_score == null || r.min_score <= userScore)
+      : allRows.filter(r => r.min_score == null || (r.min_score <= userScore && (r.superseded_at == null || userScore < r.superseded_at)))
 
     if (rows.length === 0) {
       return {
