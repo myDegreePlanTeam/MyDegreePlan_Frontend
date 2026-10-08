@@ -3,10 +3,10 @@ import { db } from '../lib/dataClient'
 import { BackupError, parseBackup } from '../lib/data/backup'
 import { clearAllUndo } from '../lib/undoStore'
 
-// A button that opens a file picker and loads a plan backup into this browser (local backend only).
-// Shared by Settings and by the first onboarding step: importing is most needed on a device that has
-// no plan yet, which cannot reach Settings. A successful import reloads the page so the Dashboard
-// re-reads its profile from the replaced store.
+// A button that opens a file picker and loads a plan backup into this browser, or into the signed-in
+// account on the Docker stack. Shared by Settings and by the first onboarding step: importing is most
+// needed where there is no plan yet, which cannot reach Settings. A successful import reloads the page
+// so the Dashboard re-reads its profile from the replaced store.
 //
 // onBusy(true|false) brackets the work; onError(message) reports a problem the student can act on.
 export default function ImportBackupButton({ className, style, disabled, onBusy = () => {}, onError = () => {}, children }) {
@@ -32,7 +32,7 @@ export default function ImportBackupButton({ className, style, disabled, onBusy 
         onBusy(false)
         return
       }
-      await db.local.importData(tables)
+      await db.planData.importData(tables)
       clearAllUndo()
       window.location.reload()
     } catch (err) {

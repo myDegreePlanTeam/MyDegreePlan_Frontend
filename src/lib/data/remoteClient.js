@@ -3,6 +3,7 @@
 // on the same origin as the page. No hosted service is involved. Loaded lazily by dataClient.js, so
 // the default (local-first) build never downloads it.
 import { createClient } from '@supabase/supabase-js'
+import { createRemotePlanData } from './remoteBackup'
 
 export function createRemoteClient() {
   // The Docker web container serves /config.js, which sets window.__MDP_CONFIG__ at container start
@@ -13,5 +14,8 @@ export function createRemoteClient() {
   const url = runtime?.supabaseUrl ?? import.meta.env.VITE_SUPABASE_URL
   const key = runtime?.supabaseAnonKey ?? import.meta.env.VITE_SUPABASE_ANON_KEY
 
-  return createClient(url, key)
+  const client = createClient(url, key)
+  // Export / import / erase of the student's plan, shaped like the local client's so Settings is the same on both.
+  client.planData = createRemotePlanData(client)
+  return client
 }

@@ -1,22 +1,23 @@
 import { useState } from 'react'
-import { db } from '../../lib/dataClient'
+import { db, isLocalBackend } from '../../lib/dataClient'
 import { backupFileName, buildBackup } from '../../lib/data/backup'
 import ImportBackupButton from '../ImportBackupButton'
 import { clearAllUndo } from '../../lib/undoStore'
 
-// Settings card for the local-first backend only: the plan lives in this browser, so backing it up,
-// moving it to another device and wiping it are the student's job. Reloading after an import or an
-// erase makes the Dashboard re-read its profile from the changed store.
+// Settings card on both backends. In the browser the plan lives on this device, so backing it up, moving
+// it and wiping it are the student's job. On the Docker stack it lives in that install's database, and the
+// same backup file is how a plan moves between the web version and an install. Reloading after an import
+// or an erase makes the Dashboard re-read its profile from the changed store.
 export default function DeviceDataCard() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)       // { text, error }
   const [confirmErase, setConfirmErase] = useState(false)
-  const persistent = db.local.persistent
+  const persistent = db.planData.persistent
 
   async function handleExport() {
     setBusy(true)
     try {
-      const backup = buildBackup(await db.local.exportData())
+      const backup = buildBackup(await db.planData.exportData())
       const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }))
       const link = document.createElement('a')
       link.href = url
@@ -36,7 +37,7 @@ export default function DeviceDataCard() {
   async function handleErase() {
     setBusy(true)
     try {
-      await db.local.eraseAll()
+      await db.planData.eraseAll()
       clearAllUndo()
       window.location.reload()
     } catch (err) {
@@ -49,15 +50,16 @@ export default function DeviceDataCard() {
     <>
       <div className="ds-section-head">
         <p className="ds-eyebrow">Your data</p>
-        <p className="ds-section-meta">Stored only in this browser</p>
+        <p className="ds-section-meta">{isLocalBackend ? 'Stored only in this browser' : 'Stored in this install'}</p>
       </div>
       <div className="ds-card">
         <div className="ds-setting">
           <span className="ds-setting-text">
             <span className="ds-setting-label">Back up or move your plan</span>
             <span className="ds-setting-desc">
-              Your plan never leaves this device, so it does not follow you to another phone or computer, and clearing
-              this site's data deletes it. Export a copy to keep it safe or to load it somewhere else.
+              {isLocalBackend
+                ? "Your plan never leaves this device, so it does not follow you to another phone or computer, and clearing this site's data deletes it. Export a copy to keep it safe or to load it somewhere else."
+                : 'Export your plan to a file, or import one made here or on the web version. An import replaces the plan in this account.'}
             </span>
           </span>
           <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -87,9 +89,9 @@ export default function DeviceDataCard() {
 
       <div className="ds-danger-card">
         <span className="ds-setting-text">
-          <span className="ds-setting-label">Erase all data on this device</span>
+          <span className="ds-setting-label">{isLocalBackend ? 'Erase all data on this device' : 'Erase my plan'}</span>
           <span className="ds-setting-desc">
-            Deletes your plan, prior credits and notes from this browser, then starts onboarding again. This cannot be undone unless you exported a backup.
+            Deletes your plan, prior credits and notes from {isLocalBackend ? 'this browser' : 'this install'}, then starts onboarding again. This cannot be undone unless you exported a backup.
           </span>
         </span>
         {confirmErase ? (

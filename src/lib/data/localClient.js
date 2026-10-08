@@ -519,12 +519,17 @@ export function createLocalClient({ loadCatalog, loadDescriptions, storage, user
   return {
     from: table => new Query(db, table),
     auth,
-    // Per-device data management, used by Settings. Absent on the Supabase-backed client.
-    local: {
+    // Export / import / erase of the student's plan, used by Settings and Onboarding. The remote client has the
+    // same shape (remoteBackup.js).
+    planData: {
       // A getter: IndexedDB can turn out to be unavailable only after the first load.
       get persistent() { return storage.persistent !== false },
       exportData: async () => { await db.ready; return db.snapshot() },
-      importData: tables => db.replaceAll(tables),
+      // A backup from the Docker stack carries that install's user id; here there is one implicit user.
+      importData: tables => db.replaceAll({
+        ...tables,
+        student_profiles: (tables.student_profiles ?? []).map(p => ({ ...p, user_id: userId })),
+      }),
       eraseAll: async () => { await db.ready; await db.replaceAll({}); for (const k of Object.keys(db.counters)) db.counters[k] = 0; await db.persist() },
     },
   }

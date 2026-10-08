@@ -274,14 +274,14 @@ describe('local data controls', () => {
   it('exports, erases and re-imports', async () => {
     const id = (await db.from('student_profiles').insert({ user_id: LOCAL_USER_ID }).select('id').single()).data.id
     await db.from('student_plan_slots').insert({ student_id: id, requirement_slot_id: 5 })
-    const snapshot = await db.local.exportData()
+    const snapshot = await db.planData.exportData()
     expect(snapshot.student_plan_slots).toHaveLength(1)
 
-    await db.local.eraseAll()
+    await db.planData.eraseAll()
     expect((await db.from('student_profiles').select('id')).data).toEqual([])
     expect((await make(storage).from('student_profiles').select('id')).data).toEqual([])
 
-    await db.local.importData(JSON.parse(JSON.stringify(snapshot)))
+    await db.planData.importData(JSON.parse(JSON.stringify(snapshot)))
     expect((await db.from('student_plan_slots').select('requirement_slot_id')).data).toEqual([{ requirement_slot_id: 5 }])
     const again = (await db.from('student_free_add_slots').insert({ student_id: id, course_code: 'Z', semester_number: 1 }).select('id').single()).data.id
     expect(again).toBeGreaterThan(0)
