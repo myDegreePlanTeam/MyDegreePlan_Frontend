@@ -2529,6 +2529,40 @@
   color: var(--muted);
 }
 
+/* An exam whose credit is one of several courses: one radio per choice (examOptions.js) */
+.wizard-options {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0 0 0.75rem;
+}
+.wizard-options-legend {
+  font-size: 0.82rem;
+  color: var(--white);
+  padding: 0 0.35rem;
+}
+.wizard-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.wizard-option:hover { background: rgba(255,255,255,0.04); }
+.wizard-option.selected { border-color: var(--gold); }
+.wizard-option input { margin-top: 0.2rem; accent-color: var(--gold); }
+.wizard-option-body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.wizard-option-codes {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--gold);
+  font-family: var(--font-mono, monospace);
+}
+.wizard-option-names { font-size: 0.78rem; color: var(--muted); }
+.wizard-options-note { font-size: 0.76rem; color: var(--muted); margin: 0.5rem 0 0; }
+
 .wizard-award-card {
   background: var(--navy);
   border: 1px solid rgba(255,255,255,0.08);

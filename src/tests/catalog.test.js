@@ -32,8 +32,16 @@ describe('parseEquivalencies', () => {
   it('parses tuples, NULLs, escaped quotes and trailing comments', () => {
     const rows = parseEquivalencies(sql)
     expect(rows).toHaveLength(3)
-    expect(rows[0]).toEqual({ id: 1, test_type: 'ap_credit', test_name: 'Biology', min_score: 3, awarded_course_code: 'BIOL1113', credits_awarded: 4, satisfies_pool: null })
+    expect(rows[0]).toEqual({ id: 1, test_type: 'ap_credit', test_name: 'Biology', min_score: 3, awarded_course_code: 'BIOL1113', credits_awarded: 4, satisfies_pool: null, option_key: null })
     expect(rows[1]).toMatchObject({ test_name: "Dante's Inferno", min_score: null, satisfies_pool: 'GEN_ED' })
+  })
+  it('reads the option_key of a row that is one of several courses, and NULL as none', () => {
+    const rows = parseEquivalencies(`
+      ('ap_credit', 'Physics C: Mechanics', 3, 'PHYS2110', 4, 'SCIENCE', 'phys_calculus'),
+      ('ap_credit', 'Physics C: Mechanics', 3, 'PHYS2010', 4, NULL, NULL);
+    `)
+    expect(rows.map(r => r.option_key)).toEqual(['phys_calculus', null])
+    expect(rows[1].satisfies_pool).toBeNull()
   })
   it('fails loudly on a row it cannot parse', () => {
     expect(() => parseEquivalencies("('ap_credit', 'Biology', 3)")).toThrow(/cannot parse/)
