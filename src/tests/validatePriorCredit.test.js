@@ -322,3 +322,22 @@ describe('validatePriorCredit — Rule 2 (min_score gate, BUG-8)', () => {
     expect(result.valid).toBe(true)
   })
 })
+
+// ── A row a higher score replaces (Calculus AB: a 3 earns MATH1830, a 4 earns MATH1910 instead) ──
+
+describe('validatePriorCredit - a row superseded by a higher score', () => {
+  const ROWS = [
+    { test_type: 'ap_credit', test_name: 'Calculus AB', min_score: 3, superseded_at: 4, awarded_course_code: 'MATH1830', credits_awarded: 3 },
+    { test_type: 'ap_credit', test_name: 'Calculus AB', min_score: 4, superseded_at: null, awarded_course_code: 'MATH1910', credits_awarded: 4 },
+  ]
+  it('accepts MATH1830 at a 3 and refuses it at a 4', () => {
+    expect(validatePriorCredit('ap_credit', 'MATH1830', 3, ROWS, {}, 3).valid).toBe(true)
+    const at4 = validatePriorCredit('ap_credit', 'MATH1830', 3, ROWS, {}, 4)
+    expect(at4.valid).toBe(false)
+    expect(at4.error).toMatch(/does not qualify/)
+  })
+  it('accepts MATH1910 at a 4 and a 5', () => {
+    expect(validatePriorCredit('ap_credit', 'MATH1910', 4, ROWS, {}, 4).valid).toBe(true)
+    expect(validatePriorCredit('ap_credit', 'MATH1910', 4, ROWS, {}, 5).valid).toBe(true)
+  })
+})

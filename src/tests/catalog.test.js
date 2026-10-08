@@ -32,7 +32,7 @@ describe('parseEquivalencies', () => {
   it('parses tuples, NULLs, escaped quotes and trailing comments', () => {
     const rows = parseEquivalencies(sql)
     expect(rows).toHaveLength(3)
-    expect(rows[0]).toEqual({ id: 1, test_type: 'ap_credit', test_name: 'Biology', min_score: 3, awarded_course_code: 'BIOL1113', credits_awarded: 4, satisfies_pool: null, option_key: null })
+    expect(rows[0]).toEqual({ id: 1, test_type: 'ap_credit', test_name: 'Biology', min_score: 3, awarded_course_code: 'BIOL1113', credits_awarded: 4, satisfies_pool: null, option_key: null, superseded_at: null })
     expect(rows[1]).toMatchObject({ test_name: "Dante's Inferno", min_score: null, satisfies_pool: 'GEN_ED' })
   })
   it('reads the option_key of a row that is one of several courses, and NULL as none', () => {
@@ -42,6 +42,15 @@ describe('parseEquivalencies', () => {
     `)
     expect(rows.map(r => r.option_key)).toEqual(['phys_calculus', null])
     expect(rows[1].satisfies_pool).toBeNull()
+  })
+  it('reads superseded_at, the score at which a higher score replaces a row', () => {
+    const rows = parseEquivalencies(`
+      ('ap_credit', 'Calculus AB', 3, 'MATH1830', 3, NULL, NULL, 4),
+      ('ap_credit', 'Calculus AB', 4, 'MATH1910', 4, NULL),
+      ('ap_credit', 'Calculus AB', 5, 'MATH1920', 4, NULL, NULL, NULL);
+    `)
+    expect(rows.map(r => r.superseded_at)).toEqual([4, null, null])
+    expect(rows[0].option_key).toBeNull()
   })
   it('fails loudly on a row it cannot parse', () => {
     expect(() => parseEquivalencies("('ap_credit', 'Biology', 3)")).toThrow(/cannot parse/)

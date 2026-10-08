@@ -35,8 +35,10 @@ export function flattenReqArray(courseCode, reqArray) {
 //   ('ap_credit', 'Biology', 3, 'BIOL1113', 4, NULL),
 // A row that is one of several courses for the same credit ends with its option_key (see the AP alternatives in the SQL):
 //   ('ap_credit', 'Physics C: Mechanics', 3, 'PHYS2110', 4, 'SCIENCE', 'phys_calculus'),
+// and a row that a higher score replaces ends with the score it stops at (an eighth field):
+//   ('ap_credit', 'Calculus AB', 3, 'MATH1830', 3, NULL, NULL, 4),
 export function parseEquivalencies(sql) {
-  const tuple = /^\s*\(\s*'([^']*)'\s*,\s*'((?:[^']|'')*)'\s*,\s*(\d+|NULL)\s*,\s*'([^']*)'\s*,\s*(\d+)\s*,\s*(NULL|'[^']*')\s*(?:,\s*(NULL|'[^']*')\s*)?\)\s*[,;]?\s*(?:--.*)?$/
+  const tuple = /^\s*\(\s*'([^']*)'\s*,\s*'((?:[^']|'')*)'\s*,\s*(\d+|NULL)\s*,\s*'([^']*)'\s*,\s*(\d+)\s*,\s*(NULL|'[^']*')\s*(?:,\s*(NULL|'[^']*')\s*(?:,\s*(NULL|\d+)\s*)?)?\)\s*[,;]?\s*(?:--.*)?$/
   const rows = []
   let lines = 0
   for (const line of sql.split(/\r?\n/)) {
@@ -52,6 +54,7 @@ export function parseEquivalencies(sql) {
       credits_awarded: Number(m[5]),
       satisfies_pool: m[6] === 'NULL' ? null : m[6].slice(1, -1),
       option_key: m[7] === undefined || m[7] === 'NULL' ? null : m[7].slice(1, -1),
+      superseded_at: m[8] === undefined || m[8] === 'NULL' ? null : Number(m[8]),
     })
   }
   if (rows.length !== lines) throw new Error('test_equivalencies.sql: row count mismatch')

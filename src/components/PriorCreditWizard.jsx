@@ -25,7 +25,7 @@ import CreditHoursField from './CreditHoursField'
 import { getBrand } from '../lib/brand'
 import { previousStep } from '../lib/wizardSteps'
 import { scoreLabels } from '../lib/scoreLabels'
-import { optionKeysOf, awardsForOption, chooseOption } from '../lib/examOptions'
+import { optionKeysOf, awardsForOption, chooseOption, appliesAtScore } from '../lib/examOptions'
 import './Dashboard.css'
 
 // Credit type options presented in Step 1.
@@ -152,7 +152,7 @@ export default function PriorCreditWizard({
     const dbType = effectiveTestType(selectedExam, creditType)
     db
       .from('test_equivalencies')
-      .select('min_score, awarded_course_code, credits_awarded, satisfies_pool')
+      .select('min_score, superseded_at, awarded_course_code, credits_awarded, satisfies_pool')
       .eq('test_type', dbType)
       .eq('test_name', selectedExam.test_name)
       .not('min_score', 'is', null)
@@ -165,7 +165,7 @@ export default function PriorCreditWizard({
         const allScores = [...new Set(rows.map(r => r.min_score))].sort((a, b) => a - b)
         const labels = scoreLabels(allScores, dbType)
         const options = allScores.map(score => {
-          const cumulativeRows = rows.filter(r => r.min_score <= score)
+          const cumulativeRows = rows.filter(r => appliesAtScore(r, score))
           const totalCredits   = cumulativeRows.reduce((s, r) => s + (r.credits_awarded ?? 0), 0)
           const awardedCodes   = [...new Set(cumulativeRows.map(r => r.awarded_course_code).filter(Boolean))]
           const isPlacementOnly = cumulativeRows.every(r => (r.credits_awarded ?? 0) === 0)
@@ -206,7 +206,7 @@ export default function PriorCreditWizard({
       const dbType = effectiveTestType(selectedExam, creditType)
       let query = db
         .from('test_equivalencies')
-        .select('awarded_course_code, credits_awarded, satisfies_pool, min_score, test_type, test_name, option_key')
+        .select('awarded_course_code, credits_awarded, satisfies_pool, min_score, superseded_at, test_type, test_name, option_key')
         .eq('test_type', dbType)
         .eq('test_name', selectedExam.test_name)
 
@@ -216,7 +216,9 @@ export default function PriorCreditWizard({
         query = query.lte('min_score', selectedScore)
       }
 
-      const { data } = await query
+      const { data: found } = await query
+      // a row a higher score replaces (Calculus AB's MATH1830 at a 4) is not part of the award
+      const data = typeConfig?.hasScore && selectedScore != null ? (found ?? []).filter(r => appliesAtScore(r, selectedScore)) : found
       if (!data || data.length === 0) { setAwards([]); setEquivalencyRows([]); return }
 
       // Fetch course names for display

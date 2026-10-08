@@ -8,6 +8,16 @@
 // An award here is { awarded_course_code, credits_awarded, satisfies_pool, option_key }, where satisfies_pool is already the
 // pool of the student's plan (mapSatisfiesPoolForPlan).
 
+/**
+ * Whether an equivalency row awards its course at a score. A row applies from its min_score upward (Biology 4 adds BIOL 1020
+ * to what a 3 earns); one that a higher score REPLACES carries superseded_at and stops there (Calculus AB: a 3 earns
+ * MATH 1830, a 4 earns MATH 1910 instead). A row with no min_score has no threshold.
+ */
+export function appliesAtScore(row, score) {
+  if (row.min_score == null) return true
+  return row.min_score <= score && (row.superseded_at == null || score < row.superseded_at)
+}
+
 /** The distinct option keys of a list of awards, in the order they first appear. */
 export function optionKeysOf(awards) {
   return [...new Set((awards ?? []).map(a => a.option_key).filter(Boolean))]
