@@ -185,7 +185,8 @@ Vercel needs **no settings**: with no `__MDP_CONFIG__` the app is local-first. `
    in a fresh clone with no Prototype sibling, as the workflow's test job runs them; details in the Deploy README under
    "Shipping a release". It publishes nothing.
 3. Deploy repo → Actions → **Release** → Run workflow (`gh workflow run release.yml -f version=… -f notes=… -f required=false`). `notes` is student-facing: it is what they read in the update prompt. Use `required` only for urgent fixes: it blocks older installs.
-4. CI runs the tests, builds four multi-arch images to GHCR pinned by digest, signs the release (`MDP_SIGNING_KEY` in the `release` environment), publishes it, then re-downloads and verifies it. Approve it if the environment asks for a reviewer.
+4. To see where the run stands, `bash local-deploy/tools/release_status.sh [--wait]` (in the background with `--wait`: it takes 4 to 5 minutes; exit 0 once
+   Publish and Verify succeeded, which is before the run's cleanup steps end). CI runs the tests, builds four multi-arch images to GHCR pinned by digest, signs the release (`MDP_SIGNING_KEY` in the `release` environment), publishes it, then re-downloads and verifies it. Approve it if the environment asks for a reviewer.
 5. Installs offer the update on their next start or within about 6 hours; a failed update rolls back automatically.
 ---
 
@@ -295,27 +296,48 @@ that section before changing the module. Rules that must hold even if you do not
   saved plan per origin, so Onboarding only shows on an origin with none. For any check that creates a plan, start the
   `MyDegreePlan-verify` dev server (port 5175, in `MDP/.claude/launch.json`): nothing is saved there, and 5173 and 5174 hold
   plans that are not Claude's to erase (do not add and remove a temporary launch.json entry each time). React ignores a plain `el.value = x`; use the native setter
-  and dispatch an event. Pick the **year before the season**: changing the year clears the season. Verified 2026-10-02:
+  and dispatch an event. Pick the **year before the season**: changing the year clears the season. **Pass the `tabId` that
+  `preview_start` returns to every browser call** (and `tabs_select` it): without it a call runs in whichever tab is fronted, which
+  can be another site (two calls ran on claude.ai on 2026-10-08). Verified 2026-10-08; paste this once per page load, then call it:
 
   ```js
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
   const setVal = (el, v) => {
     const proto = el.tagName === 'SELECT' ? HTMLSelectElement.prototype : HTMLInputElement.prototype
     Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v)
     el.dispatchEvent(new Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }))
   }
-  const btn = t => [...document.querySelectorAll('button')].find(b => b.textContent.trim().startsWith(t))
-  // step 1: the program. With one college the list starts at the majors (button.program-major); with several, first
-  // button.program-college. A major with concentrations then shows .concentration-card buttons. The search box
-  // (input[type=search], also .onboarding-input, so it is the first one on step 1) lists programs as results to click.
-  btn('Computer Science, B.S.').click(); btn('CSC Cybersecurity').click(); btn('Continue').click()
-  // step 2: first semester, limited to what the program has a plan for (no student-type buttons any more)
-  setVal(document.querySelectorAll('select.onboarding-select')[0], '2026')   // the year select is the first one
-  setVal(document.querySelectorAll('select.onboarding-select')[1], 'Fall')    // then the semester select (disabled until a year is chosen)
-  btn('Continue').click()      // step 3: 6 input.onboarding-input in the order ACT Math, English, Science, Reading, Composite, then SAT Math; Continue again: step 4 (math, only if the plan has Calculus I), then step 5
+  const btn = t => [...document.querySelectorAll('button')].find(b => b.textContent.trim().includes(t))
+  const until = async (f, tries = 40) => { for (let i = 0; i < tries && !f(); i++) await sleep(300); return f() }
+
+  // Onboarding to a built plan. search finds the program, program is the result to click (a major with concentrations shows
+  // .concentration-card buttons; the search box is the first input on step 1). Step 2 is year, then semester (limited to what
+  // the program has a plan for). Step 3 has 6 input.onboarding-input in the order ACT Math, English, Science, Reading,
+  // Composite, SAT Math; step 4 (the math sequence) appears only if the plan has Calculus I, so Continue is clicked if it is there.
+  async function mdpOnboard({ search = 'Cybersecurity', program = 'CSC Cybersecurity', year = '2026', season = 'Fall', actMath = '29' } = {}) {
+    await until(() => document.querySelector('input[type=search]'))
+    setVal(document.querySelector('input[type=search]'), search); await sleep(300)
+    btn(program).click(); await sleep(200); btn('Continue').click(); await sleep(300)
+    setVal(document.querySelectorAll('select.onboarding-select')[0], String(year)); await sleep(150)
+    setVal(document.querySelectorAll('select.onboarding-select')[1], season); await sleep(200)
+    btn('Continue').click(); await sleep(400)
+    setVal(document.querySelectorAll('input.onboarding-input')[0], String(actMath)); await sleep(100)
+    btn('Continue').click(); await sleep(400)
+    btn('Continue')?.click(); await sleep(400)
+    ;(btn('Build my degree plan') ?? btn('later')).click()
+    return until(() => document.querySelector('.ds-sem'))   // the plan grid has rendered
+  }
+
+  // Start over: delete the origin's IndexedDB and localStorage, and reload (the open page blocks the delete, which finishes on
+  // the reload; the functions above are gone after it, so paste them again). Verified 2026-10-08: Onboarding shows again.
+  async function mdpErase() {
+    for (const d of await indexedDB.databases()) await new Promise(r => { const q = indexedDB.deleteDatabase(d.name); q.onsuccess = q.onerror = q.onblocked = () => r() })
+    localStorage.clear()
+    location.reload()
+  }
   ```
 
-  Wait about 150 ms between steps (`await new Promise(r => setTimeout(r, 150))`) so React re-renders. To start over, delete the
-  site's IndexedDB (`indexedDB.databases()` then `deleteDatabase`) and clear localStorage, or use Settings, Erase data. **Close the other
+  The short sleeps let React re-render between steps. To start over use `mdpErase()` (or Settings, Erase data). **Close the other
   tabs of that origin first**: a delete blocked by another open tab stays queued and every later open of that origin hangs on the loading
   skeleton until that tab is closed (it cost a session on 2026-10-02). Screenshots worked with the pane open.
 - **Paths and the shell's working directory.** The Bash tool's working directory drifts after any `cd`, so a relative path or
@@ -338,6 +360,10 @@ that section before changing the module. Rules that must hold even if you do not
   pasted primary material (the file, the error, the catalog page) to a description of it. Asking is not the only step: before
   saying what a doc, a plan or an earlier decision says, grep it (a plan's "answered" question was stated from memory on
   2026-10-05 and was wrong), and quote a number from a script or a file, not from memory.
+- **Branches that touch one file.** When a plan has several branches and two of them edit the same file (a wizard, `DegreePlan.jsx`), say so
+  in the plan and merge them back to back, each rebased onto the last, instead of opening them in parallel: six parallel branches
+  on 2026-10-08 hit three rebase conflicts, about two turns each. `git rebase --onto origin/main <old base>` moves a stacked branch
+  after its base was squash-merged.
 - **Data is load-bearing.** Students will rely on the curriculum data. Edit the source (specs, overrides, the inputs to `courses.json`),
   regenerate, and call out any entry that disagrees with the catalog; never hand-edit a generated file.
 - **Docs follow the code.** When a doc and the code disagree, the code wins: say so, and fix the doc in the same PR.
@@ -386,8 +412,11 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 7. For exact-text edits across several files, or in CRLF files, run `local-deploy/tools/multi_replace.py` from the `MDP/` folder
    (`python local-deploy/tools/multi_replace.py - <<'EOF'`; `--dry-run` previews). Format: one `@@@ file PATH` line per file, then
    any number of `@@@ old` / `@@@ new` pairs for it (a second `@@@ file` for the same path is merged in the order written, with a
-   note; a trailing `@@@ old` with no `@@@ new` makes the whole call write nothing)
-   instead of writing a throwaway script: it writes nothing unless every edit matches, keeps CRLF and refuses control
+   note; a trailing `@@@ old` with no `@@@ new` makes the whole call write nothing). **A spec that is long, or has apostrophes,
+   backticks or backslashes, goes in a file written with the Write tool and run as `multi_replace.py PATH`, not in a heredoc**
+   (a heredoc spec failed to parse on 2026-10-03, 10-05 and 10-08, and each time cost seven or more turns of throwaway Python
+   scripts). To delete a long stretch without retyping it, use `@@@ cut` (the text where it starts) and `@@@ until` (the text where it
+   stops, kept): both must match once. Use it instead of writing a throwaway script: it writes nothing unless every edit matches, keeps CRLF and refuses control
    characters. The tools live in `local-deploy/tools/` (its README lists them) and are tracked in the Deploy repo.
    For a **structural** JSON edit (a catalog override, a manifest decision, a vocabulary entry) run
    `node local-deploy/tools/json_patch.mjs SPEC|- [--dry-run]` instead: ops `set` / `add` / `replace` / `remove` / `merge` / `test` on
