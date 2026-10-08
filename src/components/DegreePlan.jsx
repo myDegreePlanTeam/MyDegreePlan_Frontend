@@ -8,6 +8,7 @@ import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqsProvisional } from '../lib/prereqChecker'
+import { getMoveConflicts } from '../lib/dragConflicts'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester, summarizePriorCredits } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
@@ -1231,125 +1232,22 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   // ── Prereq/coreq conflict check for drag moves ──────────────────────────
-  // Returns an array of human-readable reason strings, or [] if the move is
-  // valid.  Checks the moved course against the hypothetical new placement
-  // (prereqs must be in earlier semesters; coreqs in same or earlier;
-  // downstream courses that have this course as a prereq must not be in
-  // semesters <= newSemester).
+  // The reasons a move would break a requisite, or [] if it is fine (lib/dragConflicts.js).
   function getDragConflicts(slotId, newSemester) {
-    const slot = slots.find(s => s.id === slotId)
-    if (!slot) return []
-    const courseCode = slot.is_pool ? planSlots[slotId] : slot.class_code
-    if (!courseCode) return []
-
-    const hypothetical = { ...planSemesterOverrides, [slotId]: newSemester }
-
-    // Build a flat list of { code, sem } for all placed courses under the
-    // hypothetical assignment.
-    const placed = []
-    for (const s of slots) {
-      if (planArchived[s.id]) continue
-      const sem  = hypothetical[s.id] ?? s.semester_number
-      const code = s.is_pool ? planSlots[s.id] : s.class_code
-      if (code && sem != null) placed.push({ slotId: s.id, code, sem })
-    }
-    for (const fa of freeAddSlots) {
-      if (fa.semester_number != null)
-        placed.push({ slotId: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
-    }
-
-    const priorCodes = new Set(
-      priorCredits.filter(pc => pc.satisfies_course_code).map(pc => pc.satisfies_course_code)
-    )
-
-    const reasons = []
-
-    // ── Check 1: prereqs of the moved course ──────────────────────────────
-    const prereqGroups = prereqMap[courseCode] ?? {}
-    for (const group of Object.values(prereqGroups)) {
-      // If prior credits satisfy this group entirely, skip.
-      const satByPrior = group.logic === 'OR'
-        ? group.codes.some(c => priorCodes.has(c))
-        : group.codes.every(c => priorCodes.has(c))
-      if (satByPrior) continue
-
-      // Check if the group is satisfied by placed courses in earlier semesters.
-      const satByPlan = group.logic === 'OR'
-        ? group.codes.some(c => placed.some(p => p.code === c && p.sem < newSemester))
-        : group.codes.every(c =>
-            priorCodes.has(c) || placed.some(p => p.code === c && p.sem < newSemester)
-          )
-
-      if (!satByPlan) {
-        const missing = group.codes
-          .filter(c => !priorCodes.has(c))
-          .filter(c => !placed.some(p => p.code === c && p.sem < newSemester))
-        if (missing.length > 0) {
-          const label = group.logic === 'OR'
-            ? `Requires one of: ${missing.join(', ')} in an earlier semester`
-            : `Requires ${missing.join(', ')} in an earlier semester`
-          if (!reasons.includes(label)) reasons.push(label)
-        }
-      }
-    }
-
-    // ── Check 2: coreqs of the moved course ───────────────────────────────
-    const coreqGroups = coreqMap[courseCode] ?? {}
-    for (const group of Object.values(coreqGroups)) {
-      const satByPrior = group.logic === 'OR'
-        ? group.codes.some(c => priorCodes.has(c))
-        : group.codes.every(c => priorCodes.has(c))
-      if (satByPrior) continue
-
-      const satByPlan = group.logic === 'OR'
-        ? group.codes.some(c => placed.some(p => p.code === c && p.sem <= newSemester))
-        : group.codes.every(c =>
-            priorCodes.has(c) || placed.some(p => p.code === c && p.sem <= newSemester)
-          )
-
-      if (!satByPlan) {
-        const missing = group.codes
-          .filter(c => !priorCodes.has(c))
-          .filter(c => !placed.some(p => p.code === c && p.sem <= newSemester))
-        if (missing.length > 0) {
-          const label = group.logic === 'OR'
-            ? `Requires one of: ${missing.join(', ')} in the same or earlier semester`
-            : `Requires ${missing.join(', ')} in the same or earlier semester`
-          if (!reasons.includes(label)) reasons.push(label)
-        }
-      }
-    }
-
-    // ── Check 3: downstream courses that have courseCode as a prereq ──────
-    // If moving to a later semester, courses already placed before or in the
-    // new semester might depend on this course being available earlier.
-    for (const p of placed) {
-      if (p.slotId === slotId) continue
-      const pGroups = prereqMap[p.code] ?? {}
-      for (const group of Object.values(pGroups)) {
-        if (!group.codes.includes(courseCode)) continue
-        // This course's prereq group includes our moved course.
-        // If the placed course is in a semester <= newSemester, the prereq is violated.
-        if (p.sem > newSemester) continue  // placed later → fine
-        // Check if the group has another satisfied option
-        const otherSat = group.codes
-          .filter(c => c !== courseCode)
-          .some(c => priorCodes.has(c) || placed.some(p2 => p2.code === c && p2.sem < p.sem))
-        if (!otherSat) {
-          const label = `Moving here would leave ${p.code} (Semester ${p.sem}) without its prerequisite`
-          if (!reasons.includes(label)) reasons.push(label)
-        }
-      }
-    }
-
-    return reasons
+    return getMoveConflicts({
+      slotId, newSemester, slots, planSlots, planArchived, planSemesterOverrides,
+      freeAddSlots, priorCredits, prereqMap, coreqMap,
+    })
   }
 
   // ── Move a course to another semester ─────────────────────────────
   // Shared by drag-and-drop and the course panel's "Move to term" list.
   // Season restrictions and prereq/coreq conflicts are checked here, so both
-  // entry points enforce the same rules.
-  function moveToSemester(type, slotId, newSemester) {
+  // entry points enforce the same rules. A season restriction is final; a
+  // prereq/coreq conflict is explained and the student may move anyway
+  // (`override`): the way to a plan often passes through a state the checks
+  // refuse, and the plan flags the broken requisite on the Issues tab regardless.
+  function moveToSemester(type, slotId, newSemester, { override = false } = {}) {
     if (type === 'requirement_slot') {
       const slot = slots.find(s => s.id === slotId)
       if (!slot) return
@@ -1364,14 +1262,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
         return
       }
 
-      // ── Hard-block prereq/coreq conflicts ─────────────────────────────────
-      // The move is rejected before any state update. The student must dismiss
-      // the modal before they can try again (atomicity guarantee per Q2).
-      const conflicts = getDragConflicts(slotId, newSemester)
+      // ── Prereq/coreq conflicts ────────────────────────────────────────────
+      // The move is held back before any state update and the student is told why
+      // (atomicity guarantee per Q2). "Move anyway" in the modal repeats it with `override`.
+      const conflicts = override ? [] : getDragConflicts(slotId, newSemester)
       if (conflicts.length > 0) {
         setConflictModal({
-          title: `Cannot move ${courseCode} to ${formatTermLabel(semesterTerms[newSemester]) ?? `Semester ${newSemester}`}`,
+          title: `${courseCode} to ${formatTermLabel(semesterTerms[newSemester]) ?? `Semester ${newSemester}`} breaks a requisite`,
           reasons: conflicts,
+          move: { type, slotId, newSemester },
         })
         return
       }
@@ -1797,7 +1696,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (selSlot) {
       const conflicts = getDragConflicts(selSlot.id, n)
       if (conflicts.length > 0) {
-        return { ...base, note: 'breaks a requisite', tone: 'bad', disabled: true, reason: conflicts.join('\n') }
+        // still choosable: moveToSemester explains the conflict and offers "Move anyway"
+        return { ...base, note: 'breaks a requisite', tone: 'bad', disabled: false, reason: conflicts.join('\n') }
       }
     }
     const before = semCredits(n)
@@ -2169,17 +2069,30 @@ export default function DegreePlan({ profile, onProfileChange }) {
         <div className="ds-modal-backdrop" onClick={() => setConflictModal(null)}>
           <div className="ds-modal" role="alertdialog" aria-modal="true" onClick={e => e.stopPropagation()}>
             <div className="ds-modal-head">
-              <p className="ds-eyebrow">Move blocked</p>
+              <p className="ds-eyebrow">Requisite conflict</p>
               <h3 className="ds-modal-title">{conflictModal.title}</h3>
               <p className="ds-sub" style={{ fontSize: 11 }}>
-                This move would create a scheduling conflict. Your plan was not changed.
+                Nothing has moved yet. You can move it anyway (a plan sometimes has to pass through a state like this);
+                the Issues tab will keep flagging the requisite until it is met.
               </p>
             </div>
             <ul className="ds-panel-list" style={{ margin: 0, padding: '16px 22px 16px 38px' }}>
               {conflictModal.reasons.map((reason, i) => <li key={i}>{reason}</li>)}
             </ul>
             <div className="ds-modal-foot">
-              <button className="ds-btn-primary" onClick={() => setConflictModal(null)}>OK</button>
+              <button className="ds-btn-ghost" onClick={() => setConflictModal(null)}>Cancel</button>
+              {conflictModal.move && (
+                <button
+                  className="ds-btn-primary"
+                  onClick={() => {
+                    const { type, slotId, newSemester } = conflictModal.move
+                    setConflictModal(null)
+                    moveToSemester(type, slotId, newSemester, { override: true })
+                  }}
+                >
+                  Move anyway
+                </button>
+              )}
             </div>
           </div>
         </div>
