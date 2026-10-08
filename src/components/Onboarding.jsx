@@ -790,6 +790,7 @@ export default function Onboarding({ profileId, onComplete }) {
 
       {showWizard && (
         <PriorCreditWizard
+          existingCredits={pendingRecords}
           onSave={handleWizardSave}
           onClose={() => setShowWizard(false)}
           planSlots={{}}

@@ -8,7 +8,7 @@ import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqsProvisional } from '../lib/prereqChecker'
-import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester } from '../lib/transferCredits'
+import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester, summarizePriorCredits } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { fetchRequirementSlots } from '../lib/requirementSlots'
@@ -2125,6 +2125,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       {showWizard && (
         <PriorCreditWizard
+          existingCredits={priorCredits}
           onSave={handleAddPriorCredit}
           onClose={() => setShowWizard(false)}
           planSlots={planSlots}
@@ -2193,7 +2194,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 // target that turns a dragged course into transfer credit, so it opens a
 // visible drop zone whenever a drag is in progress.
 
-function PriorCreditRow({ pc, onRemove }) {
+function PriorCreditRow({ pc, countedAs, onRemove }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id:   pc.id,
     data: { type: 'prior_credit', priorCreditId: pc.id, courseCode: pc.satisfies_course_code },
@@ -2202,14 +2203,16 @@ function PriorCreditRow({ pc, onRemove }) {
   return (
     <div
       ref={setNodeRef}
-      className={`ds-prior-row${isDragging ? ' ds-prior-row-dragging' : ''}`}
+      className={`ds-prior-row${isDragging ? ' ds-prior-row-dragging' : ''}${countedAs ? ' ds-prior-row-dup' : ''}`}
       {...listeners}
       {...attributes}
     >
-      <span className="ds-row-tag">{CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}</span>
       <span className="ds-prior-code">{pc.satisfies_course_code ?? '—'}</span>
-      <span className="ds-prior-note">{pc.note ?? ''}</span>
       <span className="ds-prior-cr">{isPlacement ? 'placement' : `${pc.credits_awarded} cr`}</span>
+      <span className="ds-prior-note" title={pc.note ?? ''}>{pc.note ?? CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}</span>
+      {countedAs
+        ? <span className="ds-prior-dup" title={`${pc.satisfies_course_code} is also covered by ${countedAs}. Its hours count once.`}>already counted</span>
+        : <span />}
       <button
         className="ds-prior-remove"
         onPointerDown={e => e.stopPropagation()}
@@ -2227,7 +2230,8 @@ function PriorCourseworkStrip({ credits, onRemove, onAddClick, dragActive }) {
   const [open, setOpen] = useState(false)
   const { setNodeRef, isOver } = useDroppable({ id: 'transfer_credits' })
 
-  const creditHours = credits.reduce((sum, pc) => sum + (pc.credits_awarded ?? 0), 0)
+  const { totalHours: creditHours, duplicateOf } = summarizePriorCredits(credits)
+  const noteOf = id => credits.find(pc => pc.id === id)?.note ?? 'another entry'
 
   return (
     <div
@@ -2257,14 +2261,19 @@ function PriorCourseworkStrip({ credits, onRemove, onAddClick, dragActive }) {
               No prior coursework recorded. Add AP, IB, CLEP, or transfer credit, or drag a course from the grid onto this panel.
             </p>
           ) : (
-            groupAndSortPriorCredits(credits).map(group => (
-              <div key={group.type}>
-                <div className="ds-prior-group">{group.label}</div>
-                {group.entries.map(pc => (
-                  <PriorCreditRow key={pc.id} pc={pc} onRemove={onRemove} />
-                ))}
+            <>
+              <div className="ds-prior-cols" aria-hidden="true">
+                <span>Course</span><span>Hours</span><span>Source</span><span /><span />
               </div>
-            ))
+              {groupAndSortPriorCredits(credits).map(group => (
+                <div key={group.type}>
+                  <div className="ds-prior-group">{group.label}</div>
+                  {group.entries.map(pc => (
+                    <PriorCreditRow key={pc.id} pc={pc} countedAs={duplicateOf[pc.id] ? noteOf(duplicateOf[pc.id]) : null} onRemove={onRemove} />
+                  ))}
+                </div>
+              ))}
+            </>
           )}
           <button className="ds-prior-add" onClick={onAddClick}>+ Add prior credit</button>
         </div>

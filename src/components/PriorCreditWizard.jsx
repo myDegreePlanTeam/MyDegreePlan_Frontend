@@ -71,7 +71,7 @@ function effectiveTestType(selectedExam, creditType) {
 }
 
 export default function PriorCreditWizard({
-  onSave, onClose, slots, studentType = null,
+  onSave, onClose, slots, studentType = null, existingCredits = [],
   planSemesterOverrides = {}, planArchived = {},
 }) {
   const [step, setStep]           = useState(1)
@@ -532,6 +532,9 @@ export default function PriorCreditWizard({
                   : null
                 const alreadyInPlan = !!slot
                 const isPlacementOnly = (award.credits_awarded ?? 0) === 0
+                // another entry already gives this course credit: both stay listed, the hours count once
+                const coveredBy = isPlacementOnly ? null : existingCredits.find(pc =>
+                  (pc.credits_awarded ?? 0) > 0 && pc.satisfies_course_code === award.awarded_course_code)
 
                 return (
                   <div key={i} className="wizard-award-card">
@@ -544,7 +547,12 @@ export default function PriorCreditWizard({
                         <span className="wizard-award-cr">{award.credits_awarded} cr</span>
                       )}
                     </div>
-                    {isPlacementOnly ? (
+                    {coveredBy ? (
+                      <p className="wizard-award-effect wizard-award-effect-no-slot">
+                        <strong>{award.awarded_course_code}</strong> already counts toward your credit
+                        {coveredBy.note ? ` (${coveredBy.note})` : ''}. You can add this too, but the hours are only counted once.
+                      </p>
+                    ) : isPlacementOnly ? (
                       <p className="wizard-award-effect wizard-award-effect-placement">
                         This qualifies you for placement into{' '}
                         <strong>{award.awarded_course_code}</strong> — no credit hours are awarded.
