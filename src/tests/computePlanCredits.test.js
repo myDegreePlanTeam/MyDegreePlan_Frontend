@@ -13,7 +13,7 @@
 // breakdown item: { courseCode, credits, source: 'slot'|'transfer', slotId? }
 
 import { describe, it, expect } from 'vitest'
-import { computePlanCredits } from '../lib/transferCredits'
+import { computePlanCredits, summarizePriorCredits } from '../lib/transferCredits'
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -372,5 +372,40 @@ describe('computePlanCredits — free-add slots (BUG-6)', () => {
     expect(totalEarned).toBe(3)
     expect(breakdown).toHaveLength(1)
     expect(breakdown[0].source).toBe('transfer')
+  })
+})
+
+// ── summarizePriorCredits: the prior coursework list's total ──────────────────
+
+describe('summarizePriorCredits', () => {
+  const row = (id, credit_type, code, hours) => ({ id, credit_type, satisfies_course_code: code, credits_awarded: hours })
+
+  it('counts a course once when two exams award it', () => {
+    const r = summarizePriorCredits([row('ap', 'ap_credit', 'CSC1200', 3), row('ib', 'ib_credit', 'CSC1200', 3)])
+    expect(r.totalHours).toBe(3)
+    expect(r.duplicateOf).toEqual({ ib: 'ap' })
+  })
+
+  it('counts a course once when the ACT and an AP exam both award it', () => {
+    const r = summarizePriorCredits([
+      row('act', 'act_credit', 'ENGL1010', 3), row('ap', 'ap_credit', 'ENGL1010', 3), row('ap2', 'ap_credit', 'ENGL1020', 3),
+    ])
+    expect(r.totalHours).toBe(6)
+    expect(r.duplicateOf).toEqual({ ap: 'act' })
+  })
+
+  it('counts placement-only rows as nothing and a row with hours and no course as its hours', () => {
+    const r = summarizePriorCredits([row('p', 'act_placement', 'MATH1910', 0), row('t', 'transfer_credit', null, 3), row('t2', 'transfer_credit', null, 2)])
+    expect(r.totalHours).toBe(5)
+    expect(r.duplicateOf).toEqual({})
+  })
+
+  it('agrees with computePlanCredits on the same rows', () => {
+    const rows = [row('a', 'ap_credit', 'MATH1910', 4), row('b', 'ib_credit', 'MATH1910', 4), row('c', 'act_credit', 'ENGL1010', 3), row('d', 'ap_credit', 'ENGL1010', 3)]
+    expect(summarizePriorCredits(rows).totalHours).toBe(computePlanCredits({}, rows, [], {}).totalEarned)
+  })
+
+  it('handles no credits', () => {
+    expect(summarizePriorCredits(null)).toEqual({ totalHours: 0, duplicateOf: {} })
   })
 })

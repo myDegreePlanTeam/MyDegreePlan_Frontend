@@ -272,6 +272,32 @@ export function computePlanCredits(planSlots, priorCredits, slots, courses, free
 }
 
 /**
+ * What the prior coursework list adds up to, counting a course once.
+ *
+ * Two exams (or an exam and the ACT) can award the same course, and the list keeps both rows so removing one does not lose
+ * the credit. Only the first row of a course counts toward the hours; the rest are reported in `duplicateOf` ({ [rowId]:
+ * the id of the row that counts }) so the list can say so. Same rule as pass 1 of computePlanCredits and
+ * creditsBeforeSemester: a placement-only row (0 hours) counts nothing, a row with hours and no course code counts as is.
+ *
+ * @param {Array} priorCredits – prior_credits rows
+ * @returns {{ totalHours: number, duplicateOf: Object }}
+ */
+export function summarizePriorCredits(priorCredits) {
+  const firstRowOf = new Map()
+  const duplicateOf = {}
+  let totalHours = 0
+  for (const pc of (priorCredits ?? [])) {
+    const hours = pc.credits_awarded ?? 0
+    if (hours <= 0) continue
+    const code = pc.satisfies_course_code
+    if (code && firstRowOf.has(code)) { duplicateOf[pc.id] = firstRowOf.get(code); continue }
+    if (code) firstRowOf.set(code, pc.id)
+    totalHours += hours
+  }
+  return { totalHours, duplicateOf }
+}
+
+/**
  * Returns the set of course codes already represented in the plan.
  * Mirrors the dedup keyspace of computePlanCredits exactly: a code is
  * "taken" if it contributes (or would contribute) credit hours via
