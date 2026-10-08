@@ -70,11 +70,10 @@ with RLS-scoped write access.
 
 ## Feature work
 
-### Individual per-course manual completion toggling
-Currently completion is semester-level only (`student_semester_notes.completed_by_student`).
-A per-course toggle would need a new column on `student_plan_slots` (likely
-`completed_by_student boolean default false`) and careful UX: it must not conflict with
-the existing prior-credit archiving flow or the "grid shows only what's left" principle.
+### Real grades (Banner transcript import)
+Whether a past course was passed is assumed from the calendar (`lib/termPhase.js`: a past term counts as passed; a student removes or moves
+a course they did not pass). A Banner transcript import would replace the assumption with real grades and could enforce minimum grades in
+prerequisites. `archive_reason = 'banner_import'` is reserved for it.
 
 ### Plan history / versioning
 Also a change history and a timeline of completed semesters. Let students snapshot a plan before major edits and restore it. Likely a
@@ -133,14 +132,6 @@ prototype-grade gate would: (1) flag approval-required courses (data column on
 "Needs approval" badge, (3) show a hint explaining the requirement. The full
 approval workflow (advisor sign-off, audit trail, exemption tokens) is
 deferred — this is the visible-cue version only.
-
-### Semester completion as a three-way control
-Today completion is semester-level only and only collapses the card (`student_semester_notes.completed_by_student`; it counts for nothing else, and
-standing reads slot positions, not completion). A fuller version: a three-way control at the top of each semester card (replacing the per-course
-planned / in-progress / completed badges); marking a semester complete also completes every earlier one and adds its hours to the header total;
-completed semesters leave the active grid and roll into Prior Coursework as a "Completed semesters" group; one click undoes a mis-click. Needs a
-product call on which per-course signals the control replaces, and a new entry shape on `prior_credits` or a parallel table. Completed semesters
-would then have to pre-qualify prerequisites the way AP and transfer credit does (the earlier-semesters-only rule stays).
 
 ### Grid redesign: what is left
 The desktop app shell (Plan / Issues / Advisement / Settings tabs), paired semester cards and a drag-conflict modal shipped in September; the

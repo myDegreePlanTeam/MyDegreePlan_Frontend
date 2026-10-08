@@ -110,3 +110,16 @@ describe('countIssuesBySemester', () => {
     ])).toEqual({ 1: 2, 4: 1 })
   })
 })
+
+describe('buildPlanIssues - an unchosen pool course in a past semester', () => {
+  const incompleteSlots = { 7: { label: 'Humanities', dependents: [] } }
+  const pastSem = (completed) => ({ semNum: 1, label: 'Fall 2024', credits: 15, completed, items: [{ key: 7, code: 'Humanities' }] })
+  it('asks for the course the student took, once the semester is over', () => {
+    const [issue] = buildPlanIssues({ semesters: [pastSem(true)], incompleteSlots })
+    expect(issue.body).toBe('This semester is over. Choose the course you took for this Humanities slot.')
+  })
+  it('keeps the plain wording for a semester that is not over', () => {
+    const [issue] = buildPlanIssues({ semesters: [pastSem(false)], incompleteSlots })
+    expect(issue.body).toBe('Choose a course for this Humanities slot.')
+  })
+})

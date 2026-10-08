@@ -178,7 +178,7 @@ function freeAddRow(freeAdd, courses) {
  * @param {Object}  input.profile            – student_profiles row (+ joined concentrations)
  * @param {Object}  input.graduation         – { season, year } | null
  * @param {Date}    input.generatedAt        – stamped on the document
- * @param {Object}  input.semesterCompleted  – { [semNum]: boolean } (student_semester_notes.completed_by_student)
+ * @param {Object}  input.semesterCompleted  – { [semNum]: boolean }, true for a semester that is over (lib/termPhase.js)
  * @param {Object[]} input.priorCredits      – prior_credits rows, listed in the Notes box
  * @param {Object}  input.remainders         – { [slotId]: hours } Free Elective hours no course covers yet
  * @returns {Object} print-ready model

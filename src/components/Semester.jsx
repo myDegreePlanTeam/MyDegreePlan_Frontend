@@ -44,11 +44,8 @@ export default function Semester({
   onNoteSave,
   isExpanded         = true,
   onToggleExpand,
-  isCompleted                = false,
-  onMarkComplete,
-  hasWarnings                = false,
-  priorSemestersAllComplete  = true,
-  termLabel                  = null,
+  isPast                     = false,
+  termLabel                 = null,
   isCurrent                  = false,
   isGraduation               = false,
   issueCount                 = 0,
@@ -72,21 +69,16 @@ export default function Semester({
   const name = [termLabel ?? `Semester ${semesterNumber}`, isCurrent && 'Now', isGraduation && 'Graduate']
     .filter(Boolean).join(' · ')
 
+  // A past semester is done when nothing in it is flagged (an unchosen pool course or a broken requisite is not "passed")
+  const isDone = isPast && issueCount === 0 && !hasUnfilledPool
+
   const cardClass = [
     'ds-sem',
     isExpanded && 'ds-sem-open',
     isCurrent && 'ds-sem-current',
-    isCompleted ? 'ds-sem-done' : issueCount > 0 && 'ds-sem-warn',
+    isDone ? 'ds-sem-done' : issueCount > 0 && 'ds-sem-warn',
     isOver && 'ds-sem-over',
   ].filter(Boolean).join(' ')
-
-  const completeBlockedReason = !priorSemestersAllComplete
-    ? 'Complete earlier semesters first'
-    : hasUnfilledPool
-      ? 'Select a course for all pool slots before marking complete'
-      : hasWarnings
-        ? 'Resolve prerequisite warnings before marking this semester complete'
-        : null
 
   return (
     <div className={cardClass} ref={setDropRef}>
@@ -97,7 +89,7 @@ export default function Semester({
         aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${name}`}
       >
         <span className="ds-sem-name">{name}</span>
-        {isCompleted ? (
+        {isDone ? (
           <span className="ds-sem-flag ds-sem-flag-done">Done ✓</span>
         ) : issueCount > 0 ? (
           <span className="ds-sem-flag ds-sem-flag-warn">⚠ {issueCount}</span>
@@ -180,21 +172,7 @@ export default function Semester({
             >
               ✎
             </button>
-            {isEmpty ? (
-              onDelete && <button onClick={onDelete}>Remove semester</button>
-            ) : isCompleted ? (
-              <button onClick={() => onMarkComplete(false)} title="Semester returns to normal">
-                Undo complete
-              </button>
-            ) : (
-              <button
-                onClick={() => !completeBlockedReason && onMarkComplete(true)}
-                disabled={!!completeBlockedReason}
-                title={completeBlockedReason ?? 'Mark this semester as complete'}
-              >
-                Mark complete
-              </button>
-            )}
+            {isEmpty && onDelete && <button onClick={onDelete}>Remove semester</button>}
           </div>
         </div>
       )}

@@ -13,8 +13,11 @@ import { getSeasonRestriction } from '../lib/semesterRestrictions'
 //
 // DegreePlan mounts this with key = selection key, so mode resets per course.
 
-const STATUS_LABELS = { planned: 'Planned', in_progress: 'In progress', completed: 'Completed' }
-const STATUS_ORDER  = ['planned', 'in_progress', 'completed']
+// The status is not chosen: it follows the term the course is in (lib/termPhase.js)
+const STATUS_LABELS = { planned: 'Planned', in_progress: 'In progress', completed: 'Passed' }
+const phaseNote = (phase, canRemove) => phase === 'past'
+  ? `This term is over, so the course counts as passed. If you did not pass it, move it to a later term to retake it${canRemove ? ', or remove it' : ''}.`
+  : phase === 'current' ? 'You are taking this course this term.' : null
 
 export default function CoursePanel({
   eyebrow,
@@ -25,7 +28,7 @@ export default function CoursePanel({
   prereqMap,
   coreqMap,
   status,
-  statusLocked,
+  phase,
   warnings,
   countsToward,
   moveTargets,
@@ -33,7 +36,6 @@ export default function CoursePanel({
   isFreeAdd,
   startInPicker,
   picker,
-  onStatusChange,
   onMove,
   onRemove,
   onClose,
@@ -120,19 +122,7 @@ export default function CoursePanel({
               </div>
             </div>
 
-            <div className="ds-status-picker" role="group" aria-label="Course status">
-              {STATUS_ORDER.map(s => (
-                <button
-                  key={s}
-                  className={s === (status ?? 'planned') ? 'ds-status-active' : ''}
-                  disabled={statusLocked}
-                  title={statusLocked ? 'Undo the semester completion to change this' : undefined}
-                  onClick={() => s !== status && onStatusChange(s)}
-                >
-                  {STATUS_LABELS[s]}
-                </button>
-              ))}
-            </div>
+            {phaseNote(phase, isPool || isFreeAdd) && <p className="ds-panel-fine">{phaseNote(phase, isPool || isFreeAdd)}</p>}
 
             {warnings.prereq?.length > 0 && (
               <p className="ds-panel-alert">
