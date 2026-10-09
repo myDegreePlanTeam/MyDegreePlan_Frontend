@@ -1,0 +1,34 @@
+# Lint, tests and build on every pull request and every push to main. The Frontend had no CI (Vercel only builds it), so the tests that keep
+# the three platforms (web, the Windows app, the Docker install) from drifting apart (platform words, the platform-branch registry, the
+# wording guards) ran only when someone remembered to run them. They run here.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Lint, tests and build
+        run: npm run verify
+
+      - name: The parity tooling's own tests
+        working-directory: parity
+        run: |
+          npm ci
+          npm test

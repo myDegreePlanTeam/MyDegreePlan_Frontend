@@ -1,0 +1,32 @@
+# The drift watchdog: has a user-facing change on main reached every platform? Vercel redeploys by itself; the Windows app and the Docker
+# install only change when a release is cut, so this goes red when a student-visible change has waited more than a week (a day for the
+# web). A red scheduled run emails the repo's watchers. Rules: parity/lib/drift.mjs. Reads public GitHub data only.
+name: Platform drift
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22 }
+      - name: Compare each platform's Frontend commit with main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node parity/watch.mjs --json drift.json
+      - name: Keep the data
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: platform-drift
+          path: drift.json
+          if-no-files-found: ignore

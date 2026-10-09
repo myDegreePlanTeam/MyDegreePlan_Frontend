@@ -1,0 +1,11 @@
+{
+  "_about": "What the cross-platform run (parity/run.mjs) may find different between platforms, beyond the words in src/lib/platform.js (those are neutralised automatically). Every rule names a feature registered in parity/platform-branches.json. A line that differs and is not covered here FAILS the run. 'match' is a regular expression tested against one visible line of text.",
+  "rules": [
+    { "feature": "accounts", "platforms": ["docker"], "regions": ["sidebar"], "match": "^(Sign out|Signed in|\\S+@\\S+)$", "why": "Docker shows who is signed in and a Sign out button." },
+    { "feature": "accounts", "platforms": ["web", "desktop"], "regions": ["sidebar"], "match": "^On this device$", "why": "Web and desktop have one implicit user, so the account line just says where the plan is." },
+    { "feature": "accounts", "screen": "auth-signup", "platforms": ["docker"], "why": "The sign-up screen exists on Docker only." }
+  ],
+  "presence": [
+    { "feature": "accounts", "screen": "plan", "region": "sidebar", "text": "^Sign out$", "presentOn": ["docker"] }
+  ]
+}

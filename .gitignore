@@ -28,3 +28,5 @@ dist-ssr
 .env
 .env.local
 .dist
+# Cross-platform run output (parity/): the fingerprints, report and failure screenshots of the last run
+parity/out/
