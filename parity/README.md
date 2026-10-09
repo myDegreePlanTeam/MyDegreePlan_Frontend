@@ -51,6 +51,19 @@ Layers one and two are cheap and run everywhere; layer three is what catches the
 2. If the difference is wrong, fix it (usually: a word belongs in `platform.js`, or a branch crept in).
 3. If it is intended, register it (see "The rule"), with a reason. Never loosen a rule's `match` to make a run pass.
 
+## Known differences (real, decided to live with for now)
+
+`expected-differences.json` has a `knownIssues` list: a difference somebody has decided not to fix yet. It is printed at the top of every report (a "KNOWN DIFFERENCE"
+section with the reason and the date) and never fails the run, so it cannot be forgotten; deleting the entry makes the run fail on it again. A known issue covers
+only the kind and platforms it names: the first, `plan-order`, tolerates the same courses listed in a different order within a semester, and never excuses a
+different set of courses.
+
+**Today's entry, found by the first Docker run:** Docker lists a semester's courses in the degree-spec order (`CSC1020, CSC1300, MATH1910, ENGL1010, HIST2010`),
+while web and the Windows app list them `ENGL1010, MATH1910, CSC1020, CSC1300, HIST2010`. A semester lists its courses by `requirement_slots.id`; Docker's ids come
+from seeding the spec (spec order), while `catalog.json` keeps older ids that slots carried over from the retired hosted database. The courses are identical. The
+spec order is the department's published map, so web and desktop (and the PDF they print) are the ones that deviate. Fixing it means populating `slot_order` from
+the spec in the catalog generator, which changes what every web and desktop student sees, so it needs a decision.
+
 ## When Docker is retired
 
 Delete the `docker` target from `lib/targets.mjs`, the `accounts` and Docker-only entries from both registries, `lib/platform.js`'s `docker` words, the Deploy repo's

@@ -55,7 +55,7 @@ for (const name of targets) {
 }
 if (process.exitCode === 2) process.exit(2)
 
-const result = compareRuns(runs, { rules: expected.rules, presence: expected.presence, knownFeatures: Object.keys(registry.features) })
+const result = compareRuns(runs, { rules: expected.rules, presence: expected.presence, knownFeatures: Object.keys(registry.features), knownIssues: expected.knownIssues ?? [] })
 const report = formatReport(result, runs)
 fs.writeFileSync(path.join(outDir, 'report.md'), report + '\n')
 console.log('\n' + report)
