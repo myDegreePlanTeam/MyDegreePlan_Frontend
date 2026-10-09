@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { db } from '../lib/dataClient'
 import { getScienceWarnings, getPoolLimitWarnings, POOL_LABELS, POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver'
+import { groupSlotsBySemester, sortByCourseCode } from '../lib/slotOrder'
 import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
 import { applyChosenHours } from '../lib/creditHours'
 import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
@@ -434,23 +435,23 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // Archived slots (prior credit or not_applicable) are removed from the grid.
   // loadPlan places every slot with no resolved semester (Step 7.6); a slot
   // that still has none is omitted rather than rendered under "null".
-  const semesterMap = useMemo(() => {
-    return slots.reduce((acc, slot) => {
-      if (planArchived[slot.id]) return acc
-      const sem = planSemesterOverrides[slot.id] ?? slot.semester_number
-      if (sem == null) return acc   // algorithm hasn't placed this slot yet
-      if (!acc[sem]) acc[sem] = []
-      acc[sem].push(slot)
-      return acc
-    }, {})
-  }, [slots, planSemesterOverrides, planArchived])
+  // Each semester lists its courses by class code (lib/slotOrder.js): the same order on every platform. The code is the one the row
+  // shows, so a pool slot sorts by the course picked for it, or by its label while nothing is picked.
+  const semesterMap = useMemo(() => groupSlotsBySemester({
+    slots,
+    semesterOverrides: planSemesterOverrides,
+    archived: planArchived,
+    codeOf: slot => (slot.is_pool ? (planSlots[slot.id] ?? POOL_LABELS[slot.class_code] ?? slot.class_code) : slot.class_code),
+  }), [slots, planSemesterOverrides, planArchived, planSlots])
 
   const freeAddBySemester = useMemo(() => {
-    return freeAddSlots.reduce((acc, s) => {
+    const bySemester = freeAddSlots.reduce((acc, s) => {
       if (!acc[s.semester_number]) acc[s.semester_number] = []
       acc[s.semester_number].push(s)
       return acc
     }, {})
+    for (const semester of Object.keys(bySemester)) bySemester[semester] = sortByCourseCode(bySemester[semester])
+    return bySemester
   }, [freeAddSlots])
 
   const semesterNumbers = useMemo(() => {

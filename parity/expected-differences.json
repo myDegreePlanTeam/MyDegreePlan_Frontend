@@ -7,9 +7,7 @@
     { "feature": "accounts", "platforms": ["web", "desktop"], "regions": ["sidebar"], "match": "^··$", "why": "With no email the avatar shows two dots." },
     { "feature": "accounts", "screen": "auth-signup", "platforms": ["docker"], "why": "The sign-up screen exists on Docker only." }
   ],
-  "knownIssues": [
-    { "kind": "plan-order", "platforms": ["docker"], "since": "2026-10-09", "why": "Docker numbers requirement slots in the degree-spec order (CSC1020, CSC1300, MATH1910, ENGL1010, HIST2010), while web and desktop keep the older slot ids from the retired hosted database (ENGL1010 first), and a semester lists its courses by slot id. Which order students should see is a product and data decision (the spec order is the department's map). The courses in each semester are identical." }
-  ],
+  "knownIssues": [],
   "presence": [
     { "feature": "accounts", "screen": "plan", "region": "sidebar", "text": "^Sign out$", "presentOn": ["docker"] }
   ]
