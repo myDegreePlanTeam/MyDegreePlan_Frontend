@@ -1,4 +1,4 @@
-/* ── Update banner (local Docker install only) ───────────────────── */
+/* ── Update cards (Docker install banner and Windows desktop app card) ─── */
 /* Uses the global tokens from index.css so it follows the light/dark theme. */
 
 .upd-card {
@@ -78,6 +78,13 @@
   color: var(--muted);
   font-size: 0.8rem;
   cursor: pointer;
+}
+
+/* Download progress (the Windows desktop app's update card). */
+.upd-progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--gold);
 }
 
 .upd-notes {

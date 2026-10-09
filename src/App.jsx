@@ -3,6 +3,7 @@ import { useEffect, useState, lazy, Suspense } from 'react'
 import { db } from './lib/dataClient'
 import ErrorBoundary from './components/ErrorBoundary'
 import UpdateBanner from './components/UpdateBanner'
+import DesktopUpdateCard from './components/DesktopUpdateCard'
 
 // Route-level code splitting: each page only downloads when first visited.
 // A logged-in user never fetches Login/Signup JS; an anonymous user never
@@ -49,6 +50,8 @@ function App() {
     <BrowserRouter>
       {/* Local Docker install only: renders nothing on the hosted build. Needs a login token. */}
       {session && <UpdateBanner />}
+      {/* Windows desktop app only: renders nothing anywhere else. */}
+      <DesktopUpdateCard />
       <Suspense fallback={null}>
         <Routes>
           <Route path="/login" element={
