@@ -7,11 +7,14 @@
 import { chooseBackend } from './data/backend'
 import { createLocalClient } from './data/localClient'
 import { createIndexedDbStorage, requestPersistence } from './data/storage'
+import { platformOf } from './platform'
 
 const runtime = typeof window !== 'undefined' ? window.__MDP_CONFIG__ : undefined
 
 export const backend = chooseBackend(runtime, import.meta.env)
 export const isLocalBackend = backend === 'local'
+// 'web' | 'desktop' | 'docker': see lib/platform.js. Wording that differs by platform comes from platformWords(platform).
+export const platform = platformOf({ backend, win: typeof window !== 'undefined' ? window : undefined })
 
 function createLocal() {
   // Fire and forget: asks the browser not to evict this origin's storage when space is tight.

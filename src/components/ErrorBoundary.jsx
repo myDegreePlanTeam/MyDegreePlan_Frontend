@@ -1,5 +1,13 @@
 import { Component } from 'react'
+import { platformOf, platformWords } from '../lib/platform'
 import './ErrorBoundary.css'
+
+// The last safety net, so it must not depend on the data client (which is what may have failed): the platform is read from the
+// window directly. Same rule as lib/dataClient.js: a Docker page has window.__MDP_CONFIG__, the desktop app has window.mdpDesktop.
+function currentWords() {
+  const win = typeof window !== 'undefined' ? window : undefined
+  return platformWords(platformOf({ backend: win?.__MDP_CONFIG__ ? 'remote' : 'local', win }))
+}
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 // Error boundaries MUST be class components. React has no hook equivalent for
@@ -47,6 +55,7 @@ export default class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       const { error, errorInfo, showDetails } = this.state
+      const words = currentWords()
 
       return (
         <div className="error-boundary-shell">
@@ -58,14 +67,14 @@ export default class ErrorBoundary extends Component {
 
             <p className="error-boundary-body">
               An unexpected error occurred. Your degree plan data is safe —
-              try reloading the page to get back on track.
+              {' '}{words.errorReload}
             </p>
 
             <button
               className="error-boundary-reload"
               onClick={() => window.location.reload()}
             >
-              Reload page
+              {words.reloadButton}
             </button>
 
             {/* Expandable technical detail — useful during development and

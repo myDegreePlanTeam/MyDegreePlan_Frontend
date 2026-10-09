@@ -7,7 +7,8 @@
 //   3. re-run the degree builder, keeping every row's course choice, status,
 //      and remaining credits, and skipping slots the student dragged
 
-import { db } from './dataClient'
+import { db, platform } from './dataClient'
+import { platformWords } from './platform'
 import { buildDegreePlan } from './degreeBuilder'
 import { buildRequirementMap } from './requirementMap'
 import { fetchRequirementSlots } from './requirementSlots'
@@ -99,7 +100,7 @@ export async function saveActScoresAndRebuild(profile, numScores) {
   // The existing rows are needed to keep the student's selections below;
   // recalculating without them would wipe those and overwrite dragged slots.
   if (slotsRes.error || catalog.error || priorRes.error || studentSlotsRes.error) {
-    return 'Failed to reload degree data. Please refresh the page.'
+    return `Failed to reload degree data. ${platformWords(platform).reloadHint}`
   }
 
   const slots = slotsRes.data ?? []

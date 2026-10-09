@@ -46,6 +46,8 @@
 //      range of hours: kept between credits and credits_max).
 //   4. courseCode is required for all non-placement types.
 
+import { getBrand } from './brand'
+
 const PLACEMENT_TYPES = new Set(['act_placement'])
 const SCORED_EXAM_TYPES = new Set(['ap_credit', 'test_out', 'ib_credit', 'act_credit', 'cambridge'])
 const TRANSFER_TYPES = new Set(['transfer_credit'])
@@ -142,7 +144,7 @@ export function validatePriorCredit(
       return {
         valid:            false,
         error:            `We don't recognize course code "${courseCode}". ` +
-                          `Please check the TTU catalog or contact your advisor.`,
+                          `Please check the ${getBrand().catalogName} or contact your advisor.`,
         correctedCredits: null,
       }
     }

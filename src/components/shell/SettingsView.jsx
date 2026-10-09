@@ -35,7 +35,7 @@ export default function SettingsView({
         </button>
         <div className="ds-setting">
           <span className="ds-setting-text">
-            <span className="ds-setting-label">{profile.concentrations.kind === 'concentration' ? 'Concentration' : 'Degree program'}</span>
+            <span className="ds-setting-label">Degree program</span>
             <span className="ds-setting-desc">
               Currently {programPath(profile.concentrations)}. Switching clears your course selections; prior credits and ACT scores are kept.
             </span>
@@ -207,7 +207,6 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
   const tree    = groupByCollege(query.trim() ? searchPrograms(options, query) : options)
   const current = programs.find(c => c.id === currentId)
   const currentGroup = groupByMajor(current ? [current] : [])[0]
-  const noun    = current?.kind === 'major' ? 'program' : 'concentration'
   const isDifferent = selected && selected.id !== currentId
 
   return (
@@ -215,7 +214,7 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
       <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="conc-title">
         <div className="ds-modal-head">
           <p className="ds-eyebrow">{currentGroup ? degreeTitle(currentGroup) : 'Degree program'}</p>
-          <h3 className="ds-modal-title" id="conc-title">Change {noun}</h3>
+          <h3 className="ds-modal-title" id="conc-title">Change degree program</h3>
           <p className="ds-sub" style={{ fontSize: 11, lineHeight: 1.6 }}>
             Prior credits and placement scores carry over. The plan is rebuilt for the new requirements.
           </p>
@@ -280,7 +279,7 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
             onClick={() => isDifferent && onSwitch(selected, planForYear(plans, selected.id, entryYear))}
             disabled={!isDifferent || switching}
           >
-            {switching ? 'Switching…' : isDifferent ? `Switch to ${selected.name}` : `Choose a ${noun}`}
+            {switching ? 'Switching…' : isDifferent ? `Switch to ${selected.name}` : 'Choose a degree program'}
           </button>
         </div>
       </div>
@@ -300,7 +299,7 @@ export function ResetModal({ onConfirm, onClose, resetting }) {
         </div>
         <p className="ds-modal-text" style={{ padding: '16px 22px' }}>
           This clears all your course selections, added courses, and semester notes for this
-          concentration, then rebuilds the default sequence. Prior credits and placement scores are kept.
+          degree program, then rebuilds the default sequence. Prior credits and placement scores are kept.
         </p>
         <div className="ds-modal-foot">
           <button className="ds-btn-ghost" onClick={onClose} disabled={resetting}>Cancel</button>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { db, isLocalBackend } from '../../lib/dataClient'
+import { db, isLocalBackend, platform } from '../../lib/dataClient'
+import { platformWords } from '../../lib/platform'
 import { backupFileName, buildBackup } from '../../lib/data/backup'
 import ImportBackupButton from '../ImportBackupButton'
 import { clearAllUndo } from '../../lib/undoStore'
@@ -13,6 +14,7 @@ export default function DeviceDataCard() {
   const [message, setMessage] = useState(null)       // { text, error }
   const [confirmErase, setConfirmErase] = useState(false)
   const persistent = db.planData.persistent
+  const words = platformWords(platform)
 
   async function handleExport() {
     setBusy(true)
@@ -50,16 +52,14 @@ export default function DeviceDataCard() {
     <>
       <div className="ds-section-head">
         <p className="ds-eyebrow">Your data</p>
-        <p className="ds-section-meta">{isLocalBackend ? 'Stored only in this browser' : 'Stored in this install'}</p>
+        <p className="ds-section-meta">{words.storedMeta}</p>
       </div>
       <div className="ds-card">
         <div className="ds-setting">
           <span className="ds-setting-text">
             <span className="ds-setting-label">Back up or move your plan</span>
             <span className="ds-setting-desc">
-              {isLocalBackend
-                ? "Your plan never leaves this device, so it does not follow you to another phone or computer, and clearing this site's data deletes it. Export a copy to keep it safe or to load it somewhere else."
-                : 'Export your plan to a file, or import one made here or on the web version. An import replaces the plan in this account.'}
+              {words.backupText}
             </span>
           </span>
           <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -77,7 +77,7 @@ export default function DeviceDataCard() {
         </div>
         {!persistent && (
           <p className="ds-act-status ds-act-status-error" role="alert" style={{ padding: '0 16px 12px', margin: 0 }}>
-            This browser is not letting the planner save (private browsing?). Your plan will be lost when you close this tab. Export it before you leave.
+            {words.notPersistent}
           </p>
         )}
         {message && (
@@ -91,7 +91,7 @@ export default function DeviceDataCard() {
         <span className="ds-setting-text">
           <span className="ds-setting-label">{isLocalBackend ? 'Erase all data on this device' : 'Erase my plan'}</span>
           <span className="ds-setting-desc">
-            Deletes your plan, prior credits and notes from {isLocalBackend ? 'this browser' : 'this install'}, then starts onboarding again. This cannot be undone unless you exported a backup.
+            Deletes your plan, prior credits and notes from {words.where}, then starts onboarding again. This cannot be undone unless you exported a backup.
           </span>
         </span>
         {confirmErase ? (
