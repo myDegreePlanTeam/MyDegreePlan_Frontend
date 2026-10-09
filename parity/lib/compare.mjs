@@ -36,8 +36,9 @@ function onlyIn(a, b) {
   return a.filter(line => { const n = left.get(line) ?? 0; if (n > 0) { left.set(line, n - 1); return false } return true })
 }
 
-export function compareRuns(runs, { rules = [], presence = [], knownFeatures = null } = {}) {
+export function compareRuns(runs, { rules = [], presence = [], knownFeatures = null, knownIssues = [] } = {}) {
   const problems = []
+  const warnings = []   // known, registered differences: reported on every run, never failing it (see expected-differences.json)
   const [baseline, ...others] = runs
 
   // The rules themselves must point at a real, registered feature (so "expected" cannot become a dumping ground).
@@ -59,9 +60,18 @@ export function compareRuns(runs, { rules = [], presence = [], knownFeatures = n
 
   for (const run of others) {
     // Same plan, course for course, semester for semester (this is what proves local and remote storage agree).
-    const a = JSON.stringify(baseline.facts.plan)
-    const b = JSON.stringify(run.facts.plan)
-    if (a !== b) problems.push({ kind: 'plan', target: run.target, message: `the built plan differs from ${baseline.target}`, baseline: baseline.facts.plan, actual: run.facts.plan })
+    // The SET of courses in each semester must match. The ORDER within a semester is compared too, but a difference in order alone can be
+    // registered as a known issue (it is a product decision which order is right) and is then reported without failing the run.
+    const sets = plan => JSON.stringify(plan.map(sem => ({ semester: sem.semester, courses: [...sem.courses].sort() })))
+    if (sets(baseline.facts.plan) !== sets(run.facts.plan)) {
+      problems.push({ kind: 'plan', target: run.target, message: `the built plan has different courses than ${baseline.target}`, baseline: baseline.facts.plan, actual: run.facts.plan })
+    } else if (JSON.stringify(baseline.facts.plan) !== JSON.stringify(run.facts.plan)) {
+      const index = baseline.facts.plan.findIndex((sem, i) => JSON.stringify(sem) !== JSON.stringify(run.facts.plan[i]))
+      const known = knownIssues.find(issue => issue.kind === 'plan-order' && issue.platforms.includes(run.target))
+      const detail = { kind: 'plan-order', target: run.target, message: `the same courses, in a different order within a semester, than ${baseline.target} (first: ${baseline.facts.plan[index]?.semester})`, [`${baseline.target} order`]: baseline.facts.plan[index]?.courses, [`${run.target} order`]: run.facts.plan[index]?.courses }
+      if (known) warnings.push({ ...detail, why: known.why, since: known.since })
+      else problems.push(detail)
+    }
     if (baseline.facts.pdf?.pages !== run.facts.pdf?.pages) problems.push({ kind: 'pdf', target: run.target, message: `the PDF has ${run.facts.pdf?.pages} pages, ${baseline.target}'s has ${baseline.facts.pdf?.pages}` })
 
     const screens = new Set([...Object.keys(baseline.screens), ...Object.keys(run.screens)])
@@ -93,12 +103,17 @@ export function compareRuns(runs, { rules = [], presence = [], knownFeatures = n
     }
   }
 
-  return { ok: problems.length === 0, problems }
+  return { ok: problems.length === 0, problems, warnings }
 }
 
 export function formatReport(result, runs) {
-  const lines = [`# Platform parity: ${result.ok ? 'PASS' : 'FAIL'}`, '', `Platforms compared: ${runs.map(run => run.target).join(', ')} (baseline: ${runs[0].target}); screens: ${Object.keys(runs[0].screens).length}`, '']
+  const lines = [`# Platform parity: ${result.ok ? 'PASS' : 'FAIL'}${result.ok && (result.warnings ?? []).length ? ` (${result.warnings.length} known difference${result.warnings.length === 1 ? '' : 's'})` : ''}`, '', `Platforms compared: ${runs.map(run => run.target).join(', ')} (baseline: ${runs[0].target}); screens: ${Object.keys(runs[0].screens).length}`, '']
   if (result.ok) lines.push('Every platform showed the same screens, text, plan and PDF, apart from the differences registered in parity/.')
+  for (const warning of result.warnings ?? []) {
+    lines.push('', `## KNOWN DIFFERENCE (does not fail the run) - ${warning.kind} (${warning.target}), since ${warning.since ?? 'unknown'}`, '', warning.message, '', `Why it is allowed: ${warning.why}`)
+    for (const [key, value] of Object.entries(warning)) if (/ order$/.test(key) && value) lines.push('', `${key}: ${value.join(', ')}`)
+  }
+  if ((result.warnings ?? []).length) lines.push('')
   for (const problem of result.problems) {
     lines.push(`## ${problem.kind}${problem.target ? ` (${problem.target})` : ''}${problem.screen ? `: ${problem.screen}` : ''}`, '', problem.message)
     for (const [key, value] of Object.entries(problem)) {

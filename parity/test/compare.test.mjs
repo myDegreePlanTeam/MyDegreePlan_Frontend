@@ -1,7 +1,7 @@
 // Unit tests for the comparison engine (no browser). Run: node --test parity/test/
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { compareRuns, normalizeLines } from '../lib/compare.mjs'
+import { compareRuns, formatReport, normalizeLines } from '../lib/compare.mjs'
 import { platformWords } from '../../src/lib/platform.js'
 
 const pdf = { header: '%PDF-', pages: 2, bigEnough: true }
@@ -121,4 +121,40 @@ test('the real rules do NOT hide a missing issues badge (two digits are not avat
 test('the real rules do not hide a different badge count either', () => {
   const other = dockerSidebar.map(line => (line === '12' ? '9' : line))
   assert.equal(compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(other) })], realOptions).ok, false)
+})
+
+// ── known differences: a registered order-only difference is reported but does not fail; anything else still does ──
+const orderRun = (target, courses) => run(target, { plan: screen(['Plan']) }, { plan: [{ semester: 'FALL 2026', courses }, { semester: 'SPRING 2027', courses: ['CSC 1310'] }] })
+const knownOrder = [{ kind: 'plan-order', platforms: ['docker'], since: '2026-10-09', why: 'slot ids differ' }]
+
+test('the same courses in a different order fail, unless that exact difference is a registered known issue', () => {
+  const web = orderRun('web', ['ENGL1010', 'CSC1020'])
+  const docker = orderRun('docker', ['CSC1020', 'ENGL1010'])
+  const strict = compareRuns([web, docker], { rules, knownFeatures: features })
+  assert.equal(strict.ok, false)
+  assert.equal(strict.problems[0].kind, 'plan-order')
+  const known = compareRuns([web, docker], { rules, knownFeatures: features, knownIssues: knownOrder })
+  assert.equal(known.ok, true)
+  assert.equal(known.warnings.length, 1)
+  assert.equal(known.warnings[0].since, '2026-10-09')
+  assert.deepEqual(known.warnings[0]['docker order'], ['CSC1020', 'ENGL1010'])
+})
+
+test('a known order issue never excuses different courses', () => {
+  const web = orderRun('web', ['ENGL1010', 'CSC1020'])
+  const docker = orderRun('docker', ['CSC1020', 'MATH1910'])
+  const result = compareRuns([web, docker], { rules, knownFeatures: features, knownIssues: knownOrder })
+  assert.equal(result.ok, false)
+  assert.equal(result.problems[0].kind, 'plan')
+})
+
+test('a known issue is for the platforms it names only, and the report always shows it', () => {
+  const web = orderRun('web', ['ENGL1010', 'CSC1020'])
+  const desktop = orderRun('desktop', ['CSC1020', 'ENGL1010'])
+  assert.equal(compareRuns([web, desktop], { rules, knownFeatures: features, knownIssues: knownOrder }).ok, false)
+  const known = compareRuns([web, orderRun('docker', ['CSC1020', 'ENGL1010'])], { rules, knownFeatures: features, knownIssues: knownOrder })
+  const text = formatReport(known, [web, orderRun('docker', [])])
+  assert.match(text, /Platform parity: PASS \(1 known difference\)/)
+  assert.match(text, /KNOWN DIFFERENCE \(does not fail the run\)/)
+  assert.match(text, /slot ids differ/)
 })
