@@ -1,6 +1,6 @@
 // plannerCatalog.js
 //
-// Which catalog rows the planner needs for one plan. The catalog holds every Tennessee Tech course
+// Which catalog rows the planner needs for one plan. The catalog holds every course the university lists
 // (thousands), but a plan only ever looks up its own template's courses and the pools' options:
 //   - degreeBuilder reads courseMap / prereqMap / coreqMap for each slot's class_code, and walks the
 //     prerequisites of every pool option (poolDepth, poolEarliest);

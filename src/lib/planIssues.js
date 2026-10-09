@@ -14,7 +14,7 @@
 import { formatMissingForDisplay } from './poolResolver'
 
 export const FULL_TIME_MIN = 12
-// Tennessee Tech's undergraduate catalog ("Student Course Load"): the maximum load for a student in good standing is
+// The undergraduate catalog ("Student Course Load"): the maximum load for a student in good standing is
 // 20 hours; more needs the major department chair's and the dean's approval. (Probation caps it at 16, not tracked here.)
 export const HEAVY_LOAD_MAX = 20
 

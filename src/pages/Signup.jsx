@@ -51,7 +51,6 @@ export default function Signup() {
             Stay on track every semester.
           </p>
           <div className="auth-brand-rule" />
-          <p className="auth-brand-dept">Department of Computer Science</p>
         </div>
       </div>
 

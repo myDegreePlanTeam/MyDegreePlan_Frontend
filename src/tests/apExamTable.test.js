@@ -1,7 +1,6 @@
-// apTechTable.test.js
+// apExamTable.test.js
 //
-// What an AP score earns, checked against Tennessee Tech's own table (https://www.tntech.edu/admissions/freshmen/exam-credits.php,
-// read 2026-10-08). Each line is what the table prints for one exam and score: the courses and the hours. A choice
+// What an AP score earns, checked against the university's own published AP exam credit table (read 2026-10-08). Each line is what the table prints for one exam and score: the courses and the hours. A choice
 // ("PHYS 2010 or 2110") is a list of alternatives, each a list of courses. The planner stores credit as rows that add to
 // the ones below them (Biology 4 adds BIOL 1020 to a 3) or, for Calculus AB, replace them (a 4 earns MATH 1910 instead of
 // MATH 1830), so this test is what keeps the rows and the table in step: a wrong row fails here, not in a student's plan.
@@ -73,7 +72,7 @@ const TABLE = [
   ['Physics C: Electricity and Magnetism', [3, 4, 5], choice(4, ['PHYS2020'], ['PHYS2120'])],
 ]
 
-describe("AP credit against Tennessee Tech's table", () => {
+describe("AP credit against the university's table", () => {
   for (const [exam, scores, expected] of TABLE) {
     for (const score of scores) {
       it(`${exam}, score ${score}`, () => {

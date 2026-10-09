@@ -1,7 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* ── Surfaces — TTU Purple tonal ramp ── */
+  /* ── Surfaces — brand purple tonal ramp ── */
   --bg:         #15092A;
   --bg-mid:     #241541;
   --bg-light:   #3A2566;
@@ -17,7 +17,7 @@
   --white:      var(--text);
   --muted:      var(--text-muted);
 
-  /* ── Brand accent — TTU Gold ── */
+  /* ── Brand accent — gold ── */
   --gold:       #F3A51C;
   --gold-light: #F8BF54;
 
@@ -49,7 +49,7 @@
   --status-info-rgb:     163, 207, 255;
   --status-purple-rgb:   195, 133, 224;
   --status-orange-rgb:   229, 155, 92;
-  --ttu-purple-rgb:      79, 45, 127;
+  --brand-purple-rgb:      79, 45, 127;
 
   --font-display: 'DM Serif Display', serif;
   --font-mono:    'DM Mono', monospace;
@@ -63,7 +63,7 @@
   --bg-light:       #8A6FB0;  /* border      · 3.17:1 on bg ✓ (was 1.24:1) */
 
   /* ───── Text ───── */
-  --text:           #1F0F3D;  /* deep TTU-purple ink            */
+  --text:           #1F0F3D;  /* deep brand-purple ink            */
   --text-muted:     #564275;  /* muted on bg 6.49:1 ✓           */
 
   /* ───── Brand accent — gold darkened for legibility on light bg ───── */

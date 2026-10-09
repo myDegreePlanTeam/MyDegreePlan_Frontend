@@ -102,8 +102,8 @@ test('normalizeLines also hides the volatile "Last saved" time', () => {
 // issues badge ("12"), which hid a difference; these keep that from happening again.
 import fs from 'node:fs'
 const real = JSON.parse(fs.readFileSync(new URL('../expected-differences.json', import.meta.url), 'utf8'))
-const webSidebar = ['TENNESSEE TECH', 'Degree Planner', 'Plan', 'Issues', '12', 'Advisement', 'Settings', '··', 'On this device', 'Changes save automatically']
-const dockerSidebar = ['TENNESSEE TECH', 'Degree Planner', 'Plan', 'Issues', '12', 'Advisement', 'Settings', 'PA', 'parity-1@example.test', 'Changes save automatically', 'Sign out']
+const webSidebar = ['MyDegreePlan', 'Degree Planner', 'Plan', 'Issues', '12', 'Advisement', 'Settings', '··', 'On this device', 'Changes save automatically']
+const dockerSidebar = ['MyDegreePlan', 'Degree Planner', 'Plan', 'Issues', '12', 'Advisement', 'Settings', 'PA', 'parity-1@example.test', 'Changes save automatically', 'Sign out']
 const realOptions = { rules: real.rules, presence: real.presence, knownFeatures: ['accounts', 'docker-update-banner', 'desktop-update-card'] }
 
 test('the real rules accept the real sidebars: avatar initials, the account line and Sign out are the registered account difference', () => {

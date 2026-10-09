@@ -11,7 +11,7 @@
 //   Rule 2 — Scored exam types (ap_credit, test_out, ib_credit) must match
 //             a test_equivalencies row; credits must match the table value.
 //   Rule 3 — Transfer credit requires a course code that exists in the
-//             TTU catalog; credits are capped at catalog hours.
+//             catalog; credits are capped at catalog hours.
 //             Non-catalog course codes are rejected (BUG-20).
 //   Rule 4 — courseCode is required for all non-placement credit types.
 
@@ -223,13 +223,12 @@ describe('validatePriorCredit — Rule 3 (transfer_credit)', () => {
     expect(result.error).toMatch(/FAKE9999/)
   })
 
-  it('names the catalog the way the brand does: "TTU catalog" by default, "course catalog" for the neutral brand', () => {
+  it('names the catalog the way the brand does: "course catalog" by default, or whatever the install sets', () => {
     const message = () => validatePriorCredit('transfer_credit', 'FAKE9999', 3, TEST_EQ, CATALOG).error
-    expect(message()).toMatch(/Please check the TTU catalog or contact your advisor/)
-    globalThis.window = { __MDP_CONFIG__: { brand: 'neutral' } }
+    expect(message()).toMatch(/Please check the course catalog or contact your advisor/)
+    globalThis.window = { __MDP_CONFIG__: { brand: { catalogName: 'Example University catalog' } } }
     try {
-      expect(message()).toMatch(/Please check the course catalog or contact your advisor/)
-      expect(message()).not.toMatch(/TTU/)
+      expect(message()).toMatch(/Please check the Example University catalog or contact your advisor/)
     } finally {
       delete globalThis.window
     }

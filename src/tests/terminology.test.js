@@ -5,7 +5,7 @@
 //
 //   1. Words that are only true on one platform live in lib/platform.js, nowhere else.
 //   2. The Settings dialog switches among ALL degree programs (other majors too), so it never calls them "concentrations".
-//   3. The institution's name comes from lib/brand.js where a brand string exists for it.
+//   (The app names no institution anywhere: src/tests/institutionName.test.js.)
 
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -76,18 +76,5 @@ describe('Settings says "degree program", never "concentration", for the thing a
     expect(text).toContain("'Choose a degree program'")
     expect(text).toContain('Degree program</span>')
     expect(text).not.toMatch(/\bnoun\b/)
-  })
-})
-
-describe('the institution name comes from lib/brand.js', () => {
-  it('no error message hard-codes "the TTU catalog" (the neutral brand says "course catalog")', () => {
-    const hits = []
-    for (const file of sourceFiles()) {
-      if (rel(file) === 'lib/brand.js') continue
-      read(file).split(/\r?\n/).forEach((line, i) => {
-        if (!isComment(line) && /the TTU catalog/.test(line)) hits.push(`${rel(file)}:${i + 1}`)
-      })
-    }
-    expect(hits, 'use getBrand().catalogName').toEqual([])
   })
 })
