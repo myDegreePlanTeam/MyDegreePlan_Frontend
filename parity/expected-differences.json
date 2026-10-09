@@ -3,7 +3,7 @@
   "rules": [
     { "feature": "accounts", "platforms": ["docker"], "regions": ["sidebar"], "match": "^(Sign out|Signed in|\\S+@\\S+)$", "why": "Docker shows who is signed in and a Sign out button." },
     { "feature": "accounts", "platforms": ["web", "desktop"], "regions": ["sidebar"], "match": "^On this device$", "why": "Web and desktop have one implicit user, so the account line just says where the plan is." },
-    { "feature": "accounts", "platforms": ["docker"], "regions": ["sidebar"], "match": "^[A-Za-z0-9]{2}$", "why": "The avatar shows the first two letters of the signed-in email." },
+    { "feature": "accounts", "platforms": ["docker"], "regions": ["sidebar"], "match": "^[A-Za-z]{2}$", "why": "The avatar shows the first two letters of the signed-in email. Letters only: two digits are the issues badge, which must still be compared." },
     { "feature": "accounts", "platforms": ["web", "desktop"], "regions": ["sidebar"], "match": "^··$", "why": "With no email the avatar shows two dots." },
     { "feature": "accounts", "screen": "auth-signup", "platforms": ["docker"], "why": "The sign-up screen exists on Docker only." }
   ],

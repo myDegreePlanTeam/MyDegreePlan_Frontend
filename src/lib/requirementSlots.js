@@ -34,7 +34,11 @@ function genedProgramForYear(catalogYear) {
  */
 export async function fetchRequirementSlots(client, concentrationId, catalogYear, columns, order = []) {
   const apply = query => {
-    for (const { column, ascending = true } of order) query = query.order(column, { ascending })
+    // semester_number and slot_order are NULL for most template slots (the degree builder places them), so they tie across almost every
+    // row; Postgres returns ties in any order while the local engine returns insertion order, which showed a Docker student a semester's
+    // courses in a different order than the web (and could shuffle it when the seed re-ran). id, the last key, makes it the same everywhere.
+    const keys = order.some(key => key.column === 'id') ? order : [...order, { column: 'id', ascending: true }]
+    for (const { column, ascending = true } of keys) query = query.order(column, { ascending })
     return query
   }
   let cols = columns
