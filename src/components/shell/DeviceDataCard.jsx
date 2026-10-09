@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { db, isLocalBackend, platform } from '../../lib/dataClient'
+import { db, platform } from '../../lib/dataClient'
 import { platformWords } from '../../lib/platform'
 import { backupFileName, buildBackup } from '../../lib/data/backup'
 import ImportBackupButton from '../ImportBackupButton'
@@ -89,7 +89,7 @@ export default function DeviceDataCard() {
 
       <div className="ds-danger-card">
         <span className="ds-setting-text">
-          <span className="ds-setting-label">{isLocalBackend ? 'Erase all data on this device' : 'Erase my plan'}</span>
+          <span className="ds-setting-label">{words.eraseLabel}</span>
           <span className="ds-setting-desc">
             Deletes your plan, prior credits and notes from {words.where}, then starts onboarding again. This cannot be undone unless you exported a backup.
           </span>

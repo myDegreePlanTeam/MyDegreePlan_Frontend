@@ -1,0 +1,73 @@
+# Cross-platform conformance: drives the same student journey through the real UI on the web build and the Windows app (Electron) and fails
+# if they differ in a way parity/platform-branches.json and parity/expected-differences.json do not allow. The Docker install is compared in
+# the Deploy repo's "Platform parity" workflow (it needs that repo's secret and its compose file); that one runs all three.
+#
+# Runs on changes that can alter what a student sees, on a nightly schedule (the Desktop repo can change without this repo changing),
+# and by hand.
+name: Platform parity
+
+on:
+  pull_request:
+    paths: ['src/**', 'public/**', 'index.html', 'vite.config.js', 'package.json', 'package-lock.json', 'parity/**', '.github/workflows/parity.yml']
+  push:
+    branches: [main]
+    paths: ['src/**', 'public/**', 'index.html', 'vite.config.js', 'package.json', 'package-lock.json', 'parity/**', '.github/workflows/parity.yml']
+  schedule:
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+    inputs:
+      desktop_ref:
+        description: 'MyDegreePlan_Desktop branch, tag or SHA to test against'
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-desktop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with: { path: frontend }
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: myDegreePlanTeam/MyDegreePlan_Desktop
+          ref: ${{ inputs.desktop_ref || 'main' }}
+          path: desktop
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22 }
+
+      - name: Build the Frontend (the one bundle every platform runs)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install the Windows app's Electron
+        working-directory: desktop
+        run: npm ci
+
+      - name: Install the parity tooling and a browser
+        working-directory: frontend/parity
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Drive the same journey on web and desktop, and compare
+        working-directory: frontend
+        env:
+          MDP_DESKTOP_DIR: ${{ github.workspace }}/desktop
+        run: xvfb-run -a node parity/run.mjs --targets web,desktop
+
+      - name: Keep the fingerprints and the report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: parity-web-desktop
+          path: frontend/parity/out
+          if-no-files-found: ignore

@@ -1,0 +1,13 @@
+{
+  "name": "mydegreeplan-parity",
+  "private": true,
+  "type": "module",
+  "description": "Drives the same scenario through the real UI on web, the Windows app and the Docker install, and fails when they differ in a way parity/platform-branches.json and parity/expected-differences.json do not allow.",
+  "scripts": {
+    "parity": "node run.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}

@@ -21,6 +21,7 @@ const WORDS = {
   web: {
     label: 'Web',
     where: 'this browser',
+    eraseLabel: 'Erase all data on this device',
     storedMeta: 'Stored only in this browser',
     backupText: "Your plan never leaves this device, so it does not follow you to another phone or computer, and clearing this site's data deletes it. Export a copy to keep it safe or to load it somewhere else.",
     notPersistent: 'This browser is not letting the planner save (private browsing?). Your plan will be lost when you close this tab. Export it before you leave.',
@@ -31,6 +32,7 @@ const WORDS = {
   desktop: {
     label: 'Windows app',
     where: 'this computer',
+    eraseLabel: 'Erase all data on this device',
     storedMeta: 'Stored only on this computer',
     backupText: 'Your plan never leaves this computer, so it does not follow you to another one. Export a copy to keep it safe or to load it somewhere else.',
     notPersistent: 'MyDegreePlan could not save to this computer. Your plan will be lost when you close the app. Export it before you leave.',
@@ -41,6 +43,7 @@ const WORDS = {
   docker: {
     label: 'Docker install',
     where: 'this install',
+    eraseLabel: 'Erase my plan',
     storedMeta: 'Stored in this install',
     backupText: 'Export your plan to a file, or import one made here, in the web version or in the desktop app. An import replaces the plan in this account.',
     notPersistent: 'This browser is not letting the planner save. Your plan will be lost when you close this tab. Export it before you leave.',
