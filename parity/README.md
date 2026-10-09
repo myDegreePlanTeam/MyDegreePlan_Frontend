@@ -58,11 +58,9 @@ section with the reason and the date) and never fails the run, so it cannot be f
 only the kind and platforms it names: the first, `plan-order`, tolerates the same courses listed in a different order within a semester, and never excuses a
 different set of courses.
 
-**Today's entry, found by the first Docker run:** Docker lists a semester's courses in the degree-spec order (`CSC1020, CSC1300, MATH1910, ENGL1010, HIST2010`),
-while web and the Windows app list them `ENGL1010, MATH1910, CSC1020, CSC1300, HIST2010`. A semester lists its courses by `requirement_slots.id`; Docker's ids come
-from seeding the spec (spec order), while `catalog.json` keeps older ids that slots carried over from the retired hosted database. The courses are identical. The
-spec order is the department's published map, so web and desktop (and the PDF they print) are the ones that deviate. Fixing it means populating `slot_order` from
-the spec in the catalog generator, which changes what every web and desktop student sees, so it needs a decision.
+**There are none right now.** The first entry (the same courses listed in a different order on Docker than on web and desktop, because a semester listed its courses by
+slot id and the platforms' ids differ) was resolved at the source: every semester now lists its courses alphabetical by subject, then numerical by course number
+(`src/lib/slotOrder.js`), on every platform. The mechanism stays for the next real difference someone decides to live with.
 
 ## When Docker is retired
 
