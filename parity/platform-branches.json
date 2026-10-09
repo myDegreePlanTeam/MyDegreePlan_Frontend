@@ -1,0 +1,23 @@
+{
+  "_about": "Where MyDegreePlan is ALLOWED to behave differently on its three platforms (web, desktop = the Windows app, docker). Everything else must be identical, because all three run the same Frontend bundle. src/tests/platformBranches.test.js fails when a source file branches on the platform or backend without being listed here, or a listed file stops doing so. To add a branch: decide it is really needed, add it with a reason, and say which platforms differ. 'words' = only the wording differs (put it in lib/platform.js); 'feature' = a capability exists on some platforms only; 'infrastructure' = the code that detects the platform or talks to its backend.",
+  "branches": {
+    "src/lib/platform.js": { "kind": "infrastructure", "platforms": ["web", "desktop", "docker"], "why": "Decides which platform this is, and holds every platform-specific word." },
+    "src/lib/dataClient.js": { "kind": "infrastructure", "platforms": ["web", "desktop", "docker"], "why": "Picks the data backend and exports the platform." },
+    "src/lib/data/backend.js": { "kind": "infrastructure", "platforms": ["web", "desktop", "docker"], "why": "Local (IndexedDB) vs remote (Postgres) backend choice." },
+    "src/lib/data/remoteClient.js": { "kind": "infrastructure", "platforms": ["docker"], "why": "The supabase-js client for the Docker stack's API." },
+    "src/lib/brand.js": { "kind": "infrastructure", "platforms": ["docker"], "why": "Institution wording; the Docker config can override it (brand: 'neutral' for demos)." },
+    "src/components/ErrorBoundary.jsx": { "kind": "words", "platforms": ["web", "desktop", "docker"], "why": "The reload wording: the desktop app has no page to reload." },
+    "src/components/shell/DeviceDataCard.jsx": { "kind": "words", "platforms": ["web", "desktop", "docker"], "why": "Where the plan lives (browser / computer / install), and the Erase button's label." },
+    "src/components/shell/Sidebar.jsx": { "kind": "feature", "platforms": ["docker"], "why": "Accounts: the Docker install shows the signed-in email and a Sign out button; web and desktop have one implicit user ('On this device')." },
+    "src/lib/actScores.js": { "kind": "words", "platforms": ["web", "desktop", "docker"], "why": "The recovery hint after a failed reload of degree data." },
+    "src/lib/desktopUpdate.js": { "kind": "feature", "platforms": ["desktop"], "why": "Reads the Windows app's update bridge (window.mdpDesktop.updates)." },
+    "src/lib/useDesktopUpdate.js": { "kind": "feature", "platforms": ["desktop"], "why": "The hook behind the desktop update card." },
+    "src/lib/updateStatus.js": { "kind": "feature", "platforms": ["docker"], "why": "Talks to the Docker install's updater service." },
+    "src/lib/useAppUpdate.js": { "kind": "feature", "platforms": ["docker"], "why": "The hook behind the Docker update banner." }
+  },
+  "features": {
+    "accounts": { "platforms": ["docker"], "note": "Login, Signup and Sign out. On web and desktop there is one implicit user and the pages are never shown.", "files": ["src/pages/Login.jsx", "src/pages/Signup.jsx"] },
+    "docker-update-banner": { "platforms": ["docker"], "note": "Update now / required / progress banner for the Docker install.", "files": ["src/components/UpdateBanner.jsx"] },
+    "desktop-update-card": { "platforms": ["desktop"], "note": "Download / Restart now card for the Windows app (renders nothing without its bridge).", "files": ["src/components/DesktopUpdateCard.jsx"] }
+  }
+}

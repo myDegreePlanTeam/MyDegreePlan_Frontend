@@ -222,6 +222,18 @@ describe('validatePriorCredit — Rule 3 (transfer_credit)', () => {
     expect(result.valid).toBe(false)
     expect(result.error).toMatch(/FAKE9999/)
   })
+
+  it('names the catalog the way the brand does: "TTU catalog" by default, "course catalog" for the neutral brand', () => {
+    const message = () => validatePriorCredit('transfer_credit', 'FAKE9999', 3, TEST_EQ, CATALOG).error
+    expect(message()).toMatch(/Please check the TTU catalog or contact your advisor/)
+    globalThis.window = { __MDP_CONFIG__: { brand: 'neutral' } }
+    try {
+      expect(message()).toMatch(/Please check the course catalog or contact your advisor/)
+      expect(message()).not.toMatch(/TTU/)
+    } finally {
+      delete globalThis.window
+    }
+  })
 })
 
 // ── Empty / missing inputs ────────────────────────────────────────────────────
