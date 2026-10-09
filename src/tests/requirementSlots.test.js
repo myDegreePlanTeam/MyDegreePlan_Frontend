@@ -77,8 +77,19 @@ describe('fetchRequirementSlots', () => {
       { column: 'semester_number' }, { column: 'slot_order', ascending: false },
     ])
     expect(client.calls[0].order).toEqual([
-      ['semester_number', { ascending: true }], ['slot_order', { ascending: false }],
+      ['semester_number', { ascending: true }], ['slot_order', { ascending: false }], ['id', { ascending: true }],
     ])
+  })
+
+  it('always ends the ordering with id, so slots that tie come back in the same order on every backend', async () => {
+    // Real data: semester_number and slot_order are NULL for most slots, so they tie; found when the Docker install (Postgres) listed a
+    // semester's courses in a different order than the web (the local engine keeps insertion order).
+    const noOrder = fakeClient(byYear)
+    await fetchRequirementSlots(noOrder, 1, '2026-2027', 'id')
+    expect(noOrder.calls[0].order).toEqual([['id', { ascending: true }]])
+    const explicit = fakeClient(byYear)
+    await fetchRequirementSlots(explicit, 1, '2026-2027', 'id', [{ column: 'id', ascending: false }])
+    expect(explicit.calls[0].order).toEqual([['id', { ascending: false }]])   // an explicit id order is respected, not doubled
   })
 
   it('returns an ordinary error as it is, without retrying', async () => {
@@ -120,7 +131,7 @@ describe('a database that has not gained catalog_year yet', () => {
     expect(r.error).toBeNull()
     const last = client.calls.at(-1)
     expect(last.filters).toEqual({ concentration_id: 4 })
-    expect(last.order).toEqual([['semester_number', { ascending: true }]])
+    expect(last.order).toEqual([['semester_number', { ascending: true }], ['id', { ascending: true }]])
   })
 
   it('recognises the missing-column error', () => {

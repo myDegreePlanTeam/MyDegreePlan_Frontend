@@ -97,3 +97,28 @@ test('a target that is not the platform it claims fails (a mis-launched desktop 
 test('normalizeLines also hides the volatile "Last saved" time', () => {
   assert.deepEqual(normalizeLines(['Last saved 2:45 PM'], 'web'), ['Last saved {{time}}'])
 })
+
+// The real rules, against sidebars shaped like the real ones. A rule written for the avatar initials once also matched the two-digit
+// issues badge ("12"), which hid a difference; these keep that from happening again.
+import fs from 'node:fs'
+const real = JSON.parse(fs.readFileSync(new URL('../expected-differences.json', import.meta.url), 'utf8'))
+const webSidebar = ['TENNESSEE TECH', 'Degree Planner', 'Plan', 'Issues', '12', 'Advisement', 'Settings', '··', 'On this device', 'Changes save automatically']
+const dockerSidebar = ['TENNESSEE TECH', 'Degree Planner', 'Plan', 'Issues', '12', 'Advisement', 'Settings', 'PA', 'parity-1@example.test', 'Changes save automatically', 'Sign out']
+const realOptions = { rules: real.rules, presence: real.presence, knownFeatures: ['accounts', 'docker-update-banner', 'desktop-update-card'] }
+
+test('the real rules accept the real sidebars: avatar initials, the account line and Sign out are the registered account difference', () => {
+  const result = compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(dockerSidebar) })], realOptions)
+  assert.deepEqual(result.problems, [])
+})
+
+test('the real rules do NOT hide a missing issues badge (two digits are not avatar initials)', () => {
+  const noBadge = dockerSidebar.filter(line => line !== '12')
+  const result = compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(noBadge) })], realOptions)
+  assert.equal(result.ok, false)
+  assert.ok(result.problems.some(problem => problem.kind === 'text' && problem['only on web']?.includes('12')))
+})
+
+test('the real rules do not hide a different badge count either', () => {
+  const other = dockerSidebar.map(line => (line === '12' ? '9' : line))
+  assert.equal(compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(other) })], realOptions).ok, false)
+})
