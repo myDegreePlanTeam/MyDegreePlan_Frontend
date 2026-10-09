@@ -8,7 +8,7 @@
 //
 // Inside the quoted region, double quotes and backslashes must be removed
 // or escaped. We strip them — the loss of fidelity is acceptable for a
-// course-name search (no real TTU course code or name contains a literal
+// course-name search (no real course code or name contains a literal
 // double quote or backslash).
 //
 // Use:

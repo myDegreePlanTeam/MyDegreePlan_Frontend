@@ -35,7 +35,7 @@ export default function Onboarding({ profileId, onComplete }) {
   const [selectedCode, setSelectedCode]   = useState(null)
   const [startSeason, setStartSeason]     = useState('')
   const [startYear, setStartYear]         = useState('')
-  // Not asked: the first semester at Tennessee Tech decides the curriculum (catalogYears.js, curriculumTypeForTerm).
+  // Not asked: the first semester decides the curriculum (catalogYears.js, curriculumTypeForTerm).
   const studentType = curriculumTypeForTerm(startSeason, startYear)
   const [actScores, setActScores]         = useState({ math: '', english: '', science: '', reading: '', composite: '', satMath: '' })
   const [actErrors, setActErrors]         = useState({})
@@ -396,7 +396,7 @@ export default function Onboarding({ profileId, onComplete }) {
   }
   const STEP_SUBS = {
     1: 'Pick your college, major and concentration. This determines your required courses and recommended plan.',
-    2: 'Pick the semester you first started, or will start, at Tennessee Tech. It picks the catalog year your degree plan follows.',
+    2: 'Pick the semester you first started, or will start, this degree program. It picks the catalog year your degree plan follows.',
     3: 'Enter the scores you have and leave the rest blank. Your ACT or SAT Math score sets where your math starts; with neither, it starts in MATH 1000.',
     4: 'Based on your math placement, here are the courses in your math sequence.',
     5: "We'll use these to pre-fill your plan and skip false prereq warnings.",
@@ -454,10 +454,10 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 2: first semester at Tennessee Tech, for the chosen program ── */}
+        {/* ── Step 2: first semester, for the chosen program ── */}
         {step === 2 && (
           <div className="onboarding-body">
-            <p className="onboarding-toggle-prompt">Your first semester at Tennessee Tech</p>
+            <p className="onboarding-toggle-prompt">Your first semester in this program</p>
 
             {notes.map((note, i) => (
               <p key={i} className="program-note">

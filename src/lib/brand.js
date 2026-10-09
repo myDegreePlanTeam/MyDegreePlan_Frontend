@@ -1,30 +1,19 @@
-// Institution wording shown around the app (login/signup panel, sidebar, email placeholder).
+// The wording shown around the app (login/signup panel, sidebar, email placeholder, the catalog's name in a message).
 //
-// Defaults are what the hosted app and normal installs show. The Docker build's /config.js
-// can override them through `window.__MDP_CONFIG__.brand`:
-//   brand: 'neutral'                        -> no institution named anywhere (used for public demo captures)
-//   brand: { authEyebrow: '...', ... }      -> override individual strings
-// Nothing sets `brand` in a normal install, so users never see a difference.
+// The product is MyDegreePlan and it names no institution. These defaults are what every platform shows. An install that wants its own
+// wording (a Docker install, say) can override individual strings through its /config.js: `window.__MDP_CONFIG__.brand = { authEyebrow: '...' }`.
+// Anything that is not an object (including the old preset name 'neutral', which is now simply the default) leaves the defaults alone.
 
 export const DEFAULT_BRAND = {
-  authEyebrow: 'Tennessee Tech University',
-  shellEyebrow: 'Tennessee Tech',
-  emailPlaceholder: 'you@tntech.edu',
-  welcomeEyebrow: 'Welcome to TTU Degree Planner',
-  catalogName: 'TTU catalog',
-}
-
-export const NEUTRAL_BRAND = {
-  authEyebrow: 'Computer Science',
-  shellEyebrow: 'Computer Science',
+  authEyebrow: 'MyDegreePlan',
+  shellEyebrow: 'MyDegreePlan',
   emailPlaceholder: 'you@university.edu',
-  welcomeEyebrow: 'Welcome to Degree Planner',
+  welcomeEyebrow: 'Welcome to MyDegreePlan',
   catalogName: 'course catalog',
 }
 
 export function getBrand(win = typeof window !== 'undefined' ? window : undefined) {
   const requested = win?.__MDP_CONFIG__?.brand
-  if (requested === 'neutral') return NEUTRAL_BRAND
   if (requested && typeof requested === 'object') {
     const merged = { ...DEFAULT_BRAND }
     for (const key of Object.keys(DEFAULT_BRAND)) {

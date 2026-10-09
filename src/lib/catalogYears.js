@@ -125,7 +125,7 @@ export function termAvailable(program, plans, season, year) {
 }
 
 /**
- * The start terms a student can choose as their first semester at Tennessee Tech, as [{ year, seasons }] in year order. With
+ * The start terms a student can choose as their first semester, as [{ year, seasons }] in year order. With
  * a program, only the terms in which that program has a plan (a program whose first plan is 2026-2027 has none before
  * Fall 2026; the start-term step says so, see termNotes in programBrowser.js). Without one: every term in range.
  */

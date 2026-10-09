@@ -536,7 +536,7 @@ export default function PriorCreditWizard({
               {optionKeys.length > 1 && (
                 <fieldset className="wizard-options">
                   <legend className="wizard-options-legend">
-                    Tech lists these as separate courses for the same credit. Which one will you take credit for?
+                    The catalog lists these as separate courses for the same credit. Which one will you take credit for?
                   </legend>
                   {optionKeys.map(key => {
                     const mine = awards.filter(a => a.option_key === key)
@@ -560,7 +560,7 @@ export default function PriorCreditWizard({
                     {chosenOption == null && planChoice?.reason === 'required' && 'Selected because your degree plan requires it. '}
                     {chosenOption == null && planChoice?.reason === 'pool' && 'Selected because it fills a requirement in your degree plan. '}
                     {chosenOption == null && !planChoice && 'Your degree plan accepts either, so the choice is yours. '}
-                    You can change it before you apply. Not sure? Ask the Tennessee Tech Admissions Office (admissions@tntech.edu).
+                    You can change it before you apply. Not sure? Ask your university's admissions office.
                   </p>
                 </fieldset>
               )}

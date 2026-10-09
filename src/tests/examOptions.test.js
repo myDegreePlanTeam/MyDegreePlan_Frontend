@@ -5,7 +5,7 @@ import { optionKeysOf, awardsForOption, chooseOption } from '../lib/examOptions'
 const rows = catalog.tables.test_equivalencies
 const exam = (test_name, maxScore = 9) => rows.filter(r => r.test_name === test_name && r.test_type === 'ap_credit' && r.min_score <= maxScore)
 
-describe('the AP rows that are one of several courses (Tennessee Tech\'s exam credit table)', () => {
+describe('the AP rows that are one of several courses (the university\'s exam credit table)', () => {
   it('Physics C: Mechanics is PHYS 2010 or PHYS 2110, 4 hours either way', () => {
     const r = exam('Physics C: Mechanics')
     expect(r.map(x => [x.awarded_course_code, x.option_key, x.credits_awarded])).toEqual([

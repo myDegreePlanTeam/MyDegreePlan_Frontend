@@ -6,7 +6,7 @@
 //   AP → IB → ACT (placement + credit) → CLEP → Transfer → Cambridge → Other
 //
 // Rationale: students expect to see exam-based credit first (AP is by far
-// the most common at TTU), transfer coursework together toward the end,
+// the most common), transfer coursework together toward the end,
 // and any unrecognized credit_type still rendered rather than dropped.
 //
 // Pure function — no Supabase calls, no side effects.

@@ -195,7 +195,7 @@ describe('committed catalog.json', () => {
       if (!s.is_pool) expect(courseCodes.has(s.class_code), s.class_code).toBe(true)
     }
   })
-  it('carries the full Tennessee Tech catalog, not just the planner courses', () => {
+  it('carries the full university catalog, not just the planner courses', () => {
     expect(t.courses.length).toBeGreaterThan(5000)
     const subjects = new Set(t.courses.map(c => c.subject_code))
     for (const s of ['CSC', 'MATH', 'AI', 'BIOL', 'NURS', 'MUS']) expect(subjects.has(s), s).toBe(true)

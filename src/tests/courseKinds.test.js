@@ -13,7 +13,7 @@ describe('courseKind', () => {
   it('5000 and up are graduate', () => {
     for (const c of ['CSC5240', 'MATH7010', 'NURS6320']) expect(courseKind(c)).toBe('graduate')
   })
-  it('anything that is not a TTU course number is a placeholder', () => {
+  it('anything that is not a course number is a placeholder', () => {
     for (const c of ['AIELEC', 'ACCTELEC', 'CIS186', 'EDU201', 'COL101', '', null, undefined]) expect(courseKind(c)).toBe('placeholder')
   })
   it('counts each kind', () => {

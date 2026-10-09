@@ -1,7 +1,7 @@
 // mathPlacement.js
 //
 // Which math course a student starts in, from an ACT Math subscore or an SAT Math score. This is the one
-// copy of Tennessee Tech's placement table; actScoreResolver.js, degreeBuilder.js, the prerequisite hint and
+// copy of the university's placement table; actScoreResolver.js, degreeBuilder.js, the prerequisite hint and
 // the Settings card all read it. (MyDegreePlan_Prototype/math_sequences.json repeats the ACT tiers for the
 // seed side: keep the two in step.)
 //

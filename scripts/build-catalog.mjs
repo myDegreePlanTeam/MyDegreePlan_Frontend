@@ -6,7 +6,7 @@
 // Mirrors seed.js (see catalogLib.mjs). It differs in two ways. Ids are assigned here instead of by
 // Postgres: slot ids are kept stable by running the previous catalog.json through the same
 // planSlotSync seed.js uses, so a plan stored in a student's browser keeps pointing at the right
-// slot after the catalog is regenerated. And the full catalog (every Tennessee Tech course, about
+// slot after the catalog is regenerated. And the full catalog (every course the university lists, about
 // 6,000) is split so a first load stays small: catalog.json carries every course's name and hours
 // plus the descriptions of the courses a plan can name, and catalog.descriptions.json holds the
 // rest, fetched on first need (see localClient.js).

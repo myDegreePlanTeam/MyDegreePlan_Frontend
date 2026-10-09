@@ -2842,7 +2842,7 @@
 
 .math-chain-arrow {
   font-size: 18px;
-  color: var(--ttu-purple, #4F2984);
+  color: var(--brand-purple, #4F2984);
   padding: 0 8px;
   flex-shrink: 0;
   align-self: center;
@@ -2850,7 +2850,7 @@
 
 .math-chain-node {
   background: #fff;
-  border: 2px solid var(--ttu-purple, #4F2984);
+  border: 2px solid var(--brand-purple, #4F2984);
   border-radius: 10px;
   padding: 10px 14px;
   text-align: center;
@@ -2861,7 +2861,7 @@
 .math-chain-code {
   font-size: 11px;
   font-weight: 700;
-  color: var(--ttu-purple, #4F2984);
+  color: var(--brand-purple, #4F2984);
   letter-spacing: 0.03em;
   margin-bottom: 4px;
 }

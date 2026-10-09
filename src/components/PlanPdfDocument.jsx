@@ -29,7 +29,7 @@ import { formatCourseCode } from '../lib/planExportModel'
 const PAGE_MARGIN   = 36
 const CONTENT_WIDTH = 612 - PAGE_MARGIN * 2
 
-// TTU brand colours, as the degree-map template uses them: purple column
+// Brand colours, as the degree-map template uses them: purple column
 // header rows with white text, gold year bands.
 const PURPLE = '#4F2984'
 const GOLD   = '#FFDD00'
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     fontSize:   9,
     width:      58,
   },
-  // A fill-in line: the app doesn't store the student's name or T-Number,
+  // A fill-in line: the app doesn't store the student's name or student ID,
   // so they are written in by hand.
   blankLine: {
     flex:              1,
@@ -460,7 +460,7 @@ export default function PlanPdfDocument({ model }) {
               <View style={styles.blankLine} />
             </View>
             <View style={styles.identityLine}>
-              <Text style={styles.identityLabel}>T-Number:</Text>
+              <Text style={styles.identityLabel}>Student ID:</Text>
               <View style={styles.blankLine} />
             </View>
           </View>

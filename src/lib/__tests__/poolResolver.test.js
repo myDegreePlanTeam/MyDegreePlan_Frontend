@@ -289,7 +289,7 @@ describe('resolveScience', () => {
 //
 // Surfaces "incomplete" warnings on an empty SCIENCE slot when the partner
 // slot is filled, and "conflict" warnings on both filled slots when the pair
-// is not a valid TTU sequence. BUG-10 (label-equality vs sequence-membership)
+// is not a valid sequence. BUG-10 (label-equality vs sequence-membership)
 // regression coverage lives here: BIOL1123 + BIOL2310 share the 'Biology'
 // label but are NOT a valid pair, so they must produce a conflict warning.
 

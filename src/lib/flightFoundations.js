@@ -1,14 +1,11 @@
 // flightFoundations.js
 //
-// Tennessee Tech's "Flight Foundations" general education program — the baseline
+// The "Flight Foundations" general education program — the baseline
 // every major on campus follows for entering students from Fall 2026 on.
 // Pure functions only: no Supabase calls, no React, no side effects.
 //
-// Sources (all three agree, apart from the notes flagged below):
-//   https://undergrad.catalog.tntech.edu/ugrequirements/requirements  (hours, rules)
-//   https://undergrad.catalog.tntech.edu/ugrequirements/gened         (course lists)
-//   https://www.tntech.edu/strategic/flight-foundations.php           (language cap, SLOs)
-//   https://www.tntech.edu/strategic/flight-foundations-courses.php   (course lists)
+// Sources (all agree, apart from the notes flagged below): the university's undergraduate catalog (hours, rules and course lists) and
+// the program's own pages (language cap, learning outcomes, course lists). The exact pages are listed in docs/claude/plans/PLAN_flight-foundations.md.
 //
 // Program shape: 41 hours = 37 fixed by category + 4 flexible.  The 4 flex hours
 // may only be spent inside the three ranged categories (Humanities, Scientific
@@ -19,7 +16,7 @@
 // Data notes (course eligibility is on the published pages only — Coursedog has no
 // gen-ed attribute on course records, and its internal FF course sets lag the
 // pages):
-//   - POLS1100 appears on the tntech.edu list but not the catalog gen-ed page.
+//   - POLS1100 appears on the program's own course list but not the catalog gen-ed page.
 //     It is an active 3-hr course, so it is included.
 //   - PHYS2110/PHYS2120 list 4 hrs on the pages but 5 in the catalog; MUS2080
 //     lists 3 hrs on the pages but 2 in the catalog; DLED2000 is a 1–3 hr variable

@@ -37,7 +37,6 @@ export default function Login() {
             Plan your path. Track your progress.<br />Graduate with confidence.
           </p>
           <div className="auth-brand-rule" />
-          <p className="auth-brand-dept">Department of Computer Science</p>
         </div>
       </div>
 
