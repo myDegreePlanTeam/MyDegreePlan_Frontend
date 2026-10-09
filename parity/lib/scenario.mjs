@@ -19,7 +19,19 @@ export async function runScenario(target, { log = () => {} } = {}) {
   const facts = {}
 
   const readLines = selector => page.evaluate(`(${READ_LINES})(${JSON.stringify(selector)})`)
+
+  // Wait until the app has finished loading what it shows. Web and desktop read their data from the same machine and are done at
+  // once; the Docker install fetches it over the network, and a screen read too early is its loading skeleton (an empty plan, no
+  // account block, "?" where a course name goes). So: the network is quiet and no loading placeholder or "Loading..." text is left.
+  async function settle() {
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.locator('.sk-pulse').first().waitFor({ state: 'detached', timeout: STEP_TIMEOUT }).catch(() => {})
+    await page.getByText(/^Loading/).first().waitFor({ state: 'detached', timeout: STEP_TIMEOUT }).catch(() => {})
+    await page.waitForTimeout(300)
+  }
+
   async function grab(name, extra = {}) {
+    await settle()
     // The shell (sidebar + main) exists once a plan is built; before that (onboarding, sign-in) the whole page is the screen.
     const hasShell = await page.locator('.ds-sidebar').count()
     screens[name] = {
@@ -83,6 +95,8 @@ export async function runScenario(target, { log = () => {} } = {}) {
 
   // ── The plan ──
   await page.waitForSelector('.ds-sem', { timeout: 60_000 })
+  // `.ds-sem` also matches the loading skeleton's placeholders: the real plan is there once its heading is.
+  await page.getByText('Four-Year Plan').first().waitFor({ timeout: 60_000 })
   await grab('plan')
   facts.plan = await page.evaluate(() => [...document.querySelectorAll('.ds-sem')].map(el => {
     const lines = el.innerText.split('\n').map(s => s.trim()).filter(Boolean)
