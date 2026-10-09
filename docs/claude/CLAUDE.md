@@ -370,6 +370,14 @@ that section before changing the module. Rules that must hold even if you do not
   `MDP/` or one repo folder, and its message names the folder.
 - **No `git stash` in a verification chain.** A stray `git stash` in a test command moved staged work out of the tree, and
   the Frontend checkout can hold another session's stash. Verify without stashing: a clean checkout or a `git worktree`.
+- **Staging, PR numbers, workflow files.** Never pipe `git add` through `grep` or `tail`: the pipe hides a failed add (a stale pathspec made it abort, the
+  chain went on, and the commit held only a rename on 2026-10-09). Run `git show --stat HEAD` before pushing a commit. Use the PR number `open_pr.sh` printed, or leave it
+  out: `finish_pr.sh REPO` merges the PR of the branch the repo is on (a number guessed from memory acted on an unrelated PR). Check a GitHub Actions file with
+  `node local-deploy/tools/yaml_check.mjs FILE...` before pushing it (an unquoted `: ` in a step name or a one-line `run:` fails only after the push), and read
+  a run with `release_status.sh --repo OWNER/NAME --workflow FILE [--wait]` instead of a hand-written `gh run view` loop. A change to `parity/` is tried on the Docker
+  leg from its branch before it is merged (`parity/README.md`).
+- **The installed app's profile is not a test fixture.** `%APPDATA%\MyDegreePlan` holds a real plan; a cleanup there once deleted files of it. Launch the
+  desktop app for a test only with `--user-data-dir=<new temp folder>` and delete only that folder. `guard_bash.mjs` blocks a delete that names the live folder.
 - **Line endings.** With `core.autocrlf` the working copies are CRLF while the index is LF, and a grep for a carriage return
   can report 0 on a CRLF file. Check with `git ls-files --eol <file>` (`i/lf w/crlf`), and edit through `multi_replace.py`, which keeps CRLF.
 - **Cross-repo PR references.** Open the PR that another PR will cite first (`open_pr.sh` prints its URL), then quote that

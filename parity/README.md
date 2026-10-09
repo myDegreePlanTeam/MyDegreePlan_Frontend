@@ -39,6 +39,16 @@ Every launch uses its own throwaway profile; the Docker leg is never started by 
 stack of your own, or let the Deploy repo's "Platform parity" workflow do it). Exit code 0 = in sync, 1 = they differ, 2 = the run could not finish.
 The report is in `parity/out/report.md`; `parity/out/<platform>.json` hold each platform's fingerprints, and a failed step leaves `<platform>-failure.png`.
 
+**Test a change to the scenario, the comparison or the registries on the Docker leg before merging it.** The Docker leg exists only on GitHub, so a green web+desktop run
+proves nothing about it. The Deploy workflow builds the Frontend ref you give it, so a branch can be tried first (about 8 minutes):
+
+```bash
+gh workflow run parity.yml --repo myDegreePlanTeam/MyDegreePlan_Deploy -f frontend_ref=<your-branch>
+bash local-deploy/tools/release_status.sh --repo myDegreePlanTeam/MyDegreePlan_Deploy --workflow parity.yml --artifact parity-all-platforms --wait
+```
+
+(Run the second line in the background.) Three fixes to this system were merged first and tested after, and each cost a PR round trip and an eight-minute run.
+
 ## How it was checked
 
 The cross-platform run was pointed at the Frontend as it was before the wording fix: it failed on the desktop app saying "this browser", "another phone" and
