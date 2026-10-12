@@ -446,4 +446,11 @@ Real term labels on the semester cards ("Fall 2026") and the fall-only / spring-
 ### `src/lib/usePlanCompleteness.js`
 
 React hook that computes plan completeness metrics (total slots, filled slots, credits earned vs.
-required). Nothing outside its tests calls it yet: no component renders a completeness panel (see the Gen-ed entry in `ROADMAP.md`).
+required). Nothing outside its tests calls it, and it does not shape per-category rows: the gen-ed progress panel is built by `lib/genEdPanel.js`.
+
+### `src/lib/genEdPanel.js`
+
+`buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived })` is the model behind the progress panel in the
+Requirements tab (`components/shell/RequirementsView.jsx` and `GenEdProgress.jsx`, rendered by `DegreePlan.jsx`). It picks `getFlightFoundationsStatus` for a `flight_foundations`
+profile and `getGenEdStatus` otherwise, and returns one shape (`rows` of `earned` / `min` / `max` / `state`, plus the totals), or `null` when the plan has
+no `GEN_ED` / `FF_*` pool slot. It does no counting of its own: a change to how hours count goes in the two evaluators, and the panel follows.

@@ -84,8 +84,6 @@ Also a change history and a timeline of completed semesters. Let students snapsh
 Flight Foundations (Tennessee Tech's gen-ed program, entering Fall 2026+) is implemented in
 `flightFoundations.js`: eight requirement areas, the 4 shared flex hours, the introductory-language
 cap, and per-plan evaluation, used by the FF pools and the slot modal. Still open:
-- A dashboard panel for the 41-hour summary. The evaluator and `getFlightFoundationsStatus` exist, and `usePlanCompleteness` already shapes
-  their rows for a panel, but nothing outside its tests calls that hook and no component renders a completeness panel.
 - Per-major rules on top of the baseline: the American History exemption (Chemical, Civil,
   Computer, Electrical, General and Mechanical Engineering), other majors' category restrictions,
   and the minimum-grade rules (C or better in ENGL 1010 before ENGL 1020).
@@ -134,7 +132,7 @@ approval workflow (advisor sign-off, audit trail, exemption tokens) is
 deferred — this is the visible-cue version only.
 
 ### Grid redesign: what is left
-The desktop app shell (Plan / Issues / Advisement / Settings tabs), paired semester cards and a drag-conflict modal shipped in September; the
+The desktop app shell (Plan / Requirements / Issues / Advisement / Settings tabs), paired semester cards and a drag-conflict modal shipped in September; the
 original redesign list was not re-checked against them. From it: a tab structure with a read-only Plan beside a What-If grid; mobile tap-to-move and
 a bottom drawer for Prior Coursework; a persistent right sidebar for Prior Coursework on desktop; a hard block on an invalid drag with an override
 dialog and a persistent flag; dashed, italic placeholders for pool slots; purple for progress and gold for prerequisite warnings only. Reference: the

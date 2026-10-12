@@ -30,6 +30,8 @@ import PriorCreditWizard from './PriorCreditWizard'
 import ExportPlanButton from './ExportPlanButton'
 import PlanPdfPreview from './PlanPdfPreview'
 import Sidebar from './shell/Sidebar'
+import RequirementsView from './shell/RequirementsView'
+import { buildGenEdPanel } from '../lib/genEdPanel'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
 import SettingsView, { ConcentrationModal, ResetModal } from './shell/SettingsView'
@@ -549,6 +551,14 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
     return out
   }, [activeSlots, planSlots, courses, freeAddSlots])
+
+  // ── General-education progress (Requirements view) ────────────────
+  const genEdPanel = useMemo(
+    () => buildGenEdPanel({
+      genedProgram: profile.gened_program, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived,
+    }),
+    [profile.gened_program, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived],
+  )
 
   // ── Pool limits (the Area of Emphasis hours, for Mechanical Engineering) ──
   const poolLimitWarnings = useMemo(
@@ -1748,6 +1758,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
               </DndContext>
             </div>
           </div>
+        )}
+
+        {view === 'requirements' && (
+          <RequirementsView panel={genEdPanel} />
         )}
 
         {view === 'issues' && (
