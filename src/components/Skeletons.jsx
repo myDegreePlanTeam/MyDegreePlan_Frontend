@@ -57,6 +57,7 @@ export function OnboardingSkeleton() {
 // Same order and labels as TABS in shell/Sidebar.jsx (not exported from there).
 const SKELETON_TABS = [
   { label: 'Plan',       icon: '▤', active: true },
+  { label: 'Requirements', icon: '☑' },
   { label: 'Issues',     icon: '⚠' },
   { label: 'Advisement', icon: '◇' },
   { label: 'Settings',   icon: '◎' },

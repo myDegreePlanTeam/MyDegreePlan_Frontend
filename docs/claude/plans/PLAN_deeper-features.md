@@ -24,7 +24,7 @@ slot picker. Phase 1 renders them as a student-facing summary.
 
 - `src/lib/genEdPanel.js`: a pure `buildGenEdPanel(...)` that picks the evaluator by the profile's `gened_program` and returns one
   shape for both programs (rows with hours earned, the required range, and a state), or `null` when the plan has no gen-ed slots.
-- `src/components/shell/GenEdProgress.jsx`: the panel, shown in the Issues view below the issue list.
+- `src/components/shell/GenEdProgress.jsx`: the panel, on its own Requirements tab (`shell/RequirementsView.jsx`; the sidebar and the loading skeleton list it between Plan and Issues).
 - Tests in `src/tests/genEdPanel.test.js`.
 - **Not in Phase 1** (each needs a catalog check or a department answer, so ask first): the American History exemption for engineering
   majors, other majors' category restrictions, the C-or-better rule for ENGL 1010 before ENGL 1020.

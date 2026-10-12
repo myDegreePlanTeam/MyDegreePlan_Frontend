@@ -30,7 +30,7 @@ import PriorCreditWizard from './PriorCreditWizard'
 import ExportPlanButton from './ExportPlanButton'
 import PlanPdfPreview from './PlanPdfPreview'
 import Sidebar from './shell/Sidebar'
-import GenEdProgress from './shell/GenEdProgress'
+import RequirementsView from './shell/RequirementsView'
 import { buildGenEdPanel } from '../lib/genEdPanel'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
@@ -552,7 +552,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return out
   }, [activeSlots, planSlots, courses, freeAddSlots])
 
-  // ── General-education progress (Issues view) ──────────────────────
+  // ── General-education progress (Requirements view) ────────────────
   const genEdPanel = useMemo(
     () => buildGenEdPanel({
       genedProgram: profile.gened_program, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived,
@@ -1760,8 +1760,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
           </div>
         )}
 
+        {view === 'requirements' && (
+          <RequirementsView panel={genEdPanel} />
+        )}
+
         {view === 'issues' && (
-          <IssuesView issues={issues} onOpenIssue={openIssue} progress={<GenEdProgress panel={genEdPanel} />} />
+          <IssuesView issues={issues} onOpenIssue={openIssue} />
         )}
 
         {view === 'advising' && (

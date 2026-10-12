@@ -451,6 +451,6 @@ required). Nothing outside its tests calls it, and it does not shape per-categor
 ### `src/lib/genEdPanel.js`
 
 `buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived })` is the model behind the progress panel in the
-Issues view (`components/shell/GenEdProgress.jsx`, rendered by `DegreePlan.jsx`). It picks `getFlightFoundationsStatus` for a `flight_foundations`
+Requirements tab (`components/shell/RequirementsView.jsx` and `GenEdProgress.jsx`, rendered by `DegreePlan.jsx`). It picks `getFlightFoundationsStatus` for a `flight_foundations`
 profile and `getGenEdStatus` otherwise, and returns one shape (`rows` of `earned` / `min` / `max` / `state`, plus the totals), or `null` when the plan has
 no `GEN_ED` / `FF_*` pool slot. It does no counting of its own: a change to how hours count goes in the two evaluators, and the panel follows.

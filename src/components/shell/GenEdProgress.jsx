@@ -31,7 +31,6 @@ export default function GenEdProgress({ panel }) {
   if (!panel) return null
   return (
     <section className="ds-gened" aria-labelledby="ds-gened-title">
-      <p className="ds-eyebrow">Requirements</p>
       <h3 className="ds-h3" id="ds-gened-title">{panel.title}: {panel.earned} of {panel.required} hours</h3>
       <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
         {panel.satisfied

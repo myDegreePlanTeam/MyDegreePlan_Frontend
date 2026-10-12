@@ -4,6 +4,7 @@ import { getBrand } from '../../lib/brand'
 
 const TABS = [
   { id: 'plan',     label: 'Plan',       icon: '▤' },
+  { id: 'requirements', label: 'Requirements', icon: '☑' },
   { id: 'issues',   label: 'Issues',     icon: '⚠' },
   { id: 'advising', label: 'Advisement', icon: '◇' },
   { id: 'settings', label: 'Settings',   icon: '◎' },

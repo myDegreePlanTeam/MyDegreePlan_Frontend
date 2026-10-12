@@ -132,7 +132,7 @@ approval workflow (advisor sign-off, audit trail, exemption tokens) is
 deferred — this is the visible-cue version only.
 
 ### Grid redesign: what is left
-The desktop app shell (Plan / Issues / Advisement / Settings tabs), paired semester cards and a drag-conflict modal shipped in September; the
+The desktop app shell (Plan / Requirements / Issues / Advisement / Settings tabs), paired semester cards and a drag-conflict modal shipped in September; the
 original redesign list was not re-checked against them. From it: a tab structure with a read-only Plan beside a What-If grid; mobile tap-to-move and
 a bottom drawer for Prior Coursework; a persistent right sidebar for Prior Coursework on desktop; a hard block on an invalid drag with an override
 dialog and a persistent flag; dashed, italic placeholders for pool slots; purple for progress and gold for prerequisite warnings only. Reference: the

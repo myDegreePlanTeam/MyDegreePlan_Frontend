@@ -1,6 +1,6 @@
 // genEdPanel.js
 //
-// The model behind the general-education progress panel (Issues view). Pure: it picks the
+// The model behind the general-education progress panel (Requirements tab). Pure: it picks the
 // evaluator for the student's gen-ed program and returns one shape for both programs, so the
 // component renders rows and does no arithmetic.
 //

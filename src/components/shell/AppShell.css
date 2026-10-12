@@ -709,8 +709,9 @@ button.ds-setting:hover { background: var(--ds-hover); }
   .ds-act-note { display: none; }
 }
 
-/* ── General-education progress (Issues view) ────────────────────────── */
-.ds-gened { margin-top: 40px; }
+/* ── General-education progress (Requirements view) ────────────────────────── */
+.ds-gened { margin-top: 20px; }
+.ds-requirements { max-width: 900px; }
 .ds-h3 {
   margin: 0 0 6px;
   font-family: var(--font-display);
