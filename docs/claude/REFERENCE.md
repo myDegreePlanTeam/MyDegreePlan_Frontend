@@ -448,9 +448,21 @@ Real term labels on the semester cards ("Fall 2026") and the fall-only / spring-
 React hook that computes plan completeness metrics (total slots, filled slots, credits earned vs.
 required). Nothing outside its tests calls it, and it does not shape per-category rows: the gen-ed progress panel is built by `lib/genEdPanel.js`.
 
+### `src/lib/degreeAudit.js`
+
+`buildDegreeAudit({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, totalHours, semesterLabels, semesterPhase, genedProgram })`
+is the model behind the Requirements tab (`components/shell/RequirementsView.jsx`, rendered by `DegreePlan.jsx`): `{ summary, blocks }`. Every slot is a row in
+one of four blocks derived from its type (`required` = fixed courses, `gened` = the `GEN_ED` / `FF_*` pools, `choices` = other pools, `free` = Free Elective
+hours), in one of four states read from the calendar (`done`, `in_progress`, `planned`, `not_placed`). A fixed slot is `required`; a pool slot is a choice
+("Choose 1 of N"). A slot archived by prior credit is `done` and off the grid (`semNum` null, so the row does not open the plan); `not_applicable` slots are
+left out. A row's `key` is what the plan view selects (the slot id, or `rem_<id>` for a Free Elective's open hours); `DegreePlan` passes it to `openIssue`.
+`summary` uses `computePlanCredits`' counting rules over the slots still on the grid, so its `done` equals the plan header's `splitCreditsByPhase(...).completed`
+(a test pins this); in-progress hours are split out, which the header counts as planned. The `gened` block carries the category panel from `buildGenEdPanel`.
+Blocks come from slot types because the specs have no group names.
+
 ### `src/lib/genEdPanel.js`
 
-`buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived })` is the model behind the progress panel in the
-Requirements tab (`components/shell/RequirementsView.jsx` and `GenEdProgress.jsx`, rendered by `DegreePlan.jsx`). It picks `getFlightFoundationsStatus` for a `flight_foundations`
+`buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived })` is the model behind the category progress in the `gened` block of the
+Requirements tab (`components/shell/GenEdProgress.jsx`, composed by `degreeAudit.js`). It picks `getFlightFoundationsStatus` for a `flight_foundations`
 profile and `getGenEdStatus` otherwise, and returns one shape (`rows` of `earned` / `min` / `max` / `state`, plus the totals), or `null` when the plan has
 no `GEN_ED` / `FF_*` pool slot. It does no counting of its own: a change to how hours count goes in the two evaluators, and the panel follows.

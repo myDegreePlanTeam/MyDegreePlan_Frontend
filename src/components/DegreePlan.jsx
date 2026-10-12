@@ -31,7 +31,7 @@ import ExportPlanButton from './ExportPlanButton'
 import PlanPdfPreview from './PlanPdfPreview'
 import Sidebar from './shell/Sidebar'
 import RequirementsView from './shell/RequirementsView'
-import { buildGenEdPanel } from '../lib/genEdPanel'
+import { buildDegreeAudit } from '../lib/degreeAudit'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
 import SettingsView, { ConcentrationModal, ResetModal } from './shell/SettingsView'
@@ -552,13 +552,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return out
   }, [activeSlots, planSlots, courses, freeAddSlots])
 
-  // ── General-education progress (Requirements view) ────────────────
-  const genEdPanel = useMemo(
-    () => buildGenEdPanel({
-      genedProgram: profile.gened_program, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived,
-    }),
-    [profile.gened_program, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived],
-  )
+  // ── Degree audit (Requirements view) ──────────────────────────────
+  const degreeAudit = useMemo(() => {
+    const semesterLabels = {}
+    for (const [n, term] of Object.entries(semesterTerms)) semesterLabels[n] = formatTermLabel(term)
+    return buildDegreeAudit({
+      slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterLabels, semesterPhase,
+      totalHours: profile.concentrations.total_hours, genedProgram: profile.gened_program,
+    })
+  }, [slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, profile.concentrations.total_hours, profile.gened_program])
 
   // ── Pool limits (the Area of Emphasis hours, for Mechanical Engineering) ──
   const poolLimitWarnings = useMemo(
@@ -1510,7 +1512,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   function openIssue(issue) {
     setView('plan')
-    setSemesterExpanded(prev => ({ ...prev, [issue.semNum]: true }))
+    if (issue.semNum != null) setSemesterExpanded(prev => ({ ...prev, [issue.semNum]: true }))
     if (issue.key == null) { setSelection(null); return }
     const key = String(issue.key)
     if (key.startsWith('rem_')) {
@@ -1761,7 +1763,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         )}
 
         {view === 'requirements' && (
-          <RequirementsView panel={genEdPanel} />
+          <RequirementsView audit={degreeAudit} onOpenRow={row => openIssue({ semNum: row.semNum, key: row.key })} />
         )}
 
         {view === 'issues' && (
