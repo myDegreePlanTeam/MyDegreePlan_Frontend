@@ -84,8 +84,6 @@ Also a change history and a timeline of completed semesters. Let students snapsh
 Flight Foundations (Tennessee Tech's gen-ed program, entering Fall 2026+) is implemented in
 `flightFoundations.js`: eight requirement areas, the 4 shared flex hours, the introductory-language
 cap, and per-plan evaluation, used by the FF pools and the slot modal. Still open:
-- A dashboard panel for the 41-hour summary. The evaluator and `getFlightFoundationsStatus` exist, and `usePlanCompleteness` already shapes
-  their rows for a panel, but nothing outside its tests calls that hook and no component renders a completeness panel.
 - Per-major rules on top of the baseline: the American History exemption (Chemical, Civil,
   Computer, Electrical, General and Mechanical Engineering), other majors' category restrictions,
   and the minimum-grade rules (C or better in ENGL 1010 before ENGL 1020).

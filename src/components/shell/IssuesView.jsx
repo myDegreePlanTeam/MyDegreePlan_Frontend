@@ -1,6 +1,6 @@
 const ICONS = { blocker: '✕', warning: '⚠', info: 'ℹ' }
 
-export default function IssuesView({ issues, onOpenIssue }) {
+export default function IssuesView({ issues, onOpenIssue, progress = null }) {
   const blockers = issues.filter(i => i.severity === 'blocker').length
 
   return (
@@ -41,6 +41,8 @@ export default function IssuesView({ issues, onOpenIssue }) {
           ))}
         </div>
       )}
+
+      {progress}
     </div>
   )
 }
