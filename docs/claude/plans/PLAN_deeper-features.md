@@ -1,6 +1,6 @@
 # PLAN — Deeper features
 
-Status (2026-10-12): **Phase 1 in progress** (branch `feat/gened-completeness-panel`). The other phases are not started and need a go-ahead
+Status (2026-10-12): **Phase 1 built** (branch `feat/gened-completeness-panel`, not yet merged); **Phase 1b is planned, not started**. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
 The breadth work (opening more departments, back-filling catalog years) is a separate project: see `PLAN_all-majors.md`.
@@ -31,6 +31,45 @@ slot picker. Phase 1 renders them as a student-facing summary.
 
 Finding on the way: `usePlanCompleteness` returns only counts and a boolean; it does not shape per-category rows as the roadmap said.
 The panel does not use it, and the hook stays uncalled.
+
+## Phase 1b: The Requirements tab as a degree audit
+
+Decided 2026-10-12. The tab replaces what students use Degree Works for (Tennessee Tech's audit, What-If, Class History, GPA calculators).
+Sources: Tech's [Degree Works page](https://ouweb.tntech.edu/records/degreeworks.php), Ellucian's Web Interface User Guide 5.0.1, other
+schools' legends and FAQs. The real Tech audit is behind Eagle Online login and was **not seen**: block names, order and wording should be
+matched to a screenshot or PDF of one before Step A1 ships.
+
+**What Degree Works gives at Tech:** an audit in blocks (degree, major, concentration, gen-ed) with a check box each; in-progress courses
+count as met; best-fit placement (a course may show under several requirements but counts toward one); Class History; What-If for another
+major; **Look Ahead listed as "coming soon", so Tech students do not have it**; three GPA calculators (graduation, term, advice); advisor
+notes; exceptions entered by Academic Services; nightly refresh; catalog years 2011 and later only.
+
+**Where it fails students:** a mostly red audit and a misleading percent-complete figure; no explanation of why a course did or did not
+count; transfer credit, repeats and major changes lag behind the nightly batch.
+
+**What this app can do that it cannot:** a requirement is *Done* (a past term or prior credit), *In progress* (the current term), *Planned*
+(a future term) or *Not placed*, all derived from the calendar (`lib/termPhase.js`); a *Not placed* row opens that slot's picker, as an
+Issues entry jumps to its course; the audit follows every drag at once, so the live plan is the look-ahead; a fixed slot (one that cannot be
+removed) reads **Required**, a pool reads **Choose 1 of N** with its progress.
+
+**Blocks are derived from slot types** (gen-ed, required courses, choose-from pools, Free Elective hours). The specs have no group field and
+this plan does not add one; a department-named grouping ("Major core", "Technical electives") is a later, data-side option.
+
+- **A1. Audit skeleton.** A pure `src/lib/degreeAudit.js` (`buildDegreeAudit`) feeding `RequirementsView`: a summary header (hours done, in
+  progress, planned and remaining, against the program's `total_hours`), then the blocks, with the gen-ed panel as one of them. Each row
+  carries its state and a click-through to the plan. Tests in `src/tests/degreeAudit.test.js`, including that the hours agree with
+  `computePlanCredits`.
+- **A2. Evidence.** Each met row says what counted and why (course, term, source: prior credit, AP, or the plan). A "Not counted" section
+  lists courses that fill no requirement (Flight Foundations hours above a category's cap, free adds that fill nothing). Says plainly that a
+  course counts once (a slot model, unlike Degree Works' best-fit display).
+- **A3. Projection.** Earliest possible graduation term from the prerequisite chains, a "complete by" term per block, and the critical path
+  (the chain of required courses that limits finishing). Built on `buildRequirementMap` and `checkPrereqs`; shares its scheduling code with the
+  Phase 4 recommendation engine, so write it as a pure module under `src/lib/` that Phase 4 can import.
+- **A4. Print.** Add the audit to the Advisement PDF (`PlanPdfDocument.jsx`, `planExportModel`) so an advisor sees the same view.
+- **A5. GPA tools: deferred.** Degree Works' calculators need grades, and this app derives progress from the calendar and stores none. They
+  wait for the roadmap's "Real grades" item; do not design grade entry here.
+
+Parity: add a Requirements visit to `parity/lib/scenario.mjs` with A1 (the journey does not open the tab today).
 
 ## Phase 2: Plan snapshots and restore
 
@@ -71,5 +110,5 @@ The panel does not use it, and the hook stays uncalled.
 
 ## Order
 
-1 → 2 → 3 → 4 → 5, with 6 interleaved. Check in before the per-major gen-ed rules (Phase 1), the snapshot cap (Phase 2) and the first rule
+1 → 1b (A1, A2, A3, then A4) → 2 → 3 → 4 → 5, with 6 interleaved. Check in before the per-major gen-ed rules (Phase 1), the snapshot cap (Phase 2) and the first rule
 types (Phase 3).
