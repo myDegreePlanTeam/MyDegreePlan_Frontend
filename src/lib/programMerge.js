@@ -109,6 +109,8 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
   // Fixed courses on the grid with the program that owns each, for the pools they satisfy; `spent` is the (course, program) pairs already used
   const fixedCards = []
   const spent = new Set()
+  // Hours of a course already given to pools of an added program, by (course, program): a 4-hour course covers two 2-hour rows
+  const coveredHours = new Map()
   const addFixed = (slot, owner) => { if (!slot.is_pool) { push(claimableFixed, slot.class_code, slot); fixedCards.push({ slot, owner }) } }
   // Primary pools of each general-education category, in order, that no added program has claimed yet
   const claimableGenEd = new Map()
@@ -158,7 +160,7 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
         for (const card of fixedCards) {
           if (open <= 0) break
           const key = `${card.slot.id}:${program.programId}`
-          if (card.owner === program.programId || !members.includes(card.slot.class_code) || spent.has(key)) continue
+          if (card.owner === program.programId || !members.includes(card.slot.class_code) || spent.has(key) || (coveredHours.get(key) ?? 0) > 0) continue
           spent.add(key)
           used.push(card)
           open -= courses?.[card.slot.class_code]?.credits ?? 3
@@ -178,13 +180,21 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
       }
       if (slot.is_pool && policy.shareCourses && !BUCKET_POOLS.has(slot.class_code)) {
         const members = POOL_COURSES[slot.class_code]
+        // A course covers pool rows up to its own hours (the department's map prints "CSC 1300 or ENGR 1120" as two 2-hour rows, and CSC 1300
+        // is 4 hours); the first row it covers may be larger than the course, as a single-course choice always was.
+        const need = hoursOfSlot(slot, courses)
+        const keyOf = c => `${c.slot.id}:${program.programId}`
+        const room = c => {
+          const used = coveredHours.get(keyOf(c)) ?? 0
+          return used === 0 || used + need <= (courses?.[c.slot.class_code]?.credits ?? 3)
+        }
         const card = Array.isArray(members)
-          ? fixedCards.find(c => c.owner !== program.programId && members.includes(c.slot.class_code) && !spent.has(`${c.slot.id}:${program.programId}`))
+          ? fixedCards.find(c => c.owner !== program.programId && members.includes(c.slot.class_code) && !spent.has(keyOf(c)) && room(c))
           : null
         if (card) {
-          spent.add(`${card.slot.id}:${program.programId}`)
+          coveredHours.set(keyOf(card), (coveredHours.get(keyOf(card)) ?? 0) + need)
           shadows.push({ slotId: slot.id, programId: program.programId, targetSlotId: card.slot.id, reason: 'satisfied' })
-          programsOf[card.slot.id].push(program.programId)
+          if (!programsOf[card.slot.id].includes(program.programId)) programsOf[card.slot.id].push(program.programId)
           continue
         }
       }
