@@ -65,6 +65,7 @@ function RowBody({ row }) {
         <span className="ds-audit-meta">
           <span className={`ds-audit-state ds-audit-state-${row.state}`}>{state.label}</span>
           {where && <span>{where}</span>}
+          {row.sourceNote && <span className="ds-audit-note">{row.sourceNote}</span>}
           {row.choose && <span className="ds-audit-tag">{row.choose}</span>}
           {row.alsoCounts && <span className="ds-audit-tag">Also counts for {row.alsoCounts}</span>}
           {row.hours > 0 && <span>{row.hours} hrs</span>}
@@ -163,14 +164,16 @@ function Ref({ item, onOpenRow }) {
         <span className="ds-audit-meta">
           <span className={`ds-audit-state ds-audit-state-${item.state}`}>{state.label}</span>
           {where && <span>{where}</span>}
-          <span className="ds-audit-tag">Counted from your major</span>
+          {item.note && <span className="ds-audit-note">{item.note}</span>}
+          {item.hours > 0 && <span>{item.hours} hrs</span>}
+          <span className="ds-audit-tag">{item.label}</span>
         </span>
       </span>
     </>
   )
   return (
     <li className={`ds-audit-row ds-audit-ref ds-audit-${item.state}`}>
-      {item.source === 'prior_credit'
+      {item.key == null
         ? <div className="ds-audit-line">{body}</div>
         : <button type="button" className="ds-audit-line ds-audit-open" onClick={() => onOpenRow(item)}>{body}</button>}
     </li>
@@ -190,6 +193,7 @@ function Group({ group, onOpenRow, getOptions }) {
         )}
       </div>
       {group.progress && <CategoryProgress row={group.progress} />}
+      {group.note && <p className="ds-audit-empty">{group.note}</p>}
       {(group.rows.length > 0 || group.refs.length > 0) && (
         <ul className={`ds-audit-list${compact ? ' ds-audit-list-compact' : ''}`}>
           {group.refs.map(item => <Ref key={`ref-${item.key}`} item={item} onOpenRow={onOpenRow} />)}
@@ -219,6 +223,50 @@ function Block({ block, onOpenRow, getOptions }) {
   )
 }
 
+// What did not count toward a requirement, and why, so nothing a student did disappears without a word.
+function NotCounted({ items, onOpenRow }) {
+  return (
+    <section className="ds-audit-block" aria-labelledby="ds-audit-notcounted">
+      <div className="ds-audit-block-head">
+        <h3 className="ds-h3" id="ds-audit-notcounted">Not counted toward a requirement</h3>
+        {items.length > 0 && <span className="ds-audit-count">{items.length} {items.length === 1 ? 'item' : 'items'}</span>}
+      </div>
+      <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
+        A course counts once, toward one requirement. Hours that fill no requirement, or sit above a category's limit, are listed
+        here so none of them goes missing.
+      </p>
+      {items.length === 0 ? (
+        <p className="ds-audit-empty">Everything in your plan counts toward a requirement.</p>
+      ) : (
+        <ul className="ds-audit-list">
+          {items.map((item, i) => {
+            const body = (
+              <span className="ds-audit-main">
+                <span className="ds-audit-title">
+                  {item.code && <span className="ds-audit-code">{item.code}</span>}
+                  <span className="ds-audit-name">{item.name}</span>
+                </span>
+                <span className="ds-audit-meta">
+                  {item.hours > 0 && <span>{item.hours} hrs</span>}
+                  {item.term && <span>{item.term}</span>}
+                </span>
+                <span className="ds-audit-why">{item.reason}</span>
+              </span>
+            )
+            return (
+              <li key={`${item.kind}-${item.key ?? item.name}-${i}`} className="ds-audit-row ds-audit-not_placed">
+                {item.key == null
+                  ? <div className="ds-audit-line">{body}</div>
+                  : <button type="button" className="ds-audit-line ds-audit-open" onClick={() => onOpenRow(item)}>{body}</button>}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 export default function RequirementsView({ audit, onOpenRow, getOptions }) {
   return (
     <div className="ds-view ds-requirements">
@@ -237,6 +285,8 @@ export default function RequirementsView({ audit, onOpenRow, getOptions }) {
       ) : (
         audit.blocks.map(block => <Block key={block.id} block={block} onOpenRow={onOpenRow} getOptions={getOptions} />)
       )}
+
+      <NotCounted items={audit.notCounted} onOpenRow={onOpenRow} />
     </div>
   )
 }
