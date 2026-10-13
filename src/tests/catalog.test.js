@@ -224,13 +224,18 @@ describe('committed catalog.json', () => {
   it('describes every program, and indexes one degree plan per slot set', () => {
     for (const c of t.concentrations) {
       for (const f of ['kind', 'degree', 'major_name', 'department', 'description']) expect(c[f], `${c.code}.${f}`).toBeTruthy()
-      expect(['major', 'concentration']).toContain(c.kind)
+      expect(['major', 'concentration', 'minor']).toContain(c.kind)
     }
     expect(t.concentrations.find(c => c.code === 'dsai').last_catalog_year).toBe('2025-2026')
     const sets = new Set(t.requirement_slots.map(s => `${s.concentration_id}|${s.catalog_year}`))
     const indexed = new Set(t.degree_plans.map(p => `${p.concentration_id}|${p.catalog_year}`))
-    expect(indexed).toEqual(sets)
-    expect(t.degree_plans.length).toBe(sets.size)
+    expect(t.degree_plans.length).toBe(indexed.size)
+    // every slot set is indexed; every degree has slots. A minor the planner does not model (tier 3) is indexed with no slots: it is
+    // listed and counts hours only.
+    for (const key of sets) expect(indexed.has(key), key).toBe(true)
+    const minorIds = new Set(t.concentrations.filter(c => c.kind === 'minor').map(c => c.id))
+    const unslotted = [...indexed].filter(key => !sets.has(key))
+    expect(unslotted.every(key => minorIds.has(Number(key.split('|')[0])))).toBe(true)
   })
   it('gives every slot a key (unique within its plan), a catalog year and a gen-ed program that matches its plan', () => {
     const plan = new Map(t.degree_plans.map(p => [`${p.concentration_id}|${p.catalog_year}`, p]))

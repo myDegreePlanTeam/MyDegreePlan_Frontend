@@ -1,7 +1,7 @@
 # PLAN — Double majors and minors
 
 Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
-engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.secondMajor` until Phases 3 and 4, so students do not see an unfinished feature). Phases 3 to 8 planned, nothing built.
+engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.secondMajor` until Phases 3 and 4, so students do not see an unfinished feature). **Phase 5 done** (Prototype PR #19: all 82 minors in three tiers, 13 / 16 / 53; Deploy #35 allows `kind 'minor'`; the Frontend catalog carries them and the primary pickers ignore them). Phases 3, 4, 6 to 8 planned, nothing built.
 Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
 [`PLAN_all-majors.md`](./PLAN_all-majors.md) (which left minors out), [`PLAN_deeper-features.md`](./PLAN_deeper-features.md) (Phase 5 left them out).
@@ -228,7 +228,9 @@ move, the only issues are unfilled choices, removing the program restores the 44
 - Degree Map header names every program; the Degree Audit PDF prints a block per program. The audit remains "Coming soon" until the owner opens it.
 - Done when: the screen and the PDF still agree row for row (the existing parity tests) with two programs.
 
-### Phase 5 — Minor data (Prototype repo; **independent of Phases 1–4, can run in parallel with them**)
+### Phase 5 — Minor data (**done 2026-10-13**; Prototype repo; independent of Phases 1–4)
+Tier counts as built: 13 structured, 16 written from the catalog text (waves A and B, each with `assumptions` and department questions in `minors-questions.md`), 53 not modelled (a plan row, no slots). A structured rule that omits a condition the catalog text states is tier 3 with that reason. The French Minor is on the catalog page but Inactive in Coursedog (`notInSnapshot`). **Phase 6 note:** a tier 3 minor has no slots, so the picker must treat "no slots" as counter-only.
+
 - Extend `catalog_scrape/scrape_programs.mjs` to keep each minor's `requisites` (today `withoutMaps` keeps only id, name, type, college).
 - A spec generator for `kind: 'minor'`: tier 1 automatic (D7), tier 2 hand-written specs with `assumptions`, tier 3 manifest entries marked "not modelled". New slot kinds for "M hours from a list" and "X upper-division hours" (rule pools), validated by `degree-specs/build.mjs`.
 - `npm run build:catalog` carries minors as `concentrations` rows with `kind: 'minor'` and a plan per catalog year; `programBrowser` offers them only to the minor picker; the manifest's `excluded` flag for minors is removed. Run `regen.sh`, commit Prototype first.
