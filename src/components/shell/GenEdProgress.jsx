@@ -1,14 +1,7 @@
 import { formatRange } from '../../lib/genEdPanel'
+import { CATEGORY_STATES } from '../../lib/auditLabels'
 
-// "Complete" is only for hours already earned: a category a later term would cover reads "Covered by plan".
-const STATE_LABEL = {
-  done:        'Complete',
-  in_progress: 'In progress',
-  planned:     'Covered by plan',
-  open:        'Not covered',
-  risk:        'At risk',
-  exempt:      'Exempt',
-}
+const STATE_LABEL = CATEGORY_STATES
 
 function Segments({ row }) {
   const pct = n => (row.max > 0 ? Math.min(100, (n / row.max) * 100) : 0)

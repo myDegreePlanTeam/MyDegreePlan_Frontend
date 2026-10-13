@@ -10,6 +10,7 @@
 
 import { useState } from 'react'
 import { buildPlanExportModel, buildPlanExportFilename } from '../lib/planExportModel'
+import { downloadBlob } from '../lib/downloadBlob'
 
 export default function ExportPlanButton({
   semesterNumbers,
@@ -60,16 +61,7 @@ export default function ExportPlanButton({
       // visit to the plan; this only runs it when the student asks.
       const blob = await pdf(<PlanPdfDocument model={model} />).toBlob()
 
-      const url    = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href     = url
-      anchor.download = buildPlanExportFilename(model, generatedAt)
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      // Revoked on the next tick: Safari cancels the download if the object
-      // URL disappears in the same frame as the click.
-      setTimeout(() => URL.revokeObjectURL(url), 0)
+      downloadBlob(blob, buildPlanExportFilename(model, generatedAt))
 
       setStatus('idle')
     } catch (err) {

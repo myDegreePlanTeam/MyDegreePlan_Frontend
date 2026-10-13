@@ -477,7 +477,7 @@ so `done` equals the plan header's `splitCreditsByPhase(...).completed`; a test 
 
 `FEATURES` lists what is built but not open to students, and `isFeatureOpen(name, features = FEATURES)` reads it (no name is open; a name is open only when its flag is exactly `true`, so a typo stays
 closed). **`requirements: false` holds back the whole Requirements feature**: its sidebar tab (`Sidebar.jsx`, and the loading skeleton's copy of it) is greyed out, disabled and tagged "Coming soon";
-`DegreePlan` neither computes the audit nor the projection, refuses to navigate there (`navigateTo`), and the degree audit PDF is not offered. The parity journey (`parity/lib/scenario.mjs`) does not open
+`DegreePlan` neither computes the audit nor the projection, refuses to navigate there (`navigateTo`), and the degree audit PDF is not offered (the Advisement tab lists it as "Coming soon" beside the Degree Map). The parity journey (`parity/lib/scenario.mjs`) does not open
 the tab while it is closed; the tag is in the sidebar every screen captures. **To open it, set the flag to `true`, then add the Requirements visit back to the journey.** The feature's code, tests and
 docs below stay as they are. `features.test.jsx` pins both states.
 
@@ -499,6 +499,25 @@ with a `POOL_FLOORS` entry follows that course. It returns the earliest finish, 
 rules allow), the chain with why a step waited (`waitsFor`: map, season, standing), `limit` (`prerequisites`, `hours` or `map`), what is `blocked`, a date per block, and the `schedule`. Summers are
 not used. Tests: `termScheduler.test.js` (the rules, on small graphs) and `degreeProjection.test.js` (every open program at ACT Math 29 and 17 against the real catalog, each placement re-checked
 independently).
+
+### The degree audit PDF (`auditExportModel.js`, `AuditPdfDocument.jsx`, `auditLabels.js`)
+
+The Advisement tab offers **two documents, each its own PDF with its own export button and preview**: the Degree Map (`planExportModel.js` → `PlanPdfDocument.jsx`, the department's form) and the
+Degree Audit (`auditExportModel.js` → `AuditPdfDocument.jsx`). `AdvisementView` takes `documents: [{ id, label, exportButton, preview, soon }]`, shows one at a time, and lists a `soon` document
+greyed out and tagged (the audit is `soon` while `FEATURES.requirements` is false; then the tab offers the map alone, as before). Files are `degree-plan-<program>-<date>.pdf` and
+`degree-audit-<program>-<date>.pdf` (`filenameFor`).
+
+**`buildAuditExport({ audit, projection })`** (pure, JSON-safe: the preview regenerates only when the model's JSON changes) shapes the SAME audit and projection the Requirements tab shows into print rows,
+so the document cannot disagree with the screen: the counts and hours line, the finish line, then each block with its groups (a category's progress, the courses counted from elsewhere, each row's course
+as the catalog writes it, a state word, where the credit comes from, the hours), and what did not count. **`buildAuditDocumentModel({ audit, projection, profile, generatedAt })`** adds what heads the document
+(program, catalog year, the day). The words are shared, not copied: `auditLabels.js` holds the row states ("Done", "In progress", "Planned", "Not placed") and the category states ("Complete", "Covered by plan", ...),
+and `describeFinish` / `describeBlockDates` (`degreeProjection.js`) write the finish line and a block's dates for both the screen and the print. `DegreePlan` computes the projection while the Requirements or
+Advisement tab is open. A state is spelled out beside its fill, so a greyscale print still says it. A heading is kept with its first two rows in one unbreakable box (`minPresenceAhead` does not hold it in this
+renderer).
+
+What the two documents share lives in `pdfStyles.js` (page geometry, colours, the page/title/body/footer styles, whole-word wrapping), `PdfTitleBlock.jsx` and `PdfFooter.jsx`; the preview is one generic
+`PdfPreview.jsx` (`PlanPdfPreview` and `AuditPdfPreview` are thin wrappers) and the download is `lib/downloadBlob.js`. `formatCourseCode` lives in `courseCodeFormat.js` (re-exported by `planExportModel.js`).
+Tests: `auditExportModel.test.js`, `auditPdfDocument.test.jsx`, `advisementView.test.jsx`; `tests/support/realStudent.js` builds a student from the real catalog for them and for `degreeProjection.test.js`.
 
 ### `src/lib/auditEvidence.js`
 

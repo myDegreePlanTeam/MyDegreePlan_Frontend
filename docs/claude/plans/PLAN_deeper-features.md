@@ -2,7 +2,7 @@
 
 Held back (2026-10-12): the Requirements tab and everything built under Phase 1b show as **"Coming soon"** (`FEATURES.requirements` in `src/lib/features.js`) until the owner opens them.
 
-Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 merged, A3 built (branch `feat/audit-projection`), A4 and A5 not started. The other phases are not started and need a go-ahead
+Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 and A3 merged, A4 built (branch `feat/audit-pdf`), A5 deferred. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
 The breadth work (opening more departments, back-filling catalog years) is a separate project: see `PLAN_all-majors.md`.
@@ -81,7 +81,9 @@ this plan does not add one; a department-named grouping ("Major core", "Technica
   corequisite, season and standing checks the Plan runs, at up to 18 hours a term, Fall and Spring), the student's own plan end beside it, the chain that sets the pace and why a step
   waited, a plan-and-fastest date per block, and courses no rule can place. A "Finish line" card on the Requirements tab. It is an estimate (no seats, no schedule of classes, no summers),
   and `optimal: false` says a different arrangement might save a term. Engineering plans are held to their department map, so for them the map, not prerequisites, sets the pace.
-- **A4. Print.** Add the audit to the Advisement PDF (`PlanPdfDocument.jsx`, `planExportModel`) so an advisor sees the same view.
+- **A4. Print (built).** The degree audit is **its own PDF, separate from the Degree Map** (`lib/auditExportModel.js`, `AuditPdfDocument.jsx`): the counts, the finish line, each block with its groups and
+  rows (course, state word, where the credit comes from, hours), and what did not count. The Advisement tab now offers two documents, each with its own export button and preview. It is built from the same
+  audit and projection as the screen, and the wording is shared (`lib/auditLabels.js`, `describeFinish`), so print and screen cannot drift. Held back with the tab while `FEATURES.requirements` is false.
 - **A5. GPA tools: deferred.** Degree Works' calculators need grades, and this app derives progress from the calendar and stores none. They
   wait for the roadmap's "Real grades" item; do not design grade entry here.
 

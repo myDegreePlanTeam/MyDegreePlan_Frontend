@@ -29,6 +29,8 @@ import AddCourseModal from './AddCourseModal'
 import { DegreeplanSkeleton } from './Skeletons'
 import PriorCreditWizard from './PriorCreditWizard'
 import ExportPlanButton from './ExportPlanButton'
+import ExportAuditButton from './ExportAuditButton'
+import AuditPdfPreview from './AuditPdfPreview'
 import PlanPdfPreview from './PlanPdfPreview'
 import Sidebar from './shell/Sidebar'
 import RequirementsView from './shell/RequirementsView'
@@ -576,9 +578,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }, [majorCode, slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, profile.concentrations.total_hours, profile.concentrations.name, profile.gened_program])
 
   // ── The finish line (Requirements view): the soonest the rules allow, and what sets the pace ──
-  // Several scheduling passes: only worked out while the tab is open, not on every drag on the Plan.
+  // Several scheduling passes: only worked out while a tab that shows it is open (Requirements, and Advisement, whose PDF prints it),
+  // not on every drag on the Plan.
   const projection = useMemo(
-    () => (isFeatureOpen('requirements') && view === 'requirements'
+    () => (isFeatureOpen('requirements') && (view === 'requirements' || view === 'advising')
       ? projectDegree({ audit: degreeAudit, slots, courses, prereqMap, coreqMap, priorCredits, freeAddSlots, semesterTerms, semesterPhase })
       : null),
     [view, degreeAudit, slots, courses, prereqMap, coreqMap, priorCredits, freeAddSlots, semesterTerms, semesterPhase],
@@ -1637,6 +1640,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
     priorCredits,
     remainders,
   }
+  // The degree audit is its own PDF (lib/auditExportModel.js), from the same audit and projection the Requirements tab shows.
+  const auditExportProps = { audit: degreeAudit, projection, profile }
 
   return (
     <div className="ds-app">
@@ -1812,8 +1817,21 @@ export default function DegreePlan({ profile, onProfileChange }) {
         {view === 'advising' && (
           <AdvisementView
             concentrationName={profile.concentrations.name}
-            exportButton={<ExportPlanButton className="ds-btn-primary" {...pdfExportProps} />}
-            preview={<PlanPdfPreview {...pdfExportProps} />}
+            documents={[
+              {
+                id: 'map', label: 'Degree map',
+                exportButton: <ExportPlanButton className="ds-btn-primary" {...pdfExportProps} />,
+                preview: <PlanPdfPreview {...pdfExportProps} />,
+              },
+              // Held back with the Requirements tab (lib/features.js): listed as coming soon, not offered
+              isFeatureOpen('requirements')
+                ? {
+                    id: 'audit', label: 'Degree audit',
+                    exportButton: <ExportAuditButton className="ds-btn-primary" {...auditExportProps} />,
+                    preview: <AuditPdfPreview {...auditExportProps} />,
+                  }
+                : { id: 'audit', label: 'Degree audit', soon: true },
+            ]}
           />
         )}
 
