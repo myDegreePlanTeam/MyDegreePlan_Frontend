@@ -1,13 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  resolvePool, resolveScience, resolveFreeElective, excludeFreeElectiveCodes,
-  POOL_LABELS, POOL_COURSES, POOL_NOTES, limitBrokenByPick, formatMissingForDisplay,
+  excludeFreeElectiveCodes,
+  POOL_LABELS, POOL_COURSES, POOL_NOTES, formatMissingForDisplay,
   GEN_ED_CATEGORIES, getGenEdStatus,
 } from '../lib/poolResolver'
 import { getFlightFoundationsStatus, FF_POOL_CATEGORIES } from '../lib/flightFoundations'
-import { checkPrereqs } from '../lib/prereqChecker'
-import { creditsBeforeSemester } from '../lib/transferCredits'
-import { getPlanCodes, getRemovedCodes, getRemovedPrereqs } from '../lib/removedPrereqs'
+import { resolveSlotCourses, buildOptionContext, annotateOption } from '../lib/slotOptions'
+import { getPlanCodes } from '../lib/removedPrereqs'
 import { formatCredits, isVariableCredit, validateHours } from '../lib/creditHours'
 import CreditHoursField from './CreditHoursField'
 import './Dashboard.css'
@@ -58,107 +57,37 @@ export default function SlotModal({
     const existingCode   = followUpHours > 0 ? null : planSlots[slot.id]
     const existingCourse = existingCode ? courseMap[existingCode] : null
 
-    // Free Elective, or any other open pool (pools.json "open": Nuclear Engineering's Area of Emphasis): search the whole catalog
-    if (slot.class_code === 'FREE_ELECTIVE' || POOL_COURSES[slot.class_code] === null) {
-      const result = resolveFreeElective(courseMap, slots, planSlots)
-      setFreeSections(result)
-      setCourses([...result.suggested, ...result.other])
-      if (existingCourse) setSelected(existingCourse)
-      return
+    // What the slot offers (lib/slotOptions.js: the same list the Requirements tab shows)
+    const resolved = resolveSlotCourses(slot, { courseMap, slots, planSlots })
+    setCourses(resolved.courses)
+    setFreeSections(resolved.freeSections)
+    setAutoFill(resolved.autoFill)
+    setScienceNotice(resolved.scienceNotice)
+    if (resolved.autoFill) {
+      // Only keep the existing selection if it matches the required partner.
+      // If the existing code is from a different sequence (conflict), default
+      // to the autofill partner so the user sees the correct course highlighted.
+      setSelected(existingCourse?.code === resolved.autoFill.code ? existingCourse : resolved.autoFill)
+    } else if (resolved.scienceNotice) {
+      // Narrowed to the sequence's partners: keep the existing selection only if it is still in the list.
+      if (existingCourse && resolved.courses.some(c => c.code === existingCourse.code)) setSelected(existingCourse)
+    } else if (existingCourse) {
+      setSelected(existingCourse)
     }
-
-    if (slot.class_code === 'SCIENCE') {
-      // Step 11: resolve based on what OTHER science slots have chosen, not this
-      // slot's own current selection. This ensures the modal only shows courses
-      // that are compatible with the sequence already started in the other slot.
-      const otherPlanSlots = Object.fromEntries(
-        Object.entries(planSlots).filter(([id]) => id !== String(slot.id))
-      )
-      const result = resolveScience(otherPlanSlots, slots, courseMap)
-
-      if (result.mode === 'autofill') {
-        setCourses([result.course])
-        setAutoFill(result.course)
-        // Only keep the existing selection if it matches the required partner.
-        // If the existing code is from a different sequence (conflict), default
-        // to the autofill partner so the user sees the correct course highlighted.
-        setSelected(existingCourse?.code === result.course.code ? existingCourse : result.course)
-        return
-      }
-
-      if (result.mode === 'narrow') {
-        setCourses(result.courses)
-        setScienceNotice('Only courses that complete your Biology sequence are shown.')
-        // Only keep the existing selection if it's in the narrowed list
-        if (existingCourse && result.courses.some(c => c.code === existingCourse.code)) {
-          setSelected(existingCourse)
-        }
-        return
-      }
-
-      setCourses(resolvePool('SCIENCE', courseMap) ?? [])
-      if (existingCourse) setSelected(existingCourse)
-      return
-    }
-
-    setCourses(resolvePool(slot.class_code, courseMap) ?? [])
-    if (existingCourse) setSelected(existingCourse)
     // Depend on slot.id only — stable identity per modal open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot.id])
   // courseMap, planSlots, slots are all stable objects by the time
   // the modal opens and don't need to be dependencies here.
 
-  // ── Build satisfied and taken sets ────────────────────────────────
-  // Prereqs are "completed codes in prior semesters only" — strictly < targetSem.
-  // Coreqs (same-semester enrollment) are handled inside checkPrereqs via
-  // isCoreqForCourse. Prior credits are not added here; checkPrereqs enhances
-  // the set internally from the priorCredits argument. Archived and unplaced
-  // slots have no semester and are skipped (a null semester would otherwise
-  // pass as "earlier" than everything).
-  const satisfiedCodes = useMemo(() => {
-    const targetSem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
-    const codes = new Set()
-    for (const s of slots) {
-      if (planArchived[s.id]) continue
-      const sSem = planSemesterOverrides?.[s.id] ?? s.semester_number
-      if (sSem == null || !(sSem < targetSem)) continue
-      if (s.is_pool) {
-        const code = planSlots[s.id]
-        if (code) codes.add(code)
-      } else {
-        codes.add(s.class_code)
-      }
-    }
-    return codes
-  }, [slots, planSlots, planArchived, planSemesterOverrides, slot.id, slot.semester_number])
-
-  const takenCodes = useMemo(() => {
-    // Exclude this slot's own selection — otherwise re-opening a filled slot
-    // would show the current course as "Already selected" and unclickable.
-    // Archived slots aren't in the plan ('not_applicable' math courses keep
-    // their class_code in planSlots), so their codes stay selectable.
-    const currentSlotId = followUpHours > 0 ? null : String(slot.id)
-    return new Set(
-      Object.entries(planSlots)
-        .filter(([id]) => id !== currentSlotId && !planArchived[id])
-        .map(([, code]) => code)
-    )
-  }, [planSlots, planArchived, slot.id, followUpHours])
-
-  // ── Credit hours accumulated before this semester (positional) ───────
-  // Used to determine whether junior/senior standing is met at this slot.
-  // Same computation as DegreePlan's standing warnings (see
-  // creditsBeforeSemester): prior credits first, then active slots and
-  // free-adds in strictly earlier semesters, unfilled pools at their
-  // expected hours.
-  const creditsBefore = useMemo(() => {
-    const targetSem = planSemesterOverrides?.[slot.id] ?? slot.semester_number
-    return creditsBeforeSemester(targetSem, {
-      slots, planSlots, planSemesterOverrides, planArchived,
-      priorCredits, courses: courseMap, freeAddSlots,
-    })
-  }, [slots, planSlots, courseMap, priorCredits, planSemesterOverrides, planArchived, freeAddSlots, slot.id, slot.semester_number])
+  // ── What is around this slot: courses before it, courses already taken, standing (lib/slotOptions.js) ──
+  const optionCtx = useMemo(
+    () => buildOptionContext(slot, {
+      courseMap, slots, planSlots, planArchived, planSemesterOverrides, priorCredits, freeAddSlots, prereqMap, coreqMap,
+    }, followUpHours),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [slots, planSlots, courseMap, priorCredits, planSemesterOverrides, planArchived, freeAddSlots, prereqMap, coreqMap, slot.id, slot.semester_number, followUpHours],
+  )
 
   // ── Courses in the plan at any position, and courses it removed ─────────
   // Used to flag options whose prereq the student's math placement dropped
@@ -167,7 +96,6 @@ export default function SlotModal({
     () => getPlanCodes({ slots, planSlots, planArchived, freeAddSlots, priorCredits }),
     [slots, planSlots, planArchived, freeAddSlots, priorCredits]
   )
-  const removedCodes = useMemo(() => getRemovedCodes(slots, planArchived), [slots, planArchived])
 
   // ── Free elective options: hide anything already in the plan ────────────
   // The slot's own current pick stays so re-opening a filled slot shows it.
@@ -179,47 +107,7 @@ export default function SlotModal({
   }, [freeSections, planCodes, planSlots, slot.id, followUpHours])
 
   // ── Annotate courses with availability status ──────────────────────
-  function annotate(course) {
-    if (takenCodes.has(course.code)) {
-      return { ...course, status: 'taken' }
-    }
-    // A pool's own limit ("at most 3 hours of these count as Area of Emphasis"): this pick would go over it
-    const limitHint = limitBrokenByPick(slot, course, planSlots, slots, courseMap, planArchived)
-    if (limitHint) return { ...course, status: 'locked', limitHint }
-    // Standing check — must come before prereqs so the message is clear
-    if (course.standing_req === 'senior' && creditsBefore < 90) {
-      return {
-        ...course,
-        status: 'locked',
-        standingHint: `Requires senior standing: 90+ credit hours planned before this semester (${creditsBefore} hrs so far)`,
-      }
-    }
-    if (course.standing_req === 'junior' && creditsBefore < 60) {
-      return {
-        ...course,
-        status: 'locked',
-        standingHint: `Requires junior standing: 60+ credit hours planned before this semester (${creditsBefore} hrs so far)`,
-      }
-    }
-    const result = checkPrereqs(
-      course.code,
-      prereqMap,
-      satisfiedCodes,
-      priorCredits,
-      courseMap,
-      coreqMap,
-    )
-    if (!result.satisfied) {
-      const removed = getRemovedPrereqs(course.code, prereqMap, planCodes, removedCodes)
-      return {
-        ...course,
-        status: 'locked',
-        missing: result.missing,
-        removedNote: removed.length > 0 ? removedPrereqNote(course.code, removed, courseMap) : null,
-      }
-    }
-    return { ...course, status: 'available' }
-  }
+  const annotate = course => annotateOption(course, optionCtx)
 
   // ── Filter + sort for non-free-elective search ─────────────────────
   const filtered = useMemo(() => {
@@ -250,7 +138,7 @@ export default function SlotModal({
       })
     // `annotate` is rebuilt every render from the inputs listed here (and `creditsBefore`, fixed while the modal is open).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courses, freeOptions, search, takenCodes, prereqMap, satisfiedCodes, priorCredits, courseMap, coreqMap, planCodes, removedCodes, slots, planSlots, planArchived])
+  }, [courses, freeOptions, search, optionCtx])
 
   useEffect(() => {
     if (selected) setHours(String(selected.credits))
@@ -543,13 +431,4 @@ function CourseRow({ course, selected, onSelect, sectionDisabled = false }) {
       <span className="modal-course-credits">{formatCredits(course)} cr</span>
     </button>
   )
-}
-
-// "MATH1920 (Calculus II) isn't in your plan — your math placement doesn't
-// require it. Add it to an earlier semester to take PHYS2110."
-function removedPrereqNote(courseCode, removed, courseMap) {
-  const names = removed.map(c => (courseMap[c]?.name ? `${c} (${courseMap[c].name})` : c))
-  const [verb, pronoun] = removed.length > 1 ? ["aren't", 'them'] : ["isn't", 'it']
-  return `${names.join(' and ')} ${verb} in your plan — your math placement doesn't require ${pronoun}. `
-    + `Add ${pronoun} to an earlier semester to take ${courseCode}.`
 }

@@ -64,6 +64,13 @@ describe('buildDegreeAudit: choices', () => {
     expect(row).toMatchObject({ state: 'planned', code: 'BIOL1010', label: 'BIOL1010', choose: null, hours: 4 })
   })
 
+  it('carries how many options a pool offers, and none for a fixed course or an open Free Elective', () => {
+    const result = audit({ slots: [slot(1, 'CSC1300', 1), science, pool(11, 'FREE_ELECTIVE', 4, { flex_credits: 3 })] })
+    expect(rowOf(result, 10).optionCount).toBe(POOL_COURSES.SCIENCE.length)
+    expect(rowOf(result, 1).optionCount).toBeNull()
+    expect(rowOf(result, 11).optionCount ?? 0).toBe(0)
+  })
+
   it('a pool slot is a choice, a fixed slot a requirement', () => {
     const result = audit({ slots: [slot(1, 'CSC1300', 1), science], planSlots: { 10: 'BIOL1010' } })
     expect(rowOf(result, 1).required).toBe(true)

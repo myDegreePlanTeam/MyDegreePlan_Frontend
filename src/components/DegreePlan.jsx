@@ -32,6 +32,7 @@ import PlanPdfPreview from './PlanPdfPreview'
 import Sidebar from './shell/Sidebar'
 import RequirementsView from './shell/RequirementsView'
 import { buildDegreeAudit } from '../lib/degreeAudit'
+import { listSlotOptions } from '../lib/slotOptions'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
 import SettingsView, { ConcentrationModal, ResetModal } from './shell/SettingsView'
@@ -1524,6 +1525,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
       : { kind: 'slot', id: issue.key })
   }
 
+  // The options a choice row can list (computed when a row is expanded, not for every row up front)
+  function getRowOptions(row) {
+    const slot = slots.find(s => s.id === row.slotId)
+    if (!slot) return null
+    return listSlotOptions(slot, {
+      courseMap: courses, slots, planSlots, planArchived, planSemesterOverrides, priorCredits, freeAddSlots, prereqMap, coreqMap,
+    })
+  }
+
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark'
     document.documentElement.dataset.theme = next
@@ -1763,7 +1773,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
         )}
 
         {view === 'requirements' && (
-          <RequirementsView audit={degreeAudit} onOpenRow={row => openIssue({ semNum: row.semNum, key: row.key })} />
+          <RequirementsView
+            audit={degreeAudit}
+            onOpenRow={row => openIssue({ semNum: row.semNum, key: row.key })}
+            getOptions={getRowOptions}
+          />
         )}
 
         {view === 'issues' && (

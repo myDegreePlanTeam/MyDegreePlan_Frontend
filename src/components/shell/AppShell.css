@@ -786,3 +786,30 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-audit-compact .ds-audit-main { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
 .ds-audit-compact .ds-audit-name { font-size: 12px; }
 .ds-audit-ref { border-style: dashed; }
+
+/* the options a choice can take (read-only) */
+.ds-audit-options { padding: 0 14px 8px 44px; }
+.ds-audit-options-toggle {
+  background: none; border: none; padding: 4px 0; cursor: pointer;
+  font: inherit; font-size: 11px; letter-spacing: .04em; color: var(--text-muted);
+}
+.ds-audit-options-toggle:hover { color: var(--gold); }
+.ds-audit-options-body { margin-top: 6px; }
+.ds-audit-options-list {
+  list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto;
+  border: 1px solid var(--bg-light); border-radius: 6px;
+}
+.ds-audit-option {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px;
+  padding: 6px 10px; font-size: 12px; border-top: 1px solid var(--bg-light);
+}
+.ds-audit-option:first-child { border-top: none; }
+.ds-audit-option-main { flex: 1; min-width: 200px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.ds-audit-option-hours { font-size: 11px; color: var(--text-muted); }
+.ds-audit-option-status { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--status-done); }
+.ds-audit-option-locked .ds-audit-option-status { color: var(--status-warn); }
+.ds-audit-option-taken { opacity: .6; }
+.ds-audit-option-taken .ds-audit-option-status { color: var(--text-muted); }
+.ds-audit-option-why { flex-basis: 100%; font-size: 11px; line-height: 1.5; color: var(--text-muted); }
+.ds-audit-options-note { margin: 6px 0 0; font-size: 11px; color: var(--text-muted); }
+@media (max-width: 640px) { .ds-audit-options { padding-left: 14px; } }
