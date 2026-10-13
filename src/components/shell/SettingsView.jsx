@@ -52,20 +52,20 @@ export default function SettingsView({
           <span className="ds-setting-text">
             <span className="ds-setting-label">{majorsHeading(majors)}</span>
             <span className="ds-setting-desc">
-              {additionalProgramsOpen
-                ? 'Your primary major sets your general education and your catalog year. A course more than one of your majors needs appears once and counts toward each.'
-                : `Currently ${programPath(profile.concentrations)}. Switching clears your course selections; prior credits and ACT scores are kept.`}
+              {`Currently ${programPath(profile.concentrations)}. Change replaces your primary major and clears your course selections; prior credits and ACT scores are kept.`}
+              {additionalProgramsOpen && ' A course more than one of your majors needs appears once and counts toward each.'}
             </span>
           </span>
-          {additionalProgramsOpen ? (
-            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('major')}>
-              Add major
-            </button>
-          ) : (
+          <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
             <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenConcentration}>
               Change
             </button>
-          )}
+            {additionalProgramsOpen && (
+              <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('major')}>
+                Add major
+              </button>
+            )}
+          </span>
         </div>
         {additionalProgramsOpen && majors.map(major => (
           <div className="ds-setting ds-major-row" key={major.primary ? 'primary' : major.id}>
