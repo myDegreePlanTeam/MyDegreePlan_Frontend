@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react'
 import { db, isLocalBackend } from '../../lib/dataClient'
 import { getBrand } from '../../lib/brand'
+import { FEATURES, isFeatureOpen } from '../../lib/features'
 
 const TABS = [
   { id: 'plan',     label: 'Plan',       icon: '▤' },
-  { id: 'requirements', label: 'Requirements', icon: '☑' },
+  { id: 'requirements', label: 'Requirements', icon: '☑', feature: 'requirements' },
   { id: 'issues',   label: 'Issues',     icon: '⚠' },
   { id: 'advising', label: 'Advisement', icon: '◇' },
   { id: 'settings', label: 'Settings',   icon: '◎' },
 ]
 
-export default function Sidebar({ view, onNavigate, issueCount, lastSavedAt }) {
+export default function Sidebar({ view, onNavigate, issueCount, lastSavedAt, features = FEATURES }) {
   const [email, setEmail] = useState('')
 
   useEffect(() => {
@@ -29,7 +30,20 @@ export default function Sidebar({ view, onNavigate, issueCount, lastSavedAt }) {
       </div>
 
       <div className="ds-tabs">
-        {TABS.map(tab => (
+        {TABS.map(tab => !isFeatureOpen(tab.feature, features) ? (
+          // Built, not open yet: shown so students know it is coming, but it cannot be entered.
+          <button
+            key={tab.id}
+            className="ds-tab ds-tab-soon"
+            disabled
+            aria-disabled="true"
+            title="Coming soon"
+          >
+            <span className="ds-tab-icon" aria-hidden="true">{tab.icon}</span>
+            <span className="ds-tab-label">{tab.label}</span>
+            <span className="ds-tab-soon-tag">Coming soon</span>
+          </button>
+        ) : (
           <button
             key={tab.id}
             className={`ds-tab${view === tab.id ? ' ds-tab-active' : ''}`}

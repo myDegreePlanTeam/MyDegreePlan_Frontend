@@ -105,8 +105,8 @@ export async function runScenario(target, { log = () => {} } = {}) {
 
   const openTab = async name => { await page.locator('.ds-tab', { hasText: name }).click(); await page.waitForTimeout(400) }
 
-  await openTab('Requirements')
-  await grab('requirements')
+  // The Requirements tab is coming soon (src/lib/features.js): it is greyed out, so the journey does not open it. The tab's
+  // "Coming soon" tag is in the sidebar every screen captures. Visit it here again when the flag is turned on.
 
   await openTab('Issues')
   await grab('issues')

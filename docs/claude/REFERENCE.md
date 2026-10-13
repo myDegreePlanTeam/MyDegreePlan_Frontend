@@ -473,6 +473,14 @@ so the row does not open the plan); `not_applicable` slots are left out. A row's
 hours). `summary` carries `requirements` (counts by state, what only this tab can say) and the hours by state (`computePlanCredits`' counting rules over the slots still on the grid,
 so `done` equals the plan header's `splitCreditsByPhase(...).completed`; a test pins this), shown as one line since the Plan tab's header already has the bar.
 
+### `src/lib/features.js` (features held back as "Coming soon")
+
+`FEATURES` lists what is built but not open to students, and `isFeatureOpen(name, features = FEATURES)` reads it (no name is open; a name is open only when its flag is exactly `true`, so a typo stays
+closed). **`requirements: false` holds back the whole Requirements feature**: its sidebar tab (`Sidebar.jsx`, and the loading skeleton's copy of it) is greyed out, disabled and tagged "Coming soon";
+`DegreePlan` neither computes the audit nor the projection, refuses to navigate there (`navigateTo`), and the degree audit PDF is not offered. The parity journey (`parity/lib/scenario.mjs`) does not open
+the tab while it is closed; the tag is in the sidebar every screen captures. **To open it, set the flag to `true`, then add the Requirements visit back to the journey.** The feature's code, tests and
+docs below stay as they are. `features.test.jsx` pins both states.
+
 ### `src/lib/termScheduler.js` and `src/lib/degreeProjection.js`
 
 The finish line on the Requirements tab. **`scheduleTerms({ tasks, startTerm, satisfied, creditsBefore, ctx, maxHours, maxTerms })`** (`termScheduler.js`, pure) packs the courses a student still

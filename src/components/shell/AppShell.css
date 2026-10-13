@@ -108,6 +108,13 @@
 .ds-tab:hover { background: var(--bg-light); color: var(--text); }
 .ds-tab-active, .ds-tab-active:hover { background: var(--bg-light); color: var(--gold); }
 .ds-tab-icon { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; }
+/* a tab that is built but not open: greyed, tagged, and not a target */
+.ds-tab-soon, .ds-tab-soon:hover { background: transparent; color: var(--text-muted); opacity: .55; cursor: default; gap: 8px; }
+.ds-tab-soon .ds-tab-label { min-width: 0; flex: 0 1 auto; margin-right: auto; }
+.ds-tab-soon-tag {
+  flex-shrink: 0; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+  border: 1px solid var(--bg-light); border-radius: 4px; padding: 1px 4px;
+}
 .ds-tab-label { flex: 1; text-align: left; font-size: 12.5px; letter-spacing: .03em; }
 .ds-tab-badge {
   min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
@@ -700,7 +707,7 @@ button.ds-setting:hover { background: var(--ds-hover); }
   }
   .ds-brand { display: none; }
   .ds-tabs { flex-direction: row; flex: 1; padding: 6px; overflow-x: auto; }
-  .ds-tab { min-height: 36px; padding: 0 10px; }
+  .ds-tab { min-height: 36px; padding: 0 10px; flex-shrink: 0; white-space: nowrap; }
   .ds-tab-label { font-size: 11.5px; }
   .ds-account { display: none; }
   .ds-plan-header, .ds-plan-body, .ds-view { padding-left: 16px; padding-right: 16px; }

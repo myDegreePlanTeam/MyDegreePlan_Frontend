@@ -36,6 +36,7 @@ import { buildDegreeAudit } from '../lib/degreeAudit'
 import { DragEnabledContext, useIsPhone, useDragEnabled } from '../lib/dragEnabled'
 import { listSlotOptions } from '../lib/slotOptions'
 import { projectDegree } from '../lib/degreeProjection'
+import { isFeatureOpen } from '../lib/features'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
 import SettingsView, { ConcentrationModal, ResetModal } from './shell/SettingsView'
@@ -564,6 +565,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Degree audit (Requirements view) ──────────────────────────────
   const degreeAudit = useMemo(() => {
+    if (!isFeatureOpen('requirements')) return null       // held back: nothing is worked out for a tab nobody can open
     const semesterLabels = {}
     for (const [n, term] of Object.entries(semesterTerms)) semesterLabels[n] = formatTermLabel(term)
     return buildDegreeAudit({
@@ -576,7 +578,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // ── The finish line (Requirements view): the soonest the rules allow, and what sets the pace ──
   // Several scheduling passes: only worked out while the tab is open, not on every drag on the Plan.
   const projection = useMemo(
-    () => (view === 'requirements'
+    () => (isFeatureOpen('requirements') && view === 'requirements'
       ? projectDegree({ audit: degreeAudit, slots, courses, prereqMap, coreqMap, priorCredits, freeAddSlots, semesterTerms, semesterPhase })
       : null),
     [view, degreeAudit, slots, courses, prereqMap, coreqMap, priorCredits, freeAddSlots, semesterTerms, semesterPhase],
@@ -1526,6 +1528,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   function navigateTo(nextView) {
+    if (nextView === 'requirements' && !isFeatureOpen('requirements')) return   // coming soon (lib/features.js)
     setView(nextView)
     setSelection(null)
   }
@@ -1793,7 +1796,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           </div>
         )}
 
-        {view === 'requirements' && (
+        {view === 'requirements' && degreeAudit && (
           <RequirementsView
             audit={degreeAudit}
             projection={projection}
