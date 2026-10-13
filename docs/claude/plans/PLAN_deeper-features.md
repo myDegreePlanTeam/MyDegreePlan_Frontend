@@ -1,6 +1,6 @@
 # PLAN — Deeper features
 
-Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built** (branch `feat/degree-audit-skeleton`), A2 to A5 not started. The other phases are not started and need a go-ahead
+Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 to A5 not started. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
 The breadth work (opening more departments, back-filling catalog years) is a separate project: see `PLAN_all-majors.md`.
@@ -55,11 +55,22 @@ removed) reads **Required**, a pool reads **Choose 1 of N** with its progress.
 **Blocks are derived from slot types** (gen-ed, required courses, choose-from pools, Free Elective hours). The specs have no group field and
 this plan does not add one; a department-named grouping ("Major core", "Technical electives") is a later, data-side option.
 
-- **A1. Audit skeleton (built).** A pure `src/lib/degreeAudit.js` (`buildDegreeAudit`) feeding `RequirementsView`: a summary header (hours done, in
-  progress, planned and remaining, against the program's `total_hours`), then the blocks, with the gen-ed panel as one of them. Each row
-  carries its state and a click-through to the plan. Tests in `src/tests/degreeAudit.test.js`, including that the hours agree with
-  `computePlanCredits`.
-- **A2. Evidence.** Each met row says what counted and why (course, term, source: prior credit, AP, or the plan). A "Not counted" section
+- **A1. Audit skeleton (built, then reworked after review).** A pure `src/lib/degreeAudit.js` (`buildDegreeAudit`) feeding `RequirementsView`. Review found
+  four problems, fixed in order on stacked branches:
+  1. *Truthful states.* The gen-ed panel called a category "Met" when only a future term covered it. It now has Complete (earned) / In progress / Covered by plan / Not covered.
+  2. *Sorting.* "Required", a separate Flight Foundations panel and "Choose from a list" split general education across three places. Every slot now has one home:
+     the major, general education (by category), or electives; a major course that also counts for a category (CSC2570) is listed once and referenced.
+  3. *Options.* A choice row lists what can fill it (`lib/slotOptions.js`, shared with the picker), read-only.
+  4. *Redundancy.* Decided with the owner: the **Plan is the only place anything changes**; Requirements explains and links. Its summary counts requirements
+     (the Plan header already shows hours). **The Issues tab keeps its open-choice entries** (see below). No drag and drop on a phone.
+  Tests: `degreeAudit`, `genEdPanel`, `slotOptions`, `semesterRender`.
+
+  *Why Issues keeps "Incomplete selection" for an open choice* (commit `46b7f68`, 2026-09-29): an unfilled pool slot **provisionally satisfies later courses'
+  prerequisites** (CSC3040 needs COMM2025 or PC2500, so an empty Communications slot placed earlier stands in for it). Without that, every course behind an empty
+  slot would warn "prerequisite unmet". The entry is how the plan admits its validity leans on a choice nobody has made: it is a **warning** (not info) when another course
+  relies on the slot, and it names those courses; in a past term it says the choice should be recorded. It is a statement about the plan's correctness, not a to-do list, so it
+  belongs beside the other validations even though Requirements also shows the open choice. A fresh Cybersecurity plan has 12 of them, all info or warning, no blockers.
+- **A2. Evidence.** Each done or planned row says what counted and why (course, term, source: prior credit, AP, or the plan). A "Not counted" section
   lists courses that fill no requirement (Flight Foundations hours above a category's cap, free adds that fill nothing). Says plainly that a
   course counts once (a slot model, unlike Degree Works' best-fit display).
 - **A3. Projection.** Earliest possible graduation term from the prerequisite chains, a "complete by" term per block, and the critical path
