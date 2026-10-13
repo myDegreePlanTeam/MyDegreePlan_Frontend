@@ -133,7 +133,7 @@ export function buildDegreeAudit({
     .map(id => {
       const rows = rowsByBlock[id]
       const panel = id === 'gened'
-        ? buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived })
+        ? buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived, planSemesterOverrides, semesterPhase })
         : null
       if (rows.length === 0 && !panel) return null
       const counts = emptyCounts()

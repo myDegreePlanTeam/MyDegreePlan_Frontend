@@ -729,13 +729,15 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-gened-state {
   font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted);
 }
-.ds-gened-track { height: 6px; background: var(--bg-light); border-radius: 3px; overflow: hidden; }
-.ds-gened-fill { height: 100%; background: var(--gold); opacity: .55; transition: width .3s ease; }
-.ds-gened-done .ds-gened-fill { background: var(--status-done); opacity: 1; }
+.ds-gened-track { height: 6px; background: var(--bg-light); border-radius: 3px; overflow: hidden; display: flex; }
+.ds-gened-legend { margin: 8px 0 0; font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.ds-gened-legend .ds-sep { color: var(--bg-light); }
 .ds-gened-done .ds-gened-state { color: var(--status-done); }
+.ds-gened-in_progress .ds-gened-state { color: var(--status-progress); }
+.ds-gened-planned .ds-gened-state { color: var(--gold); }
+.ds-gened-open .ds-gened-state { color: var(--status-warn); }
 .ds-gened-risk { border-color: rgba(var(--status-warn-rgb), .35); }
 .ds-gened-risk .ds-gened-state { color: var(--status-warn); }
-.ds-gened-risk .ds-gened-fill { background: var(--status-warn); opacity: 1; }
 .ds-gened-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--status-warn); }
 
 /* ── Degree audit (Requirements view) ────────────────────────────────── */
