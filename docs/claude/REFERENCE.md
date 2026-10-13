@@ -473,6 +473,25 @@ so the row does not open the plan); `not_applicable` slots are left out. A row's
 hours). `summary` carries `requirements` (counts by state, what only this tab can say) and the hours by state (`computePlanCredits`' counting rules over the slots still on the grid,
 so `done` equals the plan header's `splitCreditsByPhase(...).completed`; a test pins this), shown as one line since the Plan tab's header already has the bar.
 
+### `src/lib/termScheduler.js` and `src/lib/degreeProjection.js`
+
+The finish line on the Requirements tab. **`scheduleTerms({ tasks, startTerm, satisfied, creditsBefore, ctx, maxHours, maxTerms })`** (`termScheduler.js`, pure) packs the courses a student still
+owes into Fall and Spring terms as early as the rules allow, and is the code the Phase 4 recommendation engine reuses. A task is one course or one open choice (`pool: { codes, gates }`), with an
+optional `floor` (earliest term) and `after` (courses that must be done first). A task sits in a term only when `checkPrereqs` is satisfied by courses in EARLIER terms (an empty gating pool in
+an earlier term stands in, as in the plan's warnings), `checkCoreqsProvisional` by courses in the same or an earlier one, the season suits it (`isEnrollmentAllowed`), the hours before it meet
+its standing, and the term has room (`maxHours`, default 18, the degree builder's own maximum). It runs two passes: with unlimited room (each task's true earliest term, so the largest is a
+lower bound on any finish, and the chain behind it is the critical path, following a prerequisite in an earlier term or a corequisite partner in the same one), and with the room limit under
+four orderings, keeping the one that finishes soonest. `optimal` is true only when the schedule meets its lower bound (the larger of the chain and `ceil(hours / maxHours)`); false means
+a different arrangement might be sooner, not that one exists. A task no rule can place is `blocked` with what it still needs.
+
+**`projectDegree({ audit, slots, courses, prereqMap, coreqMap, priorCredits, freeAddSlots, semesterTerms, semesterPhase })`** (`degreeProjection.js`) reads the audit's rows into tasks: done and in-progress
+rows (and added courses in a past or current term, and prior credit) are behind the student; planned rows and open choices are scheduled from the first term not yet begun. An engineering plan
+(`planRequiresCalculusII`) gets each course's department-map term as its `floor`, as `degreeBuilder` does, because the catalog records almost no prerequisites for those courses; an open choice
+with a `POOL_FLOORS` entry follows that course. It returns the earliest finish, the student's own plan end and the terms between them (`termsSooner`; `termsLater` when the plan ends before the
+rules allow), the chain with why a step waited (`waitsFor`: map, season, standing), `limit` (`prerequisites`, `hours` or `map`), what is `blocked`, a date per block, and the `schedule`. Summers are
+not used. Tests: `termScheduler.test.js` (the rules, on small graphs) and `degreeProjection.test.js` (every open program at ACT Math 29 and 17 against the real catalog, each placement re-checked
+independently).
+
 ### `src/lib/auditEvidence.js`
 
 `buildEvidence(...)` answers two questions for the Requirements tab (called by `buildDegreeAudit`), so no hour is unexplained. **Where a category's hours come from:** a course the

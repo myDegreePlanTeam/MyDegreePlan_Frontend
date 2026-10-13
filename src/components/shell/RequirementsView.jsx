@@ -205,7 +205,7 @@ function Group({ group, onOpenRow, getOptions }) {
   )
 }
 
-function Block({ block, onOpenRow, getOptions }) {
+function Block({ block, dates, onOpenRow, getOptions }) {
   const { counts, total } = block
   return (
     <section className={`ds-audit-block${block.complete ? ' ds-audit-block-done' : ''}`} aria-labelledby={`ds-audit-${block.id}`}>
@@ -217,6 +217,12 @@ function Block({ block, onOpenRow, getOptions }) {
           </span>
         )}
       </div>
+      {dates?.notable && !dates.complete && (
+        <p className="ds-audit-dates">
+          Your plan completes this by {dates.planBy}
+          {dates.fastestBy && dates.fastestBy !== dates.planBy ? `; the soonest it could be done is ${dates.fastestBy}` : ''}.
+        </p>
+      )}
       {block.panel && <GenEdSummary panel={block.panel} />}
       {block.groups.map(group => <Group key={group.id} group={group} onOpenRow={onOpenRow} getOptions={getOptions} />)}
     </section>
@@ -267,7 +273,96 @@ function NotCounted({ items, onOpenRow }) {
   )
 }
 
-export default function RequirementsView({ audit, onOpenRow, getOptions }) {
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+// When the student could finish, and what sets that pace. An estimate from the same rules the Plan checks, so it says so.
+function FinishLine({ projection, onOpenRow }) {
+  if (!projection) return null
+  const { complete, graduation, plan, termsSooner, termsLater, underway, chain, chainTerms, hoursRemaining, hoursTerms, maxHours, limit, optimal, blocked } = projection
+
+  if (complete) {
+    return (
+      <section className="ds-finish" aria-label="Finish line">
+        <p className="ds-eyebrow">Finish line</p>
+        <p className="ds-finish-big">{underway ? `You finish at the end of ${underway}` : 'Every requirement is done'}</p>
+      </section>
+    )
+  }
+
+  const compare = termsSooner > 0
+    ? `Your plan finishes ${plan.label}. This schedule is ${plural(termsSooner, 'term')} sooner.`
+    : termsLater > 0
+      ? `Your plan finishes ${plan?.label}, ${plural(termsLater, 'term')} before these rules allow. The Issues tab shows which courses are out of order.`
+      : plan ? `Your plan finishes ${plan.label} too: it is already as fast as these rules allow.` : null
+
+  return (
+    <section className="ds-finish" aria-label="Finish line">
+      <p className="ds-eyebrow">Finish line</p>
+      <p className="ds-finish-big">
+        {graduation ? <>Earliest finish: <strong>{graduation.label}</strong></> : 'No finish can be worked out yet'}
+      </p>
+      <p className="ds-finish-sub">
+        {hoursRemaining} hours to go, at up to {maxHours} hours a term in Fall and Spring.
+        {compare && ` ${compare}`}
+        {!optimal && !blocked.length && graduation && ' This is the fastest arrangement found; a different one might save a term.'}
+      </p>
+
+      {graduation && (
+        <div className="ds-finish-pace">
+          <p className="ds-finish-pace-head">
+            What sets the pace: <strong>{limit === 'map' ? "the department's degree map" : limit === 'prerequisites' ? 'prerequisites' : 'hours'}</strong>.
+            {limit === 'map'
+              ? ` The department schedules these courses no earlier than the terms below, ${plural(chainTerms, 'term')} from now.`
+              : limit === 'prerequisites'
+                ? ` These courses must come in order, ${plural(chainTerms, 'term')} in all.`
+                : ` ${hoursRemaining} hours at ${maxHours} a term is ${plural(hoursTerms, 'term')}; the prerequisites alone would take ${plural(chainTerms, 'term')}.`}
+          </p>
+          {chain.length > 0 && (
+            <ol className="ds-finish-chain">
+              {chain.map(step => (
+                <li key={step.key}>
+                  <button type="button" className="ds-finish-step" onClick={() => onOpenRow(step)}>
+                    <span className="ds-finish-term">{step.termLabel}</span>
+                    <span className="ds-finish-course">{step.code ?? step.label}</span>
+                    {step.name && <span className="ds-finish-name">{step.name}</span>}
+                    {step.note && <span className="ds-finish-note">{step.note}</span>}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+
+      {blocked.length > 0 && (
+        <div className="ds-finish-blocked">
+          <p className="ds-finish-pace-head">
+            <strong>{plural(blocked.length, 'course')}</strong> cannot be placed, so the date above leaves {blocked.length === 1 ? 'it' : 'them'} out:
+          </p>
+          <ul>
+            {blocked.map(b => (
+              <li key={b.key}>
+                <button type="button" className="ds-finish-step" onClick={() => onOpenRow(b)}>
+                  <span className="ds-finish-course">{b.code ?? b.label}</span>
+                  <span className="ds-finish-note">
+                    {b.missing.length ? `needs ${b.missing.join(', ')}, which is not in your plan` : 'no term works for it'}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <p className="ds-finish-fine">
+        An estimate: it follows the prerequisites, corequisites, offering seasons and standing rules your plan is checked against, and
+        does not see seats or the schedule of classes. Summers are not used.
+      </p>
+    </section>
+  )
+}
+
+export default function RequirementsView({ audit, projection, onOpenRow, getOptions }) {
   return (
     <div className="ds-view ds-requirements">
       <p className="ds-eyebrow">Requirements</p>
@@ -280,10 +375,12 @@ export default function RequirementsView({ audit, onOpenRow, getOptions }) {
 
       <Summary summary={audit.summary} />
 
+      <FinishLine projection={projection} onOpenRow={onOpenRow} />
+
       {audit.blocks.length === 0 ? (
         <div className="ds-empty-state">This plan has no requirements to show yet.</div>
       ) : (
-        audit.blocks.map(block => <Block key={block.id} block={block} onOpenRow={onOpenRow} getOptions={getOptions} />)
+        audit.blocks.map(block => <Block key={block.id} block={block} dates={projection?.blocks?.[block.id]} onOpenRow={onOpenRow} getOptions={getOptions} />)
       )}
 
       <NotCounted items={audit.notCounted} onOpenRow={onOpenRow} />
