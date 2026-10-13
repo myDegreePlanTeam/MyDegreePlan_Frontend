@@ -4,7 +4,7 @@
 // database, the clock or React, so every case is a unit test.
 //
 //   buildDegreeAudit({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits,
-//                      courses, totalHours, semesterLabels, semesterPhase, genedProgram, majorLabel })
+//                      courses, totalHours, semesterLabels, semesterPhase, genedProgram, majorLabel, genedExempt })
 //     -> { summary, blocks }
 //
 // Every requirement is in one of four states, all derived from the calendar (lib/termPhase.js), never marked:
@@ -116,7 +116,7 @@ function emptyCounts() {
 
 export function buildDegreeAudit({
   slots = [], planSlots = {}, planArchived = {}, planSemesterOverrides = {}, freeAddSlots = [], priorCredits = [],
-  courses = {}, totalHours = 0, semesterLabels = {}, semesterPhase = {}, genedProgram = 'legacy', majorLabel = null,
+  courses = {}, totalHours = 0, semesterLabels = {}, semesterPhase = {}, genedProgram = 'legacy', majorLabel = null, genedExempt = [],
 } = {}) {
   const details = resolveTransferDetails(priorCredits, planSlots, slots)
   const subject = ownSubject(slots)
@@ -182,6 +182,7 @@ export function buildDegreeAudit({
 
   const panel = buildGenEdPanel({
     genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived, planSemesterOverrides, semesterPhase,
+    exempt: genedExempt,
   })
 
   const blocks = [

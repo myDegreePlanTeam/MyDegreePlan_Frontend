@@ -138,6 +138,28 @@ const RANGED = FF_CATEGORIES.filter(c => c.min < c.max)
 export const FF_FLEX_HOURS =
   FF_TOTAL_HOURS - FF_CATEGORIES.reduce((sum, c) => sum + c.min, 0)
 
+// ── Exemptions ────────────────────────────────────────────────────────────────
+// The catalog's general requirements (the undergraduate catalog: Special course requirements, item 3):
+// "All students must complete six hours of American History" except majors in Chemical, Civil, Computer, Electrical, General and
+// Mechanical Engineering. Computer SCIENCE is not on the list. That is Historical Foundations (HIST 2010 + 2020), so an exempt major
+// owes no hours in the category: its requirement drops to 35 of the 41 hours.
+//
+// Assumption, recorded in the Mechanical Engineering specs' `gened-history` waiver: the catalog's Flight Foundations page lists
+// Historical Foundations without repeating the exemption, so that it carries into Flight Foundations is not stated. The departments'
+// own 2026-27 degree maps carry no history course for these majors, which is the evidence it does. Keys are `major_code`.
+export const FF_EXEMPT_MAJORS = {
+  HIST: [
+    'chemical_engineering', 'civil_engineering', 'computer_engineering',
+    'electrical_engineering', 'general_engineering', 'mechanical_engineering',
+  ],
+}
+
+/** The Flight Foundations categories a major is exempt from (['HIST'] for Mechanical Engineering), [] for any other or an unknown major. */
+export function getFlightFoundationsExemptions(majorCode) {
+  if (!majorCode) return []
+  return Object.entries(FF_EXEMPT_MAJORS).filter(([, majors]) => majors.includes(majorCode)).map(([category]) => category)
+}
+
 /** The FF category a course belongs to ('HUM', 'SCI', …), or null. */
 export function getFlightFoundationsCategory(courseCode) {
   return CATEGORY_BY_COURSE.get(courseCode) ?? null
@@ -248,12 +270,18 @@ export function evaluateFlightFoundations(entries = [], options = {}) {
   // commitment raises that category's minimum (within its range), which shrinks the
   // shared flex: a plan that commits 8 science hrs has no flex left, so Humanities
   // and Literacy sit at exactly their minimums.
+  //
+  // `options.exempt` ([category codes], see FF_EXEMPT_MAJORS) removes a category from what the student owes: its range is 0 and
+  // the program total drops by the category's hours. Courses in it still count toward the degree, just not toward Flight Foundations.
   const minimums = options.minimums ?? {}
+  const exempt = new Set(options.exempt ?? [])
   const effectiveMin = Object.fromEntries(FF_CATEGORIES.map(cat => [
-    cat.code, Math.min(cat.max, Math.max(cat.min, minimums[cat.code] ?? 0)),
+    cat.code, exempt.has(cat.code) ? 0 : Math.min(cat.max, Math.max(cat.min, minimums[cat.code] ?? 0)),
   ]))
+  const exemptHours = FF_CATEGORIES.filter(cat => exempt.has(cat.code)).reduce((sum, cat) => sum + cat.min, 0)
+  const required = FF_TOTAL_HOURS - exemptHours
   const flexTotal = Math.max(
-    0, FF_TOTAL_HOURS - FF_CATEGORIES.reduce((sum, cat) => sum + effectiveMin[cat.code], 0),
+    0, required - FF_CATEGORIES.reduce((sum, cat) => sum + effectiveMin[cat.code], 0),
   )
 
   const categories = FF_CATEGORIES.map(cat => {
@@ -261,8 +289,9 @@ export function evaluateFlightFoundations(entries = [], options = {}) {
     const raw = courses.reduce((sum, c) => sum + c.credits, 0)
     const countable = cat.code === 'HUM' ? raw - languageExcess : raw
     const ranged = cat.min < cat.max
+    const isExempt = exempt.has(cat.code)
     const min = effectiveMin[cat.code]
-    const max = ranged ? Math.min(cat.max, min + flexTotal) : cat.max
+    const max = isExempt ? 0 : ranged ? Math.min(cat.max, min + flexTotal) : cat.max
     const earned = Math.min(countable, max)
     return {
       code:      cat.code,
@@ -272,6 +301,7 @@ export function evaluateFlightFoundations(entries = [], options = {}) {
       max,
       catalogMin: cat.min,
       catalogMax: cat.max,
+      exempt:    isExempt,
       raw,
       earned,
       excess:    raw - earned,
@@ -293,9 +323,9 @@ export function evaluateFlightFoundations(entries = [], options = {}) {
 
   return {
     categories,
-    totalRequired:  FF_TOTAL_HOURS,
+    totalRequired:  required,
     totalEarned,
-    totalRemaining: FF_TOTAL_HOURS - totalEarned,
+    totalRemaining: required - totalEarned,
     flex: { total: flexTotal, used: flexUsed, remaining: flexTotal - flexUsed },
     languageExcess,
     nonFlightFoundation,
@@ -317,7 +347,7 @@ export function evaluateFlightFoundations(entries = [], options = {}) {
 // chain below their placement — and must not count.
 
 export function evaluateFlightFoundationsForPlan(
-  planSlots, priorCredits, slots, courses, freeAddSlots = [], planArchived = {},
+  planSlots, priorCredits, slots, courses, freeAddSlots = [], planArchived = {}, options = {},
 ) {
   const minimums = getPlanMinimums(slots)
   const entries = []
@@ -344,7 +374,7 @@ export function evaluateFlightFoundationsForPlan(
     add(fa?.course_code, courses?.[fa?.course_code]?.credits)
   }
 
-  return evaluateFlightFoundations(entries, { minimums })
+  return evaluateFlightFoundations(entries, { ...options, minimums })
 }
 
 // ── Plan commitments ──────────────────────────────────────────────────────────
@@ -385,10 +415,10 @@ export function getPlanMinimums(slots) {
 // Literacy flex within their ranges.
 
 export function getFlightFoundationsStatus(
-  planSlots, priorCredits, slots, courses, freeAddSlots = [], planArchived = {},
+  planSlots, priorCredits, slots, courses, freeAddSlots = [], planArchived = {}, options = {},
 ) {
   const ev = evaluateFlightFoundationsForPlan(
-    planSlots, priorCredits, slots, courses, freeAddSlots, planArchived,
+    planSlots, priorCredits, slots, courses, freeAddSlots, planArchived, options,
   )
   return {
     program:       FF_PROGRAM_CODE,
@@ -405,6 +435,8 @@ export function getFlightFoundationsStatus(
       max:       c.max,
       satisfied: c.satisfied,
       remaining: c.remaining,
+      exempt:    c.exempt,
+      catalogMin: c.catalogMin,
     })),
   }
 }

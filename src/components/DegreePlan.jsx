@@ -15,7 +15,8 @@ import { getMoveConflicts } from '../lib/dragConflicts'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester, summarizePriorCredits } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
-import { fetchRequirementSlots } from '../lib/requirementSlots'
+import { fetchRequirementSlots, fetchMajorCode } from '../lib/requirementSlots'
+import { getFlightFoundationsExemptions } from '../lib/flightFoundations'
 import { approximatePlanOf, catalogYearForProfile } from '../lib/catalogYears'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { buildPlanIssues, countIssuesBySemester, FULL_TIME_MIN, HEAVY_LOAD_MAX } from '../lib/planIssues'
@@ -118,6 +119,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [resetKey, setResetKey]                   = useState(0)
   const [extraSemesters, setExtraSemesters]         = useState([])
   const [extraSemesterTerms, setExtraSemesterTerms] = useState({})
+  // The program's major (its catalog exemptions: lib/flightFoundations.js). null until loaded, or on a database without the column.
+  const [majorCode, setMajorCode] = useState(null)
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -242,6 +245,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       )
 
       if (slotError) { setError(slotError.message); setLoading(false); return }
+      setMajorCode(await fetchMajorCode(db, profile.concentration_id))
 
       // Step 2 — student's saved selections + overrides + archived status
       const slotIds = slotData.map(s => s.id)
@@ -564,8 +568,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return buildDegreeAudit({
       slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterLabels, semesterPhase,
       totalHours: profile.concentrations.total_hours, genedProgram: profile.gened_program, majorLabel: profile.concentrations.name,
+      genedExempt: getFlightFoundationsExemptions(majorCode),
     })
-  }, [slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, profile.concentrations.total_hours, profile.concentrations.name, profile.gened_program])
+  }, [majorCode, slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, profile.concentrations.total_hours, profile.concentrations.name, profile.gened_program])
 
   // ── Pool limits (the Area of Emphasis hours, for Mechanical Engineering) ──
   const poolLimitWarnings = useMemo(

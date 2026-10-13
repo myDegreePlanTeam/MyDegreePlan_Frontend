@@ -8,6 +8,7 @@
 // original sets apart (legacy / flight_foundations); the read falls back to that.
 
 import { FF_PROGRAM_CODE, LEGACY_PROGRAM_CODE } from './flightFoundations.js'
+import { selectWithOptional } from './dbErrors.js'
 import { yearStart } from './catalogYears.js'
 import { isMissingColumn } from './dbErrors.js'
 
@@ -62,4 +63,17 @@ export async function fetchRequirementSlots(client, concentrationId, catalogYear
   if (isMissingColumn(legacy.error)) legacy = await apply(base())          // not even gened_program: all legacy
   else if (!legacy.error && wanted !== LEGACY_PROGRAM_CODE && (legacy.data ?? []).length === 0) legacy = await byProgram(LEGACY_PROGRAM_CODE)
   return { ...legacy, catalogYear }
+}
+
+/**
+ * The `major_code` of a program (a program is a major or a concentration of one: 'mechanical_engineering'), or null. The column
+ * came after the first concentrations table, so a database without it answers null and the student simply has no exemptions.
+ */
+export async function fetchMajorCode(client, concentrationId) {
+  const { data } = await selectWithOptional(
+    columns => client.from('concentrations').select(columns).eq('id', concentrationId).single(),
+    'id',
+    ['major_code'],
+  )
+  return data?.major_code ?? null
 }

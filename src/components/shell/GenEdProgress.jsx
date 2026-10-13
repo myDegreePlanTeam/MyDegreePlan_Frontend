@@ -7,6 +7,7 @@ const STATE_LABEL = {
   planned:     'Covered by plan',
   open:        'Not covered',
   risk:        'At risk',
+  exempt:      'Exempt',
 }
 
 function Segments({ row }) {
@@ -25,6 +26,17 @@ function Segments({ row }) {
 
 // One category of a gen-ed program: its hours against the range, in what has happened, what is under way and what is planned.
 export function CategoryProgress({ row }) {
+  // An exempt category owes no hours: a word, no bar.
+  if (row.exempt) {
+    return (
+      <div className="ds-gened-progress ds-gened-exempt">
+        <div className="ds-gened-top">
+          <span className="ds-gened-hours">Not required for your major</span>
+          <span className="ds-gened-state">{STATE_LABEL.exempt}</span>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className={`ds-gened-progress ds-gened-${row.state}`}>
       <div className="ds-gened-top">
@@ -63,6 +75,13 @@ export default function GenEdSummary({ panel }) {
         {summaryLine(panel)}
         {panel.flexNote && ` ${panel.flexNote}.`}
       </p>
+      {panel.exemptions.length > 0 && (
+        <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
+          Exempt for your major: {panel.exemptions.map(e => `${e.label} (${e.hours} hrs)`).join(', ')}. The catalog's general
+          requirements excuse Chemical, Civil, Computer, Electrical, General and Mechanical Engineering majors from American
+          History. Confirm with your advisor.
+        </p>
+      )}
       <p className="ds-gened-legend">
         <span className="ds-legend-done">{panel.done} earned</span>
         <span className="ds-sep">·</span>
