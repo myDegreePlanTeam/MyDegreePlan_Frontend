@@ -5,7 +5,8 @@ import { getScienceWarnings, getPoolLimitWarnings, POOL_LABELS, POOL_COURSES, RE
 import { groupSlotsBySemester, sortByCourseCode } from '../lib/slotOrder'
 import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
 import { applyChosenHours } from '../lib/creditHours'
-import { selectWithOptional, isMissingColumn } from '../lib/dbErrors'
+import { selectWithOptional, isMissingColumn, isMissingTable } from '../lib/dbErrors'
+import { fetchRequirementSlots } from '../lib/requirementSlots'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { semesterPhases, statusForPhase, splitCreditsByPhase } from '../lib/termPhase'
 import { UNDO_LIMIT, stampUndo, pruneUndo, isUndoApplicable, loadUndo, saveUndo } from '../lib/undoStore'
@@ -15,9 +16,13 @@ import { getMoveConflicts } from '../lib/dragConflicts'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester, summarizePriorCredits } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
-import { fetchRequirementSlots, fetchMajorCode } from '../lib/requirementSlots'
+import { fetchMajorCode } from '../lib/requirementSlots'
+import { fetchStudentPrograms } from '../lib/studentPrograms'
+import { fetchProgramSlotSets, fetchProgramInfo } from '../lib/programSlots'
+import { mergePrograms } from '../lib/programMerge'
+import { placeAddedSlots } from '../lib/placeAdded'
 import { getFlightFoundationsExemptions } from '../lib/flightFoundations'
-import { approximatePlanOf, catalogYearForProfile } from '../lib/catalogYears'
+import { approximatePlanOf } from '../lib/catalogYears'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { buildPlanIssues, countIssuesBySemester, FULL_TIME_MIN, HEAVY_LOAD_MAX } from '../lib/planIssues'
 import Semester from './Semester'
@@ -41,7 +46,8 @@ import { projectDegree } from '../lib/degreeProjection'
 import { isFeatureOpen } from '../lib/features'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
-import SettingsView, { ConcentrationModal, ResetModal } from './shell/SettingsView'
+import SettingsView, { ConcentrationModal, ResetModal, RemoveProgramModal } from './shell/SettingsView'
+import AddProgramModal from './shell/AddProgramModal'
 import './Dashboard.css'
 import './shell/AppShell.css'
 
@@ -117,6 +123,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [showSwitchModal, setShowSwitchModal]     = useState(false)
   const [switching, setSwitching]                 = useState(false)
   const [showResetModal, setShowResetModal]       = useState(false)
+  // Adding and removing a second major: the dialogs, and the program being removed ({ id, programId, catalogYear, name }) or null
+  const [showAddProgram, setShowAddProgram]       = useState(false)
+  const [addingProgram, setAddingProgram]         = useState(false)
+  const [addProgramError, setAddProgramError]     = useState(null)
+  const [removeTarget, setRemoveTarget]           = useState(null)
+  const [removingProgram, setRemovingProgram]     = useState(false)
   const [resetting, setResetting]                 = useState(false)
   // conflictModal: { title, reasons: string[] } | null
   const [conflictModal, setConflictModal]         = useState(null)
@@ -125,6 +137,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [extraSemesterTerms, setExtraSemesterTerms] = useState({})
   // The program's major (its catalog exemptions: lib/flightFoundations.js). null until loaded, or on a database without the column.
   const [majorCode, setMajorCode] = useState(null)
+  // The programs the student follows, the primary first (lib/studentPrograms.js), their names and hours, and what merging their slots gave
+  // (lib/programMerge.js): { programs, info: { [programId]: { name, total_hours } }, programsOf: { [slotId]: programId[] }, totalHours }.
+  // totalHours is null until loaded; a student with no added program reads the primary's own, as before.
+  const [programPlan, setProgramPlan] = useState({ programs: [], info: {}, programsOf: {}, totalHours: null })
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -137,6 +153,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
     () => applyChosenHours(baseCourses, { freeAdds: freeAddSlots, planSlots, planSelectedCredits }),
     [baseCourses, freeAddSlots, planSlots, planSelectedCredits],
   )
+
+  // What the plan is called and how many hours it needs: the primary program's, and with a second major or a minor, all of them.
+  const addedPrograms = useMemo(
+    () => programPlan.programs.filter(p => !p.primary).map(({ programId, catalogYear }) => ({ programId, catalogYear })),
+    [programPlan.programs],
+  )
+  const planName = [profile.concentrations.name, ...programPlan.programs.filter(p => !p.primary).map(p => programPlan.info[p.programId]?.name)]
+    .filter(Boolean).join(' + ')
+  const totalHours = programPlan.totalHours ?? profile.concentrations.total_hours
 
   // planArchived: { [slotId]: archiveReason | true } — slots removed from grid by
   // a prior credit (Concept 2 / Bug 2) or by the degree builder
@@ -239,20 +264,24 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setLoading(true)
 
     async function loadPlan() {
-      // Step 1 — requirement slots (template)
-      const { data: slotData, error: slotError } = await fetchRequirementSlots(
+      // Step 1 — the programs the student follows (the primary one, and any second major or minor added to it) and each one's
+      // requirement slots (template). They are merged into one list below, once the courses are known.
+      const { data: programList, error: programError } = await fetchStudentPrograms(db, profile)
+      if (programError) { setError(programError.message); setLoading(false); return }
+      const { data: slotSets, error: slotError } = await fetchProgramSlotSets(
         db,
-        profile.concentration_id,
-        catalogYearForProfile(profile),
+        programList,
         'id, semester_number, slot_order, class_code, is_pool, flex_credits, map_semester',
         [{ column: 'semester_number' }, { column: 'slot_order' }],
       )
 
       if (slotError) { setError(slotError.message); setLoading(false); return }
       setMajorCode(await fetchMajorCode(db, profile.concentration_id))
+      const { data: programInfo } = await fetchProgramInfo(db, programList.map(p => p.programId))
+      const allSlotData = slotSets.flatMap(set => set.slots)
 
       // Step 2 — student's saved selections + overrides + archived status
-      const slotIds = slotData.map(s => s.id)
+      const slotIds = allSlotData.map(s => s.id)
       const { data: savedSlots, error: savedSlotsError } = await selectWithOptional(
         columns => db
           .from('student_plan_slots')
@@ -288,7 +317,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       if (freeAddError) { setError(freeAddError.message); setLoading(false); return }
 
       // Step 4 — collect all course codes to fetch
-      const allCodes = plannerCodes(slotData, (freeAdds ?? []).map(f => f.course_code))
+      const allCodes = plannerCodes(allSlotData, (freeAdds ?? []).map(f => f.course_code))
 
       // Step 5 — fetch courses
       const { data: courseData, error: courseError } = await selectWithOptional(
@@ -300,6 +329,23 @@ export default function DegreePlan({ profile, onProfileChange }) {
       if (courseError) { setError(courseError.message); setLoading(false); return }
       const courseMap = {}
       for (const course of courseData) courseMap[course.code] = course
+
+      // Step 5b — one slot list for every program: a course two programs name is one card, general education comes from the primary,
+      // and the added programs' own hours are spent from the primary's Free Elective hours first (lib/programMerge.js). With no added
+      // program this is the primary's slots and total, unchanged.
+      const [primarySet, ...addedSets] = slotSets
+      const primaryProgram = primarySet?.program ?? { programId: profile.concentration_id, genedProgram: profile.gened_program }
+      const merged = mergePrograms(
+        {
+          programId: primaryProgram.programId, slots: primarySet?.slots ?? [], genedProgram: primaryProgram.genedProgram,
+          totalHours: programInfo[primaryProgram.programId]?.total_hours ?? profile.concentrations.total_hours,
+        },
+        addedSets.map(({ program, slots: set }) => ({
+          programId: program.programId, role: program.role, slots: set, genedProgram: program.genedProgram, totalHours: programInfo[program.programId]?.total_hours,
+        })),
+        { courses: courseMap, planSlots: planSlotsMap },
+      )
+      const slotData = merged.slots
 
       // Step 6 — prerequisites
       const { data: prereqData, error: prereqError } = await db
@@ -357,6 +403,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
         !planArchivedMap[s.id] &&
         (planSemesterOverridesMap[s.id] ?? s.semester_number) == null
       )
+      // A program added to a plan that already has positions: the new slots go around the saved ones, never move them (lib/placeAdded.js).
+      const placedNow = Object.fromEntries(slotData
+        .filter(s => !planArchivedMap[s.id] && (planSemesterOverridesMap[s.id] ?? s.semester_number) != null)
+        .map(s => [s.id, planSemesterOverridesMap[s.id] ?? s.semester_number]))
+      const aroundSaved = addedSets.length > 0 && Object.keys(placedNow).length > 0
       if (unplaced.length > 0) {
         const { assignments, archived } = buildDegreePlan({
           slots:        slotData,
@@ -372,6 +423,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
           },
         })
 
+        const positions = aroundSaved
+          ? {
+              ...assignments,
+              ...placeAddedSlots({
+                unplaced: unplaced.filter(s => !archived[s.id]), floors: assignments, placed: placedNow, slots: slotData, courseMap,
+                prereqMap: prereqMapBuilt, coreqMap: coreqMapBuilt, priorCredits: priorCreditsData ?? [], planSlots: planSlotsMap,
+                startSeason: profile.start_season,
+              }),
+            }
+          : assignments
+
         const placedRows = []
         for (const slot of unplaced) {
           const row = {
@@ -384,9 +446,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
             planArchivedMap[slot.id] = archived[slot.id]
             placedRows.push({ ...row, semester_number: null, archived: true,
               archive_reason: archived[slot.id], position_source: null })
-          } else if (assignments[slot.id] != null) {
-            planSemesterOverridesMap[slot.id] = assignments[slot.id]
-            placedRows.push({ ...row, semester_number: assignments[slot.id], archived: false,
+          } else if (positions[slot.id] != null) {
+            planSemesterOverridesMap[slot.id] = positions[slot.id]
+            placedRows.push({ ...row, semester_number: positions[slot.id], archived: false,
               archive_reason: null, position_source: 'algorithm' })
           }
         }
@@ -408,6 +470,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       // They appear in planArchivedMap and are filtered out of the grid via
       // semesterMap. No separate client-side filter is needed here.
       setSlots(slotData)
+      setProgramPlan({ programs: programList, info: programInfo, programsOf: merged.programsOf, totalHours: merged.totalHours })
       setCourses(courseMap)
       setPrereqMap(prereqMapBuilt)
       setCoreqMap(coreqMapBuilt)
@@ -421,7 +484,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
       setPriorCredits(priorCreditsData ?? [])
       setExtraSemesterTerms(extraTermsMap)
       // the undo stack of the last visit, less any record whose slot or added course is gone
-      setUndoStack(pruneUndo(loadUndo(profile)).filter(r => isUndoApplicable(r, { slots: slotData, freeAddSlots: freeAdds ?? [] })))
+      const added = programList.filter(p => !p.primary).map(({ programId, catalogYear }) => ({ programId, catalogYear }))
+      setUndoStack(pruneUndo(loadUndo(profile, { addedPrograms: added })).filter(r => isUndoApplicable(r, { slots: slotData, freeAddSlots: freeAdds ?? [] })))
       setLoading(false)
     }
 
@@ -516,8 +580,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // Keep the undo stack in the browser. Not while loading: the stack of the last visit is read when the plan has loaded.
   useEffect(() => {
-    if (!loading) saveUndo(profile, undoStack)
-  }, [loading, undoStack, profile])
+    if (!loading) saveUndo(profile, undoStack, { addedPrograms })
+  }, [loading, undoStack, profile, addedPrograms])
 
   // Past semesters start collapsed, once, when the plan has loaded; the student can still open them.
   const collapsedPastRef = useRef(false)
@@ -572,10 +636,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
     for (const [n, term] of Object.entries(semesterTerms)) semesterLabels[n] = formatTermLabel(term)
     return buildDegreeAudit({
       slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterLabels, semesterPhase,
-      totalHours: profile.concentrations.total_hours, genedProgram: profile.gened_program, majorLabel: profile.concentrations.name,
+      totalHours, genedProgram: profile.gened_program, majorLabel: planName,
       genedExempt: getFlightFoundationsExemptions(majorCode),
     })
-  }, [majorCode, slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, profile.concentrations.total_hours, profile.concentrations.name, profile.gened_program])
+  }, [majorCode, slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, totalHours, planName, profile.gened_program])
 
   // ── The finish line (Requirements view): the soonest the rules allow, and what sets the pace ──
   // Several scheduling passes: only worked out while a tab that shows it is open (Requirements, and Advisement, whose PDF prints it),
@@ -1364,6 +1428,44 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setResetKey(k => k + 1)
   }
 
+  // ── Second major ──────────────────────────────────────────────────
+  // Adding is one row in student_programs: the next load reads the program's slots, merges them with the primary's and places only the
+  // new ones, around the positions already saved (lib/placeAdded.js). Removing deletes the program's slot rows and its student_programs row.
+  async function handleAddProgram(row) {
+    setAddingProgram(true)
+    setAddProgramError(null)
+    const { error: insertError } = await db.from('student_programs').insert(row)
+    setAddingProgram(false)
+    if (insertError) {
+      setAddProgramError(isMissingTable(insertError)
+        ? 'This install has not been updated to keep a second major yet. Update it, then try again.'
+        : `Could not add the degree program: ${insertError.message}`)
+      return
+    }
+    setShowAddProgram(false)
+    setUndoStack([])
+    markSaved()
+    setResetKey(k => k + 1)
+  }
+
+  async function handleRemoveProgram() {
+    if (!removeTarget) return
+    setRemovingProgram(true)
+    const { data: slotRows } = await fetchRequirementSlots(db, removeTarget.programId, removeTarget.catalogYear, 'id')
+    const ids = (slotRows ?? []).map(s => s.id)
+    if (ids.length) {
+      const { error: slotsError } = await db.from('student_plan_slots').delete().eq('student_id', profile.id).in('requirement_slot_id', ids)
+      if (slotsError) { setRemovingProgram(false); showSaveError(`Could not remove the degree program: ${slotsError.message}`); return }
+    }
+    const { error: rowError } = await db.from('student_programs').delete().eq('id', removeTarget.id)
+    setRemovingProgram(false)
+    if (rowError) { showSaveError(`Could not remove the degree program: ${rowError.message}`); return }
+    setRemoveTarget(null)
+    setUndoStack([])
+    markSaved()
+    setResetKey(k => k + 1)
+  }
+
   // ── Concentration switch ──────────────────────────────────────────
   // plan: the degree_plans row the new program follows for this student's entry year (null if unknown)
   async function handleConcentrationSwitch(newConc, plan = null) {
@@ -1383,6 +1485,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
         .eq('id', profile.id))
     }
     if (updateErr) { setSwitching(false); return }
+
+    // Programs added to the old primary stay (the plan is rebuilt around the new one), unless the new primary is one of them: a program
+    // is never both. A database without student_programs has none to drop.
+    const { error: addedErr } = await db.from('student_programs').delete().eq('student_id', profile.id).eq('concentration_id', newConc.id)
+    if (addedErr && !isMissingTable(addedErr)) { setSwitching(false); return }
 
     const deleteErr = await clearPlanData()
     if (deleteErr) { setSwitching(false); return }
@@ -1407,7 +1514,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
     )
   }
 
-  const totalHours   = profile.concentrations.total_hours
   const completedPct = Math.min((creditTotals.completed / totalHours) * 100, 100)
   const plannedPct   = Math.min((creditTotals.planned   / totalHours) * 100, 100 - completedPct)
 
@@ -1657,7 +1763,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
           <div className="ds-plan">
             <div className="ds-plan-header">
               <div className="ds-plan-heading">
-                <p className="ds-eyebrow">{profile.concentrations.name}</p>
+                <p className="ds-eyebrow">{planName}</p>
                 <h2 className="ds-h2">{allSemesterNumbers.length <= 8 ? 'Four-Year Plan' : 'Degree Plan'}</h2>
                 <p className="ds-sub" style={{ whiteSpace: 'nowrap' }}>
                   {firstTerm && graduation
@@ -1842,6 +1948,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
             onToggleTheme={toggleTheme}
             onOpenConcentration={() => setShowSwitchModal(true)}
             onOpenReset={() => setShowResetModal(true)}
+            addedPrograms={programPlan.programs.filter(p => !p.primary).map(p => ({ ...p, name: programPlan.info[p.programId]?.name ?? 'Degree program' }))}
+            secondMajorOpen={isFeatureOpen('secondMajor')}
+            onOpenAddProgram={() => { setAddProgramError(null); setShowAddProgram(true) }}
+            onRemoveProgram={program => setRemoveTarget(program)}
             onActSaved={numScores => {
               setUndoStack([])
               markSaved()
@@ -1881,6 +1991,26 @@ export default function DegreePlan({ profile, onProfileChange }) {
           onConfirm={handleResetPlan}
           onClose={() => setShowResetModal(false)}
           resetting={resetting}
+        />
+      )}
+
+      {showAddProgram && (
+        <AddProgramModal
+          profile={profile}
+          addedPrograms={programPlan.programs.filter(p => !p.primary)}
+          onAdd={handleAddProgram}
+          onClose={() => setShowAddProgram(false)}
+          adding={addingProgram}
+          error={addProgramError}
+        />
+      )}
+
+      {removeTarget && (
+        <RemoveProgramModal
+          name={removeTarget.name}
+          onConfirm={handleRemoveProgram}
+          onClose={() => setRemoveTarget(null)}
+          removing={removingProgram}
         />
       )}
 

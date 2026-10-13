@@ -1,7 +1,7 @@
 # PLAN — Double majors and minors
 
 Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
-engine, backup format 2, `lib/studentPrograms.js`; nothing reads it in the plan view yet). Phases 2 to 8 planned, nothing built.
+engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.secondMajor` until Phases 3 and 4, so students do not see an unfinished feature). Phases 3 to 8 planned, nothing built.
 Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
 [`PLAN_all-majors.md`](./PLAN_all-majors.md) (which left minors out), [`PLAN_deeper-features.md`](./PLAN_deeper-features.md) (Phase 5 left them out).
@@ -202,14 +202,22 @@ The Docker SQL was written and reviewed against the neighbouring tables but **no
 - A loader `lib/studentPrograms.js` returning `[primary, ...added]` with each program's resolved plan year; tolerant of the table's absence (an install whose setup step has not re-run), like `fetchFreeAddSlots`.
 - Done when: a profile with no added programs behaves byte-for-byte as today (the whole suite unchanged) and a backup round-trips with added programs.
 
-### Phase 2 — Double major in the plan (the core; `DegreePlan.jsx`)
+### Phase 2 — Double major in the plan (**done 2026-10-13**, with the changes noted; the core; `DegreePlan.jsx`)
+Built: the loader reads every program (`studentPrograms`, `programSlots`), merges (`programMerge`), runs the existing pipeline on the merged list, places only the new slots around the saved ones (`placeAdded`), and the header
+and audit carry the merged name and hours; Settings has "Second major" (add: program, declared term, overlap note; remove with a confirmation); "Change degree program" keeps added programs; the undo stack is scoped to the set.
+**Changes from the text below, from what the code said:** (1) shadow rows are **derived, not stored**: nothing needs them (a hidden slot has no state of its own, and reloading places whatever becomes visible), and
+not writing them removes a class of drift; (2) a pool that another program's course already satisfies is absorbed (`reason: 'satisfied'`; found in the browser: Mathematics B.S. asked "CSC 1300 or ENGR 1120" with CSC 1300 already on
+the plan); (3) semester notes stay filed under the primary program (nothing to move); (4) the added program's slots are placed by `placeAdded`, not by `buildDegreePlan` alone, which would have moved the primary's courses.
+**Checked in the browser** (dev server, local backend): CSC Core with Mathematics B.S. (169 hours, 10 semesters) and with Mechanical Engineering through the dialog (218 hours, 13 semesters): the 44 saved primary rows did not
+move, the only issues are unfilled choices, removing the program restores the 44 rows exactly. There is no automated test of `DegreePlan.jsx`'s load itself (the repo has none for that component); the pieces it calls are tested.
+**Open:** a second pool slot the added program repeats (Math B.S. lists "CSC 1300 or ENGR 1120" twice) still asks for ENGR 1120; whether a pick may count toward two programs' pools (Findings, 3).
 - Load every program's slots, merge them (D3–D5), run the existing pipeline on the merged list, and tag each card with the programs it serves. Shadow rows are written on add and hidden on the grid.
 - Add flow in Settings (majors only): choose the program, entry term, confirm the overlap note; build placements with `buildDegreePlan` for the *added* slots only, leaving saved positions alone.
 - Remove flow; "Change degree program" no longer clears an added program; undo scope (D10); semester notes move from per-program to per-student for display (keep the column).
 - Math placement chain and engineering floors run once for the merged plan.
 - Done when, for CSC Core + a second major: no duplicate cards, hours are the union, every requirement of both plans is satisfied exactly when its courses are in the plan, a prior credit covering a shared course archives both slots, drag/move/undo/reset behave, and a reload restores it all.
 
-### Phase 3 — Plan UI and platforms (`DegreePlan.jsx` again, after Phase 2 merges)
+### Phase 3 — Plan UI and platforms (`DegreePlan.jsx` again, after Phase 2 merges; the add and remove dialogs and the Settings card are already in Phase 2)
 - Program tags on cards and a filter ("All / CSC / Math"); header shows "CSC Core + Mathematics (second major)" and the extra hours; phone layout; empty and error states.
 - The Settings and plan-header entry points; remove-program confirmation.
 - A parity journey step (`parity/lib/scenario.mjs`) that adds a second major and checks it on all three platforms; register any platform wording in `lib/platform.js`.

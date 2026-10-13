@@ -31,6 +31,11 @@ describe('isFeatureOpen', () => {
     expect(FEATURES.requirements).toBe(false)
     expect(isFeatureOpen('requirements')).toBe(false)
   })
+
+  it('adding a second major is held back until the plan tags its cards and the PDFs name every program', () => {
+    expect(FEATURES.secondMajor).toBe(false)
+    expect(isFeatureOpen('secondMajor')).toBe(false)
+  })
 })
 
 describe('the sidebar', () => {

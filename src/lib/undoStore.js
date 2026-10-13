@@ -6,7 +6,8 @@
 //
 // A stored stack must never be applied to a plan it was not made for, so it is dropped when:
 //   - it is older than UNDO_MAX_AGE_MS (a record is stamped with `at` when it is pushed),
-//   - the profile's program or catalog year differs from the one it was saved under,
+//   - the profile's program or catalog year, or the set of programs added to it (a second major, a minor), differs from the one it
+//     was saved under,
 //   - a record's slot or added course no longer exists (isUndoApplicable, checked on load and again when undoing),
 //   - the data on this device is erased or replaced by an import (clearAllUndo; the local backend reuses profile ids after an erase).
 // Browser storage can be missing, full or blocked (private windows): every read and write is guarded and the app works without it.
@@ -57,15 +58,23 @@ export function isUndoApplicable(record, { slots = [], freeAddSlots = [] } = {})
   }
 }
 
-const scopeOf = profile => ({ concentrationId: profile?.concentration_id ?? null, catalogYear: profile?.catalog_year ?? null })
+// The programs added to the profile, as one comparable string: '' for none, else "id:year" of each, sorted. A stack saved before added
+// programs existed has no such field and reads as ''.
+const addedKey = added => (added ?? []).map(p => `${p.programId}:${p.catalogYear}`).sort().join(',')
 
-/** The stack saved for this profile, or [] when there is none, it is for another program, or storage is unavailable. */
-export function loadUndo(profile, { storage = defaultStorage(), now = Date.now() } = {}) {
+const scopeOf = (profile, added) => ({ concentrationId: profile?.concentration_id ?? null, catalogYear: profile?.catalog_year ?? null, added: addedKey(added) })
+
+/**
+ * The stack saved for this profile, or [] when there is none, it is for another program or another set of added programs, or storage is
+ * unavailable. `addedPrograms` is [{ programId, catalogYear }] of the programs added to the primary one.
+ */
+export function loadUndo(profile, { storage = defaultStorage(), now = Date.now(), addedPrograms = [] } = {}) {
   if (!storage || profile?.id == null) return []
   try {
     const saved = JSON.parse(storage.getItem(keyFor(profile.id)) ?? 'null')
-    const scope = scopeOf(profile)
+    const scope = scopeOf(profile, addedPrograms)
     if (!saved || saved.v !== VERSION || saved.concentrationId !== scope.concentrationId || saved.catalogYear !== scope.catalogYear) return []
+    if ((saved.added ?? '') !== scope.added) return []
     return pruneUndo(saved.records, now)
   } catch {
     return []
@@ -73,12 +82,12 @@ export function loadUndo(profile, { storage = defaultStorage(), now = Date.now()
 }
 
 /** Saves the stack (an empty one removes the entry). Never throws. */
-export function saveUndo(profile, records, { storage = defaultStorage(), now = Date.now() } = {}) {
+export function saveUndo(profile, records, { storage = defaultStorage(), now = Date.now(), addedPrograms = [] } = {}) {
   if (!storage || profile?.id == null) return
   try {
     const kept = pruneUndo(records, now)
     if (kept.length === 0) storage.removeItem(keyFor(profile.id))
-    else storage.setItem(keyFor(profile.id), JSON.stringify({ v: VERSION, ...scopeOf(profile), records: kept }))
+    else storage.setItem(keyFor(profile.id), JSON.stringify({ v: VERSION, ...scopeOf(profile, addedPrograms), records: kept }))
   } catch {
     // storage full or blocked: the stack stays in memory for this visit
   }

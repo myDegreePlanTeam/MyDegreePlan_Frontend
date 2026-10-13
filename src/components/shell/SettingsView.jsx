@@ -17,6 +17,10 @@ export default function SettingsView({
   onOpenConcentration,
   onOpenReset,
   onActSaved,
+  addedPrograms = [],
+  secondMajorOpen = false,
+  onOpenAddProgram,
+  onRemoveProgram,
 }) {
   return (
     <div className="ds-view ds-settings">
@@ -44,6 +48,34 @@ export default function SettingsView({
             Change
           </button>
         </div>
+        <div className="ds-setting">
+          <span className="ds-setting-text">
+            <span className="ds-setting-label">Second major</span>
+            <span className="ds-setting-desc">
+              {addedPrograms.length === 0
+                ? 'Add a second degree program to your plan. Courses both need appear once and count toward each.'
+                : 'Your plan includes the programs below. Courses more than one needs appear once and count toward each.'}
+            </span>
+          </span>
+          {secondMajorOpen ? (
+            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenAddProgram}>
+              Add
+            </button>
+          ) : (
+            <span className="ds-tab-soon-tag" title="Coming soon">Coming soon</span>
+          )}
+        </div>
+        {addedPrograms.map(program => (
+          <div className="ds-setting" key={program.id}>
+            <span className="ds-setting-text">
+              <span className="ds-setting-label">{program.name}</span>
+              <span className="ds-setting-desc">Second major · follows the {program.catalogYear} catalog</span>
+            </span>
+            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`} disabled={!secondMajorOpen}>
+              Remove
+            </button>
+          </div>
+        ))}
       </div>
 
       <ActScoresCard
@@ -280,6 +312,31 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
             disabled={!isDifferent || switching}
           >
             {switching ? 'Switching…' : isDifferent ? `Switch to ${selected.name}` : 'Choose a degree program'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── RemoveProgramModal ────────────────────────────────────────────────────────
+
+export function RemoveProgramModal({ name, onConfirm, onClose, removing }) {
+  return (
+    <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !removing) onClose() }}>
+      <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="remove-program-title">
+        <div className="ds-modal-head">
+          <p className="ds-eyebrow">Degree programs</p>
+          <h3 className="ds-modal-title" id="remove-program-title">Remove {name}?</h3>
+        </div>
+        <p className="ds-modal-text" style={{ padding: '16px 22px' }}>
+          This takes the courses only {name} needs out of your plan, along with the selections you made for them. Courses your other degree
+          program needs stay where they are. Prior credits and your other selections are kept.
+        </p>
+        <div className="ds-modal-foot">
+          <button className="ds-btn-ghost" onClick={onClose} disabled={removing}>Cancel</button>
+          <button className="ds-btn-danger" style={{ minHeight: 38 }} onClick={onConfirm} disabled={removing}>
+            {removing ? 'Removing…' : 'Remove'}
           </button>
         </div>
       </div>
