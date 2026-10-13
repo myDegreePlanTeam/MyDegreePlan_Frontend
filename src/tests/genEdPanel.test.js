@@ -40,8 +40,9 @@ describe('buildGenEdPanel — legacy program', () => {
       priorCredits: [{ id: 'a', satisfies_course_code: 'ECON2010', credits_awarded: 3 }],
     })
     const row = key => panel.rows.find(r => r.key === key)
-    expect(row('History')).toMatchObject({ earned: 6, state: 'done' })
-    expect(row('Social')).toMatchObject({ earned: 3, state: 'open' })
+    // prior credit is earned; the History picks have no term, so they are ahead
+    expect(row('History')).toMatchObject({ earned: 6, done: 0, planned: 6, state: 'planned' })
+    expect(row('Social')).toMatchObject({ earned: 3, done: 3, state: 'open' })
     expect(panel.earned).toBe(9)
   })
 
@@ -100,9 +101,9 @@ describe('buildGenEdPanel — Flight Foundations', () => {
       planSlots: { 5: 'ECON2010', 6: 'PSY1030' },
     })
     const row = key => panel.rows.find(r => r.key === key)
-    expect(row('COMM_COMP')).toMatchObject({ earned: 6, state: 'done' })
-    expect(row('HIST')).toMatchObject({ earned: 6, state: 'done' })
-    expect(row('SOC')).toMatchObject({ earned: 6, state: 'done' })
+    expect(row('COMM_COMP')).toMatchObject({ earned: 6, state: 'planned' })
+    expect(row('HIST')).toMatchObject({ earned: 6, state: 'planned' })
+    expect(row('SOC')).toMatchObject({ earned: 6, state: 'planned' })
     expect(row('HUM').state).toBe('open')
   })
 
@@ -139,5 +140,83 @@ describe('buildGenEdPanel — plans without gen-ed slots', () => {
   it('returns null while the plan is still loading', () => {
     expect(buildGenEdPanel({ genedProgram: 'legacy', slots: [], courses })).toBeNull()
     expect(hasGenEdSlots(undefined)).toBe(false)
+  })
+})
+
+// ── States follow the calendar ───────────────────────────────────────────────
+// A category is "Complete" only when the hours are earned. Hours in the current term are in progress; hours in a later term
+// are "covered by plan", never complete.
+describe('buildGenEdPanel — done, in progress and planned', () => {
+  const phases = { 1: 'past', 2: 'current', 3: 'future' }
+  const slots = [
+    { id: 1,  class_code: 'ENGL1010', is_pool: false, semester_number: 1 },
+    { id: 2,  class_code: 'ENGL1020', is_pool: false, semester_number: 2 },
+    { id: 3,  class_code: 'HIST2010', is_pool: false, semester_number: 3 },
+    { id: 4,  class_code: 'HIST2020', is_pool: false, semester_number: 3 },
+    { id: 5,  class_code: 'FF_SOCIAL', is_pool: true, semester_number: 1 },
+    { id: 6,  class_code: 'FF_SOCIAL', is_pool: true, semester_number: 3 },
+    { id: 7,  class_code: 'FF_HUMANITIES', is_pool: true, semester_number: 3 },
+    { id: 8,  class_code: 'FF_HUMANITIES', is_pool: true, semester_number: 3 },
+  ]
+  const build = extra => buildGenEdPanel({
+    genedProgram: 'flight_foundations', slots, courses, semesterPhase: phases,
+    planSlots: { 5: 'ECON2010', 6: 'PSY1030' }, ...extra,
+  })
+  const row = (panel, key) => panel.rows.find(r => r.key === key)
+
+  it('splits a category into hours earned, in progress and planned', () => {
+    const panel = build()
+    expect(row(panel, 'COMM_COMP')).toMatchObject({ done: 3, inProgress: 3, planned: 0, earned: 6, state: 'in_progress' })
+    expect(row(panel, 'SOC')).toMatchObject({ done: 3, inProgress: 0, planned: 3, earned: 6, state: 'planned' })
+  })
+
+  it('does not call a category complete while any of its hours are still ahead', () => {
+    const panel = build()
+    expect(row(panel, 'HIST')).toMatchObject({ done: 0, planned: 6, state: 'planned' })
+    expect(panel.rows.filter(r => r.state === 'done')).toEqual([])
+  })
+
+  it('is complete once every hour is in a past term', () => {
+    const panel = build({ semesterPhase: { 1: 'past', 2: 'past', 3: 'past' } })
+    expect(row(panel, 'COMM_COMP')).toMatchObject({ done: 6, inProgress: 0, planned: 0, state: 'done' })
+    expect(row(panel, 'HIST').state).toBe('done')
+  })
+
+  it('treats prior credit as earned', () => {
+    const priorCredits = [{ id: 'a', satisfies_course_code: 'HIST2010', credits_awarded: 3 }, { id: 'b', satisfies_course_code: 'HIST2020', credits_awarded: 3 }]
+    const panel = build({ priorCredits, planArchived: { 3: 'prior_credit', 4: 'prior_credit' } })
+    expect(row(panel, 'HIST')).toMatchObject({ done: 6, state: 'done' })
+  })
+
+  it('the three buckets add up to the hours counted, and the panel totals follow', () => {
+    const panel = build()
+    for (const r of panel.rows) expect(r.done + r.inProgress + r.planned).toBe(r.earned)
+    expect(panel.done + panel.inProgress + panel.planned).toBe(panel.earned)
+  })
+
+  it('a drag override moves the hours to the term they now sit in', () => {
+    const panel = build({ planSemesterOverrides: { 3: 1, 4: 1 } })
+    expect(row(panel, 'HIST')).toMatchObject({ done: 6, state: 'done' })
+  })
+
+  it('the panel is only as far along as its least advanced category', () => {
+    expect(build().state).toBe('open')
+    const covered = build({ planSlots: { 5: 'ECON2010', 6: 'PSY1030', 7: 'PHIL1030', 8: 'ART1035' }, courses: { ...courses, ART1035: { credits: 3 } } })
+    expect(['planned', 'in_progress', 'open']).toContain(covered.state)
+  })
+
+  it('keeps a category range stable: skipping future courses in a pass does not shrink what the plan commits to', () => {
+    const early = build({ semesterPhase: { 1: 'past', 2: 'past', 3: 'past' } })
+    const late = build()
+    expect(row(late, 'HUM').min).toBe(row(early, 'HUM').min)
+    expect(row(late, 'HUM').max).toBe(row(early, 'HUM').max)
+  })
+
+  it('legacy: a History pick in a future term is planned, one in a past term is complete', () => {
+    const legacySlots = [1, 2].map(id => ({ id, is_pool: true, class_code: 'GEN_ED', semester_number: id === 1 ? 1 : 3 }))
+    const panel = buildGenEdPanel({
+      genedProgram: 'legacy', slots: legacySlots, courses, semesterPhase: phases, planSlots: { 1: 'HIST2010', 2: 'HIST2020' },
+    })
+    expect(panel.rows.find(r => r.key === 'History')).toMatchObject({ done: 3, planned: 3, earned: 6, state: 'planned' })
   })
 })

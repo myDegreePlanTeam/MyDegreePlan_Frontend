@@ -32,6 +32,11 @@ export function termPhase(term, today) {
   return t === now ? 'current' : 'future'
 }
 
+/** The phase of semester `n` in a { [semNum]: phase } map; a semester with no term (or no number) is 'future', never assumed passed. */
+export function phaseOfSemester(phases, n) {
+  return phases?.[n] ?? 'future'
+}
+
 /** The course status a phase implies, in the words student_plan_slots.status has always used. */
 export function statusForPhase(phase) {
   return phase === 'past' ? 'completed' : phase === 'current' ? 'in_progress' : 'planned'
