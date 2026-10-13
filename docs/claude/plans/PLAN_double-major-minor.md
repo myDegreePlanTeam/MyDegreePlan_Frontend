@@ -111,7 +111,14 @@ major's, or are left unplaced for the student to drop in. Recommendation over a 
 1. **Structured** (rules of `completedAllOf` / `completedAtLeastXOf` / `completedAnyOf` / `minimumCredits`): generated into specs automatically.
 2. **Free text, priority list**: hand-written specs from the catalog text, each with an `assumptions` entry, for the minors that students in the open departments actually take.
 3. **The rest**: listed in the picker as "requirements not modelled here" with the catalog's own text and a 15-hour counter; no slots. A student can still see and track hours, and nothing pretends to be audited.
-The owner supplies the priority list (Questions, 7). Empty-rule minors (Mathematics Minor) are tier 2 from the catalog page.
+**Which minors get tier 2 first (owner, 2026-10-13):** minors related to the **currently open majors** first, then **all the sciences, engineering and mathematics**. "Open" is what
+`programBrowser.js` opens today: every Computer Science program (`READY_DEPARTMENTS = ['CSC']`) and Mechanical Engineering (`READY_MAJORS`); read the list from there when the phase runs, because it grows.
+The minors in the 2026-27 snapshot sort as follows (the borderline ones are a call to confirm with the owner when Phase 5 starts):
+- **Wave A, related to the open majors:** Computer Science, Computer Science Education, Cyber Crime Law and Society, Business Information Technology and Analytics, Mathematics (CSC);
+  Electrical and Computer Engineering, Engineering Technology, General Engineering Studies, Industrial and Systems Engineering, Materials Science and Engineering, Environmental Engineering, Physics (ME).
+- **Wave B, the rest of the sciences, engineering and math:** Astronomy, Biology, Chemistry, Geology, Science, Geography, Environmental Studies, Wildlife and Fisheries Science, Exercise Science (borderline), plus any engineering or math minor not in A.
+- **Everything else** (Fine Arts, Business other than BITA, Education, humanities and social sciences, Emerging and Integrative Studies): tier 1 if structured, otherwise tier 3.
+Tier 1 (structured rules) is generated for **all** minors regardless of wave, since it costs nothing per minor; the waves only order the hand-written work. Empty-rule minors (Mathematics Minor) are tier 2 from the catalog page.
 
 **D8. The catalog year of an added program is the year it is added.**
 `planForYear` already resolves a plan not newer than a year; the added program uses the entry term of the declaration (default: the current term, editable), stored on
@@ -211,7 +218,7 @@ shared files, but `npm run build:catalog` rewrites Frontend `src/data/`, so S2 m
 4. Which department confirms a second major, and does the **advisor sign-off** appear in the app? (we assume no sign-off flow)
 5. A second major whose primary has **no Free Elective hours** (a fully prescribed plan): should the plan simply run past 120? (we assume yes, and say so)
 6. Is the general-education program always the **primary's**? (we assume yes)
-7. **Which minors first?** A priority list (for CSC students: Mathematics, Business, Cyber Crime Law and Society, ECE, ...) decides tier 2.
+7. ~~Which minors first?~~ **Answered 2026-10-13:** minors related to the open majors, then all sciences, engineering and math (waves A and B in D7). Still to confirm: the borderline minors named there.
 8. Is the "at most two minors on the transcript" limit a **block or a notice**? (we assume a notice)
 9. What does "past four years" mean: **eight Fall/Spring terms from the start term** (assumed), or four calendar years, counting summers? For a student who started with transfer or AP credit, should it be measured from the start term or from a nominal "four years from now"?
 10. Should "closest minor" rank by **hours still needed** (assumed), or by **added semesters**? (They differ when Free Elective hours absorb the cost.)
