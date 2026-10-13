@@ -1,7 +1,7 @@
 # PLAN — Double majors and minors
 
 Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
-engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today). Phases 3 to 8 planned, nothing built.
+engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.secondMajor` until Phases 3 and 4, so students do not see an unfinished feature). Phases 3 to 8 planned, nothing built.
 Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
 [`PLAN_all-majors.md`](./PLAN_all-majors.md) (which left minors out), [`PLAN_deeper-features.md`](./PLAN_deeper-features.md) (Phase 5 left them out).

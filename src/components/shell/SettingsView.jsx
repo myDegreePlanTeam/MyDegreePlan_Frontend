@@ -18,6 +18,7 @@ export default function SettingsView({
   onOpenReset,
   onActSaved,
   addedPrograms = [],
+  secondMajorOpen = false,
   onOpenAddProgram,
   onRemoveProgram,
 }) {
@@ -56,9 +57,13 @@ export default function SettingsView({
                 : 'Your plan includes the programs below. Courses more than one needs appear once and count toward each.'}
             </span>
           </span>
-          <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenAddProgram}>
-            Add
-          </button>
+          {secondMajorOpen ? (
+            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenAddProgram}>
+              Add
+            </button>
+          ) : (
+            <span className="ds-tab-soon-tag" title="Coming soon">Coming soon</span>
+          )}
         </div>
         {addedPrograms.map(program => (
           <div className="ds-setting" key={program.id}>
@@ -66,7 +71,7 @@ export default function SettingsView({
               <span className="ds-setting-label">{program.name}</span>
               <span className="ds-setting-desc">Second major · follows the {program.catalogYear} catalog</span>
             </span>
-            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`}>
+            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`} disabled={!secondMajorOpen}>
               Remove
             </button>
           </div>

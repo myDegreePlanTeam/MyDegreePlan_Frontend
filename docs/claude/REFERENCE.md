@@ -373,7 +373,7 @@ order of `floors` (the degree builder's semesters for the merged list), each goe
 prerequisites the plan has later. Saved positions are never moved (the builder alone would move 11 to 33 of the primary's courses). `DegreePlan.jsx` uses it only when a program has been added to a plan that already has
 positions. **`addableMajors`, `newProgramRow`** (`addProgram.js`): the supported majors open to the declared term, leaving out the student's own major (another concentration of it is not a second major); the row records the
 plan year in effect for the declared term (D8). **`fetchProgramSlotSets`, `fetchProgramInfo`** (`programSlots.js`) read each program's slots for the year it follows and its name and total hours. `undoStore` scopes the stack to the
-primary and the sorted set of added programs. Settings has the "Second major" card (`SettingsView.jsx`, `AddProgramModal.jsx`, `RemoveProgramModal`); `handleConcentrationSwitch` keeps added programs unless the new primary is one.
+primary and the sorted set of added programs. Settings has the "Second major" card (`SettingsView.jsx`, `AddProgramModal.jsx`, `RemoveProgramModal`), held back as "Coming soon" by `FEATURES.secondMajor` until Phases 3 and 4 land (the plan view reads an added program either way); `handleConcentrationSwitch` keeps added programs unless the new primary is one.
 Tests: `placeAdded.test.js`, `addProgram.test.js`, `programSlots.test.js`, `undoStore.test.js`.
 
 ### `src/lib/studentPrograms.js`

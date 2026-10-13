@@ -10,6 +10,10 @@ export const FEATURES = {
   // The Requirements tab, the degree audit and its PDF: major, general education and electives with what counts toward each,
   // the earliest finish and what sets the pace.
   requirements: false,
+  // A second major on the plan (Settings > Second major). The plan view already reads one a student has; this opens adding and removing it.
+  // Held back until the plan tags each card with its programs, the PDFs name every program and the three platforms are checked
+  // (PLAN_double-major-minor.md, Phases 3 and 4).
+  secondMajor: false,
 }
 
 /**

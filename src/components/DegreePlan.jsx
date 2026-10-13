@@ -1949,6 +1949,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
             onOpenConcentration={() => setShowSwitchModal(true)}
             onOpenReset={() => setShowResetModal(true)}
             addedPrograms={programPlan.programs.filter(p => !p.primary).map(p => ({ ...p, name: programPlan.info[p.programId]?.name ?? 'Degree program' }))}
+            secondMajorOpen={isFeatureOpen('secondMajor')}
             onOpenAddProgram={() => { setAddProgramError(null); setShowAddProgram(true) }}
             onRemoveProgram={program => setRemoveTarget(program)}
             onActSaved={numScores => {
