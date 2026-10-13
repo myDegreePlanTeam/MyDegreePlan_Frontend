@@ -27,9 +27,9 @@ describe('isFeatureOpen', () => {
     expect(isFeatureOpen('requirements', { requirements: undefined })).toBe(false)
   })
 
-  it('the Requirements feature is held back for now', () => {
-    expect(FEATURES.requirements).toBe(false)
-    expect(isFeatureOpen('requirements')).toBe(false)
+  it('the Requirements feature is open: the tab, the degree audit and its PDF', () => {
+    expect(FEATURES.requirements).toBe(true)
+    expect(isFeatureOpen('requirements')).toBe(true)
   })
 
   it('adding a second major is held back until the plan tags its cards and the PDFs name every program', () => {
@@ -42,12 +42,19 @@ describe('the sidebar', () => {
   const render = props => renderToStaticMarkup(<Sidebar view="plan" onNavigate={() => {}} issueCount={0} lastSavedAt={null} {...props} />)
   const tabMarkup = (html, label) => html.split('<button').find(chunk => chunk.includes(`>${label}<`))
 
-  it('shows the Requirements tab as coming soon, greyed out, and not a button anyone can press', () => {
-    const tab = tabMarkup(render(), 'Requirements')
+  it('shows a closed feature tab as coming soon, greyed out, and not a button anyone can press', () => {
+    const tab = tabMarkup(render({ features: { requirements: false } }), 'Requirements')
     expect(tab).toContain('ds-tab-soon')
     expect(tab).toContain('disabled')
     expect(tab).toContain('aria-disabled="true"')
     expect(tab).toContain('Coming soon')
+  })
+
+  it('the Requirements tab is an ordinary tab now that it is open', () => {
+    const tab = tabMarkup(render(), 'Requirements')
+    expect(tab).not.toContain('ds-tab-soon')
+    expect(tab).not.toContain('disabled')
+    expect(tab).not.toContain('Coming soon')
   })
 
   it('keeps every other tab live, in the same order', () => {
@@ -61,10 +68,8 @@ describe('the sidebar', () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order)
   })
 
-  it('opening the flag makes it an ordinary tab again', () => {
-    const tab = tabMarkup(render({ features: { requirements: true } }), 'Requirements')
-    expect(tab).not.toContain('ds-tab-soon')
-    expect(tab).not.toContain('disabled')
-    expect(tab).not.toContain('Coming soon')
+  it('closing the flag turns the tab back into a Coming soon tag, with nothing else changed', () => {
+    expect(tabMarkup(render({ features: { requirements: false } }), 'Requirements')).toContain('ds-tab-soon')
+    expect(tabMarkup(render({ features: { requirements: true } }), 'Requirements')).not.toContain('ds-tab-soon')
   })
 })

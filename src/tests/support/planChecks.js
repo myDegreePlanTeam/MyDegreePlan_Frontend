@@ -29,3 +29,13 @@ export function planBlockers(code, act) {
   }
   return out
 }
+
+// The gaps in a department's degree map that are not the planner's to fix: each is a question for the department, named in the program's
+// spec. A prefix of what planBlockers reports. A new entry is a decision, not a way to make a test pass.
+export const KNOWN_GAPS = {
+  // Forensic Chemistry: the map has BIOL 3810 but no BIOL 1113 before it (the catalog's prerequisite)
+  chem_achf: ['BIOL3810@'],
+  // Mechanical Engineering, Mechatronics: the catalog lists ECE 3260 as a prerequisite of ME 4140 Robotics (semester 7), but the map offers it
+  // only inside the semester-8 Controls row (the spec's `prereq-order` assumption; to be confirmed with the department)
+  me_mechatronics: ['ME4140@'],
+}

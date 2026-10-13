@@ -108,8 +108,11 @@ export async function runScenario(target, { log = () => {} } = {}) {
 
   const openTab = async name => { await page.locator('.ds-tab', { hasText: name }).click(); await page.waitForTimeout(400) }
 
-  // The Requirements tab is coming soon (src/lib/features.js): it is greyed out, so the journey does not open it. The tab's
-  // "Coming soon" tag is in the sidebar every screen captures. Visit it here again when the flag is turned on.
+  // The Requirements tab (the degree audit, src/lib/features.js) is open: it must show the same audit on every platform.
+  await openTab('Requirements')
+  await page.getByText('Degree audit').first().waitFor({ timeout: STEP_TIMEOUT })
+  await page.getByText(/Earliest finish|Every requirement is done|You finish at the end of|No finish can be worked out/).first().waitFor({ timeout: STEP_TIMEOUT }).catch(() => {})
+  await grab('requirements')
 
   await openTab('Issues')
   await grab('issues')
@@ -127,6 +130,20 @@ export async function runScenario(target, { log = () => {} } = {}) {
     return { header: text.slice(0, 5), pages: (text.match(/\/Type\s*\/Page[^s]/g) ?? []).length, bigEnough: bytes.length > 5_000 }
   })
   await grab('advisement')
+
+  // The degree audit is its own PDF, beside the Degree map: it must be a real PDF on every platform too.
+  await page.locator('.ds-adv-doc', { hasText: 'Degree audit' }).click()
+  await page.waitForTimeout(1_000)
+  await frame.waitFor({ timeout: 90_000 })
+  await page.waitForTimeout(3_000)
+  facts.auditPdf = await page.evaluate(async () => {
+    const src = document.querySelector('iframe.ds-pdf-iframe')?.getAttribute('src')
+    if (!src) return { error: 'no preview iframe' }
+    const bytes = new Uint8Array(await (await fetch(src.split('#')[0])).arrayBuffer())
+    const text = new TextDecoder('latin1').decode(bytes)
+    return { header: text.slice(0, 5), pages: (text.match(/\/Type\s*\/Page[^s]/g) ?? []).length, bigEnough: bytes.length > 5_000 }
+  })
+  await grab('advisement-audit')
 
   // ── Settings and its dialogs ──
   await openTab('Settings')

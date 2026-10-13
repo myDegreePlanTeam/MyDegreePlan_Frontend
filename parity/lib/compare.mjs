@@ -56,6 +56,10 @@ export function compareRuns(runs, { rules = [], presence = [], knownFeatures = n
     if (run.facts.pdf?.header !== '%PDF-' || !(run.facts.pdf?.pages >= 1) || !run.facts.pdf?.bigEnough) {
       problems.push({ kind: 'pdf', target: run.target, message: `the PDF preview did not produce a real PDF: ${JSON.stringify(run.facts.pdf)}` })
     }
+    // the degree audit PDF, when the run opened it
+    if (run.facts.auditPdf !== undefined && (run.facts.auditPdf?.header !== '%PDF-' || !(run.facts.auditPdf?.pages >= 1) || !run.facts.auditPdf?.bigEnough)) {
+      problems.push({ kind: 'pdf', target: run.target, message: `the degree audit PDF preview did not produce a real PDF: ${JSON.stringify(run.facts.auditPdf)}` })
+    }
   }
 
   for (const run of others) {
@@ -73,6 +77,7 @@ export function compareRuns(runs, { rules = [], presence = [], knownFeatures = n
       else problems.push(detail)
     }
     if (baseline.facts.pdf?.pages !== run.facts.pdf?.pages) problems.push({ kind: 'pdf', target: run.target, message: `the PDF has ${run.facts.pdf?.pages} pages, ${baseline.target}'s has ${baseline.facts.pdf?.pages}` })
+    if (baseline.facts.auditPdf?.pages !== run.facts.auditPdf?.pages) problems.push({ kind: 'pdf', target: run.target, message: `the degree audit PDF has ${run.facts.auditPdf?.pages} pages, ${baseline.target}'s has ${baseline.facts.auditPdf?.pages}` })
 
     const screens = new Set([...Object.keys(baseline.screens), ...Object.keys(run.screens)])
     for (const screen of screens) {
