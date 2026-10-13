@@ -32,6 +32,7 @@ import PlanPdfPreview from './PlanPdfPreview'
 import Sidebar from './shell/Sidebar'
 import RequirementsView from './shell/RequirementsView'
 import { buildDegreeAudit } from '../lib/degreeAudit'
+import { DragEnabledContext, useIsPhone, useDragEnabled } from '../lib/dragEnabled'
 import { listSlotOptions } from '../lib/slotOptions'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
@@ -219,6 +220,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   // ── dnd-kit sensors ──────────────────────────────────────────────
+  // Nothing can be dragged on a phone (lib/dragEnabled.js): every draggable and drop zone is disabled there, and moving a course
+  // is the panel's "Move to term". The sensor list itself never changes size (useSensors' memo depends on its length).
+  const dragEnabled = !useIsPhone()
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
@@ -1684,6 +1688,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
             )}
 
             <div className="ds-plan-body">
+              <DragEnabledContext.Provider value={dragEnabled}>
               <DndContext
                 sensors={sensors}
                 onDragStart={handleDragStart}
@@ -1768,6 +1773,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                   )}
                 </DragOverlay>
               </DndContext>
+              </DragEnabledContext.Provider>
             </div>
           </div>
         )}
@@ -1905,17 +1911,18 @@ export default function DegreePlan({ profile, onProfileChange }) {
 // visible drop zone whenever a drag is in progress.
 
 function PriorCreditRow({ pc, countedAs, onRemove }) {
+  const dragEnabled = useDragEnabled()
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id:   pc.id,
     data: { type: 'prior_credit', priorCreditId: pc.id, courseCode: pc.satisfies_course_code },
+    disabled: !dragEnabled,
   })
   const isPlacement = (pc.credits_awarded ?? 0) === 0
   return (
     <div
       ref={setNodeRef}
       className={`ds-prior-row${isDragging ? ' ds-prior-row-dragging' : ''}${countedAs ? ' ds-prior-row-dup' : ''}`}
-      {...listeners}
-      {...attributes}
+      {...(dragEnabled ? { ...listeners, ...attributes } : {})}
     >
       <span className="ds-prior-code">{pc.satisfies_course_code ?? '—'}</span>
       <span className="ds-prior-cr">{isPlacement ? 'placement' : `${pc.credits_awarded} cr`}</span>
@@ -1938,7 +1945,8 @@ function PriorCreditRow({ pc, countedAs, onRemove }) {
 
 function PriorCourseworkStrip({ credits, onRemove, onAddClick, dragActive }) {
   const [open, setOpen] = useState(false)
-  const { setNodeRef, isOver } = useDroppable({ id: 'transfer_credits' })
+  const dragEnabled = useDragEnabled()
+  const { setNodeRef, isOver } = useDroppable({ id: 'transfer_credits', disabled: !dragEnabled })
 
   const { totalHours: creditHours, duplicateOf } = summarizePriorCredits(credits)
   const noteOf = id => credits.find(pc => pc.id === id)?.note ?? 'another entry'
@@ -1968,7 +1976,7 @@ function PriorCourseworkStrip({ credits, onRemove, onAddClick, dragActive }) {
         <div className="ds-prior-body">
           {credits.length === 0 ? (
             <p className="ds-prior-empty">
-              No prior coursework recorded. Add AP, IB, CLEP, or transfer credit, or drag a course from the grid onto this panel.
+              No prior coursework recorded. Add AP, IB, CLEP, or transfer credit{dragEnabled ? ', or drag a course from the grid onto this panel' : ''}.
             </p>
           ) : (
             <>

@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect } from 'react'
 import { useDroppable, useDraggable } from '@dnd-kit/core'
+import { useDragEnabled } from '../lib/dragEnabled'
 import { POOL_LABELS, formatMissingForDisplay } from '../lib/poolResolver'
 import { calculateCredits } from '../lib/semesterCredits'
 
@@ -51,7 +52,8 @@ export default function Semester({
   issueCount                 = 0,
   onDelete                   = null,
 }) {
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber })
+  const dragEnabled = useDragEnabled()
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: semesterNumber, disabled: !dragEnabled })
 
   const totalCr         = calculateCredits(slots, freeAddSlots, courseMap, planSlots, allFreeAddSlots)
   const hasUnfilledPool = slots.some(s => s.is_pool && (!planSlots[s.id] || remainders[s.id] > 0))
@@ -210,11 +212,14 @@ function describeRow({ status, prereqMissing, coreqMissing, scienceWarning, pool
 }
 
 function useRowDrag(id, type) {
+  const enabled = useDragEnabled()
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id,
     data: { type, slotId: id },
+    disabled: !enabled,
   })
-  return { dragProps: { ref: setNodeRef, ...listeners, ...attributes }, isDragging }
+  // Not draggable (a phone): no drag listeners, and no "draggable" role or instructions for a screen reader
+  return { dragProps: enabled ? { ref: setNodeRef, ...listeners, ...attributes } : { ref: setNodeRef }, isDragging }
 }
 
 function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPool, tag, credits }) {

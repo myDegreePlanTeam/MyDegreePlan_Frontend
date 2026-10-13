@@ -814,3 +814,8 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-audit-options-note { margin: 6px 0 0; font-size: 11px; color: var(--text-muted); }
 @media (max-width: 640px) { .ds-audit-options { padding-left: 14px; } }
 .ds-audit-hours { margin: 8px 0 0; font-size: 11px; color: var(--text-muted); }
+
+/* A phone does not drag (lib/dragEnabled.js): a row that claims the touch would stop the page scrolling. */
+@media (max-width: 760px) {
+  .ds-row, .ds-prior-row { touch-action: auto; cursor: pointer; }
+}
