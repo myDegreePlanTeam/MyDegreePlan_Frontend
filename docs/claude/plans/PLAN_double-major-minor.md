@@ -1,6 +1,7 @@
 # PLAN — Double majors and minors
 
-Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). Phases 1 to 8 planned, nothing built.
+Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
+engine, backup format 2, `lib/studentPrograms.js`; nothing reads it in the plan view yet). Phases 2 to 8 planned, nothing built.
 Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
 [`PLAN_all-majors.md`](./PLAN_all-majors.md) (which left minors out), [`PLAN_deeper-features.md`](./PLAN_deeper-features.md) (Phase 5 left them out).
@@ -193,7 +194,9 @@ registry if a branch on platform is added). `DegreePlan.jsx` is touched by Phase
   "Findings" section here. Decide D3/D4/D5 against the findings; change this plan where the code disagrees (the code wins).
 - Done when: the findings are in this doc, the merge module has tests for collapse, gen-ed dedupe, Free Elective absorption, and prior-credit archival across shadows.
 
-### Phase 1 — Data model and storage (Frontend + Deploy baseline; no UI)
+### Phase 1 — Data model and storage (**done 2026-10-13**; Frontend + Deploy baseline; no UI)
+Built as written, with one change: the backup writes format 2 **only when the plan has an added program** (format 1 otherwise), so a file from a plan that has none still opens on an install that has not been updated.
+The Docker SQL was written and reviewed against the neighbouring tables but **not executed** (no Postgres available in the session): the Deploy repo's first start after this change is its test.
 - `student_programs` in `000_baseline.sql` and `STUDENT_TABLES` (+ `localClient.test.js`); the `concentrations` to-one embed for the new table.
 - Backup format 2 (reads 1 and 2), `remoteBackup.js`, and the "drop rows that point at a program or slot the catalog no longer has" rule for added programs. Tests in `backup.test.js` / `remoteBackup.test.js`.
 - A loader `lib/studentPrograms.js` returning `[primary, ...added]` with each program's resolved plan year; tolerant of the table's absence (an install whose setup step has not re-run), like `fetchFreeAddSlots`.

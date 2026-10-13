@@ -10,6 +10,47 @@ const sample = () => buildBackup({
   prior_credits: [{ id: 'x', plan_id: 1, credit_type: 'ap_credit' }],
 }, new Date('2026-10-01T12:00:00Z'))
 
+describe('backup: added programs (format 2)', () => {
+  const withPrograms = programs => buildBackup({
+    student_profiles: [{ id: 1, user_id: 'u', concentration_id: 1 }],
+    student_programs: programs,
+  })
+  const two = { ...ctx, validConcentrationIds: new Set([1, 2]) }
+
+  it('says format 2 only when the plan has an added program, so a plan without one still opens on an older install', () => {
+    expect(withPrograms([]).format).toBe(1)
+    expect(withPrograms([{ id: 1, student_id: 1, concentration_id: 2, role: 'minor', catalog_year: '2026-2027' }]).format).toBe(2)
+    expect(sample().format).toBe(1)
+  })
+  it('round-trips an added program', () => {
+    const row = { id: 1, student_id: 1, concentration_id: 2, role: 'minor', catalog_year: '2026-2027', position: 1 }
+    const { tables, dropped } = parseBackup(JSON.stringify(withPrograms([row])), two)
+    expect(dropped).toBe(0)
+    expect(tables.student_programs).toEqual([row])
+  })
+  it('reads a format 1 file, which has no added programs', () => {
+    const { tables, dropped } = parseBackup(JSON.stringify(sample()), ctx)
+    expect(dropped).toBe(0)
+    expect(tables.student_programs).toEqual([])
+  })
+  it('still refuses a format this build does not know', () => {
+    const b = sample()
+    b.format = 3
+    expect(() => parseBackup(JSON.stringify(b), ctx)).toThrow(/different version/)
+  })
+  it('drops an added program whose program is gone, that is the profile\'s own program, or whose profile is not in the file', () => {
+    const rows = [
+      { id: 1, student_id: 1, concentration_id: 2, role: 'major', catalog_year: '2026-2027' },
+      { id: 2, student_id: 1, concentration_id: 99, role: 'minor', catalog_year: '2026-2027' },
+      { id: 3, student_id: 1, concentration_id: 1, role: 'major', catalog_year: '2026-2027' },
+      { id: 4, student_id: 7, concentration_id: 2, role: 'minor', catalog_year: '2026-2027' },
+    ]
+    const { tables, dropped } = parseBackup(JSON.stringify(withPrograms(rows)), two)
+    expect(tables.student_programs.map(r => r.id)).toEqual([1])
+    expect(dropped).toBe(3)
+  })
+})
+
 describe('backup', () => {
   it('round-trips a plan unchanged', () => {
     const { tables, dropped } = parseBackup(JSON.stringify(sample()), ctx)
@@ -39,7 +80,7 @@ describe('backup', () => {
     ['not json', 'nope', /not valid JSON/],
     ['another app', JSON.stringify({ app: 'other', format: 1, tables: {} }), /not a MyDegreePlan backup/],
     ['null', 'null', /not a MyDegreePlan backup/],
-    ['future format', JSON.stringify({ app: 'mydegreeplan', format: 2, tables: {} }), /different version/],
+    ['future format', JSON.stringify({ app: 'mydegreeplan', format: 3, tables: {} }), /different version/],
     ['no tables', JSON.stringify({ app: 'mydegreeplan', format: 1 }), /no data/],
     ['malformed table', JSON.stringify({ app: 'mydegreeplan', format: 1, tables: { prior_credits: 'x' } }), /malformed/],
     ['malformed row', JSON.stringify({ app: 'mydegreeplan', format: 1, tables: { prior_credits: [1] } }), /malformed/],

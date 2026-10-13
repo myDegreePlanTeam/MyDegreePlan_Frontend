@@ -233,10 +233,32 @@ describe('writes', () => {
     await db.from('student_plan_slots').insert({ student_id: studentId, requirement_slot_id: 1 })
     await db.from('prior_credits').insert({ plan_id: studentId, credit_type: 'ap_credit' })
     await db.from('student_free_add_slots').insert({ student_id: studentId, course_code: 'A', semester_number: 1 })
+    await db.from('student_programs').insert({ student_id: studentId, concentration_id: 1, role: 'minor', catalog_year: '2026-2027' })
     await db.from('student_profiles').delete().eq('id', studentId)
-    for (const t of ['student_plan_slots', 'prior_credits', 'student_free_add_slots']) {
+    for (const t of ['student_plan_slots', 'prior_credits', 'student_free_add_slots', 'student_programs']) {
       expect((await db.from(t).select('*')).data, t).toEqual([])
     }
+  })
+
+  it('stores an added program with schema defaults, joins its program, and allows each program once per student', async () => {
+    const { data, error } = await db.from('student_programs')
+      .insert({ student_id: studentId, concentration_id: 1, catalog_year: '2026-2027' })
+      .select('id, role, catalog_year, gened_program, entry_season, entry_year, position, concentrations ( id, code )')
+      .single()
+    expect(error).toBeNull()
+    expect(data).toMatchObject({ role: 'major', catalog_year: '2026-2027', gened_program: 'legacy', entry_season: null, entry_year: null, position: 0 })
+    expect(data.concentrations).toEqual({ id: 1, code: 'core' })
+    const again = await db.from('student_programs').insert({ student_id: studentId, concentration_id: 1, catalog_year: '2026-2027' })
+    expect(again.error.code).toBe('23505')
+  })
+
+  it('refuses an added program with a missing column, an unknown role or an unknown season, and writes nothing', async () => {
+    const row = { student_id: studentId, concentration_id: 1, catalog_year: '2026-2027' }
+    expect((await db.from('student_programs').insert({ ...row, catalog_year: undefined })).error.code).toBe('23502')
+    expect((await db.from('student_programs').insert({ ...row, concentration_id: undefined })).error.code).toBe('23502')
+    expect((await db.from('student_programs').insert({ ...row, role: 'honors' })).error.code).toBe('23514')
+    expect((await db.from('student_programs').insert({ ...row, entry_season: 'Winter' })).error.code).toBe('23514')
+    expect((await db.from('student_programs').select('id')).data).toEqual([])
   })
 
   it('supports match() and awaiting several queries together', async () => {

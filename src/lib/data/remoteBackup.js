@@ -7,12 +7,14 @@
 // GENERATED ALWAYS in Postgres, so an import cannot reuse the ids in the file: the profile is inserted
 // first and its children are re-pointed at the id the database gave it.
 import { STUDENT_TABLES } from './localClient'
+import { isMissingTable } from '../dbErrors'
 
 // The columns that point at student_profiles.id, per child table.
 const CHILD_FK = {
   student_plan_slots: 'student_id',
   student_semester_notes: 'student_id',
   student_free_add_slots: 'student_id',
+  student_programs: 'student_id',
   prior_credits: 'plan_id',
 }
 
@@ -37,6 +39,8 @@ export function createRemotePlanData(client) {
     const tables = {}
     for (const name of Object.keys(STUDENT_TABLES)) {
       const { data, error } = await client.from(name).select('*').order('id', { ascending: true })
+      // student_programs is newer than the rest: an install whose setup step has not re-run has no such table, and so no added program.
+      if (isMissingTable(error) && name === 'student_programs') { tables[name] = []; continue }
       if (error) throw new Error(error.message)
       tables[name] = data
     }
@@ -72,7 +76,16 @@ export function createRemotePlanData(client) {
       const rows = (tables[table] ?? [])
         .filter(row => String(row[column]) === String(oldId))
         .map(row => ({ ...without(row, 'id'), [column]: created.id }))
-      if (rows.length) await insertRows(table, rows)
+      if (!rows.length) continue
+      try {
+        await insertRows(table, rows)
+      } catch (err) {
+        // Dropping the added programs without a word would hand the student a plan with a second major missing.
+        if (table === 'student_programs' && /student_programs/.test(err.message) && /does not exist|schema cache/.test(err.message)) {
+          throw new Error('This install has not been updated to keep a second major or a minor yet. Update it, then import the file again.')
+        }
+        throw err
+      }
     }
   }
 
