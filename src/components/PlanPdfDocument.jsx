@@ -326,6 +326,7 @@ export default function PlanPdfDocument({ model }) {
           degree={model.degree}
           major={model.major}
           concentration={model.concentration}
+          alsoPrograms={model.alsoPrograms}
         />
 
         <Text style={styles.intro}>

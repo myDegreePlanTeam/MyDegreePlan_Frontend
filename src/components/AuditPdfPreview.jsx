@@ -6,8 +6,8 @@ import PdfPreview from './PdfPreview'
 
 const loadDocument = () => import('./AuditPdfDocument')
 
-export default function AuditPdfPreview({ audit, projection, profile }) {
-  const model = audit ? buildAuditDocumentModel({ audit, projection, profile }) : null
+export default function AuditPdfPreview({ audit, projection, profile, addedPrograms = [] }) {
+  const model = audit ? buildAuditDocumentModel({ audit, projection, profile, addedPrograms }) : null
   return (
     <PdfPreview
       modelJson={model ? JSON.stringify(model) : null}

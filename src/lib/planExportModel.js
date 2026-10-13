@@ -13,7 +13,7 @@
 
 import { POOL_COURSES, POOL_LABELS, SCIENCE_SEQUENCES } from './poolResolver'
 import { formatTermLabel } from './semesterTerms'
-import { programHeader } from './programBrowser'
+import { programHeader, alsoProgramsOf, programsTitle } from './programBrowser'
 import { formatCourseCode } from './courseCodeFormat'
 
 export { formatCourseCode }
@@ -193,6 +193,8 @@ export function buildPlanExportModel({
   semesterCompleted = {},
   priorCredits = [],
   remainders = {},
+  addedPrograms = [],
+  totalHours = null,
 } = {}) {
   // Course status for the legend. Completion is semester-level only (core
   // principle 3), so every course in a completed semester is "completed",
@@ -273,8 +275,10 @@ export function buildPlanExportModel({
     })
 
   return {
-    concentrationName: profile?.concentrations?.name ?? null,
-    totalHours:        profile?.concentrations?.total_hours ?? null,
+    concentrationName: programsTitle(profile?.concentrations?.name ?? null, addedPrograms),
+    totalHours:        totalHours ?? profile?.concentrations?.total_hours ?? null,
+    // a second major or a minor, named under the program the document is about
+    alsoPrograms:      alsoProgramsOf(addedPrograms),
     degree:            header.degree,
     major:             header.major,
     concentration:     header.concentration,

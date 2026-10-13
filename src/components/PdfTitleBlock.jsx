@@ -5,7 +5,7 @@
 import { View, Text } from '@react-pdf/renderer'
 import { shared as styles, EM_DASH } from './pdfStyles'
 
-export default function PdfTitleBlock({ title, catalogYear, degree, major, concentration }) {
+export default function PdfTitleBlock({ title, catalogYear, degree, major, concentration, alsoPrograms = [] }) {
   return (
     <>
       <View style={styles.titleRow}>
@@ -38,6 +38,16 @@ export default function PdfTitleBlock({ title, catalogYear, degree, major, conce
           </Text>
         ))}
       </View>
+      {alsoPrograms.length > 0 && (
+        <View style={styles.degreeRow}>
+          {alsoPrograms.map(p => (
+            <Text key={`${p.role}-${p.text}`} style={styles.degreeItem}>
+              <Text style={styles.degreeLabel}>{p.role}: </Text>
+              {p.text}
+            </Text>
+          ))}
+        </View>
+      )}
     </>
   )
 }

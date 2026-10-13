@@ -154,3 +154,18 @@ export function programHeader(program) {
     concentration: program?.kind === 'concentration' ? program.name ?? null : null,
   }
 }
+
+/**
+ * The programs a student added to the one a printed document is about, for its heading: [{ role: 'Second major' | 'Minor', text }]
+ * with the program's name and degree ("Mechanical Engineering, B.S.M.E."). `added` are concentrations rows, each with the `role`
+ * the student added it in. Empty for a student with one program.
+ */
+export function alsoProgramsOf(added = []) {
+  return (added ?? []).map(p => ({
+    role: p.role === 'minor' ? 'Minor' : 'Second major',
+    text: [p.kind === 'concentration' && p.major_name ? `${p.major_name} (${p.name})` : (p.major_name ?? p.name), p.degree].filter(Boolean).join(', '),
+  }))
+}
+
+/** What a printed document calls a plan that follows several programs: their names, joined. */
+export const programsTitle = (primaryName, added = []) => [primaryName, ...(added ?? []).map(p => p.name)].filter(Boolean).join(' + ') || null

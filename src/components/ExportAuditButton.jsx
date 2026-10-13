@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { buildAuditDocumentModel, buildAuditExportFilename } from '../lib/auditExportModel'
 import { downloadBlob } from '../lib/downloadBlob'
 
-export default function ExportAuditButton({ audit, projection, profile, className = 'degreeplan-settings' }) {
+export default function ExportAuditButton({ audit, projection, profile, addedPrograms = [], className = 'degreeplan-settings' }) {
   const [status, setStatus] = useState('idle')   // 'idle' | 'working' | 'error'
   const isEmpty = !audit
 
@@ -15,7 +15,7 @@ export default function ExportAuditButton({ audit, projection, profile, classNam
     setStatus('working')
     try {
       const generatedAt = new Date()
-      const model = buildAuditDocumentModel({ audit, projection, profile, generatedAt })
+      const model = buildAuditDocumentModel({ audit, projection, profile, generatedAt, addedPrograms })
       const [{ pdf }, { default: AuditPdfDocument }] = await Promise.all([
         import('@react-pdf/renderer'),
         import('./AuditPdfDocument'),

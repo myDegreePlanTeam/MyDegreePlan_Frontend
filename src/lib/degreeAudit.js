@@ -4,8 +4,16 @@
 // database, the clock or React, so every case is a unit test.
 //
 //   buildDegreeAudit({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits,
-//                      courses, totalHours, semesterLabels, semesterPhase, genedProgram, majorLabel, genedExempt })
+//                      courses, totalHours, semesterLabels, semesterPhase, genedProgram, majorLabel, genedExempt,
+//                      programs, programsOf })
 //     -> { summary, blocks }
+//
+// A student who follows more than one program (a second major, a minor) passes `programs` ([{ programId, name }], the primary first)
+// and `programsOf` ({ [slotId]: programId[] }, from lib/programMerge.js). The major block then becomes one block per program (`major` for the
+// primary, `major:<programId>` for the others) while general education and electives stay one block each: a course is homed once, in the block
+// of the program that owns its card (the first program that asks for it), and the other programs it serves list it as a reference
+// ("Counted from <program>") instead of a second row, so nothing is counted or fixed from two places. A program's own subject (the one most of
+// its own courses carry) decides which of its courses with a general-education category stay in its block.
 //
 // Every requirement is in one of four states, all derived from the calendar (lib/termPhase.js), never marked:
 //   'done'         covered by prior credit, or placed in a past term
@@ -118,9 +126,16 @@ function emptyCounts() {
 export function buildDegreeAudit({
   slots = [], planSlots = {}, planArchived = {}, planSemesterOverrides = {}, freeAddSlots = [], priorCredits = [],
   courses = {}, totalHours = 0, semesterLabels = {}, semesterPhase = {}, genedProgram = 'legacy', majorLabel = null, genedExempt = [],
+  programs = [], programsOf = {},
 } = {}) {
   const details = resolveTransferDetails(priorCredits, planSlots, slots)
   const subject = ownSubject(slots)
+  const multi = programs.length > 1
+  const ownerOf = slot => programsOf[slot.id]?.[0] ?? programs[0]?.programId ?? null
+  // Each program's own subject, from the slots it owns (the merged list's subject would be the primary's for everyone)
+  const subjectOfProgram = multi
+    ? Object.fromEntries(programs.map(p => [p.programId, ownSubject(slots.filter(s => ownerOf(s) === p.programId))]))
+    : {}
   const isFF = genedProgram === FF_PROGRAM_CODE
   const rows = []
 
@@ -129,7 +144,8 @@ export function buildDegreeAudit({
     // Not part of this student's degree (the math chain below their placement): not a requirement.
     if (archived === 'not_applicable') continue
 
-    const home = homeOf(slot, subject)
+    const owner = multi ? ownerOf(slot) : null
+    const home = homeOf(slot, multi ? (subjectOfProgram[owner] ?? subject) : subject)
     const semNum = archived ? null : (planSemesterOverrides?.[slot.id] ?? slot.semester_number ?? null)
     const picked = slot.is_pool ? planSlots?.[slot.id] : null
     const code = slot.is_pool ? picked : slot.class_code
@@ -140,6 +156,9 @@ export function buildDegreeAudit({
       key:          slot.id,
       slotId:       slot.id,
       block:        home.block,
+      // the program that owns this card and every program it serves (null for a student with one program)
+      programId:    owner,
+      programIds:   multi ? (programsOf[slot.id] ?? [owner]) : null,
       category:     isFF ? home.category : null,
       poolCode:     slot.is_pool ? slot.class_code : null,
       required:     !slot.is_pool,
@@ -199,8 +218,22 @@ export function buildDegreeAudit({
     rows, panel, isFF, priorCredits, freeAddSlots, courses, details, semesterLabels, semesterPhase, creditTypeLabels: CREDIT_TYPE_LABELS,
   })
 
+  const nameOfProgram = Object.fromEntries(programs.map(p => [p.programId, p.name]))
+  // The courses another program owns that this one also needs: listed in its block as a reference, not a second row
+  const sharedRefs = programId => rows
+    .filter(r => r.code && r.programId !== programId && r.programIds?.includes(programId))
+    .map(r => ({
+      key: r.key, kind: r.block, label: `Counted from ${nameOfProgram[r.programId] ?? 'your other program'}`, code: r.code, name: r.name,
+      hours: r.hours, term: r.term, semNum: r.semNum, state: r.state, source: r.source, sourceLabel: r.sourceLabel, note: r.sourceNote ?? null,
+    }))
+  const majorBlocks = multi
+    ? programs.map((p, i) => makeBlock(
+      i === 0 ? 'major' : `major:${p.programId}`, (i === 0 && majorLabel) || p.name, rows, panel, isFF, evidence,
+      { kind: 'major', match: r => r.block === 'major' && r.programId === p.programId, refs: sharedRefs(p.programId) },
+    ))
+    : [makeBlock('major', majorLabel || 'Your major', rows, panel, isFF, evidence)]
   const blocks = [
-    makeBlock('major',     majorLabel || 'Your major', rows, panel, isFF, evidence),
+    ...majorBlocks,
     makeBlock('gened',     'General education',        rows, panel, isFF, evidence),
     makeBlock('electives', 'Electives',                rows, panel, isFF, evidence),
   ].filter(Boolean)
@@ -224,16 +257,19 @@ function countRows(rows) {
   return counts
 }
 
-function makeBlock(id, title, allRows, panel, isFF, evidence) {
-  const rows = allRows.filter(r => r.block === id)
-  const groups = id === 'major' ? majorGroups(rows) : id === 'gened' ? genEdGroups(rows, panel, isFF, evidence) : electiveGroups(rows, evidence)
+// `kind` is which of the three homes the block is (its id, for the primary or a student with one program); `match` picks its rows (a block
+// of one program among several); `refs` are courses counted from another program, listed after the block's own groups.
+function makeBlock(id, title, allRows, panel, isFF, evidence, { kind = id, match = r => r.block === kind, refs = [] } = {}) {
+  const rows = allRows.filter(match)
+  const groups = kind === 'major' ? majorGroups(rows) : kind === 'gened' ? genEdGroups(rows, panel, isFF, evidence) : electiveGroups(rows, evidence)
+  if (kind === 'major' && refs.length) groups.push({ id: 'shared', title: 'Counted from your other degree program', rows: [], progress: null, refs })
   if (groups.length === 0) return null
   const counts = countRows(rows)
   return {
     id, title, rows, groups, counts, total: rows.length,
     complete: rows.length > 0 && counts.done === rows.length,
     // The gen-ed block carries its program summary (title, hours covered, state); the other blocks have none.
-    panel: id === 'gened' ? panel : null,
+    panel: kind === 'gened' ? panel : null,
   }
 }
 
