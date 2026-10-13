@@ -65,32 +65,35 @@ export async function runScenario(target, { log = () => {} } = {}) {
   }
 
   // ── Onboarding ──
-  await page.waitForSelector('input[type=search]', { timeout: STEP_TIMEOUT })
-  await grab('onboarding-1-program')
-  await page.locator('input[type=search]').fill('Cybersecurity')
+  // The program is chosen one level at a time: college, major, concentration (each its own screen).
+  await page.waitForSelector('.program-college', { timeout: STEP_TIMEOUT })
+  await grab('onboarding-1-college')
+  await page.locator('.program-college', { hasText: 'Engineering' }).first().click()
+  await button('Continue').click()
+
+  await page.locator('.program-major').first().waitFor({ timeout: STEP_TIMEOUT })
+  await grab('onboarding-2-major')
+  await page.locator('.program-major', { hasText: 'Computer Science' }).first().click()
+  await button('Continue').click()
+
+  await page.locator('.concentration-card').first().waitFor({ timeout: STEP_TIMEOUT })
+  await grab('onboarding-3-concentration')
   await page.locator('.concentration-card', { hasText: 'CSC Cybersecurity' }).first().click()
   await button('Continue').click()
 
   await page.getByText('When do you start?').waitFor({ timeout: STEP_TIMEOUT })
-  await grab('onboarding-2-start-term')
+  await grab('onboarding-4-start-term')
   await page.locator('select.onboarding-select').nth(0).selectOption('2026')
   await page.locator('select.onboarding-select').nth(1).selectOption('Fall')
   await button('Continue').click()
 
   await page.getByText('Test Scores').first().waitFor({ timeout: STEP_TIMEOUT })
-  await grab('onboarding-3-scores')
+  await grab('onboarding-5-scores')
   await page.locator('input.onboarding-input').nth(0).fill('29')
   await button('Continue').click()
 
-  // The math step appears only for plans with Calculus I (CSC has it).
-  const mathStep = page.getByText('Your Math Sequence').first()
-  if (await mathStep.waitFor({ timeout: 5_000 }).then(() => true, () => false)) {
-    await grab('onboarding-4-math')
-    await button('Continue').click()
-  }
-
   await page.getByText('Any prior credits?').first().waitFor({ timeout: STEP_TIMEOUT })
-  await grab('onboarding-5-prior-credit')
+  await grab('onboarding-6-prior-credit')
   await button('Build my degree plan').click()
 
   // ── The plan ──

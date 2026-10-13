@@ -18,7 +18,6 @@
 //
 // MATH 1730 is equivalent to MATH 1710 plus MATH 1720.
 
-import { POOL_COURSES } from './poolResolver'
 
 export const MATH_PLACEMENT = {
   effective: '2026-2027',
@@ -126,24 +125,9 @@ export function mathChainFor(startCode, slots, studentType) {
 }
 
 /**
- * What onboarding shows as the math sequence: the chain, then the rest of the plan's own required math in the department's
- * order (`later`: Calculus III and Differential Equations in the engineering maps), then the statistics choice when the plan
- * has a statistics slot (`fork`). None of the last two is assumed: a plan without them shows neither.
- */
-export function mathSequenceFor(startCode, slots, studentType) {
-  const chain = mathChainFor(startCode, slots, studentType)
-  const taken = new Set(chain)
-  const later = (slots ?? [])
-    .filter(s => !s.is_pool && /^MATH[0-9]{4}$/.test(s.class_code) && !ALL_MATH_CHAIN_CODES.has(s.class_code) && !taken.has(s.class_code))
-    .sort((a, b) => (a.map_semester ?? 99) - (b.map_semester ?? 99) || a.class_code.localeCompare(b.class_code))
-    .map(s => s.class_code)
-  const fork = (slots ?? []).some(s => s.is_pool && s.class_code === 'MATH_STATS') ? [...(POOL_COURSES.MATH_STATS ?? [])] : []
-  return { chain, later: [...new Set(later)], fork }
-}
-
-/**
  * Whether a plan includes Calculus I, the course every placement chain leads to (MATH 1000, 1710, 1730 and 1904 all end
- * there). A plan without it (a Music or Nursing plan) has no placement sequence to show, so onboarding skips that step.
+ * there). A plan without it (a Music or Nursing plan) has no placement chain: the degree builder applies the math placement only to a plan
+ * that has it (Business's MATH 1710 and 1530 are ordinary requirements).
  */
 export function planHasMathChain(slots) {
   const calculusI = MATH_PLACEMENT.tiers[0].course

@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { db } from '../lib/dataClient'
 import { groupAndSortPriorCredits } from '../lib/priorCreditOrdering'
 import { resolveMathPlacementRow, resolveActEnglishCredit, actScoresToProfileFields } from '../lib/actScoreResolver'
-import { validateSatMath, SAT_MATH_RANGE, mathSequenceFor, planHasMathChain } from '../lib/mathPlacement'
+import { validateSatMath, SAT_MATH_RANGE } from '../lib/mathPlacement'
 import { isMissingColumn, selectWithOptional } from '../lib/dbErrors'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { academicYearOf, curriculumTypeForTerm, isApproximateFit, planForYear, termChoices } from '../lib/catalogYears'
 import { termNotes } from '../lib/programBrowser'
+import { pickerModel, onboardingSteps, stepBefore, stepAfter } from '../lib/programPicker'
 import { termPhase } from '../lib/termPhase'
 import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requirementSlots'
 import { fetchPlannerCatalog } from '../lib/plannerCatalog'
@@ -26,13 +27,17 @@ function validateActScore(val) {
   return null
 }
 
-// The steps, in order. Step 4 (the math sequence) is skipped for a plan that has no Calculus I to place into.
-const FLOW_WITH_MATH = [1, 2, 3, 4, 5]
-const FLOW_WITHOUT_MATH = [1, 2, 3, 5]
+// The steps, in order (lib/programPicker.js onboardingSteps): college (only when there is more than one), major, concentration (only
+// when the major has more than one program), start term, test scores, prior credits. Each is its own screen.
 
 export default function Onboarding({ profileId, onComplete }) {
-  const [step, setStep]                   = useState(1)
+  const [step, setStep]                   = useState('college')
   const [selectedCode, setSelectedCode]   = useState(null)
+  // what is chosen at the picker's earlier steps, and whether the program was found by search (which skips the steps in between)
+  const [collegeCode, setCollegeCode]     = useState(null)
+  const [majorKey, setMajorKey]           = useState(null)
+  const [showClosed, setShowClosed]       = useState(false)
+  const [foundBySearch, setFoundBySearch] = useState(false)
   const [startSeason, setStartSeason]     = useState('')
   const [startYear, setStartYear]         = useState('')
   // Not asked: the first semester decides the curriculum (catalogYears.js, curriculumTypeForTerm).
@@ -42,10 +47,6 @@ export default function Onboarding({ profileId, onComplete }) {
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState(null)
 
-  // The math sequence step: only when the chosen plan includes Calculus I (known once its slots are loaded).
-  const [hasMath, setHasMath]                   = useState(true)
-  const [mathChainData, setMathChainData]       = useState([])
-  const [mathChainLoading, setMathChainLoading] = useState(false)
 
   // Prior credits: every student enters them through the unified wizard.
   // Entries accumulate locally and are batch-inserted on completion, so
@@ -96,10 +97,16 @@ export default function Onboarding({ profileId, onComplete }) {
   const entryPlan       = selectedProgram && entryYear ? planForYear(degreePlans, selectedProgram.id, entryYear) : null
   const approximate     = !!entryPlan && isApproximateFit({ entryYear, planYear: entryPlan.catalog_year, genedProgram: entryPlan.gened_program, coversEarlier: entryPlan.covers_earlier })
 
+  // What the picker shows at each of its steps, and the steps this student will go through.
+  const model = pickerModel({ programs: concentrations, plans: degreePlans, value: selectedCode, showClosed, collegeCode, majorKey })
+  const steps = onboardingSteps(model)
+  const current = steps.includes(step) ? step : steps[0]
+
   function handleSelectProgram(program) {
     // null: the picker dropped a closed program it was hiding
     if (!program) {
       setSelectedCode(null)
+      setFoundBySearch(false)
       return
     }
     if (program.code !== selectedCode) {
@@ -110,22 +117,50 @@ export default function Onboarding({ profileId, onComplete }) {
     }
   }
 
-  // Step 1 → 2: a program
-  function handleGoToStep2() {
-    if (!selectedCode) return
-    setStep(2)
+  // A college chosen: the major and program under another college no longer apply.
+  function handleCollege(code) {
+    if (code !== collegeCode) { setMajorKey(null); setSelectedCode(null); setFoundBySearch(false) }
+    setCollegeCode(code)
   }
 
-  // Step 2 → 3: a start term. Its slots are loaded here: they say whether the math step applies.
-  async function handleGoToStep3() {
+  // A major chosen: a major with one program is the program; one with several asks for the concentration next.
+  function handleMajor(major) {
+    if (!major) { setMajorKey(null); return }
+    if (major.key !== majorKey) setFoundBySearch(false)
+    setMajorKey(major.key)
+    if (major.programs.length === 1) handleSelectProgram(major.programs[0])
+    else if (!major.programs.some(p => p.code === selectedCode)) setSelectedCode(null)
+  }
+
+  // A search result is a whole program: it fills in the college and major and skips the steps between.
+  function handleSearchPick(program) {
+    handleSelectProgram(program)
+    setCollegeCode(program.college ?? null)
+    setMajorKey(null)
+    setFoundBySearch(true)
+  }
+
+  // Whether the program step on screen can be left: what it asks for is chosen, or a search already found the whole program
+  const searched = foundBySearch && !!selectedCode
+  const canLeaveProgramStep = current === 'college' ? !!model.college || searched
+    : current === 'major' ? !!model.major || searched
+    : !!selectedCode
+
+  function handleProgramContinue() {
+    if (!canLeaveProgramStep) return
+    setStep(searched && (current === 'college' || current === 'major') ? 'term' : stepAfter(steps, current))
+  }
+
+  // Start term → test scores. The program's slots are loaded here: the prior-credit wizard needs them.
+  async function handleGoToScores() {
     if (!startSeason || !startYear) return
     await loadConcSlots()
-    setStep(3)
+    setStep('scores')
   }
 
-  // Step 3 → the math sequence (or the prior credits, when the plan has none). Every score is optional: with no ACT or
+  // Test scores → prior credits. Every score is optional: with no ACT or
   // SAT Math score a student starts in MATH1000 (mathPlacement.js). A score that is entered must be a real one.
-  function handleGoToStep4() {
+  function handleGoToCredits() {
     const fields = ['math', 'english', 'science', 'reading', 'composite']
     const errors = {}
     for (const f of fields) {
@@ -139,12 +174,7 @@ export default function Onboarding({ profileId, onComplete }) {
       return
     }
     setActErrors({})
-    setStep(hasMath ? 4 : 5)
-  }
-
-  // The math sequence → prior credits
-  function handleGoToStep5() {
-    setStep(5)
+    setStep('credits')
   }
 
   async function loadConcSlots() {
@@ -154,33 +184,7 @@ export default function Onboarding({ profileId, onComplete }) {
       ? await fetchRequirementSlots(db, selectedProgram.id, plan.catalog_year, 'id, class_code, is_pool, map_semester')
       : { data: [] }
     setConcSlots(data ?? [])
-    setHasMath(planHasMathChain(data ?? []))
   }
-
-  // The scores math placement reads (blank means not taken)
-  const placementScores = {
-    act: actScores.math === '' ? null : Number(actScores.math),
-    sat: actScores.satMath === '' ? null : Number(actScores.satMath),
-  }
-
-  // ── Step 4: fetch course data for math chain display ─────────────
-  useEffect(() => {
-    if (step !== 4) return
-    const placement = resolveMathPlacementRow(placementScores)
-    const seq = mathSequenceFor(placement.satisfies_course_code, concSlots, studentType)
-    const allCodes = [...seq.chain, ...seq.later, ...seq.fork]
-    setMathChainLoading(true)
-    db
-      .from('courses')
-      .select('code, name, credits')
-      .in('code', allCodes)
-      .then(({ data }) => {
-        setMathChainData(data ?? [])
-        setMathChainLoading(false)
-      })
-    // `placementScores` is rebuilt every render; its inputs are the scores that change `step`, so it is left out.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, studentType, concSlots])
 
   // ── Final save — persists concentration, start term, student type, ACT columns,
   // flushes prior_credits, then runs the degree-builder algorithm and writes
@@ -384,23 +388,26 @@ export default function Onboarding({ profileId, onComplete }) {
 
   // ── Render ────────────────────────────────────────────────────────
 
-  const flow = hasMath ? FLOW_WITH_MATH : FLOW_WITHOUT_MATH
+  const flow = steps
   const seasonsForYear = choices.find(c => c.year === startYear)?.seasons ?? []
 
   const STEP_TITLES = {
-    1: 'What are you studying?',
-    2: 'When do you start?',
-    3: 'Test Scores',
-    4: 'Your Math Sequence',
-    5: 'Any prior credits?',
+    college: 'Which college?',
+    major: 'What are you studying?',
+    concentration: model.major?.concentrationRequired ? 'Choose your concentration' : 'Any concentration?',
+    term: 'When do you start?',
+    scores: 'Test Scores',
+    credits: 'Any prior credits?',
   }
   const STEP_SUBS = {
-    1: 'Pick your college, major and concentration. This determines your required courses and recommended plan.',
-    2: 'Pick the semester you first started, or will start, this degree program. It picks the catalog year your degree plan follows.',
-    3: 'Enter the scores you have and leave the rest blank. Your ACT or SAT Math score sets where your math starts; with neither, it starts in MATH 1000.',
-    4: 'Based on your math placement, here are the courses in your math sequence.',
-    5: "We'll use these to pre-fill your plan and skip false prereq warnings.",
+    college: 'Start with the college your major is in, or search for your major or concentration. This determines your required courses and recommended plan.',
+    major: 'Pick your major. This determines your required courses and recommended plan.',
+    concentration: 'Your major has more than one path. Pick the one you are following.',
+    term: 'Pick the semester you first started, or will start, this degree program. It picks the catalog year your degree plan follows.',
+    scores: 'Enter the scores you have and leave the rest blank. Your ACT or SAT Math score sets where your math starts; with neither, it starts in MATH 1000.',
+    credits: "We'll use these to pre-fill your plan and skip false prereq warnings.",
   }
+  const isFirstStep = current === steps[0]
 
   return (
     <div className="onboarding-shell">
@@ -408,24 +415,33 @@ export default function Onboarding({ profileId, onComplete }) {
 
         <div className="onboarding-header">
           <p className="onboarding-eyebrow">{getBrand().welcomeEyebrow}</p>
-          <h2 className="onboarding-title">{STEP_TITLES[step]}</h2>
-          <p className="onboarding-sub">{STEP_SUBS[step]}</p>
+          <h2 className="onboarding-title">{STEP_TITLES[current]}</h2>
+          <p className="onboarding-sub">{STEP_SUBS[current]}</p>
           <div className="onboarding-steps">
             {flow.map((n, i) => (
-              <div key={n} className={`onboarding-step ${flow.indexOf(step) >= i ? 'active' : ''}`} />
+              <div key={n} className={`onboarding-step ${flow.indexOf(current) >= i ? 'active' : ''}`} />
             ))}
           </div>
         </div>
 
-        {/* ── Step 1: Program (college, major, concentration) ── */}
-        {step === 1 && (
+        {/* ── The program, one level at a time: college, major, concentration ── */}
+        {(current === 'college' || current === 'major' || current === 'concentration') && (
           <div className="onboarding-body">
             <div className="concentration-picker">
               <ProgramPicker
                 programs={concentrations}
                 plans={degreePlans}
+                stage={current}
                 value={selectedCode}
+                collegeCode={collegeCode}
+                majorKey={majorKey}
+                searchable={isFirstStep}
+                showClosed={showClosed}
+                onShowClosed={setShowClosed}
+                onCollege={handleCollege}
+                onMajor={handleMajor}
                 onChange={handleSelectProgram}
+                onSearchPick={handleSearchPick}
                 loading={concsLoading}
                 error={concsError}
               />
@@ -433,29 +449,38 @@ export default function Onboarding({ profileId, onComplete }) {
 
             {error && <p className="onboarding-error">{error}</p>}
 
-            <button
-              className="onboarding-btn"
-              onClick={handleGoToStep2}
-              disabled={!selectedCode || concsLoading}
-            >
-              Continue
-            </button>
+            <div className="onboarding-btn-row">
+              {!isFirstStep && (
+                <button className="onboarding-btn-secondary" onClick={() => setStep(stepBefore(steps, current))}>
+                  Back
+                </button>
+              )}
+              <button
+                className="onboarding-btn"
+                onClick={handleProgramContinue}
+                disabled={!canLeaveProgramStep || concsLoading}
+              >
+                Continue
+              </button>
+            </div>
 
             {/* A new device or install has no plan, so this is where a backup from another one is loaded. */}
-            <p className="onboarding-import">
-              Moving from another device or install?{' '}
-              <ImportBackupButton
-                className="onboarding-import-btn"
-                onError={setError}
-              >
-                Import a backup
-              </ImportBackupButton>
-            </p>
+            {isFirstStep && (
+              <p className="onboarding-import">
+                Moving from another device or install?{' '}
+                <ImportBackupButton
+                  className="onboarding-import-btn"
+                  onError={setError}
+                >
+                  Import a backup
+                </ImportBackupButton>
+              </p>
+            )}
           </div>
         )}
 
-        {/* ── Step 2: first semester, for the chosen program ── */}
-        {step === 2 && (
+        {/* ── First semester, for the chosen program ── */}
+        {current === 'term' && (
           <div className="onboarding-body">
             <p className="onboarding-toggle-prompt">Your first semester in this program</p>
 
@@ -466,7 +491,7 @@ export default function Onboarding({ profileId, onComplete }) {
                   <button
                     type="button"
                     className="program-link"
-                    onClick={() => handleSelectProgram(note.replacement)}
+                    onClick={() => handleSearchPick(note.replacement)}
                   >
                     Choose {note.replacement.name} instead
                   </button>
@@ -527,14 +552,14 @@ export default function Onboarding({ profileId, onComplete }) {
             <div className="onboarding-btn-row">
               <button
                 className="onboarding-btn-secondary"
-                onClick={() => setStep(1)}
+                onClick={() => setStep(stepBefore(steps, 'term'))}
                 disabled={loading}
               >
                 Back
               </button>
               <button
                 className="onboarding-btn"
-                onClick={handleGoToStep3}
+                onClick={handleGoToScores}
                 disabled={!startSeason || !startYear}
               >
                 Continue
@@ -543,8 +568,8 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 3: ACT Scores ── */}
-        {step === 3 && (
+        {/* ── ACT and SAT scores ── */}
+        {current === 'scores' && (
           <div className="onboarding-body">
             <div className="onboarding-act-grid">
               {[
@@ -585,14 +610,14 @@ export default function Onboarding({ profileId, onComplete }) {
             <div className="onboarding-btn-row">
               <button
                 className="onboarding-btn-secondary"
-                onClick={() => setStep(2)}
+                onClick={() => setStep('term')}
                 disabled={loading}
               >
                 Back
               </button>
               <button
                 className="onboarding-btn"
-                onClick={handleGoToStep4}
+                onClick={handleGoToCredits}
                 disabled={loading}
               >
                 Continue
@@ -601,83 +626,8 @@ export default function Onboarding({ profileId, onComplete }) {
           </div>
         )}
 
-        {/* ── Step 4: Math chain display (only for a plan that includes Calculus I) ── */}
-        {step === 4 && (() => {
-          const placement = resolveMathPlacementRow(placementScores)
-          const startCode = placement.satisfies_course_code
-          const seq = mathSequenceFor(startCode, concSlots, studentType)
-          const chainCodes = [...seq.chain, ...seq.later]
-          const noScore = actScores.math === '' && actScores.satMath === ''
-          const courseMap = {}
-          for (const c of mathChainData) courseMap[c.code] = c
-          return (
-            <div className="onboarding-body">
-              {noScore && (
-                <p className="wizard-step-hint">
-                  With no ACT or SAT Math score you start in MATH 1000, Transitional Algebra. If you take the
-                  ACT or SAT later, add the score in Settings and your plan updates.
-                </p>
-              )}
-              {mathChainLoading ? (
-                <p className="wizard-loading">Loading your math sequence…</p>
-              ) : (
-                <div className="math-chain-scroll">
-                  <div className="math-chain">
-                    {chainCodes.map((code, i) => {
-                      const course = courseMap[code]
-                      return (
-                        <span key={code} className="math-chain-segment">
-                          {i > 0 && <span className="math-chain-arrow" aria-hidden="true">→</span>}
-                          <div className="math-chain-node">
-                            <div className="math-chain-code">{code.replace('MATH', 'MATH ')}</div>
-                            <div className="math-chain-name">{course?.name ?? '—'}</div>
-                            <div className="math-chain-credits">{course?.credits ?? '?'} cr</div>
-                          </div>
-                        </span>
-                      )
-                    })}
-                    {seq.fork.length > 0 && <span className="math-chain-segment">
-                      <span className="math-chain-arrow" aria-hidden="true">→</span>
-                      <div className="math-chain-fork">
-                        {seq.fork.map((code, i) => {
-                          const course = courseMap[code]
-                          return (
-                            <span key={code}>
-                              {i > 0 && <div className="math-chain-or">or</div>}
-                              <div className="math-chain-node">
-                                <div className="math-chain-code">{code.replace('MATH', 'MATH ')}</div>
-                                <div className="math-chain-name">{course?.name ?? '—'}</div>
-                                <div className="math-chain-credits">{course?.credits ?? '?'} cr</div>
-                              </div>
-                            </span>
-                          )
-                        })}
-                      </div>
-                    </span>}
-                  </div>
-                </div>
-              )}
-
-              <div className="onboarding-btn-row">
-                <button
-                  className="onboarding-btn-secondary"
-                  onClick={() => setStep(3)}
-                >
-                  Back
-                </button>
-                <button
-                  className="onboarding-btn"
-                  onClick={handleGoToStep5}
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
-          )
-        })()}
-
-        {/* ── Step 5: Prior credits (skippable) ── */}
-        {step === 5 && (
+        {/* ── Prior credits (skippable) ── */}
+        {current === 'credits' && (
           <div className="onboarding-body">
             <p className="onboarding-sub">
               Add each AP exam, CLEP score, or other prior credit.
@@ -744,7 +694,7 @@ export default function Onboarding({ profileId, onComplete }) {
             <div className="onboarding-btn-row">
               <button
                 className="onboarding-btn-secondary"
-                onClick={() => setStep(hasMath ? 4 : 3)}
+                onClick={() => setStep('scores')}
                 disabled={loading}
               >
                 Back

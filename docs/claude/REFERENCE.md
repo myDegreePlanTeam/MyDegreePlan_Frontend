@@ -256,12 +256,11 @@ scores. MATH1730 is equivalent to MATH1710 + MATH1720 (`equivalents`; `requireme
 `MyDegreePlan_Prototype/math_sequences.json` mirrors the tiers; change both together. `mathCurriculumFor(slots, studentType)`
 picks the new or the returning chains: a plan whose department map names MATH1920 (the engineering majors take Calculus I-III)
 is returning for every student, otherwise the student type decides. The Prototype's `specLib.mathCurriculumOf` reads the same evidence.
-`mathChainFor(startCode, slots, studentType)` is the one copy of the placement chains (the degree builder and onboarding both read it): a plan
+`mathChainFor(startCode, slots, studentType)` is the one copy of the placement chains (the degree builder reads it; onboarding no longer shows it): a plan
 whose map requires Calculus II (`planRequiresCalculusII`) is read from its own slots (the lead-in to Calculus I, then MATH1920 and MATH2010 where the
 plan has them, so the extended track still takes Calculus II and Nuclear Engineering has no MATH2010); every other plan keeps the new / returning tables.
-`mathSequenceFor` is what onboarding shows: that chain, then the plan's other fixed MATH courses in map order (`later`: MATH2120, MATH2110), then the
-statistics choice (`fork`) only when the plan has a `MATH_STATS` slot. `math_sequences.json` still repeats the two tables (the Prototype reads only
-the top track).
+`math_sequences.json` still repeats the two tables (the Prototype reads only the top track). Onboarding's "Your Math Sequence" screen (`mathSequenceFor`) was
+removed: it only displayed what the placement does.
 
 ### `src/lib/creditHours.js`
 
