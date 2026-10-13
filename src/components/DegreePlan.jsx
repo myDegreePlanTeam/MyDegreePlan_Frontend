@@ -57,7 +57,8 @@ import { evaluateAddition, rankMinors } from '../lib/whatIf'
 import { loadCandidate, loadCandidates, extendBase } from '../lib/whatIfLoader'
 import { programLabels, tagsForSlots, dimmedSlots, filterOptions } from '../lib/programTags'
 import { setPreference } from '../lib/theme'
-import { summarizePlanCheck } from '../lib/planCheck'
+import { summarizePlanCheck, flagsBySemester } from '../lib/planCheck'
+import { defaultOpenSemesters } from '../lib/semesterDefaults'
 import './Dashboard.css'
 import './shell/AppShell.css'
 
@@ -620,15 +621,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (!loading) saveUndo(profile, undoStack, { addedPrograms })
   }, [loading, undoStack, profile, addedPrograms])
 
-  // Past semesters start collapsed, once, when the plan has loaded; the student can still open them.
-  const collapsedPastRef = useRef(false)
-  useEffect(() => {
-    if (loading || collapsedPastRef.current) return
-    collapsedPastRef.current = true
-    const past = Object.entries(semesterPhase).filter(([, phase]) => phase === 'past').map(([n]) => [n, false])
-    if (past.length) setSemesterExpanded(prev => ({ ...Object.fromEntries(past), ...prev }))
-  }, [loading, semesterPhase])
-
   // ── Science sequence warnings ─────────────────────────────────────
   const scienceWarnings = useMemo(
     () => getScienceWarnings(planSlots, slots),
@@ -1107,9 +1099,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }
 
   // ── Global collapse / expand control ─────────────────────────────
-  // Undefined means expanded (see isExpanded on Semester), so "any open"
-  // is "any not explicitly false".
-  const anyExpanded = allSemesterNumbers.some(n => semesterExpanded[n] !== false)
+  // A semester the student has not opened or closed follows the default: the first one not over and the one after it are open, the rest
+  // are one line (lib/semesterDefaults.js). A choice in `semesterExpanded` always wins.
+  const defaultOpen = defaultOpenSemesters(allSemesterNumbers, semesterPhase)
+  const isOpen = n => semesterExpanded[n] ?? defaultOpen[n] ?? false
+  const anyExpanded = allSemesterNumbers.some(isOpen)
 
   function toggleAll() {
     const next = {}
@@ -1695,6 +1689,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
   })
   const issueCounts = countIssuesBySemester(issues)
   const planCheck = summarizePlanCheck(issues)   // the picks still to make and the real problems (lib/planCheck.js)
+  const semFlags = flagsBySemester(issues)       // what each semester card says about its own issues
+  // The open picks a later course depends on, by slot: { [slotId]: courseCodes }
+  const pickNeeds = Object.fromEntries(Object.entries(incompleteSlots).filter(([, v]) => v.dependents?.length > 0).map(([k, v]) => [k, v.dependents]))
 
   const lastUndo = undoStack[undoStack.length - 1]
 
@@ -1971,7 +1968,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
                         freeAddSlots={(freeAddBySemester[semNum] ?? []).map(f => ({ ...f, status: statusOfFreeAdd(f) }))}
                         courseMap={courses}
                         planSlots={planSlots}
-                        planStatuses={planStatuses}
                         allFreeAddSlots={freeAddSlots}
                         remainders={remainders}
                         onSelectSlot={selectSlot}
@@ -1990,13 +1986,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
                         dimmed={dimmed}
                         note={semesterNotes[semNum] ?? ''}
                         onNoteSave={handleNoteSave}
-                        isExpanded={semesterExpanded[semNum] !== false}
-                        onToggleExpand={() =>
-                          setSemesterExpanded(prev => ({
-                            ...prev,
-                            [semNum]: !(prev[semNum] !== false),
-                          }))
-                        }
+                        isExpanded={isOpen(semNum)}
+                        onToggleExpand={() => setSemesterExpanded(prev => ({ ...prev, [semNum]: !(prev[semNum] ?? defaultOpen[semNum] ?? false) }))}
+                        flags={semFlags[semNum] ?? null}
+                        pickNeeds={pickNeeds}
                         isPast={semesterPhase[semNum] === 'past'}
                         termLabel={semLabels[semNum]}
                         isCurrent={isSameTerm(semesterTerms[semNum], nowTerm)}
@@ -2025,7 +2018,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                       if (newTerm) setExtraSemesterTerms(prev => ({ ...prev, [newSemNum]: newTerm }))
                     }}
                   >
-                    + Add semester
+                    Add semester
                   </button>
                 </div>
 

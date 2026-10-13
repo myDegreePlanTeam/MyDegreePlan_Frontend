@@ -74,3 +74,30 @@ export function problemLines(summary) {
   line('advice', summary.advice, n => `${n} to look at`)
   return lines
 }
+
+/**
+ * What each semester card says about its own issues: { [semNum]: { picks, needed, blocked, advice } }.
+ *   picks    the open picks in the semester
+ *   needed   the course codes that depend on the first open pick that something depends on (null when none), so the card can say why it matters
+ *   blocked  unmet prerequisites and corequisites
+ *   advice   everything else that is not a pick (load, science sequence, standing, hours over a limit)
+ * A semester with no issue has no entry.
+ */
+export function flagsBySemester(issues = []) {
+  const flags = {}
+  for (const issue of issues) {
+    if (issue.semNum == null) continue
+    const f = (flags[issue.semNum] ??= { picks: 0, needed: null, blocked: 0, advice: 0 })
+    if (isPick(issue)) {
+      f.picks += 1
+      if (!f.needed && (issue.dependents ?? []).length > 0) f.needed = issue.dependents
+    } else if (issue.severity === 'blocker') f.blocked += 1
+    else f.advice += 1
+  }
+  return flags
+}
+
+/** "CSC 3040" or "CSC 3040 and CSC 4100": the codes a card names when a pick holds them up. */
+export function codesText(list) {
+  return codes(list)
+}

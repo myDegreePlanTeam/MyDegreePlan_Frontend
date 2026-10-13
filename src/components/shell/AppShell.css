@@ -180,91 +180,95 @@
 .ds-plan-body { flex: 1; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 16px; }
 .ds-plan-body .completion-banner { margin: 0; }
 
-/* Semesters sit in pairs (Fall | Spring). Each column's minimum is the larger of
-   330px or half the row, so a row holds exactly two cards when they fit and one
-   when they don't (e.g. with the course panel docked). Never three. The 17px
-   (not 16) keeps sub-pixel rounding from dropping a row to one column. */
-.ds-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(max(330px, calc((100% - 17px) / 2)), 1fr));
-  gap: 16px; align-items: start;
-}
-.ds-grid > .ds-add-sem { grid-column: 1 / -1; }
+/* One column of semesters, in order (redesign Phase 3b): the plan reads top to bottom, and a one-line semester has the width it needs. */
+.ds-grid { display: flex; flex-direction: column; gap: var(--sp-3); }
 
-/* ── Semester card ───────────────────────────────────────────────────── */
+/* -- Semester card (redesign Phase 3b) ------------------------------------------------------------------------------------------
+   The header says where the semester stands and how many hours it holds; a row says nothing about status unless it is an exception.
+   Drawn with the --c-* tokens and the interface font; a course code keeps the code face so the digits line up. */
 .ds-sem {
-  background: var(--ds-card);
-  border: 1px solid var(--ds-quiet-border);
-  border-radius: 12px; overflow: hidden;
+  background: var(--c-surface); border: 1px solid var(--c-hairline);
+  border-radius: var(--r-card); overflow: hidden;
+  font-family: var(--font-ui); color: var(--c-text);
   transition: border-color .15s, box-shadow .15s;
 }
-.ds-sem-current { background: var(--bg-mid); border-color: rgba(var(--gold-rgb), .4); }
-.ds-sem-done    { border-color: rgba(var(--status-done-rgb), .25); }
-.ds-sem-warn    { border-color: rgba(var(--status-warn-rgb), .3); }
-.ds-sem-over    { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(var(--gold-rgb), .25); }
+.ds-sem-over { border-color: var(--c-link); box-shadow: 0 0 0 3px var(--c-tint); }
+/* `.ds-app button` sets the old monospace face; the card's buttons and note box use the interface font (one class more, so they win) */
+.ds-app .ds-sem button, .ds-app .ds-sem textarea { font-family: var(--font-ui); }
 
 .ds-sem-head {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; min-height: 46px; padding: 0 14px;
-  background: transparent; border: none; cursor: pointer; color: var(--text);
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  width: 100%; min-height: 64px; padding: var(--sp-2) var(--sp-5) var(--sp-2) var(--sp-2);
+  background: transparent; border: none; cursor: pointer; color: var(--c-text); text-align: left;
 }
-.ds-sem-head:hover { background: var(--bg-light); }
-.ds-sem-open .ds-sem-head { border-bottom: 1px solid var(--bg-light); }
-.ds-sem-name {
-  flex: 1; min-width: 0; text-align: left;
-  font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--gold); font-weight: 500;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.ds-sem-head:hover { background: var(--c-surface-2); }
+.ds-sem-chev { width: 20px; height: 20px; margin: 0 var(--sp-3); flex-shrink: 0; color: var(--c-text-2); }
+.ds-sem-name { font-size: var(--fs-heading); line-height: var(--lh-heading); font-weight: 700; white-space: nowrap; }
+.ds-sem-mark {
+  font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 700;
+  border-radius: 999px; padding: 2px 10px; white-space: nowrap;
 }
-.ds-sem-flag { font-size: 10.5px; white-space: nowrap; flex-shrink: 0; }
-.ds-sem-flag-done { color: var(--status-done); }
-.ds-sem-flag-warn { color: var(--status-warn); }
-.ds-sem-note-dot  { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; }
-.ds-sem-cr { font-size: 11px; white-space: nowrap; flex-shrink: 0; }
-.ds-sem-caret { font-size: 9px; color: var(--text-muted); width: 12px; text-align: right; }
+.ds-sem-now  { background: var(--c-marker); color: var(--c-on-marker); }
+.ds-sem-grad { background: var(--c-surface-2); color: var(--c-text-2); border: 1px solid var(--c-hairline); }
+.ds-sem-picks { font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-sem-picks-needed { color: var(--c-attention); font-weight: 700; }
+.ds-sem-spacer { flex: 1; min-width: 0; }
+.ds-sem-note-dot { font-size: var(--fs-ui); color: var(--c-text-3); flex-shrink: 0; }
+.ds-sem-cr { font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); white-space: nowrap; flex-shrink: 0; }
+.ds-sem-caret { font-size: var(--fs-caption); color: var(--c-text-3); width: 14px; text-align: right; }
+
+/* a status as a pill: an icon, a word and a colour (shell/StatusChip.jsx) */
+.ds-chip {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  font-size: 14px; font-weight: 700; line-height: 1.3; white-space: nowrap;
+  padding: 3px 12px 3px 8px; border-radius: 999px;
+}
+.ds-chip svg { width: 16px; height: 16px; flex: none; }
+.ds-chip-done      { background: var(--c-done-bg);      color: var(--c-done); }
+.ds-chip-progress  { background: var(--c-progress-bg);  color: var(--c-progress); }
+.ds-chip-planned   { background: var(--c-planned-bg);   color: var(--c-planned); }
+.ds-chip-attention { background: var(--c-attention-bg); color: var(--c-attention); }
+.ds-chip-blocked   { background: var(--c-blocked-bg);   color: var(--c-blocked); }
 
 .ds-sem-body { display: flex; flex-direction: column; }
 
 .ds-row {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 11px 14px;
-  background: transparent; border: none;
-  border-bottom: 1px solid var(--ds-hairline);
-  cursor: pointer; color: var(--text); text-align: left;
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; min-height: 64px; padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5);
+  background: transparent; border: none; border-top: 1px solid var(--c-hairline);
+  cursor: pointer; color: var(--c-text); text-align: left;
   touch-action: none;
 }
-.ds-row:hover { background: rgba(var(--gold-rgb), .07); }
-.ds-row-selected, .ds-row-selected:hover { background: rgba(var(--gold-rgb), .12); }
+.ds-row:hover { background: var(--c-surface-2); }
+.ds-row-selected, .ds-row-selected:hover { background: var(--c-surface-2); box-shadow: inset 0 0 0 2px var(--c-link); }
 .ds-row-dragging { opacity: .35; }
-.ds-dot { width: 7px; height: 7px; border-radius: 4px; flex-shrink: 0; }
-.ds-dot-completed   { background: var(--status-done); }
-.ds-dot-in_progress { background: var(--status-progress); }
-.ds-dot-planned     { background: var(--gold); }
-.ds-dot-empty       { background: transparent; border: 1px dashed var(--text-muted); }
-.ds-dot-blocked     { background: var(--danger); }
-.ds-dot-info        { background: var(--status-progress); }
 .ds-row-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.ds-row-code { font-size: 12.5px; font-weight: 500; }
-.ds-row-code-pool { color: var(--gold); }
-.ds-row-note {
-  font-size: 10.5px; color: var(--text-muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.ds-row-note-empty   { font-style: italic; }
-.ds-row-note-blocked { color: var(--status-warn); }
-.ds-row-note-info    { color: var(--status-progress); }
+.ds-row-main { font-size: var(--fs-body); line-height: var(--lh-ui); }
+.ds-row-code { font-family: var(--font-mono); font-size: 15px; font-weight: 500; margin-right: var(--sp-3); white-space: nowrap; }
+.ds-row-code-pool { font-family: var(--font-ui); font-size: var(--fs-body); font-weight: 400; margin-right: 0; white-space: normal; }
+.ds-row-name { color: var(--c-text-2); }
+.ds-row-note { font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-row-note-blocked   { color: var(--c-blocked); font-weight: 700; }
+.ds-row-note-attention { color: var(--c-attention); font-weight: 700; }
+.ds-row-note-info      { color: var(--c-text-2); }
 .ds-row-tag {
-  font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--text-muted); border: 1px solid var(--bg-light);
-  border-radius: 4px; padding: 1px 5px; flex-shrink: 0;
+  flex-shrink: 0; font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--c-text-2);
+  border: 1px solid var(--c-hairline); border-radius: 999px; padding: 0 var(--sp-2);
 }
-.ds-row-cr { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; }
+.ds-row-cr { font-size: var(--fs-ui); color: var(--c-text-3); flex-shrink: 0; white-space: nowrap; }
+/* the look of a button, not a second button: the whole row is the button, and it opens the choices */
+.ds-row-pick {
+  flex-shrink: 0; display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--sp-4);
+  border: 2px solid var(--c-border-strong); border-radius: var(--r-control);
+  color: var(--c-link); font-size: var(--fs-body); font-weight: 700; white-space: nowrap;
+}
+.ds-row:hover .ds-row-pick { border-color: var(--c-link); }
 /* the programs a course serves, when the plan follows more than one */
-.ds-row-progs { display: inline-flex; gap: 3px; flex-shrink: 0; }
+.ds-row-progs { display: inline-flex; gap: var(--sp-1); flex-shrink: 0; }
 .ds-row-prog {
-  font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--gold); border: 1px solid var(--gold);
-  border-radius: 4px; padding: 1px 5px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--c-link);
+  border: 1px solid var(--c-link); border-radius: 999px; padding: 0 var(--sp-2);
+  max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ds-row-dim { opacity: .38; }
 /* "What if I added...": the effect on the finish, in words */
@@ -290,33 +294,29 @@
 }
 .ds-prog-chip-on { color: var(--gold); border-color: var(--gold); }
 
-.ds-sem-noteedit { padding: 10px 14px; border-bottom: 1px solid var(--ds-hairline); }
+.ds-sem-noteedit { padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--c-hairline); }
 .ds-sem-noteedit textarea {
-  width: 100%; resize: vertical; min-height: 52px;
-  background: var(--bg); color: var(--text);
-  border: 1px solid var(--bg-light); border-radius: 7px;
-  padding: 8px 10px; font-family: var(--font-mono); font-size: 11.5px;
+  width: 100%; resize: vertical; min-height: 64px;
+  background: var(--c-surface); color: var(--c-text);
+  border: 2px solid var(--c-border-strong); border-radius: var(--r-control);
+  padding: var(--sp-2) var(--sp-3); font-size: var(--fs-body); line-height: var(--lh-body);
 }
-.ds-sem-noteedit textarea:focus { outline: none; border-color: var(--gold); }
-.ds-sem-empty { padding: 16px 14px; font-size: 11px; color: var(--text-muted); }
+.ds-sem-empty { padding: var(--sp-4) var(--sp-5); font-size: var(--fs-body); color: var(--c-text-2); border-top: 1px solid var(--c-hairline); }
 
-.ds-sem-foot { display: flex; border-top: 1px solid var(--bg-light); }
+.ds-sem-foot { display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: var(--sp-1) var(--sp-3) var(--sp-2); border-top: 1px solid var(--c-hairline); }
 .ds-sem-foot button {
-  flex: 1; min-height: 38px;
-  background: transparent; border: none;
-  color: var(--text-muted); font-size: 11px; letter-spacing: .05em; cursor: pointer;
+  min-height: var(--target); padding: 0 var(--sp-3);
+  background: none; border: none; cursor: pointer;
+  color: var(--c-link); font-size: var(--fs-body); text-decoration: underline;
 }
-.ds-sem-foot button + button { border-left: 1px solid var(--bg-light); }
-.ds-sem-foot button.ds-sem-foot-icon { flex: 0 0 44px; }
-.ds-sem-foot button:hover:not(:disabled) { color: var(--gold); }
 .ds-sem-foot button:disabled { opacity: .45; cursor: not-allowed; }
 
 .ds-add-sem {
   min-height: 56px; background: transparent;
-  border: 1px dashed var(--ds-dashed); border-radius: 12px;
-  color: var(--text-muted); font-size: 12px; cursor: pointer;
+  border: 2px dashed var(--c-border-strong); border-radius: var(--r-card);
+  color: var(--c-link); font-family: var(--font-ui); font-size: var(--fs-body); font-weight: 700; cursor: pointer;
 }
-.ds-add-sem:hover { border-color: var(--gold); color: var(--gold); }
+.ds-add-sem:hover { border-color: var(--c-link); background: var(--c-tint); }
 
 /* ── Prior coursework strip ──────────────────────────────────────────── */
 .ds-prior {
@@ -748,7 +748,6 @@ button.ds-setting:hover { background: var(--ds-hover); }
   .ds-account { display: none; }
   .ds-main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .ds-plan-header, .ds-plan-body, .ds-view { padding-left: 16px; padding-right: 16px; }
-  .ds-grid { grid-template-columns: 1fr; }
   .ds-panel { width: 100%; }
   .ds-act-note { display: none; }
 }

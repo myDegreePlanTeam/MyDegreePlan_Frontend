@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { buildPlanIssues } from '../lib/planIssues'
-import { summarizePlanCheck, picksText, problemLines } from '../lib/planCheck'
+import { summarizePlanCheck, picksText, problemLines, flagsBySemester } from '../lib/planCheck'
 import { creditsInPhase, semesterPhases } from '../lib/termPhase'
 
 // [semNum, label, [pick label, ...]] — the open picks per semester of the sample plan
@@ -155,5 +155,38 @@ describe('creditsInPhase', () => {
 
   it('treats an item with no semester as ahead, never as passed', () => {
     expect(creditsInPhase([{ source: 'slot', slotId: 'z', credits: 5 }], () => null, phases, 'future')).toBe(5)
+  })
+})
+
+describe('flagsBySemester', () => {
+  it('counts the picks per semester and names what a later course needs', () => {
+    const flags = flagsBySemester(sampleIssues())
+    expect(flags[1]).toBeUndefined()                                    // Fall 2026 has no open pick and no issue
+    expect(flags[2]).toEqual({ picks: 1, needed: null, blocked: 0, advice: 0 })
+    expect(flags[3]).toEqual({ picks: 1, needed: ['CSC3040'], blocked: 0, advice: 0 })
+    expect(flags[4].picks).toBe(2)
+    expect(Object.values(flags).reduce((n, f) => n + f.picks, 0)).toBe(12)
+  })
+
+  it('keeps blockers and advice apart from the picks', () => {
+    const flags = flagsBySemester(sampleIssues({
+      items: { 3: [{ key: 'x', code: 'CSC2310' }] },
+      warnings: { prereqWarnings: { x: [{ code: 'CSC1300' }] }, scienceWarnings: { s4p1: { type: 'conflict', sequenceName: 'Biology' } } },
+    }))
+    expect(flags[3]).toMatchObject({ picks: 1, blocked: 1, advice: 0 })
+    expect(flags[4]).toMatchObject({ picks: 2, blocked: 0, advice: 1 })
+  })
+
+  it('names the dependent codes of the first dependent pick only', () => {
+    const f = flagsBySemester([
+      { semNum: 1, kind: 'pick', severity: 'warning', dependents: ['CSC3040'] },
+      { semNum: 1, kind: 'pick', severity: 'warning', dependents: ['CSC4100'] },
+    ])
+    expect(f[1]).toEqual({ picks: 2, needed: ['CSC3040'], blocked: 0, advice: 0 })
+  })
+
+  it('is empty for no issues, and skips an issue with no semester', () => {
+    expect(flagsBySemester([])).toEqual({})
+    expect(flagsBySemester([{ kind: 'pick', severity: 'info' }])).toEqual({})
   })
 })
