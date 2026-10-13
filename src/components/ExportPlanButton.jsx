@@ -24,6 +24,8 @@ export default function ExportPlanButton({
   semesterCompleted,
   priorCredits,
   remainders,
+  addedPrograms = [],
+  totalHours = null,
   className = 'degreeplan-settings',
 }) {
   const [status, setStatus] = useState('idle')   // 'idle' | 'working' | 'error'
@@ -49,6 +51,8 @@ export default function ExportPlanButton({
         semesterCompleted,
         priorCredits,
         remainders,
+        addedPrograms,
+        totalHours,
       })
 
       const [{ pdf }, { default: PlanPdfDocument }] = await Promise.all([

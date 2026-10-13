@@ -22,6 +22,8 @@ export default function PlanPdfPreview({
   semesterCompleted,
   priorCredits,
   remainders,
+  addedPrograms = [],
+  totalHours = null,
 }) {
   const isEmpty = !semesterNumbers?.length
 
@@ -41,6 +43,8 @@ export default function PlanPdfPreview({
     semesterCompleted,
     priorCredits,
     remainders,
+    addedPrograms,
+    totalHours,
   }))
 
   return (

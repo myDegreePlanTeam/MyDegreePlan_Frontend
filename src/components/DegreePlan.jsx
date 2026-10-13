@@ -164,6 +164,16 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const planName = [profile.concentrations.name, ...programPlan.programs.filter(p => !p.primary).map(p => programPlan.info[p.programId]?.name)]
     .filter(Boolean).join(' + ')
   const totalHours = programPlan.totalHours ?? profile.concentrations.total_hours
+  // the programs added to the primary one, as the rows the printed documents name them from
+  const addedProgramRows = useMemo(
+    () => programPlan.programs.filter(p => !p.primary).map(p => ({ ...programPlan.info[p.programId], role: p.role })),
+    [programPlan.programs, programPlan.info],
+  )
+  // the audit's per-program blocks: every program followed, the primary first (only with more than one)
+  const auditPrograms = useMemo(
+    () => programPlan.programs.map(p => ({ programId: p.programId, name: p.primary ? profile.concentrations.name : (programPlan.info[p.programId]?.name ?? 'Degree program') })),
+    [programPlan.programs, programPlan.info, profile.concentrations.name],
+  )
   // With more than one program: a tag on each course for the programs it serves, and a filter that dims the rest of the grid
   const [programFilter, setProgramFilter] = useState(null)
   const labels = useMemo(() => programLabels(programPlan.programs, programPlan.info), [programPlan.programs, programPlan.info])
@@ -647,10 +657,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
     for (const [n, term] of Object.entries(semesterTerms)) semesterLabels[n] = formatTermLabel(term)
     return buildDegreeAudit({
       slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterLabels, semesterPhase,
-      totalHours, genedProgram: profile.gened_program, majorLabel: planName,
+      totalHours, genedProgram: profile.gened_program, majorLabel: profile.concentrations.name,
+      programs: auditPrograms, programsOf: programPlan.programsOf,
       genedExempt: getFlightFoundationsExemptions(majorCode),
     })
-  }, [majorCode, slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, totalHours, planName, profile.gened_program])
+  }, [majorCode, slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, totalHours, profile.concentrations.name, auditPrograms, programPlan.programsOf, profile.gened_program])
 
   // ── The finish line (Requirements view): the soonest the rules allow, and what sets the pace ──
   // Several scheduling passes: only worked out while a tab that shows it is open (Requirements, and Advisement, whose PDF prints it),
@@ -1756,9 +1767,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
     semesterCompleted: Object.fromEntries(Object.entries(semesterPhase).map(([n, phase]) => [n, phase === 'past'])),
     priorCredits,
     remainders,
+    addedPrograms: addedProgramRows,
+    totalHours,
   }
   // The degree audit is its own PDF (lib/auditExportModel.js), from the same audit and projection the Requirements tab shows.
-  const auditExportProps = { audit: degreeAudit, projection, profile }
+  const auditExportProps = { audit: degreeAudit, projection, profile, addedPrograms: addedProgramRows }
 
   return (
     <div className="ds-app">
@@ -1938,7 +1951,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
         {view === 'advising' && (
           <AdvisementView
-            concentrationName={profile.concentrations.name}
+            concentrationName={planName}
             documents={[
               {
                 id: 'map', label: 'Degree map',

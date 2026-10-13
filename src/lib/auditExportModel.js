@@ -20,7 +20,7 @@
 
 import { formatCourseCode } from './courseCodeFormat.js'
 import { deriveCatalogYear, formatLongDate, filenameFor } from './planExportModel.js'
-import { programHeader } from './programBrowser.js'
+import { programHeader, alsoProgramsOf, programsTitle } from './programBrowser.js'
 import { formatRange } from './genEdPanel.js'
 import { ROW_STATES, CATEGORY_STATES } from './auditLabels.js'
 import { describeFinish, describeBlockDates } from './degreeProjection.js'
@@ -127,12 +127,13 @@ export function buildAuditExport({ audit, projection } = {}) {
  * @param {Date}   input.generatedAt
  * @returns {null | { concentrationName, degree, major, concentration, catalogYear, generatedOn, audit }}
  */
-export function buildAuditDocumentModel({ audit, projection, profile = null, generatedAt = new Date() } = {}) {
+export function buildAuditDocumentModel({ audit, projection, profile = null, generatedAt = new Date(), addedPrograms = [] } = {}) {
   const body = buildAuditExport({ audit, projection })
   if (!body) return null
   const header = programHeader(profile?.concentrations)
   return {
-    concentrationName: profile?.concentrations?.name ?? null,
+    concentrationName: programsTitle(profile?.concentrations?.name ?? null, addedPrograms),
+    alsoPrograms:      alsoProgramsOf(addedPrograms),
     degree:            header.degree,
     major:             header.major,
     concentration:     header.concentration,

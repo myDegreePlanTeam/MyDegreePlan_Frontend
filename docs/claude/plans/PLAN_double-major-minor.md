@@ -1,7 +1,7 @@
 # PLAN — Double majors and minors
 
 Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
-engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.secondMajor` until Phases 3 and 4, so students do not see an unfinished feature). **Phase 5 done** (Prototype PR #19: all 82 minors in three tiers, 13 / 16 / 53; Deploy #35 allows `kind 'minor'`; the Frontend catalog carries them and the primary pickers ignore them). Phases 3, 4, 6 to 8 planned, nothing built.
+engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.secondMajor` until Phases 3 and 4, so students do not see an unfinished feature). **Phase 5 done** (Prototype PR #19: all 82 minors in three tiers, 13 / 16 / 53; Deploy #35 allows `kind 'minor'`; the Frontend catalog carries them and the primary pickers ignore them). **Phase 3 and Phase 4 done** (tags, filter, per-program audit and PDF headings). Phases 6 to 8 planned, nothing built.
 Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
 [`PLAN_all-majors.md`](./PLAN_all-majors.md) (which left minors out), [`PLAN_deeper-features.md`](./PLAN_deeper-features.md) (Phase 5 left them out).
@@ -224,7 +224,8 @@ Built: a tag on each course for the programs it serves, an All / program filter 
 - A parity journey step (`parity/lib/scenario.mjs`) that adds a second major and checks it on all three platforms; register any platform wording in `lib/platform.js`.
 - Done when: the three platforms render the same plan for the same add, and `terminology.test.js` passes.
 
-### Phase 4 — Audit and PDFs (behind `FEATURES.requirements`)
+### Phase 4 — Audit and PDFs (**done 2026-10-13**; behind `FEATURES.requirements`)
+Built as written: one block per program (`major`, `major:<id>`), general education and electives once, `Counted from <program>` references, a per-program `ownSubject`, and the Degree Map and audit PDF headings name every program (the Degree Map prints the merged hours). Checked in the browser with the flag opened locally (CSC Core 18 rows; Mechanical Engineering 23 rows plus 4 references; general education 17; electives 12) and reverted. The audit PDF itself was not rendered in the pane: its model is tested to carry the screen's blocks, groups, rows and references.
 - `buildDegreeAudit` takes the merged list plus `programsOf`: **one block per program** (major, second major, each minor), with general education once, electives once, and `refs` ("counted from CSC") for shared courses. `homeOf` gets the subject per program.
 - Degree Map header names every program; the Degree Audit PDF prints a block per program. The audit remains "Coming soon" until the owner opens it.
 - Done when: the screen and the PDF still agree row for row (the existing parity tests) with two programs.

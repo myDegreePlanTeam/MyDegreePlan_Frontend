@@ -505,6 +505,13 @@ Digital Literacy) stays in the major, and the category lists it under `refs` ("C
 "Required courses" and one group per required choice; general education grouped by Flight Foundations category (every category shown, each with its `progress`), or a legacy
 plan's three category rows plus one list of picks; electives one group per pool, Free Elective hours last.
 
+**More than one program** (Phase 4 of `plans/PLAN_double-major-minor.md`): given `programs` (`[{ programId, name }]`, primary first) and `programsOf` (from `programMerge`) the major block becomes one block per
+program (`major` for the primary, `major:<programId>` for the others) while general education and electives stay one block each. A row carries `programId` (the program that owns its card) and `programIds`
+(every program it serves); `ownSubject` is worked out per program, so a Business Analytics course with a gen-ed category (DS 2810) stays in Business Analytics' block instead of general education. A course owned by
+another program that this one also needs is a reference in a closing "Counted from your other degree program" group (`Counted from CSC Core`), never a second row. With one program `programs` is ignored and the
+audit is the one it always was (a test pins that). The Degree Map and the audit PDF name every program (`alsoProgramsOf`, `programsTitle` in `programBrowser.js`; `PdfTitleBlock` prints a "Second major" line;
+the Degree Map's hours are the merged total) and print the same blocks as the screen (`degreeAuditPrograms.test.js`).
+
 Each row is in one of four calendar-derived states (`done`, `in_progress`, `planned`, `not_placed`). A slot archived by prior credit is `done` and off the grid (`semNum` null,
 so the row does not open the plan); `not_applicable` slots are left out. A row's `key` is what the plan view selects (the slot id, or `rem_<id>` for a Free Elective's open
 hours). `summary` carries `requirements` (counts by state, what only this tab can say) and the hours by state (`computePlanCredits`' counting rules over the slots still on the grid,
