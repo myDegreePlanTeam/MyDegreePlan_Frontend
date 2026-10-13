@@ -59,6 +59,43 @@ describe('mergePrograms: a fixed course named by two programs (D3)', () => {
   })
 })
 
+describe('mergePrograms: a pool another program\'s course already satisfies', () => {
+  it('is not asked a second time: the course on the grid stands behind it', () => {
+    const csc1300 = fixed('CSC1300')
+    const either = pool('OR_CSC1300_ENGR1120', 2)
+    const m = mergePrograms({ programId: 1, slots: [csc1300] }, [{ programId: 2, slots: [either] }], { courses: crs })
+    expect(m.slots).toEqual([csc1300])
+    expect(m.shadows).toEqual([{ slotId: either.id, programId: 2, targetSlotId: csc1300.id, reason: 'satisfied' }])
+    expect(m.shadowOf).toEqual({ [either.id]: csc1300.id })
+    expect(m.programsOf[csc1300.id]).toEqual([1, 2])
+    expect(m.freeElective.addedHours).toBe(0)
+  })
+
+  it('is satisfied by one course once per program: a second identical pool still has to be filled', () => {
+    const csc1300 = fixed('CSC1300')
+    const twice = [pool('OR_CSC1300_ENGR1120', 2), pool('OR_CSC1300_ENGR1120', 2)]
+    const m = mergePrograms({ programId: 1, slots: [csc1300] }, [{ programId: 2, slots: twice }], { courses: crs })
+    expect(m.slots.map(s => s.id)).toEqual([csc1300.id, twice[1].id])
+  })
+
+  it('is not satisfied by the added program\'s own course, nor by a course the pool does not list, nor when the pool is open', () => {
+    const own = [fixed('CSC1300'), pool('OR_CSC1300_ENGR1120', 2)]
+    expect(mergePrograms({ programId: 1, slots: [fixed('MATH2110')] }, [{ programId: 2, slots: own }], { courses: crs }).slots).toHaveLength(3)
+    const unrelated = pool('OR_CSC1300_ENGR1120', 2)
+    expect(mergePrograms({ programId: 1, slots: [fixed('MATH2110')] }, [{ programId: 2, slots: [unrelated] }], { courses: crs }).slots).toContain(unrelated)
+    const open = pool('FOREIGN_LANGUAGE', 3)
+    expect(mergePrograms({ programId: 1, slots: [fixed('CSC1300')] }, [{ programId: 2, slots: [open] }], { courses: crs }).slots).toContain(open)
+  })
+
+  it('a course the added program put on the grid satisfies a later program\'s pool', () => {
+    const math = fixed('MATH2110')
+    const either = pool('OR_MATH2010_MATH3810_MATH4210_MATH4510', 3)
+    const m = mergePrograms({ programId: 1, slots: [fixed('CSC1300')] }, [{ programId: 2, slots: [fixed('MATH2010')] }, { programId: 3, role: 'minor', slots: [math, either] }], { courses: crs })
+    expect(m.shadows.map(s => s.reason)).toEqual(['satisfied'])
+    expect(m.programsOf[m.slots.find(s => s.class_code === 'MATH2010').id]).toEqual([2, 3])
+  })
+})
+
 describe('mergePrograms: general education comes from the primary program (D4)', () => {
   it('pairs the added program\'s pools off against the primary\'s of the same category, spelled either way', () => {
     const a = [pool('SCIENCE', 4), pool('FF_SOCIAL', 3), pool('FF_SOCIAL', 3)]

@@ -39,7 +39,10 @@ MDP/
 │       │   ├── classifyPrereq.js      ← placement/consent/completion classification
 │       │   ├── poolResolver.js        ← POOL_COURSES, POOL_LABELS, resolvePool, science helpers
 │       │   ├── poolRemainder.js       ← Free Elective hours bucket: hours a chosen course leaves open (pure)
-│       │   ├── programMerge.js        ← merge a primary program's slots with a second major's or a minor's (pure; not wired in yet)
+│       │   ├── programMerge.js        ← merge a primary program's slots with a second major's or a minor's (pure)
+│       │   ├── placeAdded.js          ← where an added program's new slots go, around the saved positions (pure)
+│       │   ├── addProgram.js          ← which programs may be added as a second major, and the student_programs row (pure)
+│       │   ├── programSlots.js        ← reads each followed program's slots and names (I/O in front of programMerge)
 │       │   ├── flightFoundations.js  ← Flight Foundations gen-ed rules + evaluators (pure)
 │       │   ├── requirementSlots.js    ← program-aware requirement_slots loader
 │       │   ├── transferCredits.js     ← resolveTransferCredits, computePlanCredits
@@ -352,12 +355,26 @@ entering Fall 2026+; legacy stays in effect for earlier entrants). No Supabase c
 
 ### `src/lib/programMerge.js`
 
-Phase 0 of [`PLAN_double-major-minor.md`](./plans/PLAN_double-major-minor.md): nothing imports it yet. **`mergePrograms({ programId, slots, totalHours }, [{ programId, role, slots, totalHours }], { courses, planSlots, overlapPolicy })`**
+Phase 0 of [`PLAN_double-major-minor.md`](./plans/PLAN_double-major-minor.md); `DegreePlan.jsx` loads through it since Phase 2. **`mergePrograms({ programId, slots, totalHours }, [{ programId, role, slots, totalHours }], { courses, planSlots, overlapPolicy })`**
 returns the one slot list the plan view, `buildDegreePlan` and `buildDegreeAudit` already take, plus `programsOf` (every program a card serves), `shadows` / `shadowOf` (the added program's slots that are
 not on the grid, and the visible slot each stands behind), `freeElective` and `totalHours`. A fixed course two programs name is one card; a pool is never collapsed; general education comes from the primary
-(a pool of the added program with no counterpart left on the primary stays, and one that follows a different gen-ed program is dropped); the added programs' own hours are spent from the primary's open Free
+(a pool of the added program with no counterpart left on the primary stays, and one that follows a different gen-ed program is dropped; a pool with a list of courses that another program's fixed course
+satisfies stands behind that course, `reason: 'satisfied'`); the added programs' own hours are spent from the primary's open Free
 Elective hours first (a bucket used up leaves the grid; the stored row is never changed). `expandToShadows(byTarget, shadowOf)` gives a hidden row the state of the card it stands behind (archived, picked
 course). `genEdKey(slot)` is the category a pool fills. Tests: `programMerge.test.js` (small cases, then Computer Science Core with Mathematics B.S., Business Analytics and Mechanical Engineering against the real catalog).
+
+**Shadow rows are derived, never stored.** The plan view reads the merged `slots` only: a hidden slot has no `student_plan_slots` row, so a prior credit, a pick or a position is kept on the visible card alone. Removing
+a program deletes its own slot rows and its `student_programs` row; reloading re-places whatever became visible (the loader's "place slots that have no position" step).
+
+### `src/lib/placeAdded.js`, `src/lib/addProgram.js` and `src/lib/programSlots.js`
+
+**`placeAddedSlots({ unplaced, floors, placed, slots, courseMap, prereqMap, coreqMap, priorCredits, planSlots, startSeason })`** places the slots of a newly added program around a plan that already has positions: in the
+order of `floors` (the degree builder's semesters for the merged list), each goes to the first semester at or after its floor that has room (18 hours), is a term the course is offered in, and comes after the
+prerequisites the plan has later. Saved positions are never moved (the builder alone would move 11 to 33 of the primary's courses). `DegreePlan.jsx` uses it only when a program has been added to a plan that already has
+positions. **`addableMajors`, `newProgramRow`** (`addProgram.js`): the supported majors open to the declared term, leaving out the student's own major (another concentration of it is not a second major); the row records the
+plan year in effect for the declared term (D8). **`fetchProgramSlotSets`, `fetchProgramInfo`** (`programSlots.js`) read each program's slots for the year it follows and its name and total hours. `undoStore` scopes the stack to the
+primary and the sorted set of added programs. Settings has the "Second major" card (`SettingsView.jsx`, `AddProgramModal.jsx`, `RemoveProgramModal`); `handleConcentrationSwitch` keeps added programs unless the new primary is one.
+Tests: `placeAdded.test.js`, `addProgram.test.js`, `programSlots.test.js`, `undoStore.test.js`.
 
 ### `src/lib/studentPrograms.js`
 

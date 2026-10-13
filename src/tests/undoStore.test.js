@@ -64,6 +64,25 @@ describe('what is dropped', () => {
     expect(loadUndo({ ...profile, catalog_year: '2025-2026' }, { storage, now: NOW })).toEqual([])
   })
 
+  it('a stack saved under another set of added programs (a second major or a minor added or removed)', () => {
+    const storage = memoryStorage()
+    const math = { programId: 66, catalogYear: '2026-2027' }
+    const minor = { programId: 90, catalogYear: '2026-2027' }
+    saveUndo(profile, [move(1)], { storage, now: NOW, addedPrograms: [minor, math] })
+    // the same set, in any order, still applies
+    expect(loadUndo(profile, { storage, now: NOW, addedPrograms: [math, minor] })).toEqual([move(1)])
+    expect(loadUndo(profile, { storage, now: NOW, addedPrograms: [math] })).toEqual([])
+    expect(loadUndo(profile, { storage, now: NOW })).toEqual([])
+    expect(loadUndo(profile, { storage, now: NOW, addedPrograms: [math, { ...minor, catalogYear: '2027-2028' }] })).toEqual([])
+  })
+
+  it('reads a stack saved before added programs existed as one for a plan with none', () => {
+    const old = JSON.stringify({ v: 1, concentrationId: 12, catalogYear: '2026-2027', records: [move(1)] })
+    const storage = memoryStorage({ 'mdp.undo.4': old })
+    expect(loadUndo(profile, { storage, now: NOW })).toEqual([move(1)])
+    expect(loadUndo(profile, { storage, now: NOW, addedPrograms: [{ programId: 66, catalogYear: '2026-2027' }] })).toEqual([])
+  })
+
   it('malformed or foreign data, and records with no timestamp', () => {
     expect(loadUndo(profile, { storage: memoryStorage({ 'mdp.undo.4': '{not json' }), now: NOW })).toEqual([])
     expect(loadUndo(profile, { storage: memoryStorage({ 'mdp.undo.4': JSON.stringify({ v: 99, records: [move(1)] }) }), now: NOW })).toEqual([])

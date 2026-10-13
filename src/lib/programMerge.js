@@ -8,8 +8,8 @@
 //   mergePrograms(primary, added, { courses, planSlots, overlapPolicy })
 //     -> { slots, programsOf, shadows, shadowOf, freeElective, totalHours }
 //
-//   primary   { programId, slots, totalHours }                        the program the student is enrolled in
-//   added     [{ programId, role: 'major' | 'minor', slots }]         in the order the student added them
+//   primary   { programId, slots, totalHours, genedProgram? }          the program the student is enrolled in
+//   added     [{ programId, role: 'major' | 'minor', slots, totalHours?, genedProgram? }]   in the order the student added them
 //
 //   slots        the merged list the grid sees: every primary slot, plus each added slot that is neither a duplicate nor general
 //                education. The slot objects are the stored rows themselves, except a Free Elective bucket that an added program
@@ -20,6 +20,9 @@
 //                       'gen_ed'     general education, which comes from the primary program only (D4). targetSlotId is the primary's
 //                                    pool of the same category that it stands behind; null when the added program follows a different
 //                                    general-education program than the primary (legacy against Flight Foundations), so nothing stands behind it
+//                       'satisfied'  a pool of the added program that a fixed course another program already put on the grid satisfies (Mathematics
+//                                    B.S. asks for "CSC 1300 or ENGR 1120" and Computer Science has CSC 1300); targetSlotId is that course's slot.
+//                                    Only a pool with a list of courses is satisfied this way, one course per pool, and only by another program's course.
 //                       'free_elective'  the added program's own unrestricted hours, which the primary's bucket stands in for (D5); also
 //                                    a primary bucket the added programs' hours used up completely (its programId is the primary's)
 //   shadowOf     { [shadowSlotId]: targetSlotId }  the shadows that have a target. A shadow row stays in student_plan_slots, so the
@@ -41,11 +44,11 @@
 //                                false           nothing is collapsed: every program keeps its own slot for the course
 //   Whatever the policy, a pool is never collapsed (it is a choice, and a chosen course already counts once).
 
-import { POOL_CREDIT_ESTIMATES } from './poolResolver.js'
+import { POOL_CREDIT_ESTIMATES, POOL_COURSES } from './poolResolver.js'
 import { FF_POOL_CATEGORIES } from './flightFoundations.js'
 
 /** @typedef {{ id: number|string, class_code: string, is_pool: boolean, flex_credits?: number|null, [key: string]: any }} Slot */
-/** @typedef {{ programId: number|string, role?: 'major'|'minor', slots: Slot[], totalHours?: number }} ProgramSlots */
+/** @typedef {{ programId: number|string, role?: 'major'|'minor', slots: Slot[], totalHours?: number, genedProgram?: string }} ProgramSlots */
 
 export const DEFAULT_OVERLAP_POLICY = Object.freeze({ shareCourses: true })
 
@@ -81,11 +84,11 @@ function openHours(slot, courses, planSlots) {
 
 const isFreeElective = slot => !!slot.is_pool && slot.class_code === 'FREE_ELECTIVE'
 
-// The general-education program (requirement_slots.gened_program) a slot set follows, or null for an empty set or a database without it.
+// The general-education program a slot set follows when its caller did not say (requirement_slots.gened_program), or null for an empty set or a database without the column.
 const genedProgramOf = slots => slots.find(s => s.gened_program)?.gened_program ?? null
 
 /**
- * @param {{ programId: number|string, slots: Slot[], totalHours?: number }} primary
+ * @param {{ programId: number|string, slots: Slot[], totalHours?: number, genedProgram?: string }} primary
  * @param {ProgramSlots[]} [added]
  * @param {{ courses?: object, planSlots?: Record<string, string>, overlapPolicy?: { shareCourses?: boolean } }} [options]
  *   courses    { [code]: { credits } }; the hours of each course
@@ -101,16 +104,19 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
   // Fixed courses on the grid that no later program has claimed yet, by code: each may stand in for one duplicate
   const claimableFixed = new Map()
   const push = (map, key, slot) => map.set(key, [...(map.get(key) ?? []), slot])
-  const addFixed = slot => { if (!slot.is_pool) push(claimableFixed, slot.class_code, slot) }
+  // Fixed courses on the grid with the program that owns each, for the pools they satisfy; `spent` is the (course, program) pairs already used
+  const fixedCards = []
+  const spent = new Set()
+  const addFixed = (slot, owner) => { if (!slot.is_pool) { push(claimableFixed, slot.class_code, slot); fixedCards.push({ slot, owner }) } }
   // Primary pools of each general-education category, in order, that no added program has claimed yet
   const claimableGenEd = new Map()
   for (const s of primary.slots) {
-    addFixed(s)
+    addFixed(s, primary.programId)
     const key = genEdKey(s)
     if (key) push(claimableGenEd, key, s)
   }
 
-  const primaryGenEd = genedProgramOf(primary.slots)
+  const primaryGenEd = primary.genedProgram ?? genedProgramOf(primary.slots)
   /** @type {Slot[]} */
   const addedOwn = []   // visible slots owned by an added program: their hours are what the primary's Free Elective hours absorb
   for (const program of added) {
@@ -121,7 +127,7 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
       }
       const key = genEdKey(slot)
       if (key) {
-        const addedGenEd = genedProgramOf(program.slots)
+        const addedGenEd = program.genedProgram ?? genedProgramOf(program.slots)
         const otherProgram = !!primaryGenEd && !!addedGenEd && addedGenEd !== primaryGenEd
         const target = otherProgram ? null : (claimableGenEd.get(key)?.shift() ?? null)
         if (target || otherProgram) {
@@ -139,10 +145,22 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
           continue
         }
       }
+      if (slot.is_pool && policy.shareCourses) {
+        const members = POOL_COURSES[slot.class_code]
+        const card = Array.isArray(members)
+          ? fixedCards.find(c => c.owner !== program.programId && members.includes(c.slot.class_code) && !spent.has(`${c.slot.id}:${program.programId}`))
+          : null
+        if (card) {
+          spent.add(`${card.slot.id}:${program.programId}`)
+          shadows.push({ slotId: slot.id, programId: program.programId, targetSlotId: card.slot.id, reason: 'satisfied' })
+          programsOf[card.slot.id].push(program.programId)
+          continue
+        }
+      }
       visible.push(slot)
       addedOwn.push(slot)
       programsOf[slot.id] = [program.programId]
-      addFixed(slot)
+      addFixed(slot, program.programId)
     }
   }
 
