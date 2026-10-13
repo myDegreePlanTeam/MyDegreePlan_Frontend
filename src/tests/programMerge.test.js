@@ -78,6 +78,19 @@ describe('mergePrograms: a pool another program\'s course already satisfies', ()
     expect(m.slots.map(s => s.id)).toEqual([csc1300.id, twice[1].id])
   })
 
+  it('is covered by a course up to the course\'s own hours: a 4-hour CSC 1300 satisfies the two 2-hour rows the map prints, a 3-hour one only the first', () => {
+    const rows = () => [pool('OR_CSC1300_ENGR1120', 2), pool('OR_CSC1300_ENGR1120', 2)]
+    const four = fixed('CSC1300')
+    const m = mergePrograms({ programId: 1, slots: [four] }, [{ programId: 2, slots: rows() }], { courses: { CSC1300: { credits: 4 } } })
+    expect(m.slots).toEqual([four])
+    expect(m.shadows.map(s => s.reason)).toEqual(['satisfied', 'satisfied'])
+    expect(m.programsOf[four.id]).toEqual([1, 2])                 // the program is named once, not once per row
+    const three = fixed('CSC1300')
+    const m3 = mergePrograms({ programId: 1, slots: [three] }, [{ programId: 2, slots: rows() }], { courses: { CSC1300: { credits: 3 } } })
+    expect(m3.slots).toHaveLength(2)                               // the card and one row still to fill
+    expect(m3.shadows).toHaveLength(1)
+  })
+
   it('is not satisfied by the added program\'s own course, nor by a course the pool does not list, nor when the pool is open', () => {
     const own = [fixed('CSC1300'), pool('OR_CSC1300_ENGR1120', 2)]
     expect(mergePrograms({ programId: 1, slots: [fixed('MATH2110')] }, [{ programId: 2, slots: own }], { courses: crs }).slots).toHaveLength(3)
@@ -269,6 +282,10 @@ describe('the Computer Science Core plan with Mathematics B.S., the figures the 
     const kept = merged.slots.filter(s => !slotsOf('core').some(c => c.id === s.id)).map(s => s.class_code)
     expect(kept).toContain('ENG_LIT')
     expect(kept).toContain('FF_LITERACY')
+  })
+  it('asks for CSC 1300 or ENGR 1120 no more than CSC Core already gives: its 4 hours cover the map\'s two 2-hour rows', () => {
+    expect(merged.slots.some(s => s.class_code === 'OR_CSC1300_ENGR1120')).toBe(false)
+    expect(merged.shadows.filter(s => s.reason === 'satisfied')).toHaveLength(2)
   })
   it('absorbs the primary\'s five open Free Elective hours and grows the plan by the rest', () => {
     expect(merged.freeElective.primaryHours).toBe(5)
