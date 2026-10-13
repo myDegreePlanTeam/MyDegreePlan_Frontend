@@ -149,3 +149,22 @@ describe('creditsBeforeSemester with a Free Elective remainder', () => {
     expect(creditsBeforeSemester(2, { ...open, freeAddSlots: [extra(1, 'MUS1030', 10, 1)] })).toBe(8)
   })
 })
+
+describe('an hours bucket of a minor ("M hours from this list")', () => {
+  const bucket = { id: 70, class_code: 'MN_CSC_CSC_UP', is_pool: true, flex_credits: 6 }
+  const courses = { CSC3300: { credits: 3 }, CSC4100: { credits: 3 }, CSC3410: { credits: 4 } }
+
+  it('is an hours bucket like Free Elective: a pick fills part of it, follow-up picks fill the rest', () => {
+    expect(isRemainderPool(bucket)).toBe(true)
+    expect(getPoolRemainder(bucket, {}, courses, [])).toBe(6)
+    expect(getPoolRemainder(bucket, { 70: 'CSC3300' }, courses, [])).toBe(3)
+    expect(getPoolRemainder(bucket, { 70: 'CSC3300' }, courses, [{ fills_slot_id: 70, course_code: 'CSC4100' }])).toBe(0)
+    expect(getPoolRemainder(bucket, { 70: 'CSC3410' }, courses, [{ fills_slot_id: 70, course_code: 'CSC4100' }])).toBe(0)   // never below 0
+  })
+
+  it('is not one without hours, and a choice pool with a few courses is still one course per slot', () => {
+    expect(isRemainderPool({ ...bucket, flex_credits: null })).toBe(false)
+    expect(isRemainderPool({ id: 71, class_code: 'OR_CSC1300_ENGR1120', is_pool: true, flex_credits: 2 })).toBe(false)
+    expect(isRemainderPool({ id: 72, class_code: 'MN_CSC_CSC_UP', is_pool: false, flex_credits: 6 })).toBe(false)
+  })
+})

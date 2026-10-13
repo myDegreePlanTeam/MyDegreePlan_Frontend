@@ -18,7 +18,7 @@ export default function SettingsView({
   onOpenReset,
   onActSaved,
   addedPrograms = [],
-  secondMajorOpen = false,
+  additionalProgramsOpen = false,
   onOpenAddProgram,
   onRemoveProgram,
 }) {
@@ -57,8 +57,23 @@ export default function SettingsView({
                 : 'Your plan includes the programs below. Courses more than one needs appear once and count toward each.'}
             </span>
           </span>
-          {secondMajorOpen ? (
-            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenAddProgram}>
+          {additionalProgramsOpen ? (
+            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('major')}>
+              Add
+            </button>
+          ) : (
+            <span className="ds-tab-soon-tag" title="Coming soon">Coming soon</span>
+          )}
+        </div>
+        <div className="ds-setting">
+          <span className="ds-setting-text">
+            <span className="ds-setting-label">Minors</span>
+            <span className="ds-setting-desc">
+              Add a minor: fifteen hours or more beyond your degree, and a course your degree also needs counts toward both.
+            </span>
+          </span>
+          {additionalProgramsOpen ? (
+            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('minor')}>
               Add
             </button>
           ) : (
@@ -69,9 +84,12 @@ export default function SettingsView({
           <div className="ds-setting" key={program.id}>
             <span className="ds-setting-text">
               <span className="ds-setting-label">{program.name}</span>
-              <span className="ds-setting-desc">Second major · follows the {program.catalogYear} catalog</span>
+              <span className="ds-setting-desc">
+                {program.role === 'minor' ? 'Minor' : 'Second major'} · follows the {program.catalogYear} catalog
+                {program.modelled === false && ' · requirements not modelled here, so nothing in your plan is checked against it'}
+              </span>
             </span>
-            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`} disabled={!secondMajorOpen}>
+            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`} disabled={!additionalProgramsOpen}>
               Remove
             </button>
           </div>

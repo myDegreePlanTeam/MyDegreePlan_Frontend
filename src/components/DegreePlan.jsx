@@ -19,7 +19,7 @@ import { buildRequirementMap } from '../lib/requirementMap'
 import { fetchMajorCode } from '../lib/requirementSlots'
 import { fetchStudentPrograms } from '../lib/studentPrograms'
 import { fetchProgramSlotSets, fetchProgramInfo } from '../lib/programSlots'
-import { mergePrograms } from '../lib/programMerge'
+import { mergePrograms, addedSlotIdsOf } from '../lib/programMerge'
 import { placeAddedSlots } from '../lib/placeAdded'
 import { getFlightFoundationsExemptions } from '../lib/flightFoundations'
 import { approximatePlanOf } from '../lib/catalogYears'
@@ -126,7 +126,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [switching, setSwitching]                 = useState(false)
   const [showResetModal, setShowResetModal]       = useState(false)
   // Adding and removing a second major: the dialogs, and the program being removed ({ id, programId, catalogYear, name }) or null
-  const [showAddProgram, setShowAddProgram]       = useState(false)
+  const [showAddProgram, setShowAddProgram]       = useState(null)     // 'major' | 'minor' | null: which add dialog is open
   const [addingProgram, setAddingProgram]         = useState(false)
   const [addProgramError, setAddProgramError]     = useState(null)
   const [removeTarget, setRemoveTarget]           = useState(null)
@@ -178,7 +178,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [programFilter, setProgramFilter] = useState(null)
   const labels = useMemo(() => programLabels(programPlan.programs, programPlan.info), [programPlan.programs, programPlan.info])
   const programTags = useMemo(() => tagsForSlots(programPlan.programsOf, labels, programPlan.programs), [programPlan.programsOf, labels, programPlan.programs])
-  const programOptions = useMemo(() => filterOptions(programPlan.programs, labels), [programPlan.programs, labels])
+  // A program with no courses on the grid (a minor the planner does not model) has nothing for the filter to show
+  const modelledPrograms = useMemo(
+    () => programPlan.programs.filter(p => p.primary || Object.values(programPlan.programsOf).some(ids => ids.includes(p.programId))),
+    [programPlan.programs, programPlan.programsOf],
+  )
+  const notModelled = programPlan.programs.filter(p => !modelledPrograms.includes(p)).map(p => programPlan.info[p.programId]?.name).filter(Boolean)
+  const programOptions = useMemo(() => filterOptions(modelledPrograms, labels), [modelledPrograms, labels])
   const dimmed = useMemo(
     () => (programOptions.some(o => String(o.id) === String(programFilter)) ? dimmedSlots(slots, programPlan.programsOf, programFilter) : {}),
     [programOptions, programFilter, slots, programPlan.programsOf],
@@ -432,6 +438,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       if (unplaced.length > 0) {
         const { assignments, archived } = buildDegreePlan({
           slots:        slotData,
+          addedSlotIds: addedSlotIdsOf(merged.programsOf, primaryProgram.programId),
           courseMap,
           prereqMap:    prereqMapBuilt,
           coreqMap:     coreqMapBuilt,
@@ -1387,6 +1394,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     // algorithm-determined state rather than coming back empty.
     const { assignments, archived: archivedMap } = buildDegreePlan({
       slots,
+      addedSlotIds: addedSlotIdsOf(programPlan.programsOf, profile.concentration_id),
       courseMap: courses,
       prereqMap,
       coreqMap,
@@ -1464,7 +1472,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         : `Could not add the degree program: ${insertError.message}`)
       return
     }
-    setShowAddProgram(false)
+    setShowAddProgram(null)
     setUndoStack([])
     markSaved()
     setResetKey(k => k + 1)
@@ -1478,6 +1486,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
     if (ids.length) {
       const { error: slotsError } = await db.from('student_plan_slots').delete().eq('student_id', profile.id).in('requirement_slot_id', ids)
       if (slotsError) { setRemovingProgram(false); showSaveError(`Could not remove the degree program: ${slotsError.message}`); return }
+    }
+    // the courses the student picked to fill an hours bucket of this program (a minor's "M hours from this list") go with it
+    if (ids.length) {
+      const { error: pickError } = await db.from('student_free_add_slots').delete().eq('student_id', profile.id).in('fills_slot_id', ids)
+      if (pickError && !isMissingColumn(pickError)) { setRemovingProgram(false); showSaveError(`Could not remove the degree program: ${pickError.message}`); return }
     }
     const { error: rowError } = await db.from('student_programs').delete().eq('id', removeTarget.id)
     setRemovingProgram(false)
@@ -1834,6 +1847,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
               </div>
             </div>
 
+            {notModelled.length > 0 && (
+              <p className="ds-plan-note" role="note">
+                <strong>Not checked here:</strong> {notModelled.join(', ')}. The planner does not model {notModelled.length === 1 ? 'its' : 'their'} requirements,
+                so nothing in your plan is checked against {notModelled.length === 1 ? 'it' : 'them'}.
+              </p>
+            )}
+
             {approximatePlanOf(profile) && (
               <p className="ds-plan-note" role="note">
                 <strong>Approximate plan.</strong> It follows the {approximatePlanOf(profile).plan} degree map. You started in {profile.start_season} {profile.start_year}, under an earlier
@@ -1977,9 +1997,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
             onToggleTheme={toggleTheme}
             onOpenConcentration={() => setShowSwitchModal(true)}
             onOpenReset={() => setShowResetModal(true)}
-            addedPrograms={programPlan.programs.filter(p => !p.primary).map(p => ({ ...p, name: programPlan.info[p.programId]?.name ?? 'Degree program' }))}
-            secondMajorOpen={isFeatureOpen('secondMajor')}
-            onOpenAddProgram={() => { setAddProgramError(null); setShowAddProgram(true) }}
+            addedPrograms={programPlan.programs.filter(p => !p.primary).map(p => ({
+              ...p, name: programPlan.info[p.programId]?.name ?? 'Degree program', modelled: modelledPrograms.includes(p),
+            }))}
+            additionalProgramsOpen={isFeatureOpen('additionalPrograms')}
+            onOpenAddProgram={role => { setAddProgramError(null); setShowAddProgram(role) }}
             onRemoveProgram={program => setRemoveTarget(program)}
             onActSaved={numScores => {
               setUndoStack([])
@@ -2025,10 +2047,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
       {showAddProgram && (
         <AddProgramModal
+          key={showAddProgram}
+          role={showAddProgram}
           profile={profile}
           addedPrograms={programPlan.programs.filter(p => !p.primary)}
           onAdd={handleAddProgram}
-          onClose={() => setShowAddProgram(false)}
+          onClose={() => setShowAddProgram(null)}
           adding={addingProgram}
           error={addProgramError}
         />

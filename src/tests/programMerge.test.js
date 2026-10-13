@@ -277,3 +277,48 @@ describe('the Computer Science Core plan with Mathematics B.S., the figures the 
     expect(merged.slots.some(s => s.class_code === 'FREE_ELECTIVE')).toBe(false)
   })
 })
+
+describe('a minor\'s "M hours from this list" buckets, against the real catalog', () => {
+  const addMinor = code => mergePrograms(
+    { programId: prog('core').id, slots: slotsOf('core'), totalHours: planOf('core').total_hours },
+    [{ programId: prog(code).id, role: 'minor', slots: slotsOf(code), totalHours: planOf(code).total_hours }],
+    { courses },
+  )
+  const own = (merged, code) => merged.slots.filter(s => merged.programsOf[s.id]?.[0] === prog(code).id)
+  const reasons = (merged, code) => merged.shadows
+    .filter(s => s.reason !== 'free_elective')
+    .map(s => [s.reason, slotsOf(code).find(x => x.id === s.slotId)?.class_code])
+
+  it('is covered whole by the courses another program already has: the Computer Science Minor adds nothing to Computer Science Core', () => {
+    const merged = addMinor('minor_computer_science')
+    expect(own(merged, 'minor_computer_science')).toEqual([])
+    expect(reasons(merged, 'minor_computer_science')).toEqual(expect.arrayContaining([['satisfied', 'MN_CSC_CSC_UP'], ['duplicate', 'CSC1310'], ['satisfied', 'MN_CSC_CSC']]))
+    expect(merged.freeElective.addedHours).toBe(0)
+    expect(merged.totalHours).toBe(120)
+  })
+
+  it('counts a course toward one requirement of a minor once: Mathematics keeps the 6 upper-division hours and its second course, and the shared MATH 1910 is not also counted in a bucket', () => {
+    const merged = addMinor('minor_mathematics')
+    expect(own(merged, 'minor_mathematics').map(s => [s.class_code, s.flex_credits]).sort()).toEqual([['MATH1920', null], ['MN_MATH_MATH_UP', 6]])
+    expect(reasons(merged, 'minor_mathematics')).toEqual(expect.arrayContaining([['duplicate', 'MATH1910'], ['satisfied', 'MN_MATH_MATH']]))
+    expect(merged.freeElective).toMatchObject({ primaryHours: 5, addedHours: 10, absorbed: 5, extraHours: 5 })
+    expect(merged.totalHours).toBe(125)
+  })
+
+  it('adds all its hours when nothing overlaps (Physics), less the 5 open Free Elective hours; a minor\'s own total is not a floor', () => {
+    const merged = addMinor('minor_physics')
+    expect(own(merged, 'minor_physics').map(s => [s.class_code, s.flex_credits])).toEqual([['MN_PHYS_PHYS_UP', 6], ['MN_PHYS_PHYS', 9]])
+    expect(merged.freeElective).toMatchObject({ addedHours: 15, absorbed: 5, extraHours: 10 })
+    expect(merged.totalHours).toBe(130)
+  })
+
+  it('shrinks a bucket by the hours the other program\'s courses cover, and leaves the stored row alone', () => {
+    const fixedCsc = { id: 9001, class_code: 'CSC3300', is_pool: false, flex_credits: null }
+    const bucket = { id: 9002, class_code: 'MN_CSC_CSC_UP', is_pool: true, flex_credits: 6 }
+    const merged = mergePrograms({ programId: 1, slots: [fixedCsc] }, [{ programId: 2, role: 'minor', slots: [bucket] }], { courses })
+    const rest = merged.slots.find(s => s.id === 9002)
+    expect(rest.flex_credits).toBe(3)                    // CSC 3300 is 3 hours of the 6
+    expect(bucket.flex_credits).toBe(6)
+    expect(merged.programsOf[9001]).toEqual([1, 2])
+  })
+})

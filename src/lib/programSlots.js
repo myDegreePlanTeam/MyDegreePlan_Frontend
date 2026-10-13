@@ -29,7 +29,7 @@ export async function fetchProgramInfo(client, programIds) {
   const { data, error } = await selectWithOptional(
     columns => client.from('concentrations').select(columns).in('id', ids),
     'id, name, total_hours',
-    ['department', 'kind', 'major_name', 'degree'],
+    ['department', 'kind', 'major_name', 'degree', 'description'],
   )
   if (error) return { data: {}, error }
   return { data: Object.fromEntries((data ?? []).map(row => [row.id, row])), error: null }
