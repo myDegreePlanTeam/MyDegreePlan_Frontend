@@ -450,19 +450,40 @@ required). Nothing outside its tests calls it, and it does not shape per-categor
 
 ### `src/lib/degreeAudit.js`
 
-`buildDegreeAudit({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, totalHours, semesterLabels, semesterPhase, genedProgram })`
-is the model behind the Requirements tab (`components/shell/RequirementsView.jsx`, rendered by `DegreePlan.jsx`): `{ summary, blocks }`. Every slot is a row in
-one of four blocks derived from its type (`required` = fixed courses, `gened` = the `GEN_ED` / `FF_*` pools, `choices` = other pools, `free` = Free Elective
-hours), in one of four states read from the calendar (`done`, `in_progress`, `planned`, `not_placed`). A fixed slot is `required`; a pool slot is a choice
-("Choose 1 of N"). A slot archived by prior credit is `done` and off the grid (`semNum` null, so the row does not open the plan); `not_applicable` slots are
-left out. A row's `key` is what the plan view selects (the slot id, or `rem_<id>` for a Free Elective's open hours); `DegreePlan` passes it to `openIssue`.
-`summary` uses `computePlanCredits`' counting rules over the slots still on the grid, so its `done` equals the plan header's `splitCreditsByPhase(...).completed`
-(a test pins this); in-progress hours are split out, which the header counts as planned. The `gened` block carries the category panel from `buildGenEdPanel`.
-Blocks come from slot types because the specs have no group names.
+`buildDegreeAudit({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, totalHours, semesterLabels, semesterPhase, genedProgram, majorLabel })`
+is the model behind the Requirements tab (`components/shell/RequirementsView.jsx`, rendered by `DegreePlan.jsx`): `{ summary, blocks }`. The tab is **read-only**: a row
+only opens its slot on the Plan (through `openIssue`); the Plan is the one place a course is chosen, moved or removed.
+
+**Every slot has one home** (`homeOf`; the specs carry no group names, so it is derived, and `degreeAudit.test.js` pins it): `major` (the plan's own subject's courses and the
+required choices that are not gen-ed, e.g. Statistics), `gened` (a fixed course or a pool that counts toward a gen-ed category: ENGL, HIST, MATH 17xx/1910, and pools whose
+members all sit in one category, `COMM_REQ` and `SCIENCE`, plus `GEN_ED` / `FF_*`), `electives` (`FREE_ELECTIVE` and any pool named `*ELECTIVE(S)`, `*EMPHASIS`, `EL_*`). The
+plan's own subject (`ownSubject`) is the one most of its fixed, non-gen-ed courses carry (CSC, ME). A course of that subject that also counts for a category (CSC2570 and
+Digital Literacy) stays in the major, and the category lists it under `refs` ("Counted from your major") instead of a second row. Blocks hold `groups`: the major's
+"Required courses" and one group per required choice; general education grouped by Flight Foundations category (every category shown, each with its `progress`), or a legacy
+plan's three category rows plus one list of picks; electives one group per pool, Free Elective hours last.
+
+Each row is in one of four calendar-derived states (`done`, `in_progress`, `planned`, `not_placed`). A slot archived by prior credit is `done` and off the grid (`semNum` null,
+so the row does not open the plan); `not_applicable` slots are left out. A row's `key` is what the plan view selects (the slot id, or `rem_<id>` for a Free Elective's open
+hours). `summary` carries `requirements` (counts by state, what only this tab can say) and the hours by state (`computePlanCredits`' counting rules over the slots still on the grid,
+so `done` equals the plan header's `splitCreditsByPhase(...).completed`; a test pins this), shown as one line since the Plan tab's header already has the bar.
+
+### `src/lib/slotOptions.js`
+
+What can go in a slot, shared by the picker (`SlotModal`) and the Requirements tab so an option has one answer: `resolveSlotCourses` (a pool's members, narrowed by the science
+sequence another slot started, or the whole catalog for a Free Elective), `buildOptionContext` + `annotateOption` (`available` / `locked` by standing, a prerequisite or a pool's hour
+limit / `taken`), and `listSlotOptions` (annotated and ordered; `open: true` for a slot that takes any course). The Requirements tab computes a list only when a row is expanded.
+
+### `src/lib/dragEnabled.js`
+
+`useIsPhone()` (viewport at most 760px wide, the width the sidebar becomes a top bar) and `DragEnabledContext`. On a phone the plan grid does not drag: every draggable and drop zone
+is `disabled`, rows carry no drag listeners or "draggable" role, and CSS gives the rows back `touch-action: auto` so the page scrolls. The equivalents are "Move" in the course panel,
+"+ Add prior credit" and the x on a prior credit. Keep the list passed to `useSensors` the same length at every width: its memo keys on the length.
 
 ### `src/lib/genEdPanel.js`
 
-`buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived })` is the model behind the category progress in the `gened` block of the
+
+`buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived, planSemesterOverrides, semesterPhase })` is the model behind the category progress in the `gened` block of the
 Requirements tab (`components/shell/GenEdProgress.jsx`, composed by `degreeAudit.js`). It picks `getFlightFoundationsStatus` for a `flight_foundations`
-profile and `getGenEdStatus` otherwise, and returns one shape (`rows` of `earned` / `min` / `max` / `state`, plus the totals), or `null` when the plan has
-no `GEN_ED` / `FF_*` pool slot. It does no counting of its own: a change to how hours count goes in the two evaluators, and the panel follows.
+profile and `getGenEdStatus` otherwise, and returns one shape (`rows` of `earned` / `done` / `inProgress` / `planned` / `min` / `max` / `state`, plus the totals), or `null` when the plan has
+no `GEN_ED` / `FF_*` pool slot. It does no counting of its own: a change to how hours count goes in the two evaluators, and the panel follows. It runs the evaluator three times
+(earned only, plus the current term, plus everything), so a category is `done` only when its hours are earned; one that a later term would cover is `planned` ("Covered by plan"), never complete.
