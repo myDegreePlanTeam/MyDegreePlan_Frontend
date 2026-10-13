@@ -9,6 +9,14 @@ export function isMissingColumn(error) {
 }
 
 /**
+ * A table the app reads that the database does not have yet: Postgres 42P01 (undefined_table), or PostgREST's PGRST205 ("Could not
+ * find the table 'public.x' in the schema cache"). The same install-not-updated case as a missing column.
+ */
+export function isMissingTable(error) {
+  return !!error && (error.code === '42P01' || error.code === 'PGRST205')
+}
+
+/**
  * Runs `run(columns)` with the optional columns, and again without them if the database lacks one.
  * @param {(columns: string) => PromiseLike<{data, error}>} run
  * @param {string} baseColumns      columns every database has

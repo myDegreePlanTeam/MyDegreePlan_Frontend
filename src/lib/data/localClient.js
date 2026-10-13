@@ -50,6 +50,11 @@ export const STUDENT_TABLES = {
     pk: 'id', unique: [],
     defaults: { status: 'planned', fills_slot_id: null, credits: null, created_at: now },
   },
+  // The programs a student added to the one on the profile: a second major or a minor (PLAN_double-major-minor.md, D1).
+  student_programs: {
+    pk: 'id', unique: [['student_id', 'concentration_id']],
+    defaults: { role: 'major', catalog_year: null, gened_program: 'legacy', entry_season: null, entry_year: null, position: 0, created_at: now },
+  },
   prior_credits: {
     pk: 'id', uuid: true, unique: [],
     defaults: { satisfies_course_code: null, note: null, credits_awarded: 0, satisfies_pool: null, created_at: now },
@@ -59,12 +64,13 @@ export const STUDENT_TABLES = {
 // Rows removed together with a student_profiles row (ON DELETE CASCADE).
 const CASCADE_FROM_PROFILE = [
   ['student_plan_slots', 'student_id'], ['student_semester_notes', 'student_id'],
-  ['student_free_add_slots', 'student_id'], ['prior_credits', 'plan_id'],
+  ['student_free_add_slots', 'student_id'], ['student_programs', 'student_id'], ['prior_credits', 'plan_id'],
 ]
 
 // Embeddable to-one relations: { [table]: { [embedName]: { table, fk } } }, joined on the target's id.
 const RELATIONS = {
   student_profiles: { concentrations: { table: 'concentrations', fk: 'concentration_id' } },
+  student_programs: { concentrations: { table: 'concentrations', fk: 'concentration_id' } },
 }
 
 // ── Filters ────────────────────────────────────────────────────────────────────
@@ -393,6 +399,9 @@ class LocalDb {
     if (table === 'student_free_add_slots' && (row.student_id == null || row.course_code == null || row.semester_number == null)) return pgError('23502', 'null value in a required student_free_add_slots column violates not-null constraint')
     if (table === 'student_free_add_slots' && !['planned', 'in_progress', 'completed'].includes(row.status)) return pgError('23514', 'new row for relation "student_free_add_slots" violates check constraint')
     if (table === 'student_semester_notes' && (row.student_id == null || row.concentration_id == null || row.semester_number == null)) return pgError('23502', 'null value in a required student_semester_notes column violates not-null constraint')
+    if (table === 'student_programs' && (row.student_id == null || row.concentration_id == null || row.catalog_year == null)) return pgError('23502', 'null value in a required student_programs column violates not-null constraint')
+    if (table === 'student_programs' && !['major', 'minor'].includes(row.role)) return pgError('23514', 'new row for relation "student_programs" violates check constraint')
+    if (table === 'student_programs' && row.entry_season != null && !['Fall', 'Spring', 'Summer'].includes(row.entry_season)) return pgError('23514', 'new row for relation "student_programs" violates check constraint')
     if (table === 'student_profiles' && row.user_id == null) return pgError('23502', 'null value in column "user_id" violates not-null constraint')
     return null
   }

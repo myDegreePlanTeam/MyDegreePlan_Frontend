@@ -359,6 +359,14 @@ not on the grid, and the visible slot each stands behind), `freeElective` and `t
 Elective hours first (a bucket used up leaves the grid; the stored row is never changed). `expandToShadows(byTarget, shadowOf)` gives a hidden row the state of the card it stands behind (archived, picked
 course). `genEdKey(slot)` is the category a pool fills. Tests: `programMerge.test.js` (small cases, then Computer Science Core with Mathematics B.S., Business Analytics and Mechanical Engineering against the real catalog).
 
+### `src/lib/studentPrograms.js`
+
+**`fetchStudentPrograms(client, profile)`** returns `{ data, error }` with the programs a student follows: the primary (from the profile, `primary: true`, `id: null`) first, then the rows of `student_programs` in
+`position` / id order, each `{ id, programId, role, primary, catalogYear, genedProgram, entrySeason, entryYear, position }`. A database without the table answers with the primary alone (`isMissingTable` in
+`dbErrors.js`); a stray row for the primary itself is ignored; a row with no plan year takes the year of the term it was declared. `programsFromRows(profile, rows)` is the pure half. The backup (`lib/data/backup.js`)
+writes format 2 only when the plan holds an added program (format 1 otherwise, so an older install still opens it) and reads both; `remoteBackup.js` re-points the rows at the new profile id, reads a database without
+the table as having no added programs, and refuses to import an added program into one that cannot keep it. Tests: `studentPrograms.test.js`, and the `student_programs` cases in `localClient`, `backup` and `remoteBackup`.
+
 ### `src/lib/catalogYears.js` and `src/lib/requirementSlots.js`
 
 `catalogYears.js` is pure: `academicYearOf`, `planForYear`, `isProgramOpen`, `availablePrograms`, `groupByMajor`,

@@ -97,11 +97,57 @@ describe('remote plan data', () => {
     expect(after.student_profiles).toHaveLength(1)
   })
 
+  it('carries an added program across, re-pointed at the new profile id', async () => {
+    const backup = webBackup()
+    backup.tables.student_programs = [{ id: 5, student_id: 7, concentration_id: 2, role: 'minor', catalog_year: '2026-2027', position: 1 }]
+    await planData.importData(backup.tables)
+    const [profile] = (await client.from('student_profiles').select('id')).data
+    const rows = (await client.from('student_programs').select('student_id, concentration_id, role, position')).data
+    expect(rows).toEqual([{ student_id: profile.id, concentration_id: 2, role: 'minor', position: 1 }])
+    expect((await planData.exportData()).student_programs).toHaveLength(1)
+  })
+
+  it('exports an install that has no student_programs table yet as a plan with no added programs', async () => {
+    await planData.importData(webBackup().tables)
+    const old = missingTable(client, 'student_programs')
+    const exported = await createRemotePlanData(old).exportData()
+    expect(exported.student_programs).toEqual([])
+    expect(exported.student_plan_slots).toHaveLength(2)
+  })
+
+  it('refuses to import an added program into an install that cannot keep it, rather than dropping it', async () => {
+    const backup = webBackup()
+    backup.tables.student_programs = [{ id: 5, student_id: 7, concentration_id: 1, role: 'minor', catalog_year: '2026-2027' }]
+    const old = refusing(client, table => (table === 'student_programs'
+      ? { code: 'PGRST205', message: "Could not find the table 'public.student_programs' in the schema cache" } : null))
+    await expect(createRemotePlanData(old).importData(backup.tables)).rejects.toThrow(/not been updated/)
+  })
+
+  it('imports a plan with no added program into an install that has no student_programs table', async () => {
+    const old = refusing(client, table => (table === 'student_programs'
+      ? { code: 'PGRST205', message: "Could not find the table 'public.student_programs' in the schema cache" } : null))
+    await createRemotePlanData(old).importData(webBackup().tables)
+    expect((await counts()).student_plan_slots).toBe(2)
+  })
+
   it('refuses when nobody is signed in', async () => {
     const signedOut = { ...client, auth: { getSession: async () => ({ data: { session: null }, error: null }) } }
     await expect(createRemotePlanData(signedOut).importData(webBackup().tables)).rejects.toThrow('not signed in')
   })
 })
+
+// Wraps a client so reading one table answers like a database that lacks it.
+function missingTable(inner, name) {
+  return {
+    auth: inner.auth,
+    from(table) {
+      if (table !== name) return inner.from(table)
+      const result = Promise.resolve({ data: null, error: { code: 'PGRST205', message: `Could not find the table 'public.${name}' in the schema cache` } })
+      const chain = { select: () => chain, order: () => chain, eq: () => chain, then: (a, b) => result.then(a, b) }
+      return chain
+    },
+  }
+}
 
 // Wraps a client so an insert can be refused with a PostgREST-style error. With { once: true } only the first refusal fires.
 function refusing(inner, decide, { once = false } = {}) {
