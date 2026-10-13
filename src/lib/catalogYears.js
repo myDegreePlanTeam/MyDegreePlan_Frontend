@@ -64,11 +64,17 @@ export function isProgramOpen(program, entryYear) {
  * The student's current program (`currentId`) is always kept so a settings screen never shows a plan whose own
  * program is missing.
  */
-export function availablePrograms(programs, plans, entryYear, { currentId = null } = {}) {
+export function availablePrograms(programs, plans, entryYear, { currentId = null, includeMinors = false } = {}) {
   return (programs ?? []).filter(p =>
     p.id === currentId
-    || (isProgramOpen(p, entryYear) && planForYear(plans, p.id, entryYear) !== null))
+    || (isProgramOpen(p, entryYear) && planForYear(plans, p.id, entryYear) !== null && (includeMinors || !isMinor(p))))
 }
+
+/**
+ * A minor is a program a student adds to a degree, never the program they are enrolled in: the pickers that choose a student's
+ * program (onboarding, Change degree program, a second major) leave minors out unless they ask for them (`includeMinors`).
+ */
+export const isMinor = program => program?.kind === 'minor'
 
 /**
  * Programs grouped under the major they belong to, in id order, for the picker. A major with concentrations
@@ -146,11 +152,11 @@ export function latestCatalogYear(plans) {
 /**
  * The programs a student can choose before saying when they start: those with a plan, split into the ones still open to
  * the newest catalog year and the ones closed to it (DSAI after 2025-2026). A closed program is still a real choice for a
- * returning student, so it is separated, not dropped.
+ * returning student, so it is separated, not dropped. Minors are not offered: they are not a program to enroll in.
  */
-export function splitByOffering(programs, plans) {
+export function splitByOffering(programs, plans, { includeMinors = false } = {}) {
   const latest = latestCatalogYear(plans)
-  const withPlan = (programs ?? []).filter(p => (plans ?? []).some(pl => pl.concentration_id === p.id))
+  const withPlan = (programs ?? []).filter(p => (includeMinors || !isMinor(p)) && (plans ?? []).some(pl => pl.concentration_id === p.id))
   return { current: withPlan.filter(p => isProgramOpen(p, latest)), closed: withPlan.filter(p => !isProgramOpen(p, latest)) }
 }
 

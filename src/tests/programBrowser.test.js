@@ -189,7 +189,8 @@ describe('closedDisclosure', () => {
 })
 
 describe('the generated college list and the real programs', () => {
-  const programs = catalog.tables.concentrations
+  // the programs a student can enroll in; the minors are added to one and are shelved by their own picker (Phase 6)
+  const programs = catalog.tables.concentrations.filter(p => p.kind !== 'minor')
 
   it('lists the eight undergraduate colleges, alphabetically, each with a name, short name and url', () => {
     expect(colleges).toHaveLength(8)
@@ -274,6 +275,12 @@ describe('the generated college list and the real programs', () => {
 })
 
 describe('isProgramReady', () => {
+  it('is false for a minor, whatever its department (the Computer Science Minor is a CSC program)', () => {
+    const minor = catalog.tables.concentrations.find(p => p.code === 'minor_computer_science')
+    expect(minor?.department).toBe('CSC')
+    expect(isProgramReady(minor)).toBe(false)
+  })
+
   it('opens only the Computer Science department, and the majors named one by one, until the other majors are finished', () => {
     expect(world.filter(isProgramReady).map(p => p.code)).toEqual(['core', 'cyber', 'hpc'])
     expect(isProgramReady(null)).toBe(false)
@@ -285,7 +292,7 @@ describe('isProgramReady', () => {
     const programs = catalog.tables.concentrations
     const ready = programs.filter(isProgramReady).map(p => p.code).sort()
     expect(ready).toEqual(['ai', 'core', 'cybersecurity', 'dsai', 'hpc', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle'])
-    expect(programs.filter(p => !isProgramReady(p)).every(p => p.department !== 'CSC' && p.major_code !== 'mechanical_engineering')).toBe(true)
+    expect(programs.filter(p => !isProgramReady(p)).every(p => p.kind === 'minor' || (p.department !== 'CSC' && p.major_code !== 'mechanical_engineering'))).toBe(true)
   })
 })
 

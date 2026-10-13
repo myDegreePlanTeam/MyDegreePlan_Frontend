@@ -25,8 +25,11 @@ export const READY_DEPARTMENTS = ['CSC']
 export const READY_MAJORS = ['mechanical_engineering']
 export const COMING_SOON = 'Coming soon'
 
-/** Whether a student may choose this program yet (see READY_DEPARTMENTS and READY_MAJORS). */
-export const isProgramReady = p => READY_DEPARTMENTS.includes(p?.department) || READY_MAJORS.includes(p?.major_code)
+/**
+ * Whether a student may choose this degree program yet (see READY_DEPARTMENTS and READY_MAJORS). A minor is never chosen as the program
+ * a student is enrolled in, so it is not "ready" here whatever its department; which minors may be added is its own question (Phase 6).
+ */
+export const isProgramReady = p => p?.kind !== 'minor' && (READY_DEPARTMENTS.includes(p?.department) || READY_MAJORS.includes(p?.major_code))
 
 /** The major a program belongs to: its code, else its name (an older database has only `major_name`). */
 export const majorKeyOf = p => p.major_code ?? slug(p.major_name ?? p.name)

@@ -60,14 +60,14 @@ All catalog tables have public read RLS; student tables are scoped to `auth.uid(
 | `courses` | Course catalog: code, name, credits, description, subject_code, standing_req. `credits_max` (top of a variable-credit range, else NULL) and `requisite_text` (a prerequisite statement the planner could not turn into rules) |
 | `prerequisite_entries` | Prerequisite rules: course_code, required_code, group_index, logic (AND/OR) |
 | `corequisite_entries` | Corequisite rules: same shape as prerequisite_entries |
-| `concentrations` | Degree **programs**: a major or a concentration of one (core, cybersecurity, dsai, hpc, ai, me ...). `kind`, `degree`, `major_name`, `department`, `supersedes`, `last_catalog_year`, `description`, and where it sits in the picker: `college` (a code), `major_code` (groups a major with its concentrations), `is_base` (the major itself, no concentration), `aliases` (search words) |
+| `concentrations` | Degree **programs**: a major or a concentration of one (core, cybersecurity, dsai, hpc, ai, me ...), and the catalog's 82 **minors** (`kind: 'minor'`, never a program a student enrolls in). `kind`, `degree`, `major_name`, `department`, `supersedes`, `last_catalog_year`, `description`, and where it sits in the picker: `college` (a code), `major_code` (groups a major with its concentrations), `is_base` (the major itself, no concentration), `aliases` (search words) |
 | `degree_plans` | One row per program per catalog year: `gened_program`, `total_hours`, `covers_earlier`. The index the app resolves a student's plan from |
 | `requirement_slots` | A degree plan's slots: `catalog_year`, stable `slot_key`, `map_semester` (the department's recommended semester), `gened_program` |
 | `student_profiles` | One row per student; anchors all student state; references `auth.users.id`. ACT scores plus `sat_math` (optional; either test, both or neither), `gened_program`, and `catalog_year` (the plan year their slots belong to, stored at onboarding) |
 | `student_plan_slots` | Student's plan state per template slot: selected course, locked, archived, drag overrides. `selected_credits` is the hours chosen for a pick whose course carries a credit range |
 | `student_semester_notes` | Per-student, per-semester notes (`completed_by_student` is no longer used) |
 | `student_free_add_slots` | Courses the student added outside the degree template. `fills_slot_id` (nullable → `requirement_slots.id`, `ON DELETE CASCADE`) marks a follow-up pick that fills a Free Elective slot's open hours; NULL for ordinary "+ Add course" rows. `credits` is the hours chosen for an added course whose catalog entry carries a range |
-| `student_programs` | The programs a student added to the primary one on `student_profiles.concentration_id`: a second major or a minor (`role`), with the plan year its slots belong to (`catalog_year`, `gened_program`), the term it was declared (`entry_season`, `entry_year`) and `position` (the order added). Unique per (student, program); cascades from the profile. A student who added nothing has no row. Read it through `lib/studentPrograms.js`, which tolerates the table's absence. Not read by the plan view yet (Phase 1 of `plans/PLAN_double-major-minor.md`) |
+| `student_programs` | The programs a student added to the primary one on `student_profiles.concentration_id`: a second major or a minor (`role`), with the plan year its slots belong to (`catalog_year`, `gened_program`), the term it was declared (`entry_season`, `entry_year`) and `position` (the order added). Unique per (student, program); cascades from the profile. A student who added nothing has no row. Read it through `lib/studentPrograms.js`, which tolerates the table's absence. The plan view merges every program it lists (`lib/programMerge.js`); adding or removing one in Settings is closed by `FEATURES.secondMajor` (`plans/PLAN_double-major-minor.md`) |
 | `prior_credits` | Transfer credits, AP/IB/CLEP credit, dual enrollment, placement scores |
 | `test_equivalencies` | Exam-to-TTU-course mappings; drives the PriorCreditWizard. `option_key` marks an exam whose credit is one of several courses (AP Biology and Physics C: "PHYS 2010 or 2110"): rows of one exam sharing a key are one choice, and `lib/examOptions.js` picks the one the student's plan requires or the wizard asks |
 
@@ -109,8 +109,12 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
   rollout of every Tennessee Tech major is `plans/PLAN_all-majors.md`; every program with a map is checked by `allMapsConformance.test.js`.
 - Flight Foundations plans replace the six `GEN_ED` slots with fixed `HIST2010` + `HIST2020` and the pools `FF_SOCIAL`
   ×2 and `FF_HUMANITIES` ×2 (HPC also `FF_LITERACY`). English Literature is **not** a separate Flight Foundations
-  requirement, so `ENG_LIT` exists only in legacy plans. SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are
-  shared.
+  requirement, so the CSC plans have no `ENG_LIT` (it is in the legacy plans and in the 31 department maps that print one, such as Mechanical
+  Engineering and Mathematics). SCIENCE sequences, COMM_REQ, MATH_STATS and the CSC pools are shared.
+- **Minors** (`kind: 'minor'`, 82 for 2026-2027, generated by the Prototype's `degree-specs/extract/minorSpecs.mjs`; `minors-tiers.md` there lists every minor, its tier and why) are
+  rows of `concentrations` with a plan per catalog year. Tier 1 (structured rules) and tier 2 (written from the catalog text, with `assumptions`) have slots; **tier 3 ("not modelled") has a plan row and no slots**:
+  15 hours, counted only. A minor is added to a degree, never chosen as the student's program: `splitByOffering` and `availablePrograms` leave minors out unless asked (`includeMinors`),
+  `isMinor` names the test, and `isProgramReady` is false for a minor even in a ready department. The minor picker and add flow are Phase 6 of `plans/PLAN_double-major-minor.md`.
 - The `2026-2027` plans are the department's own degree maps (Computer Science Core, Cybersecurity, High Performance
   Computing, and the new Artificial Intelligence major, which supersedes the Data Science & AI concentration). Each totals
   exactly 120 hours. A few questions to the department are still open and the plans carry them as recorded assumptions

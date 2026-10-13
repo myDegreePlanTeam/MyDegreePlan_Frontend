@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   yearStart, academicYearOf, compareCatalogYears, planForYear, isProgramOpen, availablePrograms,
-  groupByMajor, degreeTitle, catalogYearForProfile,
+  groupByMajor, degreeTitle, catalogYearForProfile, isMinor,
   NEW_CURRICULUM_YEAR, curriculumTypeForTerm, termAvailable, termChoices, latestCatalogYear, splitByOffering, isApproximateFit, approximatePlanOf,
 } from '../lib/catalogYears'
 import { getGenEdProgram } from '../lib/flightFoundations'
@@ -141,7 +141,7 @@ describe('plan resolution agrees with the old entry-term rule', () => {
 
 describe('groupByMajor / degreeTitle', () => {
   it('puts the CSC concentrations under one major, in id order, and Artificial Intelligence under its own', () => {
-    const groups = groupByMajor(programs.filter(p => p.department === 'CSC'))
+    const groups = groupByMajor(programs.filter(p => p.department === 'CSC' && p.kind !== 'minor'))
     expect(groups.map(g => g.majorName)).toEqual(['Computer Science', 'Artificial Intelligence'])
     expect(degreeTitle(groups[0])).toBe('Computer Science, B.S.')
     expect(groups[0].programs.map(p => p.code)).toEqual(['core', 'cybersecurity', 'dsai', 'hpc'])
@@ -233,9 +233,25 @@ describe('latestCatalogYear / splitByOffering', () => {
   it('separates the programs closed to the newest year (DSAI) from the ones still open, and drops a program with no plan', () => {
     const { current, closed } = splitByOffering(programs, plans)
     expect(closed.map(p => p.code)).toEqual(['dsai'])
-    expect(current.map(p => p.code)).toEqual(programs.filter(p => p.code !== 'dsai').map(p => p.code))
+    expect(current.map(p => p.code)).toEqual(programs.filter(p => p.code !== 'dsai' && p.kind !== 'minor').map(p => p.code))
     expect(current.slice(0, 9).map(p => p.code)).toEqual(['core', 'cybersecurity', 'hpc', 'ai', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne'])
     expect(splitByOffering([{ id: 999999, code: 'x' }], plans)).toEqual({ current: [], closed: [] })
+  })
+
+  it('leaves minors out: a minor is added to a degree, not the program a student enrolls in', () => {
+    const minors = programs.filter(p => p.kind === 'minor')
+    expect(minors.length).toBeGreaterThan(0)
+    const { current } = splitByOffering(programs, plans)
+    expect(current.some(p => p.kind === 'minor')).toBe(false)
+    expect(splitByOffering(programs, plans, { includeMinors: true }).current.filter(p => p.kind === 'minor')).toHaveLength(minors.length)
+  })
+
+  it('availablePrograms offers no minor unless asked, and always keeps the current program', () => {
+    const minor = programs.find(p => p.kind === 'minor')
+    expect(availablePrograms(programs, plans, '2026-2027').some(p => p.kind === 'minor')).toBe(false)
+    expect(availablePrograms(programs, plans, '2026-2027', { includeMinors: true }).some(p => p.id === minor.id)).toBe(true)
+    expect(isMinor(minor)).toBe(true)
+    expect(isMinor(programs.find(p => p.code === 'core'))).toBe(false)
   })
 })
 
