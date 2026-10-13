@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { addableMajors, newProgramRow, nextPosition, OVERLAP_NOTE, ENTRY_SEASONS } from '../lib/addProgram'
+import {
+  addableMajors, addableMinors, newProgramRow, nextPosition, minorTranscriptNotice, OVERLAP_NOTE, MINOR_OVERLAP_NOTE, NOT_MODELLED_NOTE, MINOR_TRANSCRIPT_LIMIT, ENTRY_SEASONS,
+} from '../lib/addProgram'
 import catalog from '../data/catalog.json'
 
 const T = catalog.tables
@@ -71,5 +73,42 @@ describe('the rest', () => {
   it('says what is assumed about sharing courses, and offers the three terms', () => {
     expect(OVERLAP_NOTE).toMatch(/advisor/)
     expect(ENTRY_SEASONS).toEqual(['Fall', 'Spring', 'Summer'])
+  })
+})
+
+describe('minors', () => {
+  const minors = T.concentrations.filter(p => p.kind === 'minor')
+
+  it('offers every minor open to the term and not already added, by name, the ones the planner does not model included', () => {
+    const options = addableMinors(T.concentrations, T.degree_plans, '2026-2027', { added: [] })
+    expect(options.length).toBe(minors.length)
+    expect(options.every(p => p.kind === 'minor')).toBe(true)
+    expect(options.map(p => p.name)).toEqual([...options.map(p => p.name)].sort((a, b) => a.localeCompare(b)))
+    const math = prog('minor_mathematics')
+    expect(addableMinors(T.concentrations, T.degree_plans, '2026-2027', { added: [{ programId: math.id }] }).some(p => p.id === math.id)).toBe(false)
+    expect(addableMinors(T.concentrations, T.degree_plans, null, { added: [] })).toEqual([])
+  })
+
+  it('never lists a minor among the second majors', () => {
+    expect(addableMajors(T.concentrations, T.degree_plans, '2026-2027', { primary: prog('core'), added: [] }).some(p => p.kind === 'minor')).toBe(false)
+  })
+
+  it('records a minor as a minor, following the plan year of the term it is declared', () => {
+    const row = newProgramRow({ studentId: 3, program: prog('minor_mathematics'), plans: T.degree_plans, season: 'Spring', year: 2027, position: 2, role: 'minor' })
+    expect(row).toMatchObject({ student_id: 3, role: 'minor', catalog_year: '2026-2027', entry_season: 'Spring', entry_year: 2027, position: 2 })
+    expect(newProgramRow({ studentId: 3, program: prog('me'), plans: T.degree_plans, season: 'Fall', year: 2026, role: 'whatever' }).role).toBe('major')
+  })
+
+  it('warns, and never blocks, when a minor would be more than the catalog puts on a transcript', () => {
+    expect(minorTranscriptNotice(0)).toBeNull()
+    expect(minorTranscriptNotice(MINOR_TRANSCRIPT_LIMIT - 1)).toBeNull()
+    expect(minorTranscriptNotice(MINOR_TRANSCRIPT_LIMIT)).toMatch(/3 minors.*no more than 2/)
+    expect(minorTranscriptNotice(3)).toMatch(/4 minors/)
+  })
+
+  it('says what is assumed about a minor and about one the planner does not model', () => {
+    expect(MINOR_OVERLAP_NOTE).toMatch(/counts toward each/)
+    expect(NOT_MODELLED_NOTE).toMatch(/does not check/)
+    expect(OVERLAP_NOTE).not.toBe(MINOR_OVERLAP_NOTE)
   })
 })

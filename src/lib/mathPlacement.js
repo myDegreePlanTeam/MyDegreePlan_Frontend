@@ -103,6 +103,15 @@ const LEAD_IN = {
 }
 
 /**
+ * The chain a student starting in `startCode` would take on the returning curriculum (MATH1920 between MATH1910 and MATH2010). A course an
+ * ADDED program requires (a minor's Calculus II) is judged against this, not against the primary plan's own chain: the placement skips what
+ * is below the student's start, it never drops a course another program needs above it.
+ */
+export function mathChainReturning(startCode) {
+  return MATH_CHAINS.returning[startCode] ?? ['MATH1910', 'MATH1920', 'MATH2010']
+}
+
+/**
  * The placement-chain courses a student starting in `startCode` takes on this plan. A plan whose department map requires
  * Calculus II (engineering) is read from its own slots: the lead-in to Calculus I, then MATH1920 and MATH2010 where the
  * plan has them (Nuclear Engineering has no MATH2010; a student who starts in MATH1904 still takes MATH1920). Any other

@@ -1,7 +1,7 @@
 # PLAN — Double majors and minors
 
 Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
-engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.secondMajor` until Phases 3 and 4, so students do not see an unfinished feature). **Phase 5 done** (Prototype PR #19: all 82 minors in three tiers, 13 / 16 / 53; Deploy #35 allows `kind 'minor'`; the Frontend catalog carries them and the primary pickers ignore them). **Phase 3 and Phase 4 done** (tags, filter, per-program audit and PDF headings). Phases 6 to 8 planned, nothing built.
+engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.additionalPrograms` until Phases 3 and 4, so students do not see an unfinished feature). **Phase 5 done** (Prototype PR #19: all 82 minors in three tiers, 13 / 16 / 53; Deploy #35 allows `kind 'minor'`; the Frontend catalog carries them and the primary pickers ignore them). **Phases 3, 4 and 6 done** (tags, filter, per-program audit and PDF headings, minors). Phases 7 and 8 planned, nothing built.
 Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
 [`PLAN_all-majors.md`](./PLAN_all-majors.md) (which left minors out), [`PLAN_deeper-features.md`](./PLAN_deeper-features.md) (Phase 5 left them out).
@@ -218,7 +218,7 @@ move, the only issues are unfilled choices, removing the program restores the 44
 - Done when, for CSC Core + a second major: no duplicate cards, hours are the union, every requirement of both plans is satisfied exactly when its courses are in the plan, a prior credit covering a shared course archives both slots, drag/move/undo/reset behave, and a reload restores it all.
 
 ### Phase 3 — Plan UI and platforms (**mostly done 2026-10-13**: tags, filter, header; the parity step waits for the flag; the add and remove dialogs and the Settings card were built in Phase 2)
-Built: a tag on each course for the programs it serves, an All / program filter that dims (never hides) the rest, and "(98 more than CSC Core alone)" in the plan header. Checked in the browser at desktop and phone width (CSC Core + Mechanical Engineering: 70 rows tagged, 8 shared, 29 dimmed under MNE). **Not done:** the parity journey step (`parity/lib/scenario.mjs`) cannot add a second major through the UI while `FEATURES.secondMajor` is closed, so it is written when the flag opens (Phase 8); no platform-specific wording was added, so nothing needed registering in `platform-branches.json`. The plan-header entry point was left out: the Settings card is the one entry point until the flag opens.
+Built: a tag on each course for the programs it serves, an All / program filter that dims (never hides) the rest, and "(98 more than CSC Core alone)" in the plan header. Checked in the browser at desktop and phone width (CSC Core + Mechanical Engineering: 70 rows tagged, 8 shared, 29 dimmed under MNE). **Not done:** the parity journey step (`parity/lib/scenario.mjs`) cannot add a second major through the UI while `FEATURES.additionalPrograms` is closed, so it is written when the flag opens (Phase 8); no platform-specific wording was added, so nothing needed registering in `platform-branches.json`. The plan-header entry point was left out: the Settings card is the one entry point until the flag opens.
 - Program tags on cards and a filter ("All / CSC / Math"); header shows "CSC Core + Mathematics (second major)" and the extra hours; phone layout; empty and error states.
 - The Settings and plan-header entry points; remove-program confirmation.
 - A parity journey step (`parity/lib/scenario.mjs`) that adds a second major and checks it on all three platforms; register any platform wording in `lib/platform.js`.
@@ -238,9 +238,15 @@ Tier counts as built: 13 structured, 16 written from the catalog text (waves A a
 - `npm run build:catalog` carries minors as `concentrations` rows with `kind: 'minor'` and a plan per catalog year; `programBrowser` offers them only to the minor picker; the manifest's `excluded` flag for minors is removed. Run `regen.sh`, commit Prototype first.
 - Done when: every minor in the snapshot is in exactly one tier with a reason, tier 1 and 2 build with no validator errors, and a question sheet for the departments of tier 2 minors is generated.
 
-### Phase 6 — Minors in the app (`DegreePlan.jsx`, after Phase 3; needs Phase 5)
-- The minor picker and add flow (role `'minor'`); unplaced minor courses and the hours-bucket and upper-division rules in the merge engine and the audit; the transcript-limit notice at a third minor; the Art/Music individual-instruction cap if a tier 1/2 spec states it.
-- Done when: a student adds a Mathematics-adjacent minor to CSC, the shared courses collapse, the 15 hours (6 upper division) show as a requirement with progress, and removing the minor restores the plan exactly.
+### Phase 6 — Minors in the app (**done 2026-10-13**, with the changes noted; `DegreePlan.jsx`)
+Built: the "Minors" row in Settings and an "Add a minor" dialog (every minor open to the declared term, tier 3 labelled with the catalog's wording once chosen), "M hours from a list" buckets that behave like Free Electives
+(`BUCKET_POOLS`), other programs' courses counting toward a bucket's hours (D2), the transcript-limit notice at the third minor, removal that also removes the bucket's follow-up picks, and the flag renamed `FEATURES.additionalPrograms`
+(it covers minors too).
+**Changes and findings:** (1) **a tier 3 minor adds no hours and no slots** (the plan's "15-hour counter" is not built): it is listed with a note and nothing is checked against it, so the hours of a minor the planner cannot see are not
+promised; (2) found in the browser: the math placement archived the Mathematics Minor's **MATH 1920** as "not applicable" on the new curriculum, so a requirement vanished; fixed in `degreeBuilder` (`addedSlotIds`); (3) not built: the
+Art/Music individual-instruction cap (no tier 1 or 2 spec states it); (4) **saving ACT scores re-places the primary program only** (`lib/actScores.js` reads the primary's slots): an added program's positions are left as they were.
+Checked in the browser (flag opened locally, reverted): CSC Core + Mathematics Minor (125 hours, MATH 1910 and 2010 shared, the 6 upper-division hours as a bucket filled in two picks, nothing left), removal restoring exactly 44 rows and 0
+added courses; an unmodelled minor (Aquatics) adds nothing and shows a note.
 
 ### Phase 7 — What-if, "closest minor", and the delay warning (needs Phases 2 and 5; builds on 6)
 A what-if is a **read-only computed plan** (D11): nothing is written until the student chooses to add.

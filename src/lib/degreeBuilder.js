@@ -25,7 +25,7 @@
 //   archived    : { [slotId]: archiveReason }   — 'not_applicable' | 'prior_credit'
 
 import { resolveTransferCredits, creditsBeforeSemester } from './transferCredits'
-import { resolveMathPlacement, mathChainFor, planHasMathChain, planRequiresCalculusII, ALL_MATH_CHAIN_CODES } from './mathPlacement'
+import { resolveMathPlacement, mathChainFor, mathChainReturning, planHasMathChain, planRequiresCalculusII, ALL_MATH_CHAIN_CODES } from './mathPlacement'
 import { isEnrollmentAllowed } from './semesterRestrictions'
 import { POOL_COURSES, POOL_CREDIT_ESTIMATES, POOL_FLOORS, REQUIREMENT_POOLS } from './poolResolver'
 
@@ -91,6 +91,8 @@ function groupSatisfied(group, satisfiedCodes) {
  * @param {object} opts.coreqMap    — same shape as prereqMap
  * @param {Array}  opts.priorCredits — student's prior_credits rows
  * @param {object} opts.studentProfile — { student_type, act_math, sat_math, start_season }
+ * @param {Iterable<number>} [opts.addedSlotIds] - slots owned by a program added to the student's own (a second major, a minor): the math
+ *   placement skips what is below the student's start in them, but never drops a course above it that the added program requires
  *
  * @returns {{ assignments: object, archived: object }}
  *   assignments: { [slotId]: semesterNumber }
@@ -115,15 +117,19 @@ function planLength({ assignments }) {
 
 // Slots the student does not take: math-chain courses outside their placement ('not_applicable') and slots a prior
 // credit covers ('prior_credit').
-function archivedSlots({ slots, priorCredits, studentProfile }) {
+function archivedSlots({ slots, priorCredits, studentProfile, addedSlotIds = null }) {
   const { student_type, act_math, sat_math } = studentProfile
   const studentChain = getStudentMathChain({ act_math, sat_math }, slots, student_type)
+  const added = new Set(addedSlotIds ?? [])
+  const returningChain = new Set(mathChainReturning(resolveMathPlacement({ act: act_math, sat: sat_math }).course))
   const archived = {}
   // Placement decides the math only for a plan that goes through Calculus I. In one without it (Business: MATH 1710 and
   // MATH 1530) every math course is an ordinary requirement a test score does not skip.
   if (planHasMathChain(slots)) {
     for (const slot of slots) {
-      if (ALL_MATH_CHAIN_CODES.has(slot.class_code) && !studentChain.has(slot.class_code)) archived[slot.id] = 'not_applicable'
+      if (ALL_MATH_CHAIN_CODES.has(slot.class_code) && !studentChain.has(slot.class_code) && !(added.has(slot.id) && returningChain.has(slot.class_code))) {
+        archived[slot.id] = 'not_applicable'
+      }
     }
   }
   for (const slotId of Object.keys(resolveTransferCredits(priorCredits, {}, slots))) archived[slotId] = 'prior_credit'
@@ -134,10 +140,10 @@ function archivedSlots({ slots, priorCredits, studentProfile }) {
 
 // The department's path for a standard student, or null when there is none or it does not hold up here. Semester n of
 // the map is fall for odd n, spring for even n, which is how the department writes it, so only a Fall start can take it.
-function mapFirstPlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile }) {
+function mapFirstPlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile, addedSlotIds = null }) {
   if (studentProfile.start_season !== 'Fall') return null
   if (creditsBeforeSemester(1, { priorCredits }) > 0) return null            // any prior credit moves the student off the path
-  const archived = archivedSlots({ slots, priorCredits, studentProfile })
+  const archived = archivedSlots({ slots, priorCredits, studentProfile, addedSlotIds })
   if (Object.values(archived).includes('prior_credit')) return null
   const active = slots.filter(s => !archived[s.id])
   if (!active.length || active.some(s => !Number.isInteger(s.map_semester))) return null   // a plan without a (complete) map
@@ -191,11 +197,11 @@ function mapPathHolds({ active, assignments, archived, slots, courseMap, prereqM
 
 // One placement pass. `reserve` = credits per regular semester that required
 // courses leave free for gen-eds; 0 gives the compact, required-first layout.
-function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile }, reserve) {
+function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, studentProfile, addedSlotIds = null }, reserve) {
   const { start_season } = studentProfile
 
   // ── Steps 1-3: Archive slots covered by prior credits and inapplicable math-chain courses ──
-  const archived = archivedSlots({ slots, priorCredits, studentProfile })
+  const archived = archivedSlots({ slots, priorCredits, studentProfile, addedSlotIds })
 
   // ── Step 4: Active (non-archived) slots for placement ───────────────────
   const activeSlots = slots.filter(s => !archived[s.id])

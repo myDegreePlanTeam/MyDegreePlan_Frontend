@@ -14,14 +14,16 @@
 //
 // Pure: no Supabase calls, no React.
 
-// Pools whose flex_credits is a bucket of hours that several courses may fill.
-// Every other pool is one course per slot (a SCIENCE slot's flex hours are the
-// 4-hour lab science course it takes).
+import { BUCKET_POOLS } from './poolResolver.js'
+
+// Pools whose flex_credits is a bucket of hours that several courses may fill: Free Elective, and the pools a minor's "M hours from this
+// list" requirement is made of (BUCKET_POOLS, from pools.json). Every other pool is one course per slot (a SCIENCE slot's flex hours are
+// the 4-hour lab science course it takes).
 export const REMAINDER_POOLS = new Set(['FREE_ELECTIVE'])
 
 /** True for a slot whose hours can be filled by more than one course. */
 export function isRemainderPool(slot) {
-  return !!slot?.is_pool && REMAINDER_POOLS.has(slot.class_code) && (slot.flex_credits ?? 0) > 0
+  return !!slot?.is_pool && (REMAINDER_POOLS.has(slot.class_code) || BUCKET_POOLS.has(slot.class_code)) && (slot.flex_credits ?? 0) > 0
 }
 
 /** The free-add rows that spend hours from `slotId`. */

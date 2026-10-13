@@ -23,6 +23,8 @@
 //                       'satisfied'  a pool of the added program that a fixed course another program already put on the grid satisfies (Mathematics
 //                                    B.S. asks for "CSC 1300 or ENGR 1120" and Computer Science has CSC 1300); targetSlotId is that course's slot.
 //                                    Only a pool with a list of courses is satisfied this way, one course per pool, and only by another program's course.
+//                       (An hours bucket of the added program, "M hours from this list", that other programs' fixed courses cover only in part is not
+//                        a shadow: it stays on the grid with the hours they leave open, as `flex_credits`, and the courses count toward it.)
 //                       'free_elective'  the added program's own unrestricted hours, which the primary's bucket stands in for (D5); also
 //                                    a primary bucket the added programs' hours used up completely (its programId is the primary's)
 //   shadowOf     { [shadowSlotId]: targetSlotId }  the shadows that have a target. A shadow row stays in student_plan_slots, so the
@@ -44,7 +46,7 @@
 //                                false           nothing is collapsed: every program keeps its own slot for the course
 //   Whatever the policy, a pool is never collapsed (it is a choice, and a chosen course already counts once).
 
-import { POOL_CREDIT_ESTIMATES, POOL_COURSES } from './poolResolver.js'
+import { POOL_CREDIT_ESTIMATES, POOL_COURSES, BUCKET_POOLS } from './poolResolver.js'
 import { FF_POOL_CATEGORIES } from './flightFoundations.js'
 
 /** @typedef {{ id: number|string, class_code: string, is_pool: boolean, flex_credits?: number|null, [key: string]: any }} Slot */
@@ -120,7 +122,9 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
   /** @type {Slot[]} */
   const addedOwn = []   // visible slots owned by an added program: their hours are what the primary's Free Elective hours absorb
   for (const program of added) {
-    for (const slot of program.slots) {
+    // A minor's upper-division bucket is processed before its general one, so the courses that can only count there are not used up first
+    const inOrder = [...program.slots].sort((a, b) => Number(/_UP$/.test(b.class_code ?? '')) - Number(/_UP$/.test(a.class_code ?? '')))
+    for (const slot of inOrder) {
       if (isFreeElective(slot)) {
         shadows.push({ slotId: slot.id, programId: program.programId, targetSlotId: null, reason: 'free_elective' })
         continue
@@ -142,10 +146,37 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
         if (target) {
           shadows.push({ slotId: slot.id, programId: program.programId, targetSlotId: target.id, reason: 'duplicate' })
           programsOf[target.id].push(program.programId)
+          spent.add(`${target.id}:${program.programId}`)       // the course now counts for this requirement, not also for a bucket
           continue
         }
       }
-      if (slot.is_pool && policy.shareCourses) {
+      if (slot.is_pool && policy.shareCourses && BUCKET_POOLS.has(slot.class_code) && Array.isArray(POOL_COURSES[slot.class_code])) {
+        // "M hours from this list": every course of another program on the grid that the list names counts, once, toward the hours
+        const members = POOL_COURSES[slot.class_code]
+        let open = slot.flex_credits ?? hoursOfSlot(slot, courses)
+        const used = []
+        for (const card of fixedCards) {
+          if (open <= 0) break
+          const key = `${card.slot.id}:${program.programId}`
+          if (card.owner === program.programId || !members.includes(card.slot.class_code) || spent.has(key)) continue
+          spent.add(key)
+          used.push(card)
+          open -= courses?.[card.slot.class_code]?.credits ?? 3
+        }
+        for (const card of used) programsOf[card.slot.id].push(program.programId)
+        if (used.length && open <= 0) {
+          shadows.push({ slotId: slot.id, programId: program.programId, targetSlotId: used[0].slot.id, reason: 'satisfied' })
+          continue
+        }
+        if (used.length) {
+          const rest = { ...slot, flex_credits: open }
+          visible.push(rest)
+          addedOwn.push(rest)
+          programsOf[slot.id] = [program.programId]
+          continue
+        }
+      }
+      if (slot.is_pool && policy.shareCourses && !BUCKET_POOLS.has(slot.class_code)) {
         const members = POOL_COURSES[slot.class_code]
         const card = Array.isArray(members)
           ? fixedCards.find(c => c.owner !== program.programId && members.includes(c.slot.class_code) && !spent.has(`${c.slot.id}:${program.programId}`))
@@ -196,6 +227,11 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
     freeElective: { primaryHours, addedHours, absorbed, extraHours },
     totalHours: Math.max((primary.totalHours ?? 0) + extraHours, ...added.filter(p => p.role !== 'minor').map(p => p.totalHours ?? 0)),
   }
+}
+
+/** The ids of the visible slots a program added to the primary one owns, from `programsOf`: the slots the math placement judges differently. */
+export function addedSlotIdsOf(programsOf, primaryProgramId) {
+  return Object.entries(programsOf ?? {}).filter(([, ids]) => ids?.[0] != null && String(ids[0]) !== String(primaryProgramId)).map(([id]) => Number(id))
 }
 
 /**

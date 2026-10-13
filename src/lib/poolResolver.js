@@ -21,6 +21,10 @@ const membersOf = def => {
 // Order is the order of pools.json: resolveSatisfiesPool takes the first pool on a plan that lists a course.
 export const POOL_COURSES = Object.fromEntries(Object.entries(POOL_DEFS).map(([code, def]) => [code, membersOf(def)]))
 
+// Pools that are an hours bucket: "M hours from this list" (a minor's electives, 15 hours in all). A slot of such a pool carries flex_credits,
+// and several courses may fill it, as for a Free Elective (lib/poolRemainder.js).
+export const BUCKET_POOLS = new Set(Object.entries(POOL_DEFS).filter(([, def]) => def.bucket).map(([code]) => code))
+
 // A course that every option of the pool needs first: the degree builder never places the pool's slots before it.
 export const POOL_FLOORS = Object.fromEntries(Object.entries(POOL_DEFS).filter(([, def]) => def.floor).map(([code, def]) => [code, def.floor]))
 
