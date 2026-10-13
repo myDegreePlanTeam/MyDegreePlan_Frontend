@@ -50,7 +50,7 @@ the first step that would make it real:
 - **Graduate programs.** About 57 graduate programs (Nursing MSN, MBA, Counseling, Curriculum and Instruction, Engineering PhD, ...) have no plans.
   Not scoped: first check whether Coursedog carries degree maps for them.
 - **Certificates and minors.** Excluded (`excluded` in the manifest). A minor would be a second program on one student, which the data model (one
-  program per profile) does not allow yet.
+  program per profile) does not allow yet. Planned in [`PLAN_double-major-minor.md`](./plans/PLAN_double-major-minor.md), together with double majors.
 
 The demand, funding and fill-ability data behind the wave order is `MDP_TTU_Demand_Funding_Fillability.xlsx` (not in the repo); the plan doc
 records how it was used.

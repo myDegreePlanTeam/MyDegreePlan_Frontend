@@ -2,7 +2,7 @@
 
 Held back (2026-10-12): the Requirements tab and everything built under Phase 1b show as **"Coming soon"** (`FEATURES.requirements` in `src/lib/features.js`) until the owner opens them.
 
-Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 and A3 merged, A4 built (branch `feat/audit-pdf`), A5 deferred. The other phases are not started and need a go-ahead
+Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2, A3 and A4 merged (A4 is the separate degree-audit PDF, Frontend #85), A5 deferred. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
 The breadth work (opening more departments, back-filling catalog years) is a separate project: see `PLAN_all-majors.md`.
@@ -117,7 +117,7 @@ Parity: add a Requirements visit to `parity/lib/scenario.mjs` with A1 (the journ
 
 - The model allows one program per profile, so a what-if is a read-only computed plan: run `degreeBuilder` for another program with the
   student's prior credits and compare hours remaining, terms to finish, and which completed courses carry over.
-- Minors and double majors are out of scope (they need a data-model change).
+- Minors and double majors are out of scope here (they need a data-model change); they have their own plan: [`PLAN_double-major-minor.md`](./PLAN_double-major-minor.md).
 
 ## Phase 6: Smaller items (parallel-safe, any time)
 
