@@ -2,7 +2,7 @@
 //
 // Whether the plan grid can be dragged. On a phone it cannot: a finger that drags is scrolling, and a row that claims the
 // touch (touch-action: none) would stop the page scrolling. Everything a drag does has a tap-to-open equivalent: "Move to
-// term" in the course panel moves a course, "+ Add prior credit" records one, and the ✕ on a prior credit removes it.
+// term" in the course panel moves a course, "Add credit" records one, and the ✕ on a prior credit removes it.
 //
 // The breakpoint is the one AppShell.css uses to turn the sidebar into a top bar.
 

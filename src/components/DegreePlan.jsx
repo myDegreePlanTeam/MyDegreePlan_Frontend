@@ -8,7 +8,7 @@ import { applyChosenHours } from '../lib/creditHours'
 import { selectWithOptional, isMissingColumn, isMissingTable } from '../lib/dbErrors'
 import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requirementSlots'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
-import { semesterPhases, statusForPhase, splitCreditsByPhase } from '../lib/termPhase'
+import { semesterPhases, statusForPhase, splitCreditsByPhase, creditsInPhase } from '../lib/termPhase'
 import { UNDO_LIMIT, stampUndo, pruneUndo, isUndoApplicable, loadUndo, saveUndo } from '../lib/undoStore'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
 import { checkPrereqs, checkCoreqsProvisional } from '../lib/prereqChecker'
@@ -46,6 +46,8 @@ import { listSlotOptions } from '../lib/slotOptions'
 import { projectDegree } from '../lib/degreeProjection'
 import { isFeatureOpen } from '../lib/features'
 import IssuesView from './shell/IssuesView'
+import PlanSummary from './shell/PlanSummary'
+import PlanCheckStrip from './shell/PlanCheckStrip'
 import AdvisementView from './shell/AdvisementView'
 import SettingsView, { ConcentrationModal, ResetModal, RemoveProgramModal } from './shell/SettingsView'
 import AddProgramModal from './shell/AddProgramModal'
@@ -55,6 +57,7 @@ import { evaluateAddition, rankMinors } from '../lib/whatIf'
 import { loadCandidate, loadCandidates, extendBase } from '../lib/whatIfLoader'
 import { programLabels, tagsForSlots, dimmedSlots, filterOptions } from '../lib/programTags'
 import { setPreference } from '../lib/theme'
+import { summarizePlanCheck } from '../lib/planCheck'
 import './Dashboard.css'
 import './shell/AppShell.css'
 
@@ -713,7 +716,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const semesterOfItem = item => item.slotId != null
       ? (planSemesterOverrides[item.slotId] ?? activeSlots.find(sl => sl.id === item.slotId)?.semester_number)
       : freeAddSlots.find(f => f.id === item.freeAddId)?.semester_number
-    return splitCreditsByPhase(breakdown, semesterOfItem, semesterPhase)
+    // `planned` here includes this semester's hours; `inProgress` is the part of them under way now
+    return { ...splitCreditsByPhase(breakdown, semesterOfItem, semesterPhase), inProgress: creditsInPhase(breakdown, semesterOfItem, semesterPhase, 'current') }
   }, [activeSlots, planSlots, planSemesterOverrides, semesterPhase, courses, freeAddSlots, priorCredits])
 
   // ── Transfer details (richer info for badge labels) ───────────────
@@ -1641,13 +1645,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
     )
   }
 
-  const completedPct = Math.min((creditTotals.completed / totalHours) * 100, 100)
-  const plannedPct   = Math.min((creditTotals.planned   / totalHours) * 100, 100 - completedPct)
-
-  const graduation   = lastNonSummerTerm(semesterTerms, allSemesterNumbers)
+  const graduation  = lastNonSummerTerm(semesterTerms, allSemesterNumbers)
   const gradSemNum   = [...allSemesterNumbers].reverse().find(n => isSameTerm(semesterTerms[n], graduation))
   const nowTerm      = termForDate(today)
-  const firstTerm    = formatTermLabel(semesterTerms[allSemesterNumbers[0]])
 
   // ── Per-semester view data ────────────────────────────────────────
   const semLabels = {}
@@ -1694,7 +1694,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     prereqWarnings, coreqWarnings, standingWarnings, scienceWarnings, poolLimitWarnings, incompleteSlots,
   })
   const issueCounts = countIssuesBySemester(issues)
-  const blockerCount = issues.filter(i => i.severity === 'blocker').length
+  const planCheck = summarizePlanCheck(issues)   // the picks still to make and the real problems (lib/planCheck.js)
 
   const lastUndo = undoStack[undoStack.length - 1]
 
@@ -1890,34 +1890,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           <div className="ds-plan">
             <div className="ds-plan-header">
               <div className="ds-plan-heading">
-                <p className="ds-eyebrow">{planName}</p>
                 <h2 className="ds-h2">{allSemesterNumbers.length <= 8 ? 'Four-Year Plan' : 'Degree Plan'}</h2>
-                <p className="ds-sub" style={{ whiteSpace: 'nowrap' }}>
-                  {firstTerm && graduation
-                    ? `${firstTerm} → ${graduation.season} ${graduation.year}`
-                    : `Started ${profile.start_season} ${profile.start_year}`}
-                  {` · ${totalHours} hours`}
-                  {totalHours > profile.concentrations.total_hours && ` (${totalHours - profile.concentrations.total_hours} more than ${profile.concentrations.name} alone)`}
-                </p>
-              </div>
-              <div className="ds-progress">
-                <div
-                  className="ds-progress-track"
-                  role="img"
-                  aria-label={`${creditTotals.completed} credits done, ${creditTotals.planned} planned, of ${totalHours}`}
-                >
-                  <div className="ds-progress-done"    style={{ width: `${completedPct}%` }} />
-                  <div className="ds-progress-planned" style={{ width: `${plannedPct}%` }} />
-                </div>
-                <div className="ds-progress-legend">
-                  <span className="ds-legend-done">{creditTotals.completed} done</span>
-                  <span className="ds-sep">·</span>
-                  <span className="ds-legend-planned">{creditTotals.planned} planned</span>
-                  <span className="ds-sep">·</span>
-                  <span>{totalHours} required</span>
-                  <span className="ds-sep">·</span>
-                  <span>{Math.round(completedPct)}% complete</span>
-                </div>
+                <p className="ds-sub">{planName} · started {profile.start_season} {profile.start_year}</p>
               </div>
               <div className="ds-header-actions">
                 <button className="ds-btn-ghost" onClick={toggleAll}>
@@ -1937,16 +1911,25 @@ export default function DegreePlan({ profile, onProfileChange }) {
               </div>
             </div>
 
-            {/* Plan check: the way into the list of things to review, now that Issues is no longer a tab. The full strip comes in Phase 3a. */}
-            {issues.length > 0 && (
-              <div className="ds-plancheck" role="region" aria-label="Plan check">
-                <span className="ds-plancheck-text">
-                  <strong>{issues.length} {issues.length === 1 ? 'thing' : 'things'} to review</strong>
-                  {blockerCount > 0 && <span className="ds-plancheck-fix"> · {blockerCount} {blockerCount === 1 ? 'needs' : 'need'} fixing</span>}
-                </span>
-                <button className="ds-btn-ghost" onClick={() => navigateTo('issues')}>Review</button>
-              </div>
-            )}
+            <PlanSummary
+              finish={graduation ? `${graduation.season} ${graduation.year}` : null}
+              semesterCount={allSemesterNumbers.length}
+              totalHours={totalHours}
+              extraNote={totalHours > profile.concentrations.total_hours ? `${totalHours - profile.concentrations.total_hours} more than ${profile.concentrations.name} alone` : null}
+              hours={{
+                done: creditTotals.completed,
+                inProgress: creditTotals.inProgress,
+                planned: Math.max(0, creditTotals.planned - creditTotals.inProgress),
+              }}
+            />
+
+            {/* Plan check: a real problem on its own line, then the picks still to make and where to start. */}
+            <PlanCheckStrip
+              summary={planCheck}
+              onStart={openIssue}
+              onOpenIssue={openIssue}
+              onOpenList={() => navigateTo('issues')}
+            />
 
             {notModelled.length > 0 && (
               <p className="ds-plan-note" role="note">
@@ -2294,12 +2277,12 @@ function PriorCourseworkStrip({ credits, onRemove, onAddClick, dragActive }) {
       ].filter(Boolean).join(' ')}
     >
       <button className="ds-prior-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <span className="ds-prior-title">Prior coursework</span>
+        <span className="ds-prior-title">Credits you already have</span>
         {dragActive ? (
           <span className="ds-prior-hint">{isOver ? 'Release to record as transfer credit' : 'Drop here to record as transfer credit'}</span>
         ) : (
           <span className="ds-sem-cr">
-            {credits.length === 0 ? 'none' : `${credits.length} ${credits.length === 1 ? 'entry' : 'entries'} · ${creditHours} cr`}
+            {credits.length === 0 ? "0 hours" : `${creditHours} ${creditHours === 1 ? "hour" : "hours"} · ${credits.length} ${credits.length === 1 ? "entry" : "entries"}`}
           </span>
         )}
         <span className="ds-sem-caret">{open ? '▲' : '▼'}</span>
@@ -2309,7 +2292,7 @@ function PriorCourseworkStrip({ credits, onRemove, onAddClick, dragActive }) {
         <div className="ds-prior-body">
           {credits.length === 0 ? (
             <p className="ds-prior-empty">
-              No prior coursework recorded. Add AP, IB, CLEP, or transfer credit{dragEnabled ? ', or drag a course from the grid onto this panel' : ''}.
+              No credits recorded yet. Add AP, IB, CLEP or transfer credit{dragEnabled ? ', or drag a course from the grid onto this panel' : ''}.
             </p>
           ) : (
             <>
@@ -2326,7 +2309,7 @@ function PriorCourseworkStrip({ credits, onRemove, onAddClick, dragActive }) {
               ))}
             </>
           )}
-          <button className="ds-prior-add" onClick={onAddClick}>+ Add prior credit</button>
+          <button className="ds-prior-add" onClick={onAddClick}>Add credit</button>
         </div>
       )}
     </div>
