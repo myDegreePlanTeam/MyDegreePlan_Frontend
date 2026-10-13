@@ -217,7 +217,8 @@ move, the only issues are unfilled choices, removing the program restores the 44
 - Math placement chain and engineering floors run once for the merged plan.
 - Done when, for CSC Core + a second major: no duplicate cards, hours are the union, every requirement of both plans is satisfied exactly when its courses are in the plan, a prior credit covering a shared course archives both slots, drag/move/undo/reset behave, and a reload restores it all.
 
-### Phase 3 — Plan UI and platforms (`DegreePlan.jsx` again, after Phase 2 merges; the add and remove dialogs and the Settings card are already in Phase 2)
+### Phase 3 — Plan UI and platforms (**mostly done 2026-10-13**: tags, filter, header; the parity step waits for the flag; the add and remove dialogs and the Settings card were built in Phase 2)
+Built: a tag on each course for the programs it serves, an All / program filter that dims (never hides) the rest, and "(98 more than CSC Core alone)" in the plan header. Checked in the browser at desktop and phone width (CSC Core + Mechanical Engineering: 70 rows tagged, 8 shared, 29 dimmed under MNE). **Not done:** the parity journey step (`parity/lib/scenario.mjs`) cannot add a second major through the UI while `FEATURES.secondMajor` is closed, so it is written when the flag opens (Phase 8); no platform-specific wording was added, so nothing needed registering in `platform-branches.json`. The plan-header entry point was left out: the Settings card is the one entry point until the flag opens.
 - Program tags on cards and a filter ("All / CSC / Math"); header shows "CSC Core + Mathematics (second major)" and the extra hours; phone layout; empty and error states.
 - The Settings and plan-header entry points; remove-program confirmation.
 - A parity journey step (`parity/lib/scenario.mjs`) that adds a second major and checks it on all three platforms; register any platform wording in `lib/platform.js`.

@@ -41,6 +41,9 @@ export default function Semester({
   standingWarnings   = {},
   transferFilled     = {},
   transferDetails    = {},
+  // { [slotId]: string[] } the programs a course serves (when the plan follows several); { [slotId]: true } courses a program filter dims
+  programTags        = {},
+  dimmed             = {},
   note               = '',
   onNoteSave,
   isExpanded         = true,
@@ -137,6 +140,8 @@ export default function Semester({
                 coreqMissing={coreqWarnings[slot.id]}
                 standingWarning={standingWarnings[slot.id]}
                 isTransferFilled={!!transferFilled[slot.id]}
+                programTags={programTags[slot.id]}
+                isDimmed={!!dimmed[slot.id]}
                 transferLabel={
                   CREDIT_TYPE_LABELS[transferDetails[slot.id]?.creditType] ?? 'Transfer'
                 }
@@ -222,7 +227,7 @@ function useRowDrag(id, type) {
   return { dragProps: enabled ? { ref: setNodeRef, ...listeners, ...attributes } : { ref: setNodeRef }, isDragging }
 }
 
-function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPool, tag, credits }) {
+function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPool, tag, credits, programTags, isDimmed }) {
   return (
     <div
       {...dragProps}
@@ -232,6 +237,7 @@ function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPo
         'ds-row',
         isSelected && 'ds-row-selected',
         isDragging && 'ds-row-dragging',
+        isDimmed && 'ds-row-dim',
       ].filter(Boolean).join(' ')}
       onClick={onSelect}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
@@ -242,6 +248,11 @@ function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPo
         <span className={`ds-row-note${view.tone ? ` ds-row-note-${view.tone}` : ''}`}>{view.note}</span>
       </span>
       {tag && <span className="ds-row-tag">{tag}</span>}
+      {programTags?.length > 0 && (
+        <span className="ds-row-progs" aria-label={`Counts toward ${programTags.join(' and ')}`}>
+          {programTags.map(label => <span key={label} className="ds-row-prog">{label}</span>)}
+        </span>
+      )}
       <span className="ds-row-cr">{credits}</span>
     </div>
   )
@@ -251,7 +262,7 @@ function SlotRow({
   slot, course, selectedCode, selectedCourse, status, openCredits,
   isSelected, onSelect,
   scienceWarning, poolLimitWarning, prereqMissing, coreqMissing, standingWarning,
-  isTransferFilled, transferLabel,
+  isTransferFilled, transferLabel, programTags, isDimmed,
 }) {
   const { dragProps, isDragging } = useRowDrag(slot.id, 'requirement_slot')
 
@@ -273,6 +284,7 @@ function SlotRow({
         code={filled ? selectedCode : (POOL_LABELS[slot.class_code] ?? slot.class_code)}
         codeIsPool={!filled}
         credits={`${selectedCourse?.credits ?? openCredits ?? slot.flex_credits ?? 3} cr`}
+        programTags={programTags} isDimmed={isDimmed}
       />
     )
   }
@@ -301,6 +313,7 @@ function SlotRow({
       code={course.code}
       tag={isTransferFilled ? transferLabel : null}
       credits={`${course.credits} cr`}
+      programTags={programTags} isDimmed={isDimmed}
     />
   )
 }
