@@ -80,9 +80,9 @@ export function createRemotePlanData(client) {
       try {
         await insertRows(table, rows)
       } catch (err) {
-        // Dropping the added programs without a word would hand the student a plan with a second major missing.
+        // Dropping the added programs without a word would hand the student a plan with a secondary major missing.
         if (table === 'student_programs' && /student_programs/.test(err.message) && /does not exist|schema cache/.test(err.message)) {
-          throw new Error('This install has not been updated to keep a second major or a minor yet. Update it, then import the file again.')
+          throw new Error('This install has not been updated to keep a secondary major or a minor yet. Update it, then import the file again.')
         }
         throw err
       }

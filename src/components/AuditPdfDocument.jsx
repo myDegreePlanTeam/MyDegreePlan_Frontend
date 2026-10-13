@@ -204,7 +204,7 @@ export default function AuditPdfDocument({ model }) {
         />
 
         <Text style={styles.intro}>
-          Every requirement of the degree program, read from the student's plan and prior credit in MyDegreePlan{model.generatedOn ? ` on ${model.generatedOn}` : ''}.
+          Every requirement of the student's major{model.alsoPrograms?.length ? 's and minors' : ''}, read from the student's plan and prior credit in MyDegreePlan{model.generatedOn ? ` on ${model.generatedOn}` : ''}.
           A course in a past term counts as done, one in the current term as in progress, and one in a later term as planned. A course counts
           once, toward one requirement. It provides general direction; confirm with an advisor.
         </Text>

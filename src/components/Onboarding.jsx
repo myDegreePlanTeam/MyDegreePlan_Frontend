@@ -403,7 +403,7 @@ export default function Onboarding({ profileId, onComplete }) {
     college: 'Start with the college your major is in, or search for your major or concentration. This determines your required courses and recommended plan.',
     major: 'Pick your major. This determines your required courses and recommended plan.',
     concentration: 'Your major has more than one path. Pick the one you are following.',
-    term: 'Pick the semester you first started, or will start, this degree program. It picks the catalog year your degree plan follows.',
+    term: 'Pick the semester you first started, or will start, this major. It picks the catalog year your degree plan follows.',
     scores: 'Enter the scores you have and leave the rest blank. Your ACT or SAT Math score sets where your math starts; with neither, it starts in MATH 1000.',
     credits: "We'll use these to pre-fill your plan and skip false prereq warnings.",
   }

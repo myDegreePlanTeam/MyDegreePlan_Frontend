@@ -6,6 +6,8 @@ import { View, Text } from '@react-pdf/renderer'
 import { shared as styles, EM_DASH } from './pdfStyles'
 
 export default function PdfTitleBlock({ title, catalogYear, degree, major, concentration, alsoPrograms = [] }) {
+  // with a secondary major on the plan, the one this heading names is the primary major
+  const hasSecondaryMajor = alsoPrograms.some(p => p.role === 'Secondary major')
   return (
     <>
       <View style={styles.titleRow}>
@@ -29,7 +31,7 @@ export default function PdfTitleBlock({ title, catalogYear, degree, major, conce
         {[
           ['CATALOG YEAR', catalogYear],
           ['Degree',       degree],
-          ['MAJOR',        major],
+          [hasSecondaryMajor ? 'PRIMARY MAJOR' : 'MAJOR', major],
           ['Concentration', concentration],
         ].map(([label, value]) => (
           <Text key={label} style={styles.degreeItem}>

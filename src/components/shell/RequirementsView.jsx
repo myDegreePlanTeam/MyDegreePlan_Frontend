@@ -332,7 +332,7 @@ export default function RequirementsView({ audit, projection, onOpenRow, getOpti
       <p className="ds-eyebrow">Requirements</p>
       <h2 className="ds-h2">Degree audit</h2>
       <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
-        Every requirement of your degree program, read from your plan and prior credit: your major, general education, then
+        Every requirement of your major, read from your plan and prior credit: your major (and any other major or minor), general education, then
         electives. A course in a past term counts as done, one in the current term as in progress, and one in a later term as
         planned. To change anything, select a row to open it on your plan.
       </p>

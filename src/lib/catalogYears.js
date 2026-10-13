@@ -72,7 +72,7 @@ export function availablePrograms(programs, plans, entryYear, { currentId = null
 
 /**
  * A minor is a program a student adds to a degree, never the program they are enrolled in: the pickers that choose a student's
- * program (onboarding, Change degree program, a second major) leave minors out unless they ask for them (`includeMinors`).
+ * program (onboarding, Change degree program, a secondary major) leave minors out unless they ask for them (`includeMinors`).
  */
 export const isMinor = program => program?.kind === 'minor'
 

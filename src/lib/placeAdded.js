@@ -5,7 +5,7 @@
 //   placeAddedSlots({ unplaced, floors, placed, slots, courseMap, prereqMap, coreqMap, priorCredits, planSlots, startSeason, maxHours })
 //     -> { [slotId]: semesterNumber }
 //
-// Adding a second major or a minor must leave the student's saved positions alone (PLAN_double-major-minor.md, Phase 2), so the degree
+// Adding a secondary major or a minor must leave the student's saved positions alone (PLAN_double-major-minor.md, Phase 2), so the degree
 // builder cannot place the whole merged list again: it would move the primary's courses too. It still decides the order and the earliest
 // semester of each new slot (`floors`, from buildDegreePlan on the merged list, which is aware of the prerequisite chains); this takes each
 // new slot, in that order, to the first semester at or after its floor that

@@ -36,7 +36,7 @@ describe('evaluateAddition, for a Computer Science Core student who starts in Fa
     expect(describeDelay(r).state).toBe('none')
   })
 
-  it('warns that a second major pushes the finish past four years, with the dates: Mechanical Engineering', () => {
+  it('warns that a secondary major pushes the finish past four years, with the dates: Mechanical Engineering', () => {
     const r = evaluateAddition({ base, candidate: whatIfCandidate('me', 'major') })
     expect(r.addedHours).toBe(98)
     expect(r.delayTerms).toBeGreaterThan(0)
@@ -71,7 +71,7 @@ describe('evaluateAddition, for a Computer Science Core student who starts in Fa
     expect(JSON.stringify(candidate)).toBe(candidateJson)
   })
 
-  it('works the same for a student with a second major already', () => {
+  it('works the same for a student with a secondary major already', () => {
     const me = whatIfCandidate('me', 'major')
     const withMe = { ...base, added: [me] }
     const r = evaluateAddition({ base: withMe, candidate: whatIfCandidate('minor_physics', 'minor') })
@@ -111,8 +111,8 @@ describe('describeDelay', () => {
     expect(estimate).toContain('to about Fall 2030')
   })
 
-  it('names a second major, says when no finish can be worked out, and is empty for nothing', () => {
-    expect(describeDelay(result({ candidate: { name: 'Mathematics', role: 'major' } })).detail).toMatch(/^This second major adds 6 hours/)
+  it('names a secondary major, says when no finish can be worked out, and is empty for nothing', () => {
+    expect(describeDelay(result({ candidate: { name: 'Mathematics', role: 'major' } })).detail).toMatch(/^This secondary major adds 6 hours/)
     expect(describeDelay(result({ finishKnown: false, incomplete: true })).state).toBe('unknown')
     expect(describeDelay(null)).toEqual({ state: 'unknown', sentence: '', detail: null })
   })

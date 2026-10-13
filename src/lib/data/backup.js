@@ -4,7 +4,7 @@
 import { STUDENT_TABLES } from './localClient'
 
 export const BACKUP_APP = 'mydegreeplan'
-// Format 1: one program per student. Format 2 adds student_programs (a second major or a minor). The reader accepts both (a
+// Format 1: one program per student. Format 2 adds student_programs (a secondary major or a minor). The reader accepts both (a
 // format 1 file has no added programs); the writer says 2 only when the file holds an added program, so a plan that has none
 // still opens on an install that has not been updated yet.
 export const BACKUP_FORMAT = 2

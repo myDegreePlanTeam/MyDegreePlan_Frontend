@@ -32,7 +32,7 @@ describe('isFeatureOpen', () => {
     expect(isFeatureOpen('requirements')).toBe(true)
   })
 
-  it('adding a second major is held back until the plan tags its cards and the PDFs name every program', () => {
+  it('adding a secondary major is held back until the plan tags its cards and the PDFs name every program', () => {
     expect(FEATURES.additionalPrograms).toBe(false)
     expect(isFeatureOpen('additionalPrograms')).toBe(false)
   })

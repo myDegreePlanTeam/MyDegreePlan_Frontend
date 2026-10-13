@@ -4,7 +4,8 @@
 // read the source. Each rule exists because the wrong wording shipped once; a failure says what to use instead.
 //
 //   1. Words that are only true on one platform live in lib/platform.js, nowhere else.
-//   2. The Settings dialog switches among ALL degree programs (other majors too), so it never calls them "concentrations".
+//   2. The Settings dialog switches among ALL majors (a concentration of one too), so it never calls them "concentrations".
+//      What a student is enrolled in is a "major": the primary one, and any secondary majors; a minor is a minor.
 //   (The app names no institution anywhere: src/tests/institutionName.test.js.)
 
 import { describe, it, expect } from 'vitest'
@@ -54,7 +55,7 @@ describe('platform words live in lib/platform.js', () => {
   })
 })
 
-describe('Settings says "degree program", never "concentration", for the thing a student changes', () => {
+describe('Settings says "major", never "concentration", for the thing a student changes', () => {
   // What may still contain the word in SettingsView.jsx: identifiers, database names, and the search box that lists both kinds.
   const ALLOWED = [
     /onOpenConcentration/, /ConcentrationModal/, /concentration_id/, /from\('concentrations'\)/, /profile\.concentrations/,
@@ -67,14 +68,27 @@ describe('Settings says "degree program", never "concentration", for the thing a
       if (isComment(line) || !/concentration/i.test(line)) return
       if (!ALLOWED.some(pattern => pattern.test(line))) hits.push(`SettingsView.jsx:${i + 1}: ${line.trim().slice(0, 100)}`)
     })
-    expect(hits, 'use "degree program" (the dialog also switches between majors)').toEqual([])
+    expect(hits, 'use "major" (the dialog also switches between majors)').toEqual([])
   })
 
-  it('the dialog and its button are worded "degree program"', () => {
+  it('the dialog and its button are worded "major", and the section is "Your major(s)"', () => {
     const text = read(join(SRC, 'components/shell/SettingsView.jsx'))
-    expect(text).toContain('Change degree program')
-    expect(text).toContain("'Choose a degree program'")
-    expect(text).toContain('Degree program</span>')
+    expect(text).toContain('Change your major')
+    expect(text).toContain("'Choose a major'")
+    expect(text).toContain('majorsHeading(majors)')
+    expect(text).not.toMatch(/degree program/i)
+    expect(text).not.toMatch(/second major/i)
     expect(text).not.toMatch(/\bnoun\b/)
+  })
+
+  it('no screen or document calls a secondary major a "second major", or a major a "degree program"', () => {
+    const hits = []
+    for (const file of sourceFiles()) {
+      read(file).split(/\r?\n/).forEach((line, i) => {
+        if (isComment(line)) return
+        if (/second major|degree program/i.test(line)) hits.push(`${rel(file)}:${i + 1}: ${line.trim().slice(0, 100)}`)
+      })
+    }
+    expect(hits, 'say "secondary major" for an added major and "major" (or "primary major") for the one the plan follows').toEqual([])
   })
 })

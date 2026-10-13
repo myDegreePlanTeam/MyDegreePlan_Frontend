@@ -228,7 +228,7 @@ const merge = second => mergePrograms(
   { courses },
 )
 
-describe.each(['math_bs', 'bai_bsba', 'me'])('the Computer Science Core plan with %s as a second major, from the real catalog', second => {
+describe.each(['math_bs', 'bai_bsba', 'me'])('the Computer Science Core plan with %s as a secondary major, from the real catalog', second => {
   const merged = merge(second)
   const naive = [...slotsOf('core'), ...slotsOf(second)]
   const priorCredits = [{ id: 'act', ...resolveMathPlacementRow({ act: 29 }) }]
