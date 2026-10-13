@@ -48,6 +48,8 @@ import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
 import SettingsView, { ConcentrationModal, ResetModal, RemoveProgramModal } from './shell/SettingsView'
 import AddProgramModal from './shell/AddProgramModal'
+import ProgramFilter from './shell/ProgramFilter'
+import { programLabels, tagsForSlots, dimmedSlots, filterOptions } from '../lib/programTags'
 import './Dashboard.css'
 import './shell/AppShell.css'
 
@@ -162,6 +164,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const planName = [profile.concentrations.name, ...programPlan.programs.filter(p => !p.primary).map(p => programPlan.info[p.programId]?.name)]
     .filter(Boolean).join(' + ')
   const totalHours = programPlan.totalHours ?? profile.concentrations.total_hours
+  // With more than one program: a tag on each course for the programs it serves, and a filter that dims the rest of the grid
+  const [programFilter, setProgramFilter] = useState(null)
+  const labels = useMemo(() => programLabels(programPlan.programs, programPlan.info), [programPlan.programs, programPlan.info])
+  const programTags = useMemo(() => tagsForSlots(programPlan.programsOf, labels, programPlan.programs), [programPlan.programsOf, labels, programPlan.programs])
+  const programOptions = useMemo(() => filterOptions(programPlan.programs, labels), [programPlan.programs, labels])
+  const dimmed = useMemo(
+    () => (programOptions.some(o => String(o.id) === String(programFilter)) ? dimmedSlots(slots, programPlan.programsOf, programFilter) : {}),
+    [programOptions, programFilter, slots, programPlan.programsOf],
+  )
 
   // planArchived: { [slotId]: archiveReason | true } — slots removed from grid by
   // a prior credit (Concept 2 / Bug 2) or by the degree builder
@@ -1770,6 +1781,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                     ? `${firstTerm} → ${graduation.season} ${graduation.year}`
                     : `Started ${profile.start_season} ${profile.start_year}`}
                   {` · ${totalHours} hours`}
+                  {totalHours > profile.concentrations.total_hours && ` (${totalHours - profile.concentrations.total_hours} more than ${profile.concentrations.name} alone)`}
                 </p>
               </div>
               <div className="ds-progress">
@@ -1830,6 +1842,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
                   dragActive={!!draggedSlotId}
                 />
 
+                <ProgramFilter options={programOptions} value={programFilter} onChange={setProgramFilter} />
+
                 <div className="ds-grid">
                   {allSemesterNumbers.map(semNum => {
                     return (
@@ -1855,6 +1869,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
                         standingWarnings={standingWarnings}
                         transferFilled={transferFilled}
                         transferDetails={transferDetails}
+                        programTags={programTags}
+                        dimmed={dimmed}
                         note={semesterNotes[semNum] ?? ''}
                         onNoteSave={handleNoteSave}
                         isExpanded={semesterExpanded[semNum] !== false}

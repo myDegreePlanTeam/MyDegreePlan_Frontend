@@ -7,6 +7,7 @@
 //   fetchProgramInfo(client, programIds)                   -> { data: { [id]: { id, name, total_hours } }, error }
 
 import { fetchRequirementSlots } from './requirementSlots.js'
+import { selectWithOptional } from './dbErrors.js'
 
 /**
  * @param {object} client
@@ -24,7 +25,12 @@ export async function fetchProgramSlotSets(client, programs, columns, order = []
 export async function fetchProgramInfo(client, programIds) {
   const ids = [...new Set(programIds)]
   if (ids.length === 0) return { data: {}, error: null }
-  const { data, error } = await client.from('concentrations').select('id, name, total_hours').in('id', ids)
+  // department is newer than the rest: a database without it names programs by their name
+  const { data, error } = await selectWithOptional(
+    columns => client.from('concentrations').select(columns).in('id', ids),
+    'id, name, total_hours',
+    ['department'],
+  )
   if (error) return { data: {}, error }
   return { data: Object.fromEntries((data ?? []).map(row => [row.id, row])), error: null }
 }

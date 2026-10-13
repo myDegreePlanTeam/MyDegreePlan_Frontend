@@ -374,7 +374,9 @@ prerequisites the plan has later. Saved positions are never moved (the builder a
 positions. **`addableMajors`, `newProgramRow`** (`addProgram.js`): the supported majors open to the declared term, leaving out the student's own major (another concentration of it is not a second major); the row records the
 plan year in effect for the declared term (D8). **`fetchProgramSlotSets`, `fetchProgramInfo`** (`programSlots.js`) read each program's slots for the year it follows and its name and total hours. `undoStore` scopes the stack to the
 primary and the sorted set of added programs. Settings has the "Second major" card (`SettingsView.jsx`, `AddProgramModal.jsx`, `RemoveProgramModal`), held back as "Coming soon" by `FEATURES.secondMajor` until Phases 3 and 4 land (the plan view reads an added program either way); `handleConcentrationSwitch` keeps added programs unless the new primary is one.
-Tests: `placeAdded.test.js`, `addProgram.test.js`, `programSlots.test.js`, `undoStore.test.js`.
+**`lib/programTags.js`** (Phase 3) is what the grid says about programs when a student follows more than one: `programLabels` (the department when it tells them apart, else the name), `tagsForSlots` (the programs
+each course serves, from `programsOf`; nothing for one program), `dimmedSlots` and `filterOptions`. `Semester.jsx` shows the tags and dims rows (`ds-row-prog`, `ds-row-dim`); `ProgramFilter.jsx` is the All / program chips;
+a filter dims, never hides, so a semester's hours still add up. The plan header adds how many hours the added program brings. Tests: `placeAdded.test.js`, `addProgram.test.js`, `programSlots.test.js`, `programTags.test.js`, `undoStore.test.js`.
 
 ### `src/lib/studentPrograms.js`
 

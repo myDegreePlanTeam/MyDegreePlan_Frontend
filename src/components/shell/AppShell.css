@@ -263,6 +263,20 @@
   border-radius: 4px; padding: 1px 5px; flex-shrink: 0;
 }
 .ds-row-cr { font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; }
+/* the programs a course serves, when the plan follows more than one */
+.ds-row-progs { display: inline-flex; gap: 3px; flex-shrink: 0; }
+.ds-row-prog {
+  font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--gold); border: 1px solid var(--gold);
+  border-radius: 4px; padding: 1px 5px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ds-row-dim { opacity: .38; }
+.ds-prog-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.ds-prog-chip {
+  font-size: 11px; letter-spacing: .04em; color: var(--text-muted); background: transparent;
+  border: 1px solid var(--bg-light); border-radius: 999px; padding: 4px 12px; min-height: 28px; cursor: pointer;
+}
+.ds-prog-chip-on { color: var(--gold); border-color: var(--gold); }
 
 .ds-sem-noteedit { padding: 10px 14px; border-bottom: 1px solid var(--ds-hairline); }
 .ds-sem-noteedit textarea {
