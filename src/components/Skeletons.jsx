@@ -1,3 +1,4 @@
+import { isFeatureOpen } from '../lib/features'
 import './Dashboard.css'
 import { getBrand } from '../lib/brand'
 
@@ -57,7 +58,7 @@ export function OnboardingSkeleton() {
 // Same order and labels as TABS in shell/Sidebar.jsx (not exported from there).
 const SKELETON_TABS = [
   { label: 'Plan',       icon: '▤', active: true },
-  { label: 'Requirements', icon: '☑' },
+  { label: 'Requirements', icon: '☑', feature: 'requirements' },
   { label: 'Issues',     icon: '⚠' },
   { label: 'Advisement', icon: '◇' },
   { label: 'Settings',   icon: '◎' },
@@ -121,9 +122,10 @@ function SkeletonSidebar() {
 
       <div className="ds-tabs">
         {SKELETON_TABS.map(tab => (
-          <div key={tab.label} className={`ds-tab${tab.active ? ' ds-tab-active' : ''}`}>
+          <div key={tab.label} className={`ds-tab${tab.active ? ' ds-tab-active' : ''}${isFeatureOpen(tab.feature) ? '' : ' ds-tab-soon'}`}>
             <span className="ds-tab-icon" aria-hidden="true">{tab.icon}</span>
             <span className="ds-tab-label">{tab.label}</span>
+            {!isFeatureOpen(tab.feature) && <span className="ds-tab-soon-tag">Coming soon</span>}
           </div>
         ))}
       </div>

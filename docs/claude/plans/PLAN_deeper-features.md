@@ -1,5 +1,7 @@
 # PLAN — Deeper features
 
+Held back (2026-10-12): the Requirements tab and everything built under Phase 1b show as **"Coming soon"** (`FEATURES.requirements` in `src/lib/features.js`) until the owner opens them.
+
 Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 merged, A3 built (branch `feat/audit-projection`), A4 and A5 not started. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
