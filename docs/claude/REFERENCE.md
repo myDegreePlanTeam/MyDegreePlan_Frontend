@@ -39,6 +39,7 @@ MDP/
 │       │   ├── classifyPrereq.js      ← placement/consent/completion classification
 │       │   ├── poolResolver.js        ← POOL_COURSES, POOL_LABELS, resolvePool, science helpers
 │       │   ├── poolRemainder.js       ← Free Elective hours bucket: hours a chosen course leaves open (pure)
+│       │   ├── programMerge.js        ← merge a primary program's slots with a second major's or a minor's (pure; not wired in yet)
 │       │   ├── flightFoundations.js  ← Flight Foundations gen-ed rules + evaluators (pure)
 │       │   ├── requirementSlots.js    ← program-aware requirement_slots loader
 │       │   ├── transferCredits.js     ← resolveTransferCredits, computePlanCredits
@@ -348,6 +349,15 @@ entering Fall 2026+; legacy stays in effect for earlier entrants). No Supabase c
 - `getGenEdProgram(season, year)`: program for an entry term.
 - Course lists come from the published gen-ed page (Coursedog has no gen-ed attribute on courses
   and its internal Flight Foundations course sets lag the page). Re-check them each catalog year.
+
+### `src/lib/programMerge.js`
+
+Phase 0 of [`PLAN_double-major-minor.md`](./plans/PLAN_double-major-minor.md): nothing imports it yet. **`mergePrograms({ programId, slots, totalHours }, [{ programId, role, slots, totalHours }], { courses, planSlots, overlapPolicy })`**
+returns the one slot list the plan view, `buildDegreePlan` and `buildDegreeAudit` already take, plus `programsOf` (every program a card serves), `shadows` / `shadowOf` (the added program's slots that are
+not on the grid, and the visible slot each stands behind), `freeElective` and `totalHours`. A fixed course two programs name is one card; a pool is never collapsed; general education comes from the primary
+(a pool of the added program with no counterpart left on the primary stays, and one that follows a different gen-ed program is dropped); the added programs' own hours are spent from the primary's open Free
+Elective hours first (a bucket used up leaves the grid; the stored row is never changed). `expandToShadows(byTarget, shadowOf)` gives a hidden row the state of the card it stands behind (archived, picked
+course). `genEdKey(slot)` is the category a pool fills. Tests: `programMerge.test.js` (small cases, then Computer Science Core with Mathematics B.S., Business Analytics and Mechanical Engineering against the real catalog).
 
 ### `src/lib/catalogYears.js` and `src/lib/requirementSlots.js`
 
