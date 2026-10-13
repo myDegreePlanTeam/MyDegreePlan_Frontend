@@ -101,9 +101,11 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
   being a freshman, transfer or returning student: `curriculumTypeForTerm` derives `student_type` from the term (before Fall 2026 is
   `'returning'`, which the math chain reads; later is `'incoming_freshman'`, which only means the new curriculum, because the column's CHECK
   allows no other value). A closed program (DSAI) is behind "Show closed programs", which turns into "Hide closed programs" (hiding
-  also drops a closed selection), and the step offers its replacement. Prior credit types, transfer credit included, are shown to everyone. The math sequence step is shown only
-  when the plan includes Calculus I (`planHasMathChain`), and the degree builder applies the math placement chain only to such a plan
-  (Business's MATH 1710 / 1530 are ordinary requirements). A program's first plan covers earlier entrants (`covers_earlier`); when that
+  also drops a closed selection), and the step offers its replacement. Prior credit types, transfer credit included, are shown to everyone. **Onboarding is
+  one screen per step** (`lib/programPicker.js` `onboardingSteps`): college (only when there is more than one), major, concentration (only when the major has more than one
+  program), start term, test scores, prior credits; a search on the first screen finds a whole program and skips to the start term. There is **no math sequence step**
+  (it only displayed the placement): the placement is worked out from the scores when the plan is built, and the degree builder applies the math placement chain only to a plan
+  that includes Calculus I (`planHasMathChain`; Business's MATH 1710 / 1530 are ordinary requirements). A program's first plan covers earlier entrants (`covers_earlier`); when that
   plan is Flight Foundations the fit is **approximate** (`isApproximateFit`): onboarding says so before they continue and the plan view
   carries a notice. A department map may print a semester up to 21 hours (`MAP_LOAD_MAX`, the overload ceiling) and still be used. The
   rollout of every Tennessee Tech major is `plans/PLAN_all-majors.md`; every program with a map is checked by `allMapsConformance.test.js`.
@@ -338,10 +340,11 @@ that section before changing the module. Rules that must hold even if you do not
   const btn = t => [...document.querySelectorAll('button')].find(b => b.textContent.trim().includes(t))
   const until = async (f, tries = 40) => { for (let i = 0; i < tries && !f(); i++) await sleep(300); return f() }
 
-  // Onboarding to a built plan. search finds the program, program is the result to click (a major with concentrations shows
-  // .concentration-card buttons; the search box is the first input on step 1). Step 2 is year, then semester (limited to what
-  // the program has a plan for). Step 3 has 6 input.onboarding-input in the order ACT Math, English, Science, Reading,
-  // Composite, SAT Math; step 4 (the math sequence) appears only if the plan has Calculus I, so Continue is clicked if it is there.
+  // Onboarding to a built plan. search finds the program, program is the result to click (a result is a .concentration-card button;
+  // the search box is the first input on the first screen, and a result skips the college, major and concentration screens). Then the
+  // start term: year, then semester (limited to what the program has a plan for). Then the scores: 6 input.onboarding-input in the
+  // order ACT Math, English, Science, Reading, Composite, SAT Math. Then the prior credits. To walk the screens instead of searching,
+  // click a .program-college, then a .program-major, then (if shown) a .concentration-card, with Continue after each.
   async function mdpOnboard({ search = 'Cybersecurity', program = 'CSC Cybersecurity', year = '2026', season = 'Fall', actMath = '29' } = {}) {
     await until(() => document.querySelector('input[type=search]'))
     setVal(document.querySelector('input[type=search]'), search); await sleep(300)
@@ -351,7 +354,6 @@ that section before changing the module. Rules that must hold even if you do not
     btn('Continue').click(); await sleep(400)
     setVal(document.querySelectorAll('input.onboarding-input')[0], String(actMath)); await sleep(100)
     btn('Continue').click(); await sleep(400)
-    btn('Continue')?.click(); await sleep(400)
     ;(btn('Build my degree plan') ?? btn('later')).click()
     return until(() => document.querySelector('.ds-sem'))   // the plan grid has rendered
   }

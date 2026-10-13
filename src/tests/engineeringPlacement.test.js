@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import catalog from '../data/catalog.json'
 import { buildDegreePlan } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
-import { mathChainFor, mathSequenceFor, planRequiresCalculusII } from '../lib/mathPlacement'
+import { mathChainFor, planRequiresCalculusII } from '../lib/mathPlacement'
 
 // Math placement on a plan whose department map requires Calculus II (the engineering majors). The placement chain and the
 // onboarding sequence come from the plan's own slots; a student placed below Calculus I, or on the extended track, is
@@ -50,29 +50,6 @@ describe('mathChainFor', () => {
     expect(mathChainFor('MATH1910', csc, 'returning')).toEqual(['MATH1910', 'MATH1920', 'MATH2010'])
     expect(mathChainFor('MATH1904', csc, 'returning')).toEqual(['MATH1904', 'MATH1906', 'MATH2010'])
     expect(mathChainFor('MATH5555', csc, 'incoming_freshman')).toEqual(['MATH1910', 'MATH2010'])
-  })
-})
-
-describe('mathSequenceFor (what onboarding shows)', () => {
-  it('Mechanical Engineering: its own later math, in the map\'s order, and no statistics choice (BUG-55)', () => {
-    expect(mathSequenceFor('MATH1910', slotsOf('me'), 'incoming_freshman')).toEqual({
-      chain: ['MATH1910', 'MATH1920', 'MATH2010'], later: ['MATH2120', 'MATH2110'], fork: [],
-    })
-  })
-
-  it('Nuclear Engineering: Calculus III and Differential Equations, no MATH 2010', () => {
-    const seq = mathSequenceFor('MATH1910', slotsOf('ne'), 'incoming_freshman')
-    expect(seq.chain).toEqual(['MATH1910', 'MATH1920'])
-    expect(seq.later).toEqual(expect.arrayContaining(['MATH2110', 'MATH2120']))
-    expect(seq.chain).not.toContain('MATH2010')
-    expect(seq.fork).toEqual([])
-  })
-
-  it('every Computer Science program still shows its chain and the statistics choice, and nothing else', () => {
-    for (const code of ['core', 'cybersecurity', 'hpc']) {
-      const seq = mathSequenceFor('MATH1910', slotsOf(code), 'incoming_freshman')
-      expect(seq, code).toEqual({ chain: ['MATH1910', 'MATH2010'], later: [], fork: ['MATH3070', 'MATH3470'] })
-    }
   })
 })
 

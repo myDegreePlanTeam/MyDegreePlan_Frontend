@@ -144,7 +144,7 @@ describe('MATH1730 is equivalent to MATH1710 + MATH1720', () => {
   })
 })
 
-describe('planHasMathChain: whether onboarding shows the math sequence', () => {
+describe('planHasMathChain: whether a plan has a placement chain to apply', () => {
   it('a plan that includes Calculus I has a chain; one without it does not', () => {
     expect(planHasMathChain([{ class_code: 'CSC1300' }, { class_code: 'MATH1910' }])).toBe(true)
     expect(planHasMathChain([{ class_code: 'MUS1010' }, { class_code: 'MATH1710' }])).toBe(false)
