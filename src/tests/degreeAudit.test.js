@@ -6,7 +6,7 @@
 // plan header (computePlanCredits + splitCreditsByPhase), so the two screens cannot show different numbers.
 
 import { describe, it, expect } from 'vitest'
-import { buildDegreeAudit, blockOf } from '../lib/degreeAudit.js'
+import { buildDegreeAudit, homeOf, ownSubject } from '../lib/degreeAudit.js'
 import { computePlanCredits } from '../lib/transferCredits.js'
 import { splitCreditsByPhase } from '../lib/termPhase.js'
 import { POOL_COURSES } from '../lib/poolResolver.js'
@@ -86,48 +86,135 @@ describe('buildDegreeAudit: prior credit and slots that are not requirements', (
   })
 })
 
+// A Computer Science-shaped Flight Foundations plan: the plan's own subject is CSC.
+const FF = 'flight_foundations'
+const ffSlots = [
+  slot(1, 'CSC1300', 1), slot(2, 'CSC2400', 2), slot(3, 'CSC2570', 3),           // major; CSC2570 also counts for Digital Literacy
+  slot(4, 'ENGL1010', 1), slot(5, 'ENGL1020', 3), slot(6, 'HIST2010', 3),         // gen-ed, fixed
+  slot(7, 'MATH1910', 2),                                                         // Quantitative Reasoning (not the plan's subject)
+  pool(8, 'FF_SOCIAL', 3), pool(9, 'FF_SOCIAL', 4), pool(10, 'FF_HUMANITIES', 4),
+  pool(11, 'COMM_REQ', 3), pool(12, 'SCIENCE', 3),                                // pools whose members all sit in one category
+  pool(13, 'MATH_STATS', 4),                                                      // a required choice outside gen-ed
+  pool(14, 'CSC_ELECTIVE', 4), pool(15, 'CSC_ELECTIVE', 4),
+  pool(16, 'FREE_ELECTIVE', 4, { flex_credits: 6 }),
+]
+
+describe('homeOf and ownSubject', () => {
+  it('the plan own subject is the one most of its fixed, non-gen-ed courses carry', () => {
+    expect(ownSubject(ffSlots)).toBe('CSC')
+    expect(ownSubject([])).toBeNull()
+    expect(ownSubject([slot(1, 'ME1010', 1), slot(2, 'ME1020', 1), slot(3, 'CEE2110', 1)])).toBe('ME')
+  })
+
+  it('files a slot under the major, a gen-ed category, or electives', () => {
+    const home = s => homeOf(s, 'CSC')
+    expect(home(slot(1, 'CSC1300', 1))).toMatchObject({ block: 'major', category: null })
+    expect(home(slot(1, 'ENGL1010', 1))).toMatchObject({ block: 'gened', category: 'COMM_COMP' })
+    expect(home(slot(1, 'MATH1910', 1))).toMatchObject({ block: 'gened', category: 'QR' })
+    expect(home(pool(1, 'FF_SOCIAL', 1))).toMatchObject({ block: 'gened', category: 'SOC' })
+    expect(home(pool(1, 'FF_LITERACY', 1))).toMatchObject({ block: 'gened', category: 'LIT' })
+    expect(home(pool(1, 'COMM_REQ', 1))).toMatchObject({ block: 'gened', category: 'COMM_ORAL' })
+    expect(home(pool(1, 'SCIENCE', 1))).toMatchObject({ block: 'gened', category: 'SCI' })
+    expect(home(pool(1, 'MATH_STATS', 1))).toMatchObject({ block: 'major' })
+    expect(home(pool(1, 'CSC_ELECTIVE', 1))).toMatchObject({ block: 'electives' })
+    expect(home(pool(1, 'CSC_HPC_ELECTIVE_2026', 1))).toMatchObject({ block: 'electives' })
+    expect(home(pool(1, 'ME_ELECTIVE', 1))).toMatchObject({ block: 'electives' })
+    expect(home(pool(1, 'FREE_ELECTIVE', 1))).toMatchObject({ block: 'electives' })
+  })
+
+  it('keeps a course of the plan own subject in the major even when it counts for a category', () => {
+    expect(homeOf(slot(1, 'CSC2570', 1), 'CSC')).toMatchObject({ block: 'major', alsoCounts: 'LIT' })
+    expect(homeOf(slot(1, 'CSC2570', 1), 'ME')).toMatchObject({ block: 'gened', category: 'LIT' })
+  })
+})
+
 describe('buildDegreeAudit: blocks', () => {
-  const slots = [
-    slot(1, 'CSC1300', 1), slot(2, 'ENGL1010', 1),
-    pool(3, 'GEN_ED', 3), pool(4, 'FF_SOCIAL', 3),
-    pool(5, 'SCIENCE', 3),
-    pool(6, 'FREE_ELECTIVE', 4, { flex_credits: 8 }),
-  ]
+  const result = audit({ slots: ffSlots, genedProgram: FF, majorLabel: 'CSC Cybersecurity', totalHours: 60 })
+  const block = id => result.blocks.find(b => b.id === id)
+  const keys = b => b.rows.map(r => r.key)
 
-  it('sorts each slot into its block, in a fixed order', () => {
-    const result = audit({ slots })
-    expect(result.blocks.map(b => b.id)).toEqual(['required', 'gened', 'choices', 'free'])
-    expect(result.blocks.find(b => b.id === 'required').rows.map(r => r.key)).toEqual([1, 2])
-    expect(result.blocks.find(b => b.id === 'gened').rows.map(r => r.key)).toEqual([3, 4])
-    expect(result.blocks.find(b => b.id === 'choices').rows.map(r => r.key)).toEqual([5])
-    expect(result.blocks.find(b => b.id === 'free').rows.map(r => r.key)).toEqual([6])
+  it('has three blocks in a fixed order, the first named for the major', () => {
+    expect(result.blocks.map(b => b.id)).toEqual(['major', 'gened', 'electives'])
+    expect(block('major').title).toBe('CSC Cybersecurity')
+    expect(audit({ slots: ffSlots }).blocks[0].title).toBe('Your major')
   })
 
-  it('blockOf matches', () => {
-    expect(blockOf(slot(1, 'CSC1300', 1))).toBe('required')
-    expect(blockOf(pool(2, 'FREE_ELECTIVE', 1))).toBe('free')
-    expect(blockOf(pool(3, 'FF_LITERACY', 1))).toBe('gened')
-    expect(blockOf(pool(4, 'CSC_ELECTIVE', 1))).toBe('choices')
+  it('files every slot in exactly one block', () => {
+    const all = result.blocks.flatMap(keys)
+    expect([...all].sort((a, b) => a - b)).toEqual(ffSlots.map(s => s.id))
+    expect(new Set(all).size).toBe(all.length)
   })
 
-  it('omits a block with no rows', () => {
-    const result = audit({ slots: [slot(1, 'CSC1300', 1)] })
-    expect(result.blocks.map(b => b.id)).toEqual(['required'])
+  it('puts the department courses and required choices in the major', () => {
+    expect(keys(block('major'))).toEqual([1, 2, 3, 13])
+  })
+
+  it('puts everything that counts toward a gen-ed category in general education, even from Required or Choose-from lists', () => {
+    expect([...keys(block('gened'))].sort((a, b) => a - b)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12])
+  })
+
+  it('puts elective pools and Free Elective hours in electives', () => {
+    expect(keys(block('electives'))).toEqual([14, 15, 16])
+  })
+
+  it('groups general education by category, in the program order, with every category shown', () => {
+    const groups = block('gened').groups
+    expect(groups.map(g => g.id)).toEqual(['COMM_COMP', 'COMM_ORAL', 'QR', 'HIST', 'SOC', 'HUM', 'SCI', 'LIT'])
+    expect(groups.find(g => g.id === 'SOC').rows.map(r => r.key)).toEqual([8, 9])
+    expect(groups.find(g => g.id === 'COMM_ORAL').rows.map(r => r.key)).toEqual([11])
+    expect(groups.find(g => g.id === 'SCI').rows.map(r => r.key)).toEqual([12])
+    expect(groups.every(g => g.progress)).toBe(true)
+  })
+
+  it('points a category at a major course that counts for it, instead of listing the course twice', () => {
+    const lit = block('gened').groups.find(g => g.id === 'LIT')
+    expect(lit.rows).toEqual([])
+    expect(lit.refs).toHaveLength(1)
+    expect(lit.refs[0]).toMatchObject({ key: 3, code: 'CSC2570' })
+    expect(lit.progress.earned).toBeGreaterThan(0)
+    expect(block('major').rows.find(r => r.key === 3)).toMatchObject({ alsoCounts: 'Financial Literacy or Digital Literacy' })
+    expect(block('gened').rows.some(r => r.code === 'CSC2570')).toBe(false)
+  })
+
+  it('groups the major into required courses and one group per required choice', () => {
+    expect(block('major').groups.map(g => g.title)).toEqual(['Required courses', 'Statistics'])
+  })
+
+  it('groups electives by pool, Free Elective hours last', () => {
+    expect(block('electives').groups.map(g => g.title)).toEqual(['CSC Elective', 'Free electives'])
   })
 
   it('counts each state and marks a block complete only when every row is done', () => {
-    const result = audit({ slots: [slot(1, 'CSC1300', 1), slot(2, 'CSC2400', 2), slot(3, 'CSC3100', 3)] })
-    const block = result.blocks[0]
-    expect(block.counts).toEqual({ done: 1, in_progress: 1, planned: 1, not_placed: 0 })
-    expect(block.total).toBe(3)
-    expect(block.complete).toBe(false)
+    const r = audit({ slots: [slot(1, 'CSC1300', 1), slot(2, 'CSC2400', 2), slot(3, 'CSC3100', 3)] })
+    const major = r.blocks[0]
+    expect(major.counts).toEqual({ done: 1, in_progress: 1, planned: 1, not_placed: 0 })
+    expect(major.total).toBe(3)
+    expect(major.complete).toBe(false)
     expect(audit({ slots: [slot(1, 'CSC1300', 1)] }).blocks[0].complete).toBe(true)
   })
 
-  it('carries the gen-ed category panel on the gen-ed block, and only there', () => {
-    const result = audit({ slots, genedProgram: 'legacy' })
-    expect(result.blocks.find(b => b.id === 'gened').panel).toMatchObject({ program: 'legacy' })
+  it('omits a block with nothing in it', () => {
+    expect(audit({ slots: [slot(1, 'CSC1300', 1)] }).blocks.map(b => b.id)).toEqual(['major'])
+  })
+
+  it('carries the gen-ed summary on the gen-ed block, and only there', () => {
+    expect(block('gened').panel).toMatchObject({ program: FF, title: 'Flight Foundations' })
     expect(result.blocks.filter(b => b.panel).map(b => b.id)).toEqual(['gened'])
+  })
+})
+
+describe('buildDegreeAudit: legacy general education', () => {
+  const slots = [
+    slot(1, 'CSC1300', 1), slot(2, 'ENGL1010', 1),
+    pool(3, 'GEN_ED', 3), pool(4, 'GEN_ED', 3), pool(5, 'SCIENCE', 3), pool(6, 'ENG_LIT', 3),
+  ]
+
+  it('shows the three category rows of hours and one list of the student general-education courses', () => {
+    const gened = audit({ slots, genedProgram: 'legacy' }).blocks.find(b => b.id === 'gened')
+    expect(gened.groups.map(g => g.id)).toEqual(['History', 'Humanities', 'Social', 'picks'])
+    expect(gened.groups.slice(0, 3).every(g => g.progress && g.rows.length === 0)).toBe(true)
+    expect(gened.groups[3].rows.map(r => r.key)).toEqual([2, 3, 4, 5, 6])
+    expect(gened.panel).toMatchObject({ program: 'legacy' })
   })
 })
 

@@ -558,9 +558,9 @@ export default function DegreePlan({ profile, onProfileChange }) {
     for (const [n, term] of Object.entries(semesterTerms)) semesterLabels[n] = formatTermLabel(term)
     return buildDegreeAudit({
       slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterLabels, semesterPhase,
-      totalHours: profile.concentrations.total_hours, genedProgram: profile.gened_program,
+      totalHours: profile.concentrations.total_hours, genedProgram: profile.gened_program, majorLabel: profile.concentrations.name,
     })
-  }, [slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, profile.concentrations.total_hours, profile.gened_program])
+  }, [slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, profile.concentrations.total_hours, profile.concentrations.name, profile.gened_program])
 
   // ── Pool limits (the Area of Emphasis hours, for Mechanical Engineering) ──
   const poolLimitWarnings = useMemo(

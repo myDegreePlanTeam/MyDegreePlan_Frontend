@@ -4,7 +4,7 @@
 // database, the clock or React, so every case is a unit test.
 //
 //   buildDegreeAudit({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits,
-//                      courses, totalHours, semesterLabels, semesterPhase, genedProgram })
+//                      courses, totalHours, semesterLabels, semesterPhase, genedProgram, majorLabel })
 //     -> { summary, blocks }
 //
 // Every requirement is in one of four states, all derived from the calendar (lib/termPhase.js), never marked:
@@ -14,12 +14,23 @@
 //   'not_placed'   a choice with no course picked yet (or Free Elective hours still open)
 //
 // A slot that can be removed from the grid is not a requirement, and a slot that cannot be (a fixed course) is: a fixed
-// slot reads "Required" and a pool slot "Choose 1 of N". Blocks are derived from the slot's type, because the degree
-// specs carry no group names:
-//   gened     the general-education pools (GEN_ED, FF_SOCIAL, FF_HUMANITIES, FF_LITERACY), with the category progress
-//   required  every fixed course
-//   choices   every other pool (science sequence, CSC electives, ...)
-//   free      Free Elective hours
+// slot reads "Required" and a pool slot "Choose 1 of N".
+//
+// Each slot has ONE home, so nothing is listed twice and nothing can be fixed from two places:
+//   major      the department's own courses, and required choices the plan does not file under general education
+//   gened      a course or pool that counts toward a general-education category, grouped by category
+//   electives  elective pools (CSC Elective, ...) and Free Elective hours
+// A course that is homed in the major but also counts toward a category (CSC2570 and Digital Literacy) stays in the
+// major; its category shows a reference to it (`refs`) and no second row.
+//
+// Homes are derived (homeOf): the specs carry no group names. The rule, in order:
+//   a pool whose members all fall in one gen-ed category (SCIENCE, COMM_REQ), or a GEN_ED / FF_* pool    -> gened
+//   FREE_ELECTIVE, and any pool named *ELECTIVE(S), *EMPHASIS or EL_*                                  -> electives
+//   any other pool (a required choice: Statistics, OR_..., ME_DESIGN)                                    -> major
+//   a fixed course with a gen-ed category and a subject other than the plan's own                        -> gened
+//   any other fixed course                                                                                -> major
+// The plan's own subject is the one most of its fixed, non-gen-ed courses carry (CSC for Computer Science, ME for
+// Mechanical Engineering).
 //
 // A row's `key` is what the plan view selects: the slot id, or `rem_<slotId>` for the open hours of a Free Elective.
 // `semNum` is where the slot sits now (a drag override wins over the template); null for a row not on the grid.
@@ -31,8 +42,7 @@ import { computePlanCredits, resolveTransferDetails } from './transferCredits.js
 import { POOL_LABELS, POOL_COURSES, POOL_CREDIT_ESTIMATES } from './poolResolver.js'
 import { getPoolRemainder, isRemainderPool } from './poolRemainder.js'
 import { buildGenEdPanel } from './genEdPanel.js'
-
-const GEN_ED_POOL_CODES = new Set(['GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY'])
+import { FF_PROGRAM_CODE, FF_CATEGORIES, FF_POOL_CATEGORIES, getFlightFoundationsCategory } from './flightFoundations.js'
 
 export const CREDIT_TYPE_LABELS = {
   ap_credit:       'AP',
@@ -46,18 +56,53 @@ export const CREDIT_TYPE_LABELS = {
 
 const PHASE_STATE = { past: 'done', current: 'in_progress', future: 'planned' }
 
-const BLOCK_TITLES = {
-  gened:    'General education',
-  required: 'Required courses',
-  choices:  'Choose from a list',
-  free:     'Free electives',
-}
-const BLOCK_ORDER = ['required', 'gened', 'choices', 'free']
+const GEN_ED_POOLS = new Set(['GEN_ED', 'ENG_LIT', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY'])
+const ELECTIVE_POOL = /(^|_)(ELECTIVES?|EMPHASIS)(_\d+)?$|^EL_/
 
-export function blockOf(slot) {
-  if (!slot.is_pool) return 'required'
-  if (slot.class_code === 'FREE_ELECTIVE') return 'free'
-  return GEN_ED_POOL_CODES.has(slot.class_code) ? 'gened' : 'choices'
+const CATEGORY_LABELS = Object.fromEntries(FF_CATEGORIES.map(c => [c.code, c.label]))
+
+const subjectOf = code => /^[A-Z]+/.exec(code ?? '')?.[0] ?? ''
+
+// The subject most of the plan's fixed, non-gen-ed courses carry. Ties go to the alphabetically first.
+export function ownSubject(slots) {
+  const counts = new Map()
+  for (const s of slots ?? []) {
+    if (s.is_pool || getFlightFoundationsCategory(s.class_code)) continue
+    const subject = subjectOf(s.class_code)
+    if (subject) counts.set(subject, (counts.get(subject) ?? 0) + 1)
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null
+}
+
+// The one gen-ed category every member of a pool falls in, or null.
+function poolCategory(code) {
+  if (FF_POOL_CATEGORIES[code]) return FF_POOL_CATEGORIES[code]
+  const members = POOL_COURSES[code]
+  if (!Array.isArray(members) || members.length === 0) return null
+  const categories = new Set(members.map(getFlightFoundationsCategory))
+  return categories.size === 1 && !categories.has(null) ? [...categories][0] : null
+}
+
+/**
+ * Where a slot lives in the audit.
+ * @returns {{ block: 'major'|'gened'|'electives', category: string|null, alsoCounts: string|null }}
+ *   category    the gen-ed category the slot counts toward (a gen-ed home), else null
+ *   alsoCounts  a major course that also counts toward a category (it stays in the major)
+ */
+export function homeOf(slot, subject) {
+  const code = slot.class_code
+  if (slot.is_pool) {
+    if (code === 'FREE_ELECTIVE') return { block: 'electives', category: null, alsoCounts: null }
+    const category = poolCategory(code)
+    if (GEN_ED_POOLS.has(code) || category) return { block: 'gened', category, alsoCounts: null }
+    if (code.startsWith('FF_')) return { block: 'gened', category: null, alsoCounts: null }
+    if (ELECTIVE_POOL.test(code)) return { block: 'electives', category: null, alsoCounts: null }
+    return { block: 'major', category: null, alsoCounts: null }
+  }
+  const category = getFlightFoundationsCategory(code)
+  if (!category) return { block: 'major', category: null, alsoCounts: null }
+  if (subjectOf(code) === subject) return { block: 'major', category: null, alsoCounts: category }
+  return { block: 'gened', category, alsoCounts: null }
 }
 
 // A state for a placed course, from the semester it sits in. A course with no semester is ahead, never assumed passed.
@@ -71,17 +116,19 @@ function emptyCounts() {
 
 export function buildDegreeAudit({
   slots = [], planSlots = {}, planArchived = {}, planSemesterOverrides = {}, freeAddSlots = [], priorCredits = [],
-  courses = {}, totalHours = 0, semesterLabels = {}, semesterPhase = {}, genedProgram = 'legacy',
+  courses = {}, totalHours = 0, semesterLabels = {}, semesterPhase = {}, genedProgram = 'legacy', majorLabel = null,
 } = {}) {
   const details = resolveTransferDetails(priorCredits, planSlots, slots)
-  const rowsByBlock = { gened: [], required: [], choices: [], free: [] }
+  const subject = ownSubject(slots)
+  const isFF = genedProgram === FF_PROGRAM_CODE
+  const rows = []
 
   for (const slot of slots) {
     const archived = planArchived?.[slot.id]
     // Not part of this student's degree (the math chain below their placement): not a requirement.
     if (archived === 'not_applicable') continue
 
-    const block = blockOf(slot)
+    const home = homeOf(slot, subject)
     const semNum = archived ? null : (planSemesterOverrides?.[slot.id] ?? slot.semester_number ?? null)
     const picked = slot.is_pool ? planSlots?.[slot.id] : null
     const code = slot.is_pool ? picked : slot.class_code
@@ -89,21 +136,25 @@ export function buildDegreeAudit({
     const poolSize = slot.is_pool ? POOL_COURSES[slot.class_code]?.length ?? null : null
 
     const row = {
-      key:       slot.id,
-      slotId:    slot.id,
-      block,
-      required:  !slot.is_pool,
-      code:      code ?? null,
-      name:      code ? (courses[code]?.name ?? null) : null,
-      label:     code ?? poolLabel,
-      poolLabel: slot.is_pool ? poolLabel : null,
-      choose:    slot.is_pool && !code && poolSize ? `Choose 1 of ${poolSize}` : null,
-      hours:     courses[code]?.credits ?? (slot.is_pool ? (slot.flex_credits ?? POOL_CREDIT_ESTIMATES[slot.class_code] ?? 3) : 0),
+      key:          slot.id,
+      slotId:       slot.id,
+      block:        home.block,
+      category:     isFF ? home.category : null,
+      poolCode:     slot.is_pool ? slot.class_code : null,
+      required:     !slot.is_pool,
+      code:         code ?? null,
+      name:         code ? (courses[code]?.name ?? null) : null,
+      label:        code ?? poolLabel,
+      poolLabel:    slot.is_pool ? poolLabel : null,
+      choose:       slot.is_pool && !code && poolSize ? `Choose 1 of ${poolSize}` : null,
+      alsoCounts:   isFF && home.alsoCounts ? CATEGORY_LABELS[home.alsoCounts] ?? null : null,
+      alsoCategory: isFF ? home.alsoCounts : null,
+      hours:        courses[code]?.credits ?? (slot.is_pool ? (slot.flex_credits ?? POOL_CREDIT_ESTIMATES[slot.class_code] ?? 3) : 0),
       semNum,
-      term:      semNum != null ? (semesterLabels[semNum] ?? null) : null,
-      source:    'plan',
-      sourceLabel: null,
-      state:     'not_placed',
+      term:         semNum != null ? (semesterLabels[semNum] ?? null) : null,
+      source:       'plan',
+      sourceLabel:  null,
+      state:        'not_placed',
     }
 
     if (archived) {
@@ -114,35 +165,97 @@ export function buildDegreeAudit({
     } else if (code) {
       row.state = stateOfSemester(semNum, semesterPhase)
     }
-    rowsByBlock[block].push(row)
+    rows.push(row)
 
     // The open hours of a Free Elective bucket after a pick (the row the plan shows as `rem_<id>`).
     if (!archived && isRemainderPool(slot) && planSlots?.[slot.id]) {
       const open = getPoolRemainder(slot, planSlots, courses, freeAddSlots)
       if (open > 0) {
-        rowsByBlock.free.push({
-          key: `rem_${slot.id}`, slotId: slot.id, block: 'free', required: false, code: null, name: null,
-          label: poolLabel, poolLabel, choose: null, hours: open, semNum, term: row.term,
-          source: 'plan', sourceLabel: null, state: 'not_placed',
+        rows.push({
+          ...row, key: `rem_${slot.id}`, code: null, name: null, label: poolLabel, choose: null, required: false,
+          alsoCounts: null, alsoCategory: null, hours: open, source: 'plan', sourceLabel: null, state: 'not_placed',
         })
       }
     }
   }
 
-  const blocks = BLOCK_ORDER
-    .map(id => {
-      const rows = rowsByBlock[id]
-      const panel = id === 'gened'
-        ? buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived, planSemesterOverrides, semesterPhase })
-        : null
-      if (rows.length === 0 && !panel) return null
-      const counts = emptyCounts()
-      for (const r of rows) counts[r.state]++
-      return { id, title: BLOCK_TITLES[id], rows, counts, total: rows.length, complete: rows.length > 0 && counts.done === rows.length, panel }
-    })
-    .filter(Boolean)
+  const panel = buildGenEdPanel({
+    genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived, planSemesterOverrides, semesterPhase,
+  })
 
-  return { summary: summarizeHours({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, totalHours, semesterPhase }), blocks }
+  const blocks = [
+    makeBlock('major',     majorLabel || 'Your major', rows, panel, isFF),
+    makeBlock('gened',     'General education',        rows, panel, isFF),
+    makeBlock('electives', 'Electives',                rows, panel, isFF),
+  ].filter(Boolean)
+
+  return {
+    summary: summarizeHours({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, totalHours, semesterPhase }),
+    blocks,
+  }
+}
+
+function countRows(rows) {
+  const counts = emptyCounts()
+  for (const r of rows) counts[r.state]++
+  return counts
+}
+
+function makeBlock(id, title, allRows, panel, isFF) {
+  const rows = allRows.filter(r => r.block === id)
+  const groups = id === 'major' ? majorGroups(rows) : id === 'gened' ? genEdGroups(rows, allRows, panel, isFF) : electiveGroups(rows)
+  if (groups.length === 0) return null
+  const counts = countRows(rows)
+  return {
+    id, title, rows, groups, counts, total: rows.length,
+    complete: rows.length > 0 && counts.done === rows.length,
+    // The gen-ed block carries its program summary (title, hours covered, state); the other blocks have none.
+    panel: id === 'gened' ? panel : null,
+  }
+}
+
+function majorGroups(rows) {
+  const core = rows.filter(r => r.required)
+  const choices = rows.filter(r => !r.required)
+  const groups = []
+  if (core.length) groups.push({ id: 'core', title: 'Required courses', rows: core, progress: null, refs: [] })
+  for (const code of [...new Set(choices.map(r => r.poolCode))]) {
+    const own = choices.filter(r => r.poolCode === code)
+    groups.push({ id: `choice:${code}`, title: own[0].poolLabel, rows: own, progress: null, refs: [] })
+  }
+  return groups
+}
+
+function electiveGroups(rows) {
+  const codes = [...new Set(rows.map(r => r.poolCode))]
+  // Free Elective hours last; the department's own electives first.
+  codes.sort((a, b) => (a === 'FREE_ELECTIVE') - (b === 'FREE_ELECTIVE'))
+  return codes.map(code => {
+    const own = rows.filter(r => r.poolCode === code)
+    return { id: `elective:${code}`, title: code === 'FREE_ELECTIVE' ? 'Free electives' : own[0].poolLabel, rows: own, progress: null, refs: [] }
+  })
+}
+
+// A Flight Foundations plan is grouped by category, every category shown whether or not it has a slot of its own (it may be
+// met by a major course). A legacy plan has three category rows of hours and one list of picks.
+function genEdGroups(rows, allRows, panel, isFF) {
+  // No gen-ed pool in the plan (so no program summary): the courses that count toward a category are still listed.
+  if (!panel) return rows.length ? [{ id: 'picks', title: 'General education courses', progress: null, rows, refs: [] }] : []
+  const refsFor = category => allRows
+    .filter(r => r.alsoCategory === category)
+    .map(r => ({ key: r.key, code: r.code, name: r.name, term: r.term, state: r.state, semNum: r.semNum, source: r.source, sourceLabel: r.sourceLabel }))
+
+  if (isFF) {
+    const groups = panel.rows.map(p => ({
+      id: p.key, title: p.label, progress: p, rows: rows.filter(r => r.category === p.key), refs: refsFor(p.key),
+    }))
+    const other = rows.filter(r => !r.category)
+    if (other.length) groups.push({ id: 'other', title: 'Other general education', progress: null, rows: other, refs: [] })
+    return groups
+  }
+  const groups = panel.rows.map(p => ({ id: p.key, title: p.label, progress: p, rows: [], refs: [] }))
+  if (rows.length) groups.push({ id: 'picks', title: 'Your general-education courses', progress: null, rows, refs: [] })
+  return groups
 }
 
 // Hours by state. Same pass order as computePlanCredits (prior credit, plan slots, free adds; a course once), over the

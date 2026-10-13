@@ -709,23 +709,18 @@ button.ds-setting:hover { background: var(--ds-hover); }
   .ds-act-note { display: none; }
 }
 
-/* ── General-education progress (Requirements view) ────────────────────────── */
-.ds-gened { margin-top: 20px; }
-.ds-requirements { max-width: 900px; }
+/* ── General-education progress (Requirements view) ──────────────────── */
 .ds-h3 {
   margin: 0 0 6px;
   font-family: var(--font-display);
   font-size: 21px;
   font-weight: 400;
 }
-.ds-gened-list { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.ds-gened-row {
-  background: var(--bg-mid); border: 1px solid var(--bg-light);
-  border-radius: 10px; padding: 14px 18px;
-}
-.ds-gened-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
-.ds-gened-label { flex: 1; min-width: 160px; font-size: 13px; font-weight: 500; }
-.ds-gened-hours { font-size: 11.5px; color: var(--text-muted); }
+.ds-gened-summary { margin-top: 10px; }
+.ds-gened-headline { margin: 0 0 4px; font-size: 13px; font-weight: 500; }
+.ds-gened-progress { margin: 8px 0 4px; }
+.ds-gened-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.ds-gened-hours { flex: 1; font-size: 11.5px; color: var(--text-muted); }
 .ds-gened-state {
   font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted);
 }
@@ -736,7 +731,6 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-gened-in_progress .ds-gened-state { color: var(--status-progress); }
 .ds-gened-planned .ds-gened-state { color: var(--gold); }
 .ds-gened-open .ds-gened-state { color: var(--status-warn); }
-.ds-gened-risk { border-color: rgba(var(--status-warn-rgb), .35); }
 .ds-gened-risk .ds-gened-state { color: var(--status-warn); }
 .ds-gened-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--status-warn); }
 
@@ -779,5 +773,16 @@ button.ds-setting:hover { background: var(--ds-hover); }
 }
 .ds-audit-go { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 .ds-audit-open:hover .ds-audit-go { color: var(--gold); }
-.ds-audit-block .ds-gened { margin-top: 14px; }
 @media (max-width: 640px) { .ds-audit-go { display: none; } }
+
+/* groups inside a block, one row style, compact fixed courses */
+.ds-audit-group { margin-top: 20px; }
+.ds-audit-group-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.ds-audit-group-title { margin: 0; font-size: 12.5px; font-weight: 500; letter-spacing: .04em; }
+.ds-audit-group .ds-audit-list { margin-top: 8px; }
+.ds-audit-empty { margin: 8px 0 0; font-size: 11.5px; color: var(--text-muted); }
+.ds-audit-list-compact { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; }
+.ds-audit-compact .ds-audit-line { min-height: 36px; padding: 5px 12px; }
+.ds-audit-compact .ds-audit-main { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.ds-audit-compact .ds-audit-name { font-size: 12px; }
+.ds-audit-ref { border-style: dashed; }
