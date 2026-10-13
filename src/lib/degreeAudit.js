@@ -191,7 +191,12 @@ export function buildDegreeAudit({
   ].filter(Boolean)
 
   return {
-    summary: summarizeHours({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, totalHours, semesterPhase }),
+    summary: {
+      // What the Plan tab's header already shows (hours by state), kept as one line of context.
+      ...summarizeHours({ slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, totalHours, semesterPhase }),
+      // What only this tab can say: how many requirements are done, under way, planned, or still to choose.
+      requirements: countRows(rows),
+    },
     blocks,
   }
 }

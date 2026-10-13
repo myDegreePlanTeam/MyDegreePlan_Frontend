@@ -294,9 +294,21 @@ describe('buildDegreeAudit: summary hours', () => {
     expect(summary.remaining).toBe(0)
   })
 
+  it('counts the requirements by state, across every block', () => {
+    const { summary } = audit({ slots, planSlots: { 4: 'BIOL1010' }, totalHours: 30 })
+    expect(summary.requirements).toEqual({ done: 1, in_progress: 1, planned: 2, not_placed: 0 })
+    const open = audit({ slots, totalHours: 30 }).summary.requirements
+    expect(open).toEqual({ done: 1, in_progress: 1, planned: 1, not_placed: 1 })
+  })
+
+  it('counts the open hours of a Free Elective as a requirement still open', () => {
+    const free = pool(6, 'FREE_ELECTIVE', 4, { flex_credits: 8 })
+    expect(audit({ slots: [free], planSlots: { 6: 'PSY1030' } }).summary.requirements).toMatchObject({ planned: 1, not_placed: 1 })
+  })
+
   it('is empty and safe with no slots', () => {
     const result = buildDegreeAudit({})
     expect(result.blocks).toEqual([])
-    expect(result.summary).toMatchObject({ done: 0, inProgress: 0, planned: 0, remaining: 0 })
+    expect(result.summary).toMatchObject({ done: 0, inProgress: 0, planned: 0, remaining: 0, requirements: { done: 0, in_progress: 0, planned: 0, not_placed: 0 } })
   })
 })

@@ -10,31 +10,39 @@ const STATES = {
   not_placed:  { mark: '–', label: 'Not placed' },
 }
 
+// The count of requirements, which the Plan tab does not show. Its header already has the hours by state, so hours get one line.
 function Summary({ summary }) {
-  const { total, done, inProgress, planned, remaining, donePct, inProgressPct, plannedPct } = summary
+  const { requirements: r, total, done, inProgress, planned } = summary
+  const all = r.done + r.in_progress + r.planned + r.not_placed
+  const placed = all - r.not_placed
+  const pct = n => (all > 0 ? (n / all) * 100 : 0)
   return (
-    <section className="ds-audit-summary" aria-label="Degree progress">
+    <section className="ds-audit-summary" aria-label="Requirements progress">
       <p className="ds-audit-total">
-        <strong>{done + inProgress + planned}</strong> of {total} hours are done or placed in your plan
+        <strong>{placed}</strong> of {all} requirements are done or placed in your plan
+        {r.not_placed > 0 && <>; <strong>{r.not_placed}</strong> {r.not_placed === 1 ? 'choice is' : 'choices are'} still open</>}
       </p>
       <div
         className="ds-progress-track"
         role="img"
-        aria-label={`${done} hours done, ${inProgress} in progress, ${planned} planned, ${remaining} not yet placed, of ${total}`}
+        aria-label={`${r.done} requirements done, ${r.in_progress} in progress, ${r.planned} planned, ${r.not_placed} still open, of ${all}`}
       >
-        <div className="ds-progress-done"      style={{ width: `${donePct}%` }} />
-        <div className="ds-progress-current"   style={{ width: `${inProgressPct}%` }} />
-        <div className="ds-progress-planned"   style={{ width: `${plannedPct}%` }} />
+        <div className="ds-progress-done"    style={{ width: `${pct(r.done)}%` }} />
+        <div className="ds-progress-current" style={{ width: `${pct(r.in_progress)}%` }} />
+        <div className="ds-progress-planned" style={{ width: `${pct(r.planned)}%` }} />
       </div>
       <div className="ds-progress-legend">
-        <span className="ds-legend-done">{done} done</span>
+        <span className="ds-legend-done">{r.done} done</span>
         <span className="ds-sep">·</span>
-        <span>{inProgress} in progress</span>
+        <span>{r.in_progress} in progress</span>
         <span className="ds-sep">·</span>
-        <span>{planned} planned</span>
+        <span>{r.planned} planned</span>
         <span className="ds-sep">·</span>
-        <span>{remaining} not yet placed</span>
+        <span>{r.not_placed} open</span>
       </div>
+      <p className="ds-audit-hours">
+        In hours: {done} done, {inProgress} in progress and {planned} planned, of the {total} your degree needs.
+      </p>
     </section>
   )
 }
