@@ -1,6 +1,6 @@
 # PLAN — Deeper features
 
-Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built and reworked** (stacked branches from `feat/degree-audit-skeleton` to `feat/mobile-no-drag`, not yet pushed), A2 to A5 not started. The other phases are not started and need a go-ahead
+Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 to A5 not started. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
 The breadth work (opening more departments, back-filling catalog years) is a separate project: see `PLAN_all-majors.md`.
