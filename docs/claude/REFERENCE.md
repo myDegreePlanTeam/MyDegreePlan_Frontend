@@ -380,6 +380,13 @@ primary and the sorted set of added programs. Settings has the "Second major" ca
 no hours and no slots, and the plan says nothing is checked against it. `addableMinors`, `minorTranscriptNotice` (a notice, never a block, at the third minor) and `MINOR_OVERLAP_NOTE` are in `addProgram.js`. The math placement
 never drops a course an added program needs above the student's start (`buildDegreePlan({ addedSlotIds })`, `mathChainReturning`): the Mathematics Minor's MATH 1920 used to vanish on the new curriculum.
 
+**What-if** (Phase 7): `evaluateAddition({ base, candidate })` (`lib/whatIf.js`, pure) runs the merge, the audit and `projectDegree` on the student's real state with and without a candidate program and returns the
+hours it adds, the courses it adds and shares, the hours of its own requirements still needed, both finishes (with their term number from the student's first term) and `delayTerms`; `describeDelay(result)` says it in
+words in three states, none a blocker (`none`, `later`, `past_four_years`), with "about" when the schedule might not be the fastest; `rankMinors({ base, candidates })` orders the minors the planner models by the hours
+still needed, then the delay, then the name, and sets the rest apart unranked. "Four years" is eight Fall/Spring terms from the student's first term (`FOUR_YEARS_TERMS`; the owner may say otherwise: Question 9).
+`lib/whatIfLoader.js` does the reads (a candidate's slots, name and hours, and the catalog rows its courses need, one read per candidate); nothing is written. `WhatIfPanel.jsx` (Settings) and a line in
+`AddProgramModal` show the answer before anything is added. Tests: `whatIf.test.js`, `whatIfLoader.test.js`, helper `tests/support/whatIfBase.js`.
+
 **`lib/programTags.js`** (Phase 3) is what the grid says about programs when a student follows more than one: `programLabels` (the department when it tells them apart, else the name), `tagsForSlots` (the programs
 each course serves, from `programsOf`; nothing for one program), `dimmedSlots` and `filterOptions`. `Semester.jsx` shows the tags and dims rows (`ds-row-prog`, `ds-row-dim`); `ProgramFilter.jsx` is the All / program chips;
 a filter dims, never hides, so a semester's hours still add up. The plan header adds how many hours the added program brings. Tests: `placeAdded.test.js`, `addProgram.test.js`, `programSlots.test.js`, `programTags.test.js`, `undoStore.test.js`.

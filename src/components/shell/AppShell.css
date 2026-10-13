@@ -271,6 +271,16 @@
   border-radius: 4px; padding: 1px 5px; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ds-row-dim { opacity: .38; }
+/* "What if I added...": the effect on the finish, in words */
+.ds-whatif-controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px 12px; }
+.ds-whatif-line { margin: 0 22px 14px; padding: 10px 12px; border: 1px solid var(--bg-light); border-radius: 8px; font-size: 12px; line-height: 1.6; }
+.ds-whatif-line p { margin: 0 0 6px; }
+.ds-whatif-detail { color: var(--text-muted); font-size: 11px; }
+.ds-whatif-none { border-color: var(--status-done); }
+.ds-whatif-later { border-color: var(--status-progress); }
+.ds-whatif-past_four_years { border-color: var(--status-warn); }
+.ds-whatif-rank { margin: 0 0 8px; padding-left: 18px; }
+.ds-whatif-pick { background: none; border: 0; padding: 0; color: var(--gold); cursor: pointer; font: inherit; text-decoration: underline; }
 .ds-prog-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .ds-prog-chip {
   font-size: 11px; letter-spacing: .04em; color: var(--text-muted); background: transparent;

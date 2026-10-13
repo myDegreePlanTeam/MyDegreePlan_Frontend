@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { db } from '../../lib/dataClient'
 import { academicYearOf, degreeTitle, planForYear } from '../../lib/catalogYears'
+import { describeDelay } from '../../lib/whatIf'
 import { selectWithOptional } from '../../lib/dbErrors'
 import { groupByCollege, searchPrograms } from '../../lib/programBrowser'
 import { termForDate } from '../../lib/semesterTerms'
@@ -14,9 +15,12 @@ import {
  * of the student's own major (for a second major), and programs with no plan for the declared term are not offered. A minor the planner
  * does not model (it has no slots) is offered with the catalog's own wording and a note that nothing in the plan is checked against it.
  *
- * Props: profile, role ('major' | 'minor'), addedPrograms (lib/studentPrograms.js, the non-primary ones), onAdd, onClose, adding, error
+ * `evaluate(row)` (optional) works out what adding it would do to the finish (lib/whatIf.js); the answer is shown before the student confirms,
+ * as a warning and never a block.
+ *
+ * Props: profile, role ('major' | 'minor'), addedPrograms (lib/studentPrograms.js, the non-primary ones), evaluate, onAdd, onClose, adding, error
  */
-export default function AddProgramModal({ profile, role = 'major', addedPrograms, onAdd, onClose, adding, error }) {
+export default function AddProgramModal({ profile, role = 'major', addedPrograms, evaluate = null, onAdd, onClose, adding, error }) {
   const isMinor = role === 'minor'
   const [programs, setPrograms] = useState([])
   const [plans, setPlans] = useState([])
@@ -73,6 +77,19 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
       .then(({ data }) => { if (live) setSlotCheck({ key: checkKey, value: (data ?? []).length > 0 }) })
     return () => { live = false }
   }, [checkKey])
+
+  // what adding it would do to the finish; null until known (or when it cannot be worked out)
+  const effectKey = evaluate && row ? `${role}:${row.concentration_id}:${row.catalog_year}` : null
+  const [effect, setEffect] = useState({ key: null, result: null })
+  useEffect(() => {
+    if (!effectKey) return
+    let live = true
+    evaluate(row).then(result => { if (live) setEffect({ key: effectKey, result }) }).catch(() => { if (live) setEffect({ key: effectKey, result: null }) })
+    return () => { live = false }
+    // `row` is derived from `effectKey`
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectKey])
+  const delay = effectKey && effect.key === effectKey && effect.result ? describeDelay(effect.result) : null
 
   return (
     <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !adding) onClose() }}>
@@ -148,6 +165,13 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
             </p>
           )}
           {transcriptNotice && <p className="ds-modal-warn" role="note">{transcriptNotice}</p>}
+          {effectKey && !delay && <p className="ds-modal-text" role="status">Working out what this does to your finish…</p>}
+          {delay && (
+            <p className={`ds-modal-warn ds-whatif-${delay.state}`} role="status">
+              {delay.sentence}
+              {delay.detail && <><br />{delay.detail}</>}
+            </p>
+          )}
           {error && <p className="ds-modal-text" role="alert" style={{ color: 'var(--danger)' }}>{error}</p>}
         </div>
         <div className="ds-modal-foot">
