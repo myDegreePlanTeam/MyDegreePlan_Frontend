@@ -11,8 +11,9 @@ import { db, platform } from './dataClient'
 import { platformWords } from './platform'
 import { buildDegreePlan } from './degreeBuilder'
 import { buildRequirementMap } from './requirementMap'
-import { fetchRequirementSlots } from './requirementSlots'
-import { catalogYearForProfile } from './catalogYears'
+import { fetchStudentPrograms } from './studentPrograms'
+import { fetchProgramSlotSets, fetchProgramInfo } from './programSlots'
+import { mergePrograms, addedSlotIdsOf } from './programMerge'
 import { resolveMathPlacementRow, resolveActEnglishCredit } from './actScoreResolver'
 import { resolveMathPlacement, validateSatMath, SAT_MATH_RANGE } from './mathPlacement'
 import { isMissingColumn } from './dbErrors'
@@ -90,9 +91,15 @@ export async function saveActScoresAndRebuild(profile, numScores) {
   // The catalog holds every university course; the builder only needs this plan's (see plannerCatalog.js).
   // standing_req drives the builder's junior/senior placement — without it CSC3040 jumped ahead of
   // COMM_REQ and the pool front-fill never ran.
-  const slotsRes = await fetchRequirementSlots(db, profile.concentration_id, catalogYearForProfile(profile), 'id, class_code, is_pool, flex_credits, map_semester')
+  // Every program the student follows (the one on the profile, and a second major or a minor added to it): the plan is re-placed as one.
+  const programsRes = await fetchStudentPrograms(db, profile)
+  const setsRes = programsRes.error
+    ? { data: [], error: programsRes.error }
+    : await fetchProgramSlotSets(db, programsRes.data, 'id, class_code, is_pool, flex_credits, map_semester')
+  const rawSlots = (setsRes.data ?? []).flatMap(set => set.slots)
+  const slotsRes = { data: rawSlots, error: setsRes.error }
   const [catalog, priorRes, studentSlotsRes] = await Promise.all([
-    slotsRes.error ? { courses: [], prereqs: [], coreqs: [], error: null } : fetchPlannerCatalog(db, slotsRes.data ?? []),
+    slotsRes.error ? { courses: [], prereqs: [], coreqs: [], error: null } : fetchPlannerCatalog(db, rawSlots),
     db.from('prior_credits').select('id, credit_type, satisfies_course_code, satisfies_pool, note, credits_awarded').eq('plan_id', profile.id),
     db.from('student_plan_slots').select('requirement_slot_id, position_source, selected_course_code, status, credits_remaining').eq('student_id', profile.id),
   ])
@@ -102,10 +109,22 @@ export async function saveActScoresAndRebuild(profile, numScores) {
   if (slotsRes.error || catalog.error || priorRes.error || studentSlotsRes.error) {
     return `Failed to reload degree data. ${platformWords(platform).reloadHint}`
   }
+  if (setsRes.data.length === 0) return null   // no program chosen yet: nothing to place
 
-  const slots = slotsRes.data ?? []
   const courseMap = {}
   for (const c of catalog.courses) courseMap[c.code] = c
+
+  // One slot list for every program (lib/programMerge.js): a course two programs need is one slot, general education comes from the primary.
+  // With no added program this is the primary's own slots, as before.
+  const { data: programInfo } = await fetchProgramInfo(db, programsRes.data.map(p => p.programId))
+  const pickedByStudent = Object.fromEntries((studentSlotsRes.data ?? []).filter(r => r.selected_course_code).map(r => [r.requirement_slot_id, r.selected_course_code]))
+  const [primarySet, ...addedSets] = setsRes.data
+  const merged = mergePrograms(
+    { programId: primarySet.program.programId, slots: primarySet.slots, genedProgram: primarySet.program.genedProgram, totalHours: programInfo[primarySet.program.programId]?.total_hours },
+    addedSets.map(({ program, slots: set }) => ({ programId: program.programId, role: program.role, slots: set, genedProgram: program.genedProgram, totalHours: programInfo[program.programId]?.total_hours })),
+    { courses: courseMap, planSlots: pickedByStudent },
+  )
+  const slots = merged.slots
 
   // Grouped by group_index, with course substitutes applied (MATH1906
   // also satisfies MATH1910 requirements — see requirementMap.js).
@@ -132,6 +151,7 @@ export async function saveActScoresAndRebuild(profile, numScores) {
 
   const { assignments, archived } = buildDegreePlan({
     slots,
+    addedSlotIds: addedSlotIdsOf(merged.programsOf, primarySet.program.programId),
     courseMap,
     prereqMap,
     coreqMap,

@@ -244,7 +244,7 @@ Built: the "Minors" row in Settings and an "Add a minor" dialog (every minor ope
 (it covers minors too).
 **Changes and findings:** (1) **a tier 3 minor adds no hours and no slots** (the plan's "15-hour counter" is not built): it is listed with a note and nothing is checked against it, so the hours of a minor the planner cannot see are not
 promised; (2) found in the browser: the math placement archived the Mathematics Minor's **MATH 1920** as "not applicable" on the new curriculum, so a requirement vanished; fixed in `degreeBuilder` (`addedSlotIds`); (3) not built: the
-Art/Music individual-instruction cap (no tier 1 or 2 spec states it); (4) **saving ACT scores re-places the primary program only** (`lib/actScores.js` reads the primary's slots): an added program's positions are left as they were.
+Art/Music individual-instruction cap (no tier 1 or 2 spec states it); (4) saving ACT scores re-placed the primary program only (`lib/actScores.js` read the primary's slots), leaving an added program where it was: **fixed afterwards**, the rebuild now reads every program, merges them and re-places the plan as one (`actScoresPrograms.test.js`).
 Checked in the browser (flag opened locally, reverted): CSC Core + Mathematics Minor (125 hours, MATH 1910 and 2010 shared, the 6 upper-division hours as a bucket filled in two picks, nothing left), removal restoring exactly 44 rows and 0
 added courses; an unmodelled minor (Aquatics) adds nothing and shows a note.
 
