@@ -325,7 +325,7 @@ as another "Choose a course" row under the slot, repeating until the bucket is c
   (`RemainderRow`), `planExportModel`, and `SlotModal` (`followUpHours` mode, which treats the slot's
   own pick as taken rather than as the selection being edited). The row is selectable as
   `{ kind: 'remainder', id }` (panel key `rem_<slotId>`), blocks "Mark complete", and appears in the
-  Issues tab as `rem_<slotId>`.
+  the Plan check list as `rem_<slotId>`.
 - Only `FREE_ELECTIVE` qualifies. Other pools stay one course per slot; widening it means adding to
   `REMAINDER_POOLS` and deciding what a short course in that pool means.
 - `usePlanCompleteness` still treats `FREE_ELECTIVE` as always filled; the app does not use that hook.
@@ -538,8 +538,8 @@ so `done` equals the plan header's `splitCreditsByPhase(...).completed`; a test 
 ### `src/lib/features.js` (features held back as "Coming soon")
 
 `FEATURES` lists what is built but not open to students, and `isFeatureOpen(name, features = FEATURES)` reads it (no name is open; a name is open only when its flag is exactly `true`, so a typo stays
-closed). **`requirements` is open (2026-10-13)**: the Requirements tab, the degree audit and its PDF are live. With the flag `false` the sidebar tab (`Sidebar.jsx`, and the loading skeleton's copy of it) is greyed out,
-disabled and tagged "Coming soon"; `DegreePlan` neither computes the audit nor the projection, refuses to navigate there (`navigateTo`), and the degree audit PDF is not offered (the Advisement tab lists it
+closed). **`requirements` is open (2026-10-13)**: the Requirements tab, the degree audit and its PDF are live. With the flag `false` the sidebar tab (`Sidebar.jsx`; the loading skeleton reads the same `shell/navTabs.js`) is greyed out,
+disabled and tagged "Coming soon"; `DegreePlan` neither computes the audit nor the projection, refuses to navigate there (`navigateTo`), and the degree audit PDF is not offered (the Advising tab lists it
 as "Coming soon" beside the Degree Map). The parity journey (`parity/lib/scenario.mjs`) visits the Requirements tab and the audit PDF on every platform. `requirementsReady.test.js` checks the audit, the
 finish line and the PDF's model for every program open to students at two math placements. `features.test.jsx` pins both states. `additionalPrograms` is open.
 
@@ -564,7 +564,7 @@ independently).
 
 ### The degree audit PDF (`auditExportModel.js`, `AuditPdfDocument.jsx`, `auditLabels.js`)
 
-The Advisement tab offers **two documents, each its own PDF with its own export button and preview**: the Degree Map (`planExportModel.js` → `PlanPdfDocument.jsx`, the department's form) and the
+The Advising tab offers **two documents, each its own PDF with its own export button and preview**: the Degree Map (`planExportModel.js` → `PlanPdfDocument.jsx`, the department's form) and the
 Degree Audit (`auditExportModel.js` → `AuditPdfDocument.jsx`). `AdvisementView` takes `documents: [{ id, label, exportButton, preview, soon }]`, shows one at a time, and lists a `soon` document
 greyed out and tagged (the audit is `soon` while `FEATURES.requirements` is false; then the tab offers the map alone, as before). Files are `degree-plan-<program>-<date>.pdf` and
 `degree-audit-<program>-<date>.pdf` (`filenameFor`).
@@ -574,7 +574,7 @@ so the document cannot disagree with the screen: the counts and hours line, the 
 as the catalog writes it, a state word, where the credit comes from, the hours), and what did not count. **`buildAuditDocumentModel({ audit, projection, profile, generatedAt })`** adds what heads the document
 (program, catalog year, the day). The words are shared, not copied: `auditLabels.js` holds the row states ("Done", "In progress", "Planned", "Not placed") and the category states ("Complete", "Covered by plan", ...),
 and `describeFinish` / `describeBlockDates` (`degreeProjection.js`) write the finish line and a block's dates for both the screen and the print. `DegreePlan` computes the projection while the Requirements or
-Advisement tab is open. A state is spelled out beside its fill, so a greyscale print still says it. A heading is kept with its first two rows in one unbreakable box (`minPresenceAhead` does not hold it in this
+Advising tab is open. A state is spelled out beside its fill, so a greyscale print still says it. A heading is kept with its first two rows in one unbreakable box (`minPresenceAhead` does not hold it in this
 renderer).
 
 What the two documents share lives in `pdfStyles.js` (page geometry, colours, the page/title/body/footer styles, whole-word wrapping), `PdfTitleBlock.jsx` and `PdfFooter.jsx`; the preview is one generic
@@ -619,6 +619,18 @@ light (`:root[data-theme="light"]`), plus the type scale (`--fs-*`, nothing unde
 **Fonts.** Atkinson Hyperlegible (interface), DM Serif Display (titles) and DM Mono (course codes) are woff2 files in `public/fonts/`, declared by `@font-face` in `index.css`, with the SIL Open Font License of each
 in `public/fonts/licenses/`. They are **never loaded from a font service**: the Windows app and the Docker web container allow fonts only from the page's own origin, so before this the Google Fonts links silently
 fell back to system faces there. `designTokens.test.js` fails on a font-service URL, a missing file, a file that is not woff2 and an inline script in `index.html`. Atkinson is declared but unused until Phase 2 (a browser fetches a font only when a rule uses it).
+
+### The shell's navigation (`PLAN_redesign.md`, Phase 2)
+
+**Four destinations**, from `components/shell/navTabs.js` (read by `Sidebar.jsx` and by the loading skeleton, so the two cannot drift): Plan, Requirements, Advising, Settings, each with an SVG icon
+(`NavIcon.jsx`). A destination whose flag in `lib/features.js` is closed is still listed greyed and tagged "Coming soon". **Issues is no longer a tab**: the list is called **Plan check**, the plan's
+"N things to review" line (`.ds-plancheck`, `DegreePlan.jsx`) opens it (`view === 'issues'`, `IssuesView.jsx`), "Back to plan" returns, and the Plan tab stays marked while it is open. (Phase 3a replaces
+the line with the full Plan check strip.) The Advisement tab became **Advising**; `AdvisementView.jsx` keeps its file name.
+
+**The rail** (`.ds-sidebar`, 240 px) uses the `--c-*` tokens and the interface font; the page beside it still uses the old tokens until Phases 3 to 5. At 760 px or less (`PHONE_QUERY`) it is a
+**fixed bottom tab bar**, four labelled tabs 52 px tall, and `.ds-main` leaves room for it (`env(safe-area-inset-bottom)` for a phone's home bar). The old account avatar and the Issues count badge are gone
+(the account line is "On this device" or the signed-in email, then "Saved at 2:14 PM"). `.ds-app :focus-visible` draws a 3 px focus ring on every control. `src/tests/shellNav.test.jsx` pins the four
+destinations, the marked tab, the icons, the tokens, the 13 px and 44 px floors and the bottom bar.
 
 ### `src/lib/genEdPanel.js`
 

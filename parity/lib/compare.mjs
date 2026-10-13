@@ -15,7 +15,7 @@ export function normalizeLines(lines, platform) {
   return lines.map(line => {
     let out = line
     for (const [key, value] of words) out = out.split(value).join(`{{${key}}}`)
-    return out.replace(/Last saved \d{1,2}:\d{2}\s?[AP]M/, 'Last saved {{time}}')
+    return out.replace(/(?:Last saved|Saved at) \d{1,2}:\d{2}\s?[AP]M/, 'Saved at {{time}}')
   })
 }
 

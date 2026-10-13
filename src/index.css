@@ -88,6 +88,7 @@
   --c-page:          #14111F;
   --c-surface:       #1D1930;
   --c-surface-2:     #27223D;
+  --c-tint:          #2A2547;   /* the selected tab, a neutral banner: a quiet violet wash */
   --c-hairline:      #4A4466;   /* card and divider edges (decorative) */
   --c-border-strong: #8279A8;   /* inputs, checkboxes, outline buttons (3:1 or better) */
   --c-text:          #EFEDF8;
@@ -125,6 +126,7 @@
   --c-page:          #F6F5FA;
   --c-surface:       #FFFFFF;
   --c-surface-2:     #EFEDF6;
+  --c-tint:          #EEEBF8;
   --c-hairline:      #CFC9E0;
   --c-border-strong: #857E9F;
   --c-text:          #1D1830;

@@ -677,7 +677,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   }, [majorCode, slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, totalHours, profile.concentrations.name, auditPrograms, programPlan.programsOf, profile.gened_program])
 
   // ── The finish line (Requirements view): the soonest the rules allow, and what sets the pace ──
-  // Several scheduling passes: only worked out while a tab that shows it is open (Requirements, and Advisement, whose PDF prints it),
+  // Several scheduling passes: only worked out while a tab that shows it is open (Requirements, and Advising, whose PDF prints it),
   // not on every drag on the Plan.
   const projection = useMemo(
     () => (isFeatureOpen('requirements') && (view === 'requirements' || view === 'advising')
@@ -734,7 +734,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // An unfilled requirement-pool slot in an earlier semester provisionally
   // meets a prereq its pool offers (CSC3040 after an empty Communications
   // slot); poolReliance records which slots that leaned on, and which courses
-  // leaned on them, for the Issues tab's "incomplete selection" entries.
+  // leaned on them, for the Plan check list's "incomplete selection" entries.
   const { prereqWarnings, poolReliance } = useMemo(() => {
     const placed  = []
     const pending = []
@@ -1162,7 +1162,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // entry points enforce the same rules. A season restriction is final; a
   // prereq/coreq conflict is explained and the student may move anyway
   // (`override`): the way to a plan often passes through a state the checks
-  // refuse, and the plan flags the broken requisite on the Issues tab regardless.
+  // refuse, and the plan flags the broken requisite in Plan check regardless.
   function moveToSemester(type, slotId, newSemester, { override = false } = {}) {
     if (type === 'requirement_slot') {
       const slot = slots.find(s => s.id === slotId)
@@ -1694,6 +1694,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     prereqWarnings, coreqWarnings, standingWarnings, scienceWarnings, poolLimitWarnings, incompleteSlots,
   })
   const issueCounts = countIssuesBySemester(issues)
+  const blockerCount = issues.filter(i => i.severity === 'blocker').length
 
   const lastUndo = undoStack[undoStack.length - 1]
 
@@ -1856,7 +1857,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     />
   )
 
-  // Same inputs feed the Advisement tab's PDF preview and its download button,
+  // Same inputs feed the Advising tab's PDF preview and its download button,
   // so what the student sees is what they export.
   const pdfExportProps = {
     semesterNumbers: allSemesterNumbers,
@@ -1881,7 +1882,6 @@ export default function DegreePlan({ profile, onProfileChange }) {
       <Sidebar
         view={view}
         onNavigate={navigateTo}
-        issueCount={issues.length}
         lastSavedAt={lastSavedAt}
       />
 
@@ -1936,6 +1936,17 @@ export default function DegreePlan({ profile, onProfileChange }) {
                 </button>
               </div>
             </div>
+
+            {/* Plan check: the way into the list of things to review, now that Issues is no longer a tab. The full strip comes in Phase 3a. */}
+            {issues.length > 0 && (
+              <div className="ds-plancheck" role="region" aria-label="Plan check">
+                <span className="ds-plancheck-text">
+                  <strong>{issues.length} {issues.length === 1 ? 'thing' : 'things'} to review</strong>
+                  {blockerCount > 0 && <span className="ds-plancheck-fix"> · {blockerCount} {blockerCount === 1 ? 'needs' : 'need'} fixing</span>}
+                </span>
+                <button className="ds-btn-ghost" onClick={() => navigateTo('issues')}>Review</button>
+              </div>
+            )}
 
             {notModelled.length > 0 && (
               <p className="ds-plan-note" role="note">
@@ -2056,7 +2067,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         )}
 
         {view === 'issues' && (
-          <IssuesView issues={issues} onOpenIssue={openIssue} />
+          <IssuesView issues={issues} onOpenIssue={openIssue} onBack={() => navigateTo('plan')} />
         )}
 
         {view === 'advising' && (
@@ -2199,7 +2210,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
               <h3 className="ds-modal-title">{conflictModal.title}</h3>
               <p className="ds-sub" style={{ fontSize: 11 }}>
                 Nothing has moved yet. You can move it anyway (a plan sometimes has to pass through a state like this);
-                the Issues tab will keep flagging the requisite until it is met.
+                Plan check will keep flagging the requisite until it is met.
               </p>
             </div>
             <ul className="ds-panel-list" style={{ margin: 0, padding: '16px 22px 16px 38px' }}>

@@ -114,11 +114,15 @@ export async function runScenario(target, { log = () => {} } = {}) {
   await page.getByText(/Earliest finish|Every requirement is done|You finish at the end of|No finish can be worked out/).first().waitFor({ timeout: STEP_TIMEOUT }).catch(() => {})
   await grab('requirements')
 
-  await openTab('Issues')
+  // Plan check (the list of things to review) is not a tab: the plan's Plan check line opens it.
+  await openTab('Plan')
+  await page.locator('.ds-plancheck').getByRole('button', { name: 'Review' }).click()
+  await page.getByText('Plan check').first().waitFor({ timeout: STEP_TIMEOUT })
+  await page.waitForTimeout(400)
   await grab('issues')
 
-  // ── Advisement: the PDF preview must produce a real PDF on every platform ──
-  await openTab('Advisement')
+  // ── Advising: the PDF preview must produce a real PDF on every platform ──
+  await openTab('Advising')
   const frame = page.locator('iframe.ds-pdf-iframe')
   await frame.waitFor({ timeout: 90_000 })
   await page.waitForTimeout(3_000)

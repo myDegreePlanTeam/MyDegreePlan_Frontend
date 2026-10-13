@@ -82,66 +82,59 @@
 .ds-btn-danger:hover:not(:disabled) { background: rgba(var(--danger-rgb), .12); }
 .ds-btn-danger:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────── */
+/* -- Sidebar: the rail on a desktop, the bottom tab bar on a phone (redesign Phase 2) --------------------------------------------
+   Drawn with the new --c-* tokens and the interface font (index.css). The content beside it moves over in Phases 3 to 5, so for now the
+   rail and the page are two shades of the same family. A tab is 44 px tall; nothing here is under 13 px. */
 .ds-sidebar {
-  width: 228px; flex-shrink: 0;
-  background: var(--bg-mid); border-right: 1px solid var(--bg-light);
+  width: 240px; flex-shrink: 0;
+  background: var(--c-surface); border-right: 1px solid var(--c-hairline);
   display: flex; flex-direction: column;
   position: sticky; top: 0; height: 100vh;
+  font-family: var(--font-ui); color: var(--c-text);
 }
-.ds-brand { padding: 22px 18px 18px; border-bottom: 1px solid var(--bg-light); }
-.ds-brand-eyebrow {
-  margin: 0 0 5px; font-size: 9px; letter-spacing: .2em;
-  text-transform: uppercase; color: var(--gold);
-}
+.ds-brand { padding: var(--sp-5) var(--sp-4) var(--sp-4); }
 .ds-brand-title {
   margin: 0; font-family: var(--font-display);
-  font-size: 19px; font-weight: 400; line-height: 1.2;
+  font-size: 24px; font-weight: 400; line-height: 32px;
 }
-.ds-tabs { display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; }
-.ds-tab {
-  display: flex; align-items: center; gap: 11px;
-  min-height: 40px; padding: 0 12px;
-  border: none; border-radius: 8px; cursor: pointer;
-  background: transparent; color: var(--text-muted);
+.ds-tabs { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
+.ds-sidebar .ds-tab {
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: var(--target); padding: 0 var(--sp-3);
+  border: none; border-radius: var(--r-control); cursor: pointer;
+  background: transparent; color: var(--c-text-2);
+  font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-ui);
 }
-.ds-tab:hover { background: var(--bg-light); color: var(--text); }
-.ds-tab-active, .ds-tab-active:hover { background: var(--bg-light); color: var(--gold); }
-.ds-tab-icon { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; }
-/* a tab that is built but not open: greyed, tagged, and not a target */
-.ds-tab-soon, .ds-tab-soon:hover { background: transparent; color: var(--text-muted); opacity: .55; cursor: default; gap: 8px; }
-.ds-tab-soon .ds-tab-label { min-width: 0; flex: 0 1 auto; margin-right: auto; }
+.ds-sidebar .ds-tab:hover { background: var(--c-surface-2); color: var(--c-text); }
+.ds-sidebar .ds-tab-active, .ds-sidebar .ds-tab-active:hover { background: var(--c-tint); color: var(--c-link); font-weight: 700; }
+.ds-tab-icon { width: 20px; height: 20px; flex-shrink: 0; }
+.ds-tab-label { flex: 1; text-align: left; }
+/* a destination that is built but not open: greyed, tagged, and not a target */
+.ds-sidebar .ds-tab-soon, .ds-sidebar .ds-tab-soon:hover { background: transparent; color: var(--c-text-3); cursor: default; gap: var(--sp-2); }
+.ds-sidebar .ds-tab-soon .ds-tab-label { min-width: 0; flex: 0 1 auto; margin-right: auto; }
 .ds-tab-soon-tag {
-  flex-shrink: 0; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
-  border: 1px solid var(--bg-light); border-radius: 4px; padding: 1px 4px;
-}
-.ds-tab-label { flex: 1; text-align: left; font-size: 12.5px; letter-spacing: .03em; }
-.ds-tab-badge {
-  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
-  background: var(--danger); color: var(--bg);
-  font-size: 9.5px; font-weight: 500;
-  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; white-space: nowrap;
+  font-size: var(--fs-caption); line-height: var(--lh-caption);
+  border: 1px solid var(--c-hairline); border-radius: 999px; padding: 0 var(--sp-2);
 }
 .ds-account {
-  margin-top: auto; padding: 16px 18px 20px;
-  border-top: 1px solid var(--bg-light);
-  display: flex; flex-direction: column; gap: 10px;
-}
-.ds-account-row { display: flex; align-items: center; gap: 10px; }
-.ds-avatar {
-  width: 30px; height: 30px; border-radius: 16px; background: var(--bg-light);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; color: var(--gold); flex-shrink: 0; text-transform: uppercase;
+  margin-top: auto; padding: var(--sp-4);
+  border-top: 1px solid var(--c-hairline);
+  display: flex; flex-direction: column; gap: 2px;
 }
 .ds-account-name {
-  font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 14px; font-weight: 700; line-height: var(--lh-ui); color: var(--c-text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ds-account-meta { font-size: 9.5px; color: var(--text-muted); line-height: 1.6; }
-.ds-signout {
-  align-self: flex-start; padding: 0; background: none; border: none;
-  color: var(--text-muted); font-size: 10.5px; cursor: pointer;
+.ds-account-meta { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--c-text-3); }
+.ds-sidebar .ds-signout {
+  align-self: flex-start; min-height: var(--target); padding: 0 var(--sp-1);
+  background: none; border: none; cursor: pointer;
+  color: var(--c-link); font-family: var(--font-ui); font-size: var(--fs-ui); text-decoration: underline;
 }
-.ds-signout:hover { color: var(--gold); }
+
+/* A visible focus ring on every control for a keyboard user (WCAG 2.4.7); a mouse click does not draw it. */
+.ds-app :focus-visible { outline: 3px solid var(--c-focus); outline-offset: 2px; }
 
 /* ── Main column ─────────────────────────────────────────────────────── */
 .ds-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -716,9 +709,8 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .sk-slot-name    { height: 9px;  width: 55%; max-width: 190px; }
 .sk-slot-credits { height: 9px;  width: 22px; }
 
-.sk-avatar       { width: 30px; height: 30px; border-radius: 16px; flex-shrink: 0; }
-.sk-account-name { height: 11px; width: 110px; }
-.sk-account-meta { height: 9px; width: 130px; }
+.sk-account-name { height: 14px; width: 110px; margin-bottom: 4px; }
+.sk-account-meta { height: 13px; width: 130px; }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
@@ -730,16 +722,26 @@ button.ds-setting:hover { background: var(--ds-hover); }
 
 @media (max-width: 760px) {
   .ds-app { flex-direction: column; }
+  /* The rail becomes a bottom tab bar: four labelled tabs, always in view, 52 px tall (WCAG target 44 px). */
   .ds-sidebar {
-    width: 100%; height: auto; position: sticky; top: 0; z-index: 20;
-    flex-direction: row; align-items: center;
-    border-right: none; border-bottom: 1px solid var(--bg-light);
+    position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 20;
+    width: 100%; height: auto;
+    flex-direction: row; align-items: stretch;
+    border-right: none; border-top: 1px solid var(--c-hairline);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .ds-brand { display: none; }
-  .ds-tabs { flex-direction: row; flex: 1; padding: 6px; overflow-x: auto; }
-  .ds-tab { min-height: 36px; padding: 0 10px; flex-shrink: 0; white-space: nowrap; }
-  .ds-tab-label { font-size: 11.5px; }
+  .ds-tabs { flex-direction: row; flex: 1; gap: var(--sp-1); padding: 6px var(--sp-1); }
+  .ds-sidebar .ds-tab {
+    flex: 1; min-width: 0; flex-direction: column; justify-content: center; gap: 2px;
+    min-height: 52px; padding: 0 2px; text-align: center;
+    font-size: var(--fs-caption); line-height: var(--lh-caption);
+  }
+  .ds-sidebar .ds-tab-label { flex: none; text-align: center; font-size: var(--fs-caption); }
+  .ds-sidebar .ds-tab-soon .ds-tab-label { margin-right: 0; }
+  .ds-sidebar .ds-tab-soon-tag { display: none; }
   .ds-account { display: none; }
+  .ds-main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .ds-plan-header, .ds-plan-body, .ds-view { padding-left: 16px; padding-right: 16px; }
   .ds-grid { grid-template-columns: 1fr; }
   .ds-panel { width: 100%; }
@@ -895,3 +897,24 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-adv-doc:hover:not(:disabled) { background: var(--bg-light); color: var(--text); }
 .ds-adv-doc-active, .ds-adv-doc-active:hover { background: var(--bg-light); color: var(--gold); border-color: var(--gold); }
 .ds-adv-doc-soon, .ds-adv-doc-soon:hover { opacity: .55; cursor: default; }
+
+/* -- Plan check line on the plan (redesign Phase 2) -------------------------------------------------------------------------
+   The way into the list of things to review now that Issues is not a tab. A quiet tint, never an alarm colour; the full strip with the
+   picks to make comes in Phase 3a. */
+.ds-plancheck {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap;
+  padding: var(--sp-3) 32px;
+  background: var(--c-tint); border-bottom: 1px solid var(--c-hairline);
+  font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--c-text);
+}
+.ds-plancheck-fix { color: var(--c-text-2); }
+.ds-plancheck .ds-btn-ghost {
+  min-height: var(--target); padding: 0 var(--sp-5);
+  font-family: var(--font-ui); font-size: var(--fs-body); font-weight: 700;
+  color: var(--c-link); background: var(--c-surface); border: 2px solid var(--c-border-strong);
+}
+.ds-plancheck .ds-btn-ghost:hover:not(:disabled) { color: var(--c-link); border-color: var(--c-link); }
+.ds-issues-back { margin-bottom: var(--sp-4); min-height: var(--target); font-family: var(--font-ui); font-size: var(--fs-body); }
+@media (max-width: 760px) {
+  .ds-plancheck { padding-left: 16px; padding-right: 16px; }
+}

@@ -1,6 +1,8 @@
 import { isFeatureOpen } from '../lib/features'
 import './Dashboard.css'
 import { getBrand } from '../lib/brand'
+import { NAV_TABS } from './shell/navTabs'
+import NavIcon from './shell/NavIcon'
 
 // ── OnboardingSkeleton ────────────────────────────────────────────────────────
 // Shown by Dashboard.jsx while the student_profiles row is being fetched.
@@ -55,14 +57,8 @@ export function OnboardingSkeleton() {
 // Reuses .ds-app, .ds-sidebar, .ds-main, .ds-plan*, .ds-prior, .ds-grid, and
 // .ds-sem, so the two-per-row grid and card borders match the real plan.
 
-// Same order and labels as TABS in shell/Sidebar.jsx (not exported from there).
-const SKELETON_TABS = [
-  { label: 'Plan',       icon: '▤', active: true },
-  { label: 'Requirements', icon: '☑', feature: 'requirements' },
-  { label: 'Issues',     icon: '⚠' },
-  { label: 'Advisement', icon: '◇' },
-  { label: 'Settings',   icon: '◎' },
-]
+// The same destinations as the real rail (shell/navTabs.js, shell/NavIcon.jsx).
+const SKELETON_TABS = NAV_TABS.map(tab => ({ ...tab, active: tab.id === 'plan' }))
 
 export function DegreeplanSkeleton() {
   return (
@@ -116,14 +112,13 @@ function SkeletonSidebar() {
   return (
     <div className="ds-sidebar">
       <div className="ds-brand">
-        <p className="ds-brand-eyebrow">{getBrand().shellEyebrow}</p>
-        <p className="ds-brand-title">Degree Planner</p>
+        <p className="ds-brand-title">{getBrand().shellEyebrow}</p>
       </div>
 
       <div className="ds-tabs">
         {SKELETON_TABS.map(tab => (
-          <div key={tab.label} className={`ds-tab${tab.active ? ' ds-tab-active' : ''}${isFeatureOpen(tab.feature) ? '' : ' ds-tab-soon'}`}>
-            <span className="ds-tab-icon" aria-hidden="true">{tab.icon}</span>
+          <div key={tab.id} className={`ds-tab${tab.active ? ' ds-tab-active' : ''}${isFeatureOpen(tab.feature) ? '' : ' ds-tab-soon'}`}>
+            <NavIcon id={tab.id} />
             <span className="ds-tab-label">{tab.label}</span>
             {!isFeatureOpen(tab.feature) && <span className="ds-tab-soon-tag">Coming soon</span>}
           </div>
@@ -131,10 +126,7 @@ function SkeletonSidebar() {
       </div>
 
       <div className="ds-account">
-        <div className="ds-account-row">
-          <div className="sk-pulse sk-avatar" />
-          <div className="sk-pulse sk-account-name" />
-        </div>
+        <div className="sk-pulse sk-account-name" />
         <div className="sk-pulse sk-account-meta" />
       </div>
     </div>
