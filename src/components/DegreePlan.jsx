@@ -35,6 +35,7 @@ import RequirementsView from './shell/RequirementsView'
 import { buildDegreeAudit } from '../lib/degreeAudit'
 import { DragEnabledContext, useIsPhone, useDragEnabled } from '../lib/dragEnabled'
 import { listSlotOptions } from '../lib/slotOptions'
+import { projectDegree } from '../lib/degreeProjection'
 import IssuesView from './shell/IssuesView'
 import AdvisementView from './shell/AdvisementView'
 import SettingsView, { ConcentrationModal, ResetModal } from './shell/SettingsView'
@@ -571,6 +572,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
       genedExempt: getFlightFoundationsExemptions(majorCode),
     })
   }, [majorCode, slots, planSlots, planArchived, planSemesterOverrides, freeAddSlots, priorCredits, courses, semesterTerms, semesterPhase, profile.concentrations.total_hours, profile.concentrations.name, profile.gened_program])
+
+  // ── The finish line (Requirements view): the soonest the rules allow, and what sets the pace ──
+  // Several scheduling passes: only worked out while the tab is open, not on every drag on the Plan.
+  const projection = useMemo(
+    () => (view === 'requirements'
+      ? projectDegree({ audit: degreeAudit, slots, courses, prereqMap, coreqMap, priorCredits, freeAddSlots, semesterTerms, semesterPhase })
+      : null),
+    [view, degreeAudit, slots, courses, prereqMap, coreqMap, priorCredits, freeAddSlots, semesterTerms, semesterPhase],
+  )
 
   // ── Pool limits (the Area of Emphasis hours, for Mechanical Engineering) ──
   const poolLimitWarnings = useMemo(
@@ -1786,6 +1796,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         {view === 'requirements' && (
           <RequirementsView
             audit={degreeAudit}
+            projection={projection}
             onOpenRow={row => openIssue({ semNum: row.semNum, key: row.key })}
             getOptions={getRowOptions}
           />

@@ -1,6 +1,6 @@
 # PLAN — Deeper features
 
-Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 built (branch `feat/audit-evidence`), A3 to A5 not started. The other phases are not started and need a go-ahead
+Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 merged, A3 built (branch `feat/audit-projection`), A4 and A5 not started. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
 The breadth work (opening more departments, back-filling catalog years) is a separate project: see `PLAN_all-majors.md`.
@@ -75,9 +75,10 @@ this plan does not add one; a department-named grouping ("Major core", "Technica
   "Not counted toward a requirement" section lists hours above a category's limit, introductory language over its cap, hours in an exempt category, a course counted
   once already, a course that fills no listed requirement, and a placement that awarded no hours; it says plainly that a course counts once (a slot model, unlike Degree
   Works' best-fit display). Legacy plans have lighter evidence (their evaluator keeps no course lists).
-- **A3. Projection.** Earliest possible graduation term from the prerequisite chains, a "complete by" term per block, and the critical path
-  (the chain of required courses that limits finishing). Built on `buildRequirementMap` and `checkPrereqs`; shares its scheduling code with the
-  Phase 4 recommendation engine, so write it as a pure module under `src/lib/` that Phase 4 can import.
+- **A3. Projection (built).** `lib/termScheduler.js` (pure; the code Phase 4 reuses) and `lib/degreeProjection.js`: the earliest finish the rules allow (the same prerequisite,
+  corequisite, season and standing checks the Plan runs, at up to 18 hours a term, Fall and Spring), the student's own plan end beside it, the chain that sets the pace and why a step
+  waited, a plan-and-fastest date per block, and courses no rule can place. A "Finish line" card on the Requirements tab. It is an estimate (no seats, no schedule of classes, no summers),
+  and `optimal: false` says a different arrangement might save a term. Engineering plans are held to their department map, so for them the map, not prerequisites, sets the pace.
 - **A4. Print.** Add the audit to the Advisement PDF (`PlanPdfDocument.jsx`, `planExportModel`) so an advisor sees the same view.
 - **A5. GPA tools: deferred.** Degree Works' calculators need grades, and this app derives progress from the calendar and stores none. They
   wait for the roadmap's "Real grades" item; do not design grade entry here.
