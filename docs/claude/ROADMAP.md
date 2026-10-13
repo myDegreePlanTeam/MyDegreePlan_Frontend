@@ -136,7 +136,8 @@ The desktop app shell (Plan / Requirements / Issues / Advisement / Settings tabs
 original redesign list was not re-checked against them. From it: a tab structure with a read-only Plan beside a What-If grid; mobile tap-to-move and
 a bottom drawer for Prior Coursework; a persistent right sidebar for Prior Coursework on desktop; a hard block on an invalid drag with an override
 dialog and a persistent flag; dashed, italic placeholders for pool slots; purple for progress and gold for prerequisite warnings only. Reference: the
-Claude Design mockup (`first_prototype.png`, not in the repo).
+Claude Design mockup (`first_prototype.png`, not in the repo). A full redesign of the look, wording and first run, with the phases and what each touches, is proposed in
+[`plans/PLAN_redesign.md`](./plans/PLAN_redesign.md); it supersedes the list above once the owner approves it.
 
 ### What-if planning and a recommendation engine
 Beyond saving a plan snapshot (see "Plan history / versioning"): compare other programs, double majors and minors side by side (see "A try three
