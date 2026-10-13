@@ -1,6 +1,6 @@
 # PLAN — Deeper features
 
-Status (2026-10-12): **Phase 1 built** (branch `feat/gened-completeness-panel`, not yet merged); **Phase 1b is planned, not started**. The other phases are not started and need a go-ahead
+Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built** (branch `feat/degree-audit-skeleton`), A2 to A5 not started. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
 The breadth work (opening more departments, back-filling catalog years) is a separate project: see `PLAN_all-majors.md`.
@@ -55,7 +55,7 @@ removed) reads **Required**, a pool reads **Choose 1 of N** with its progress.
 **Blocks are derived from slot types** (gen-ed, required courses, choose-from pools, Free Elective hours). The specs have no group field and
 this plan does not add one; a department-named grouping ("Major core", "Technical electives") is a later, data-side option.
 
-- **A1. Audit skeleton.** A pure `src/lib/degreeAudit.js` (`buildDegreeAudit`) feeding `RequirementsView`: a summary header (hours done, in
+- **A1. Audit skeleton (built).** A pure `src/lib/degreeAudit.js` (`buildDegreeAudit`) feeding `RequirementsView`: a summary header (hours done, in
   progress, planned and remaining, against the program's `total_hours`), then the blocks, with the gen-ed panel as one of them. Each row
   carries its state and a click-through to the plan. Tests in `src/tests/degreeAudit.test.js`, including that the hours agree with
   `computePlanCredits`.

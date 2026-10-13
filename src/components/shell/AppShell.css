@@ -737,3 +737,45 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-gened-risk .ds-gened-state { color: var(--status-warn); }
 .ds-gened-risk .ds-gened-fill { background: var(--status-warn); opacity: 1; }
 .ds-gened-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--status-warn); }
+
+/* ── Degree audit (Requirements view) ────────────────────────────────── */
+.ds-progress-current { background: var(--status-progress); transition: width .3s ease; }
+.ds-audit-summary { margin: 24px 0 8px; }
+.ds-audit-total { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); }
+.ds-audit-total strong { color: var(--text); font-weight: 500; font-size: 15px; }
+.ds-audit-summary .ds-progress-legend { margin-top: 8px; }
+.ds-audit-block { margin-top: 32px; }
+.ds-audit-block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ds-audit-block-head .ds-h3 { margin: 0; }
+.ds-audit-count { font-size: 11px; letter-spacing: .08em; color: var(--text-muted); }
+.ds-audit-block-done .ds-audit-count { color: var(--status-done); }
+.ds-audit-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ds-audit-row {
+  background: var(--bg-mid); border: 1px solid var(--bg-light);
+  border-left: 3px solid var(--ds-audit-color, var(--bg-light)); border-radius: 8px;
+}
+.ds-audit-done        { --ds-audit-color: var(--status-done); }
+.ds-audit-in_progress { --ds-audit-color: var(--status-progress); }
+.ds-audit-planned     { --ds-audit-color: var(--gold); }
+.ds-audit-not_placed  { --ds-audit-color: var(--status-warn); }
+.ds-audit-line {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 8px 14px;
+  background: none; border: none; color: var(--text); text-align: left; font: inherit;
+}
+.ds-audit-open { cursor: pointer; border-radius: 8px; }
+.ds-audit-open:hover { background: var(--ds-hover); }
+.ds-audit-mark { width: 18px; text-align: center; color: var(--ds-audit-color); flex-shrink: 0; }
+.ds-audit-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ds-audit-title { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 13px; }
+.ds-audit-code { font-weight: 500; }
+.ds-audit-name { color: var(--text-muted); }
+.ds-audit-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--text-muted); }
+.ds-audit-state { color: var(--ds-audit-color); font-weight: 500; }
+.ds-audit-tag {
+  font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+  border: 1px solid var(--bg-light); border-radius: 4px; padding: 0 5px;
+}
+.ds-audit-go { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.ds-audit-open:hover .ds-audit-go { color: var(--gold); }
+.ds-audit-block .ds-gened { margin-top: 14px; }
+@media (max-width: 640px) { .ds-audit-go { display: none; } }

@@ -105,6 +105,9 @@ export async function runScenario(target, { log = () => {} } = {}) {
 
   const openTab = async name => { await page.locator('.ds-tab', { hasText: name }).click(); await page.waitForTimeout(400) }
 
+  await openTab('Requirements')
+  await grab('requirements')
+
   await openTab('Issues')
   await grab('issues')
 
