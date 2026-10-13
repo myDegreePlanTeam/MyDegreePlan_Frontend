@@ -11,9 +11,9 @@ export const FEATURES = {
   // the earliest finish and what sets the pace. Open since 2026-10-13.
   requirements: true,
   // A secondary major or a minor on the plan (Settings > Your major(s), Minors). The plan view already reads the ones a student has; this opens
-  // adding and removing them. Held back until the what-if and its delay warning exist and the three platforms are checked
-  // (PLAN_double-major-minor.md, Phases 7 and 8).
-  additionalPrograms: false,
+  // adding, removing and promoting them. Open since 2026-10-13, after the what-if and its delay warning and the parity journey step
+  // (PLAN_double-major-minor.md, Phases 7 and 8). With it closed, Settings shows one "Your major" row with Change.
+  additionalPrograms: true,
 }
 
 /**

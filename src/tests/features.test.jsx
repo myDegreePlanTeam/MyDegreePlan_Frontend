@@ -32,9 +32,9 @@ describe('isFeatureOpen', () => {
     expect(isFeatureOpen('requirements')).toBe(true)
   })
 
-  it('adding a secondary major is held back until the plan tags its cards and the PDFs name every program', () => {
-    expect(FEATURES.additionalPrograms).toBe(false)
-    expect(isFeatureOpen('additionalPrograms')).toBe(false)
+  it('adding a secondary major or a minor is open: Settings lists, adds, promotes and removes them', () => {
+    expect(FEATURES.additionalPrograms).toBe(true)
+    expect(isFeatureOpen('additionalPrograms')).toBe(true)
   })
 })
 

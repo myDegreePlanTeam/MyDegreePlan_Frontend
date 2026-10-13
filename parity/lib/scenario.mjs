@@ -149,12 +149,29 @@ export async function runScenario(target, { log = () => {} } = {}) {
   await openTab('Settings')
   await grab('settings')
 
-  // Found by its button, not its label, so a wording difference shows up as a difference instead of breaking the run.
-  await page.locator('.ds-setting').filter({ has: page.getByRole('button', { name: 'Change', exact: true }) }).getByRole('button', { name: 'Change', exact: true }).click()
+  // Majors: add a secondary major, make it the primary, then remove the other one (src/lib/majors.js). This writes a student_programs
+  // row and updates the profile, so on Docker it is the first time those statements run against the real Postgres.
+  await button('Add major', { exact: true }).click()
   await page.locator('.ds-modal').waitFor({ timeout: STEP_TIMEOUT })
   await page.getByText('Loading programs').waitFor({ state: 'detached', timeout: STEP_TIMEOUT }).catch(() => {})
-  await grab('settings-change-degree-program')
-  await button('Cancel').click()
+  await grab('settings-add-major')
+  await page.locator('.ds-modal select[aria-label^="Year you start"]').selectOption('2026')
+  await page.locator('.ds-modal select[aria-label^="Semester you start"]').selectOption('Fall')
+  await page.locator('.ds-modal .ds-option', { hasText: 'Mechanical Engineering' }).first().click()
+  await page.locator('.ds-modal .ds-btn-primary', { hasText: 'Add Mechanical Engineering' }).click()
+  await page.locator('.ds-modal').waitFor({ state: 'detached', timeout: STEP_TIMEOUT })
+  await page.getByText('Your majors', { exact: true }).waitFor({ timeout: STEP_TIMEOUT })
+  await grab('settings-two-majors')
+  await button('Make Mechanical Engineering your primary major').click()
+  await page.locator('button[aria-label="Make CSC Cybersecurity your primary major"]').waitFor({ timeout: STEP_TIMEOUT })
+  await grab('settings-primary-swapped')
+  await button('Remove CSC Cybersecurity').click()
+  await page.locator('.ds-modal').waitFor({ timeout: STEP_TIMEOUT })
+  await grab('settings-remove-major')
+  await page.locator('.ds-modal .ds-btn-danger').click()
+  await page.locator('.ds-modal').waitFor({ state: 'detached', timeout: STEP_TIMEOUT })
+  await page.getByText('Your major', { exact: true }).waitFor({ timeout: STEP_TIMEOUT })
+  await grab('settings-one-major')
 
   await page.locator('.ds-danger-card', { hasText: 'Reset plan' }).getByRole('button', { name: 'Reset plan' }).click()
   await page.locator('.ds-modal').waitFor({ timeout: STEP_TIMEOUT })

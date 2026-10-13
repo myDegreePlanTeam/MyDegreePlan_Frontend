@@ -378,7 +378,7 @@ order of `floors` (the degree builder's semesters for the merged list), each goe
 prerequisites the plan has later. Saved positions are never moved (the builder alone would move 11 to 33 of the primary's courses). `DegreePlan.jsx` uses it only when a program has been added to a plan that already has
 positions. **`addableMajors`, `newProgramRow`** (`addProgram.js`): the supported majors open to the declared term, leaving out the student's own major (another concentration of it is not a secondary major); the row records the
 plan year in effect for the declared term (D8). **`fetchProgramSlotSets`, `fetchProgramInfo`** (`programSlots.js`) read each program's slots for the year it follows and its name and total hours. `undoStore` scopes the stack to the
-primary and the sorted set of added programs. Settings has the "Your major(s)" section (`SettingsView.jsx`, `AddProgramModal.jsx`, `RemoveProgramModal`; with the flag closed it is the one row with Change), held back by `FEATURES.additionalPrograms` until Phases 3 and 4 land (the plan view reads an added program either way); `handleConcentrationSwitch` keeps added programs unless the new primary is one.
+primary and the sorted set of added programs. Settings has the "Your major(s)" section (`SettingsView.jsx`, `AddProgramModal.jsx`, `RemoveProgramModal`; with `FEATURES.additionalPrograms` closed it is the one row with Change; it has been open since 2026-10-13, and the parity journey adds, promotes and removes a major); `handleConcentrationSwitch` keeps added programs unless the new primary is one.
 **Minors** (Phase 6): a minor's "M hours from this list" is a pool with `bucket: true` in `pools.json` (`BUCKET_POOLS` in `poolResolver.js`), and `isRemainderPool` treats it like a Free Elective: a pick fills part of its
 `flex_credits`, a follow-up row offers the rest (`student_free_add_slots.fills_slot_id`), and the pick list is the pool's course list. `programMerge` counts the courses of **another** program that a bucket's list names toward its hours
 (each course once per program; the upper-division bucket is processed first), shrinking the bucket or, when they cover it, shadowing it (`reason: 'satisfied'`). A minor the planner does not model (no slots, tier 3) is listed, adds
@@ -541,7 +541,7 @@ so `done` equals the plan header's `splitCreditsByPhase(...).completed`; a test 
 closed). **`requirements` is open (2026-10-13)**: the Requirements tab, the degree audit and its PDF are live. With the flag `false` the sidebar tab (`Sidebar.jsx`, and the loading skeleton's copy of it) is greyed out,
 disabled and tagged "Coming soon"; `DegreePlan` neither computes the audit nor the projection, refuses to navigate there (`navigateTo`), and the degree audit PDF is not offered (the Advisement tab lists it
 as "Coming soon" beside the Degree Map). The parity journey (`parity/lib/scenario.mjs`) visits the Requirements tab and the audit PDF on every platform. `requirementsReady.test.js` checks the audit, the
-finish line and the PDF's model for every program open to students at two math placements. `features.test.jsx` pins both states. `additionalPrograms` is still closed.
+finish line and the PDF's model for every program open to students at two math placements. `features.test.jsx` pins both states. `additionalPrograms` is open.
 
 ### `src/lib/termScheduler.js` and `src/lib/degreeProjection.js`
 
