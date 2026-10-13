@@ -180,7 +180,7 @@ function Ref({ item, onOpenRow }) {
 function Group({ group, onOpenRow, getOptions }) {
   const compact = group.rows.length > 0 && group.rows.every(r => r.required)
   const done = group.rows.filter(r => r.state === 'done').length
-  const empty = group.progress && group.rows.length === 0 && group.refs.length === 0
+  const empty = group.progress && !group.progress.exempt && group.rows.length === 0 && group.refs.length === 0
   return (
     <section className="ds-audit-group" aria-label={group.title}>
       <div className="ds-audit-group-head">

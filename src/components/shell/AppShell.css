@@ -732,6 +732,7 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-gened-planned .ds-gened-state { color: var(--gold); }
 .ds-gened-open .ds-gened-state { color: var(--status-warn); }
 .ds-gened-risk .ds-gened-state { color: var(--status-warn); }
+.ds-gened-exempt .ds-gened-state { color: var(--text-muted); }
 .ds-gened-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--status-warn); }
 
 /* ── Degree audit (Requirements view) ────────────────────────────────── */

@@ -339,6 +339,12 @@ entering Fall 2026+; legacy stays in effect for earlier entrants). No Supabase c
   slot = 4 hrs, each `FF_*` slot 3). The evaluators use it as the category minimum, which shrinks
   the shared flex: CSC's 8-hr science sequence leaves none, so Humanities is exactly 6 and
   Literacy exactly 3 for those plans (the UI shows "6", not "6–9").
+- **Exemptions** (`FF_EXEMPT_MAJORS`, `getFlightFoundationsExemptions(majorCode)`): the catalog's general requirements excuse Chemical, Civil, Computer, Electrical, General
+  and Mechanical Engineering majors (not Computer *Science*) from American History, which is Historical Foundations. The evaluators take `{ exempt: ['HIST'] }`: the category's range is 0
+  (`exempt: true`, its hours still count toward the degree but not toward Flight Foundations) and the program total drops to 35. Keyed by `major_code`, which `DegreePlan` reads with
+  `fetchMajorCode` (null on a database without the column: no exemptions). **Assumption:** the catalog's Flight Foundations page does not repeat the exemption; the Mechanical
+  Engineering specs' `gened-history` waiver records that, and the departments' own 2026-27 maps carry no history course for these majors. A legacy plan has no exemption (no
+  exempt major has one: each one's first plan is Flight Foundations and covers earlier entrants).
 - `getGenEdProgram(season, year)`: program for an entry term.
 - Course lists come from the published gen-ed page (Coursedog has no gen-ed attribute on courses
   and its internal Flight Foundations course sets lag the page). Re-check them each catalog year.

@@ -84,9 +84,9 @@ Also a change history and a timeline of completed semesters. Let students snapsh
 Flight Foundations (Tennessee Tech's gen-ed program, entering Fall 2026+) is implemented in
 `flightFoundations.js`: eight requirement areas, the 4 shared flex hours, the introductory-language
 cap, and per-plan evaluation, used by the FF pools and the slot modal. Still open:
-- Per-major rules on top of the baseline: the American History exemption (Chemical, Civil,
-  Computer, Electrical, General and Mechanical Engineering), other majors' category restrictions,
-  and the minimum-grade rules (C or better in ENGL 1010 before ENGL 1020).
+- Per-major rules on top of the baseline: other majors' category restrictions, and the
+  minimum-grade rules (C or better in ENGL 1010 before ENGL 1020). (The American History
+  exemption for six engineering majors is modelled: `FF_EXEMPT_MAJORS`.)
 - The legacy program still tracks only History / Humanities / Social through `getGenEdStatus`.
 
 ### Science sequence auto-pair enforcement

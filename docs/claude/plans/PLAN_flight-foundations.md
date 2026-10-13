@@ -94,8 +94,9 @@ API facts that matter for the ETL:
   and dedup as `computePlanCredits`). Tests: `src/tests/flightFoundations*.test.js`.
 - Rules encoded: per-category caps ("no more, no less"); flex hours only inside Humanities / Science / Literacy and capped at 4 total; a surplus
   cannot cover another category's minimum; a 3-hr cap on introductory foreign language toward Humanities; cross-listed ENGL/PC 2600 counts once.
-- Not encoded (needs a decision or belongs with the majors): the American History exemption for some engineering majors, per-major
-  restrictions, minimum grades, and the learning-outcome text. See "Gen-ed category enforcement" in `ROADMAP.md`.
+- Encoded 2026-10-12: the American History exemption for six engineering majors (`FF_EXEMPT_MAJORS` in `flightFoundations.js`; see `REFERENCE.md`).
+- Not encoded (needs a decision or belongs with the majors): per-major restrictions, minimum grades, and the learning-outcome text.
+  See "Gen-ed category enforcement" in `ROADMAP.md`.
 
 ## Decisions: where the 2026-09-30 questions stand
 

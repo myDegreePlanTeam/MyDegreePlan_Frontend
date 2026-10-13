@@ -4,9 +4,14 @@
 // gen-ed program and returns one shape for both programs, so the component renders rows and does no arithmetic.
 //
 //   buildGenEdPanel({ genedProgram, planSlots, priorCredits, slots, courses, freeAddSlots, planArchived,
-//                     planSemesterOverrides, semesterPhase })
+//                     planSemesterOverrides, semesterPhase, exempt })
 //     -> null                       when the plan has no gen-ed slots (nothing to report)
-//     -> { program, title, earned, done, inProgress, planned, required, state, satisfied, flexNote, rows }
+//     -> { program, title, earned, done, inProgress, planned, required, state, satisfied, flexNote, exemptions, rows }
+//
+//   exempt  Flight Foundations categories the student's major is excused from (lib/flightFoundations.js, FF_EXEMPT_MAJORS):
+//           such a row has state 'exempt' and no hours, and `required` drops by its hours (35 of 41 for an engineering major
+//           without American History). `exemptions` lists them: [{ key, label, hours }]. A legacy plan has none (no exempt
+//           major has a legacy plan: each one's first plan is a Flight Foundations plan that covers earlier entrants).
 //
 //   rows: [{ key, label, group, earned, done, inProgress, planned, min, max, state }]
 //     earned  hours counted toward the row, planned or not (the evaluator's number, already capped)
@@ -17,6 +22,7 @@
 //             'planned'      met only if the planned courses are taken ("covered by your plan", not done)
 //             'open'         still short
 //             'risk'         legacy only: the open GEN_ED seats cannot cover what is still needed
+//             'exempt'       Flight Foundations only: the catalog excuses the student's major from the category
 //
 // Done, in progress and planned come from running the evaluator three times over growing sets of the plan (earned, plus the
 // current term, plus everything). A slot left out of a pass is passed in as archived, which only skips its course: the hours a
@@ -52,7 +58,7 @@ function inputsForPass({ phases, slots, planArchived, planSemesterOverrides, fre
   return { planArchived: skipped, freeAddSlots: freeAdds }
 }
 
-const RANK = { done: 0, in_progress: 1, planned: 2, open: 3, risk: 4 }
+const RANK = { exempt: 0, done: 0, in_progress: 1, planned: 2, open: 3, risk: 4 }
 
 // 'done' | 'in_progress' | 'planned' | 'open', from what each pass reaches against the minimum.
 function stateOf(min, [afterPast, afterCurrent, afterAll]) {
@@ -63,7 +69,7 @@ function stateOf(min, [afterPast, afterCurrent, afterAll]) {
 
 export function buildGenEdPanel({
   genedProgram, planSlots = {}, priorCredits = [], slots = [], courses = {}, freeAddSlots = [], planArchived = {},
-  planSemesterOverrides = {}, semesterPhase = {},
+  planSemesterOverrides = {}, semesterPhase = {}, exempt = [],
 }) {
   if (!hasGenEdSlots(slots)) return null
 
@@ -79,7 +85,7 @@ export function buildGenEdPanel({
 
   if (genedProgram === FF_PROGRAM_CODE) {
     const statuses = passes.map(p =>
-      getFlightFoundationsStatus(planSlots, priorCredits, slots, courses, p.freeAddSlots, p.planArchived))
+      getFlightFoundationsStatus(planSlots, priorCredits, slots, courses, p.freeAddSlots, p.planArchived, { exempt }))
     const all = statuses[2]
     const rows = all.categories.map((c, i) => {
       const hours = statuses.map(s => s.categories[i].filled)
@@ -91,7 +97,8 @@ export function buildGenEdPanel({
         ...split(hours),
         min:    c.required,
         max:    Math.max(c.max ?? c.required, c.required),
-        state:  stateOf(c.required, hours),
+        exempt: !!c.exempt,
+        state:  c.exempt ? 'exempt' : stateOf(c.required, hours),
       }
     })
     const totals = statuses.map(s => s.totalEarned)
@@ -104,6 +111,7 @@ export function buildGenEdPanel({
       state:     stateOfPanel(rows, all.satisfied),
       satisfied: all.satisfied,
       flexNote:  all.flex && all.flex.total > 0 ? `${all.flex.used} of ${all.flex.total} flexible hours placed` : null,
+      exemptions: all.categories.filter(c => c.exempt).map(c => ({ key: c.category, label: c.label, hours: c.catalogMin })),
       rows,
     }
   }
@@ -137,6 +145,7 @@ export function buildGenEdPanel({
     state:     stateOfPanel(rows, totals[2] >= required),
     satisfied: rows.every(r => r.min <= r.earned),
     flexNote:  null,
+    exemptions: [],
     rows,
   }
 }
