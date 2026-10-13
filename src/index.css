@@ -1,3 +1,31 @@
+/* ── Fonts, self-hosted (public/fonts, licenses in public/fonts/licenses) ──
+   The page's policy allows fonts only from its own origin (the Windows app and the Docker web container send font-src 'self'),
+   so they cannot come from a font service. Latin subset only; a missing glyph falls back to the system face. */
+@font-face {
+  font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/fonts/AtkinsonHyperlegible-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 700; font-display: swap;
+  src: url('/fonts/AtkinsonHyperlegible-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible'; font-style: italic; font-weight: 400; font-display: swap;
+  src: url('/fonts/AtkinsonHyperlegible-Italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Serif Display'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/fonts/DMSerifDisplay-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Mono'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/fonts/DMMono-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Mono'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('/fonts/DMMono-Medium.woff2') format('woff2');
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -53,9 +81,68 @@
 
   --font-display: 'DM Serif Display', serif;
   --font-mono:    'DM Mono', monospace;
+
+  /* ══ Redesign tokens (docs/claude/plans/PLAN_redesign.md, Phase 1) ══
+     Named by role, not by color. Nothing reads them until the screens move over, phase by phase; the tokens above stay until then.
+     Dark values here, light below. Every text pair, border and focus ring is measured by src/tests/designTokens.test.js. */
+  --c-page:          #14111F;
+  --c-surface:       #1D1930;
+  --c-surface-2:     #27223D;
+  --c-hairline:      #4A4466;   /* card and divider edges (decorative) */
+  --c-border-strong: #8279A8;   /* inputs, checkboxes, outline buttons (3:1 or better) */
+  --c-text:          #EFEDF8;
+  --c-text-2:        #C2BDD9;
+  --c-text-3:        #A29CBF;
+  --c-primary:       #B9A2FF;   /* the one brand color: primary button fill, selected tab */
+  --c-on-primary:    #17102E;
+  --c-link:          #C9B8FF;
+  --c-focus:         #E3D8FF;
+  --c-done:          #6FD6A0;  --c-done-bg:      #173326;
+  --c-progress:      #8DBDF5;  --c-progress-bg:  #182B44;
+  --c-planned:       #BDB2F0;  --c-planned-bg:   #2A2547;
+  --c-attention:     #F4C766;  --c-attention-bg: #3A2D0D;
+  --c-blocked:       #FF9A90;  --c-blocked-bg:   #431A18;
+  --c-marker:        #F2B33D;   /* the current semester, as a fill only; never text, a link or a button */
+  --c-on-marker:     #17102E;
+
+  /* Type: Atkinson Hyperlegible for the interface, DM Serif Display for page and dialog titles, DM Mono for course codes. Nothing under 13 px. */
+  --font-ui:      'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-caption: 13px;  --lh-caption: 18px;
+  --fs-ui:      15px;  --lh-ui:      22px;
+  --fs-body:    16px;  --lh-body:    24px;
+  --fs-heading: 20px;  --lh-heading: 28px;
+  --fs-title:   28px;  --lh-title:   36px;
+  --fs-page:    40px;  --lh-page:    48px;
+
+  /* Space on a 4 px grid, corner radii, and the smallest control. */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;  --sp-5: 24px;  --sp-6: 32px;  --sp-7: 48px;  --sp-8: 64px;
+  --r-control: 8px;  --r-card: 12px;  --r-sheet: 16px;
+  --target: 44px;
 }
 
 :root[data-theme="light"] {
+  /* ══ Redesign tokens, light ══ */
+  --c-page:          #F6F5FA;
+  --c-surface:       #FFFFFF;
+  --c-surface-2:     #EFEDF6;
+  --c-hairline:      #CFC9E0;
+  --c-border-strong: #857E9F;
+  --c-text:          #1D1830;
+  --c-text-2:        #4A4563;
+  --c-text-3:        #625C7C;
+  --c-primary:       #5A3FA6;
+  --c-on-primary:    #FFFFFF;
+  --c-link:          #4B3294;
+  --c-focus:         #3B2A8C;
+  --c-done:          #17703F;  --c-done-bg:      #E4F4EA;
+  --c-progress:      #1D5FA8;  --c-progress-bg:  #E6F0FA;
+  --c-planned:       #5A4F8A;  --c-planned-bg:   #EEEBF8;
+  --c-attention:     #7A4F00;  --c-attention-bg: #FFF1CC;
+  --c-blocked:       #B3261E;  --c-blocked-bg:   #FCE9E7;
+  --c-marker:        #F2B33D;
+  --c-on-marker:     #1D1830;
+
+  /* ═══ the current light theme continues below ═══ */
   /* ───── Surfaces — lavender mist (v2, low-glare) ───── */
   /* bg luminance ≈74% — not paper-white. Comfortable for long planning sessions. */
   --bg:             #E4DCEE;  /* page bg     · text 13.21:1 ✓ */

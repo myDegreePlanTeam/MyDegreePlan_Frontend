@@ -17,7 +17,7 @@ MDP/
 ├── MyDegreePlan_Frontend/             ← React/Vite app (its own git repo)
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── public/
+│   ├── public/                        ← favicon, `theme-init.js` (sets the theme before first paint), `fonts/` (self-hosted woff2 + `licenses/`)
 │   └── src/
 │       ├── App.jsx                    ← root component, route definitions
 │       ├── main.jsx                   ← entry point
@@ -603,6 +603,22 @@ limit / `taken`), and `listSlotOptions` (annotated and ordered; `open: true` for
 `useIsPhone()` (viewport at most 760px wide, the width the sidebar becomes a top bar) and `DragEnabledContext`. On a phone the plan grid does not drag: every draggable and drop zone
 is `disabled`, rows carry no drag listeners or "draggable" role, and CSS gives the rows back `touch-action: auto` so the page scrolls. The equivalents are "Move" in the course panel,
 "+ Add prior credit" and the x on a prior credit. Keep the list passed to `useSensors` the same length at every width: its memo keys on the length.
+
+### `src/lib/theme.js`, the redesign tokens and the fonts (`PLAN_redesign.md`, Phase 1)
+
+**Theme.** A preference of `system`, `light` or `dark`, resolved to the `light` or `dark` on `<html data-theme>`. Only an explicit `light` or `dark` is stored (`localStorage.theme`, the key and values older
+builds wrote); nothing stored is `system`, which follows the device live (`initTheme`, called once in `App.jsx`). `setPreference` stores and applies; `DegreePlan.jsx` `toggleTheme` uses it, and the
+Settings switch still flips light and dark until the three-way control arrives (Phase 5). `public/theme-init.js` sets the same attribute before first paint so a stored light theme does not flash dark. It is
+a **file, not an inline script**, because the Windows app (`MyDegreePlan_Desktop/src/security.js`) and the Docker web container (`local-deploy/web/nginx.conf`) send `script-src 'self'`.
+`src/tests/theme.test.js` runs the script and the module against the same cases so they cannot drift. Storage may be blocked: every read and write is guarded.
+
+**Tokens.** `src/index.css` has `--c-*` tokens named by role (`--c-page`, `--c-surface`, `--c-text`, `--c-primary`, `--c-done` / `--c-done-bg` and the other four statuses, `--c-marker` ...) for dark (`:root`) and
+light (`:root[data-theme="light"]`), plus the type scale (`--fs-*`, nothing under 13 px), space (`--sp-*`), radii (`--r-*`) and `--target` (44 px). Until a screen moves over, nothing reads them; the older
+`--bg`, `--gold`, `--navy` ... stay. `src/tests/designTokens.test.js` computes the contrast of every text pair (4.5:1), input border and focus ring (3:1), so an edit that fails them fails the test.
+
+**Fonts.** Atkinson Hyperlegible (interface), DM Serif Display (titles) and DM Mono (course codes) are woff2 files in `public/fonts/`, declared by `@font-face` in `index.css`, with the SIL Open Font License of each
+in `public/fonts/licenses/`. They are **never loaded from a font service**: the Windows app and the Docker web container allow fonts only from the page's own origin, so before this the Google Fonts links silently
+fell back to system faces there. `designTokens.test.js` fails on a font-service URL, a missing file, a file that is not woff2 and an inline script in `index.html`. Atkinson is declared but unused until Phase 2 (a browser fetches a font only when a rule uses it).
 
 ### `src/lib/genEdPanel.js`
 
