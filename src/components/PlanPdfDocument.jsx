@@ -3,7 +3,6 @@
 // department's Degree Map: a header with catalog year / degree / major /
 // concentration, then one band per year with two semesters side by side, then
 // the legend, notes and test-score boxes advisors fill in during a meeting.
-//
 // This is React, but not the DOM. @react-pdf ships its own reconciler, so the
 // only elements that exist here are its primitives — Document, Page, View,
 // Text. There is no <div>, no className, and no index.css: a bare string
@@ -20,20 +19,11 @@
 // eagerly would put pdfkit in the main bundle for every student who never
 // exports anything.
 
-import { Document, Page, View, Text, StyleSheet, Font } from '@react-pdf/renderer'
+import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
 import { formatCourseCode } from '../lib/planExportModel'
-
-// LETTER is 612pt wide. The footer is absolutely positioned and needs a real
-// width (see styles.footer), so the margin and the content width it implies
-// are named rather than repeated as literals.
-const PAGE_MARGIN   = 36
-const CONTENT_WIDTH = 612 - PAGE_MARGIN * 2
-
-// Brand colours, as the degree-map template uses them: purple column
-// header rows with white text, gold year bands.
-const PURPLE = '#4F2984'
-const GOLD   = '#FFDD00'
-const GRID   = '#9a9a9a'
+import { shared, PURPLE, GOLD, GRID, EM_DASH } from './pdfStyles'
+import PdfFooter from './PdfFooter'
+import PdfTitleBlock from './PdfTitleBlock'
 
 // Legend fills. The template uses Word's green / cyan / magenta / yellow
 // highlighters; these are the same hues toned down so black text stays
@@ -45,10 +35,6 @@ const STATUS = {
   recommended: { label: 'Recommended',    fill: '#FFF07A' },
 }
 
-// @react-pdf hyphenates long words by default, which splits requirement
-// names mid-word ("General Edu-cation"). Wrap on whole words only.
-Font.registerHyphenationCallback(word => [word])
-
 // Course column vs. credit-hours column inside each half of a year band.
 const CREDIT_COL = 38
 
@@ -56,84 +42,7 @@ const CREDIT_COL = 38
 // (with Times-Roman and Courier). Anything else means Font.register and a
 // network fetch at generation time, which would make the download fail
 // offline for the sake of a typeface.
-const styles = StyleSheet.create({
-  // Do NOT put lineHeight on the Page. A lineHeight here is inherited by the
-  // absolutely-positioned `fixed` footer and silently drops it from the
-  // output entirely — no error, no warning, the whole node is just missing
-  // from the PDF. Verified against @react-pdf/renderer 4.9.0 by bisecting
-  // the page style: padding, fontFamily and color are all safe; lineHeight
-  // alone kills it. Line spacing therefore lives on the text styles that
-  // actually wrap.
-  page: {
-    paddingTop:        30,
-    paddingBottom:     44,   // leaves room for the fixed footer
-    paddingHorizontal: PAGE_MARGIN,
-    fontFamily:        'Helvetica',
-    fontSize:          9,
-    color:             '#1a1a1a',
-  },
-
-  // ── Title block ──
-  titleRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'flex-start',
-  },
-  title: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize:   22,
-    color:      PURPLE,
-    // Explicit, and not inherited from the Page (see above): without it the
-    // 22pt title reserves a line box shorter than its own glyphs.
-    lineHeight: 1.2,
-  },
-  titleRule: {
-    height:          3,
-    backgroundColor: GOLD,
-    width:           150,
-    marginTop:       2,
-  },
-  identity: {
-    width: 210,
-  },
-  identityLine: {
-    flexDirection: 'row',
-    alignItems:    'flex-end',
-    marginBottom:  6,
-  },
-  identityLabel: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize:   9,
-    width:      58,
-  },
-  // A fill-in line: the app doesn't store the student's name or student ID,
-  // so they are written in by hand.
-  blankLine: {
-    flex:              1,
-    borderBottomWidth: 0.75,
-    borderBottomColor: '#1a1a1a',
-    height:            10,
-  },
-  degreeRow: {
-    flexDirection:  'row',
-    flexWrap:       'wrap',
-    marginTop:      8,
-  },
-  degreeItem: {
-    fontSize:    9,
-    marginRight: 18,
-  },
-  degreeLabel: {
-    fontFamily: 'Helvetica-Bold',
-  },
-  intro: {
-    fontSize:   7.5,
-    color:      '#4a4a4a',
-    lineHeight: 1.35,
-    marginTop:  5,
-    marginBottom: 8,
-  },
-
+const styles = { ...shared, ...StyleSheet.create({
   // ── Year band table ──
   yearBlock: {
     borderWidth:  0.75,
@@ -206,16 +115,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: '#cfcfcf',
   },
-  courseText: {
-    fontSize:   8.5,
-    lineHeight: 1.3,
-  },
-  courseCode: {
-    fontFamily: 'Helvetica-Bold',
-  },
-  requirement: {
-    color: '#5a5a5a',
-  },
   creditText: {
     fontSize:  8.5,
     textAlign: 'center',
@@ -236,10 +135,6 @@ const styles = StyleSheet.create({
     fontFamily:   'Helvetica-Bold',
     fontSize:     8.5,
     marginBottom: 3,
-  },
-  noteText: {
-    fontSize:   7.5,
-    lineHeight: 1.35,
   },
   boxRow: {
     flexDirection: 'row',
@@ -279,31 +174,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // ── Footer ──
-  footer: {
-    position:  'absolute',
-    bottom:    20,
-    left:      PAGE_MARGIN,
-    // An explicit width, not left+right. Yoga resolves an absolutely
-    // positioned box from left+right in the DOM, but here that pair leaves
-    // the node zero-width and it renders nothing at all — the footer was
-    // silently absent from the PDF until this became a fixed width.
-    width:     CONTENT_WIDTH,
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 0.5,
-    borderTopColor: '#c4c4c4',
-    paddingTop:     5,
-  },
-  footerText: {
-    fontSize: 7,
-    color:    '#6b6b6b',
-  },
-})
-
-// An em dash where a value is genuinely unknown reads better in print than a
-// blank cell, which looks like the generator failed.
-const EM_DASH = '—'
+}) }
 
 function CourseCell({ course, status }) {
   const fill = status ? { backgroundColor: STATUS[status].fill } : {}
@@ -449,36 +320,13 @@ export default function PlanPdfDocument({ model }) {
       author="MyDegreePlan"
     >
       <Page size="LETTER" style={styles.page}>
-        <View style={styles.titleRow}>
-          <View>
-            <Text style={styles.title}>Degree Map</Text>
-            <View style={styles.titleRule} />
-          </View>
-          <View style={styles.identity}>
-            <View style={styles.identityLine}>
-              <Text style={styles.identityLabel}>Name:</Text>
-              <View style={styles.blankLine} />
-            </View>
-            <View style={styles.identityLine}>
-              <Text style={styles.identityLabel}>Student ID:</Text>
-              <View style={styles.blankLine} />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.degreeRow}>
-          {[
-            ['CATALOG YEAR', model.catalogYear],
-            ['Degree',       model.degree],
-            ['MAJOR',        model.major],
-            ['Concentration', model.concentration],
-          ].map(([label, value]) => (
-            <Text key={label} style={styles.degreeItem}>
-              <Text style={styles.degreeLabel}>{label}: </Text>
-              {value ?? EM_DASH}
-            </Text>
-          ))}
-        </View>
+        <PdfTitleBlock
+          title="Degree Map"
+          catalogYear={model.catalogYear}
+          degree={model.degree}
+          major={model.major}
+          concentration={model.concentration}
+        />
 
         <Text style={styles.intro}>
           This map shows one path to completing the degree, built from the student's
@@ -531,19 +379,9 @@ export default function PlanPdfDocument({ model }) {
           <ScoreBox title="DSPW Scores" scores={[['E', null], ['M', null], ['R', null], ['S', null]]} last />
         </View>
 
-        {/* `fixed` repeats this on every page; `render` gets per-page state.
-            The disclaimer is not decoration — this document must never be
-            mistaken for an official academic record. */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>
-            Generated by MyDegreePlan. Unofficial planning document {EM_DASH} not an academic record.
-          </Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
+        <PdfFooter />
       </Page>
+
     </Document>
   )
 }

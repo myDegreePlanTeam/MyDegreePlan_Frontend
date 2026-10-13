@@ -171,3 +171,63 @@ export function projectDegree({
     })),
   }
 }
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/**
+ * The finish line in words, for the Requirements tab and the printed audit alike.
+ * @returns {null | { complete, lead, graduationLabel, detail, pace, chain, blocked, fine }}
+ *   lead + graduationLabel   "Earliest finish: " and the term (graduationLabel is null when there is none to show)
+ *   detail   hours to go, the plan's own end beside it, and a note when a different arrangement might be sooner
+ *   pace     { label, text } what sets the pace (null with no schedule)
+ *   chain    the steps, [{ key, code, label, name, termLabel, note }]
+ *   blocked  [{ key, code, label, text }] courses no rule can place
+ */
+export function describeFinish(p) {
+  if (!p) return null
+  const none = { chain: [], blocked: [], fine: null, pace: null, detail: null, graduationLabel: null }
+  if (p.complete) {
+    return { ...none, complete: true, lead: p.underway ? `You finish at the end of ${p.underway}` : 'Every requirement is done' }
+  }
+
+  const { graduation, plan, termsSooner, termsLater, hoursRemaining, hoursTerms, maxHours, chainTerms, limit, optimal, blocked } = p
+  const compare = termsSooner > 0
+    ? `Your plan finishes ${plan.label}. This schedule is ${plural(termsSooner, 'term')} sooner.`
+    : termsLater > 0
+      ? `Your plan finishes ${plan?.label}, ${plural(termsLater, 'term')} before these rules allow. The Issues tab shows which courses are out of order.`
+      : plan ? `Your plan finishes ${plan.label} too: it is already as fast as these rules allow.` : null
+  const detail = `${hoursRemaining} hours to go, at up to ${maxHours} hours a term in Fall and Spring.`
+    + (compare ? ` ${compare}` : '')
+    + (!optimal && !blocked.length && graduation ? ' This is the fastest arrangement found; a different one might save a term.' : '')
+
+  const pace = graduation
+    ? {
+        label: limit === 'map' ? "the department's degree map" : limit === 'prerequisites' ? 'prerequisites' : 'hours',
+        text: limit === 'map'
+          ? `The department schedules these courses no earlier than the terms below, ${plural(chainTerms, 'term')} from now.`
+          : limit === 'prerequisites'
+            ? `These courses must come in order, ${plural(chainTerms, 'term')} in all.`
+            : `${hoursRemaining} hours at ${maxHours} a term is ${plural(hoursTerms, 'term')}; the prerequisites alone would take ${plural(chainTerms, 'term')}.`,
+      }
+    : null
+
+  return {
+    complete: false,
+    lead: graduation ? 'Earliest finish: ' : 'No finish can be worked out yet',
+    graduationLabel: graduation?.label ?? null,
+    detail,
+    pace,
+    chain: graduation ? p.chain : [],
+    blocked: blocked.map(b => ({
+      key: b.key, code: b.code, label: b.label,
+      text: b.missing.length ? `needs ${b.missing.join(', ')}, which is not in your plan` : 'no term works for it',
+    })),
+    fine: 'An estimate: it follows the prerequisites, corequisites, offering seasons and standing rules your plan is checked against, and does not see seats or the schedule of classes. Summers are not used.',
+  }
+}
+
+/** The line under a block's title when its dates are worth saying (they differ from the plan's own finish), else null. */
+export function describeBlockDates(dates) {
+  if (!dates?.notable || dates.complete) return null
+  return `Your plan completes this by ${dates.planBy}${dates.fastestBy && dates.fastestBy !== dates.planBy ? `; the soonest it could be done is ${dates.fastestBy}` : ''}.`
+}

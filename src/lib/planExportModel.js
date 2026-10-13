@@ -14,6 +14,9 @@
 import { POOL_COURSES, POOL_LABELS, SCIENCE_SEQUENCES } from './poolResolver'
 import { formatTermLabel } from './semesterTerms'
 import { programHeader } from './programBrowser'
+import { formatCourseCode } from './courseCodeFormat'
+
+export { formatCourseCode }
 
 // Year bands on the degree map. Semesters are paired in plan order, so a plan
 // longer than eight semesters (or one with a summer term) keeps going with
@@ -44,15 +47,9 @@ const MONTHS = [
 
 // Built by hand rather than toLocaleDateString: the label has to be identical
 // in Node (tests) and in every browser, regardless of ICU data or locale.
-function formatLongDate(date) {
+export function formatLongDate(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null
   return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`
-}
-
-/** "CSC1300" → "CSC 1300", the way the catalog and the degree map print it. */
-export function formatCourseCode(code) {
-  if (!code) return code
-  return code.replace(/^([A-Z]+)(\d)/, '$1 $2')
 }
 
 /**
@@ -309,6 +306,11 @@ export function buildPlanExportModel({
  * hand it to.
  */
 export function buildPlanExportFilename(model, date = new Date()) {
+  return filenameFor('degree-plan', model, date)
+}
+
+/** "degree-audit-data-science-and-ai-2026-09-17.pdf" for kind "degree-audit": the program, then the day, lowercase and hyphenated. */
+export function filenameFor(kind, model, date = new Date()) {
   const slug = (model?.concentrationName ?? '')
     .toLowerCase()
     .replace(/&/g, 'and')
@@ -323,5 +325,5 @@ export function buildPlanExportFilename(model, date = new Date()) {
         String(date.getDate()).padStart(2, '0'),
       ].join('-')
 
-  return ['degree-plan', slug, stamp].filter(Boolean).join('-') + '.pdf'
+  return [kind, slug, stamp].filter(Boolean).join('-') + '.pdf'
 }

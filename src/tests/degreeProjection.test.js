@@ -5,46 +5,17 @@
 // placement against the same rules independently, then cover the cases a real student is in: not started, partway, finished.
 
 import { describe, it, expect } from 'vitest'
-import catalog from '../data/catalog.json'
-import { buildDegreePlan } from '../lib/degreeBuilder.js'
 import { buildDegreeAudit } from '../lib/degreeAudit.js'
 import { projectDegree } from '../lib/degreeProjection.js'
-import { buildRequirementMap } from '../lib/requirementMap.js'
 import { computeSemesterTerms, formatTermLabel } from '../lib/semesterTerms.js'
-import { resolveMathPlacementRow } from '../lib/actScoreResolver.js'
+import { freshStudent, courses, prereqMap, coreqMap } from './support/realStudent.js'
 import { checkPrereqs, checkCoreqsProvisional } from '../lib/prereqChecker.js'
 import { isEnrollmentAllowed } from '../lib/semesterRestrictions.js'
 import { POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver.js'
 import { planRequiresCalculusII } from '../lib/mathPlacement.js'
 import { nthTerm } from '../lib/termScheduler.js'
 
-const T = catalog.tables
-const courses = Object.fromEntries(T.courses.map(c => [c.code, c]))
-const courseMap = Object.fromEntries(T.courses.map(c => [c.code, { credits: c.credits, standing_req: c.standing_req ?? null }]))
-const prereqMap = buildRequirementMap(T.prerequisite_entries)
-const coreqMap = buildRequirementMap(T.corequisite_entries)
-
-// A student who has not started: the builder's plan for the program and ACT Math score, every term still ahead.
-function freshStudent(code, act) {
-  const prog = T.concentrations.find(p => p.code === code)
-  const plan = T.degree_plans.find(d => d.concentration_id === prog.id && d.gened_program === 'flight_foundations')
-  const slots = T.requirement_slots.filter(s => s.concentration_id === prog.id && s.catalog_year === plan.catalog_year)
-  const priorCredits = [{ id: 'act', ...resolveMathPlacementRow({ act }) }]
-  const { assignments, archived } = buildDegreePlan({
-    slots, courseMap, prereqMap, coreqMap, priorCredits,
-    studentProfile: { student_type: 'incoming_freshman', act_math: act, start_season: 'Fall' },
-  })
-  const nums = Array.from({ length: Math.max(...Object.values(assignments)) }, (_, i) => i + 1)
-  const semesterTerms = computeSemesterTerms('Fall', 2026, nums)
-  const semesterPhase = Object.fromEntries(nums.map(n => [n, 'future']))
-  const semesterLabels = Object.fromEntries(Object.entries(semesterTerms).map(([n, t]) => [n, formatTermLabel(t)]))
-  const audit = buildDegreeAudit({
-    slots, courses, genedProgram: 'flight_foundations', totalHours: plan.total_hours, semesterPhase, priorCredits,
-    planArchived: archived, planSemesterOverrides: assignments, semesterLabels,
-  })
-  const projection = projectDegree({ audit, slots, courses, prereqMap, coreqMap, priorCredits, semesterTerms, semesterPhase })
-  return { slots, audit, projection, priorCredits, semesterTerms, assignments }
-}
+// freshStudent(program, actMath) is in tests/support/realStudent.js
 
 // Re-check every placement against the rules, term by term, without the scheduler's own bookkeeping.
 function violations({ audit, projection, priorCredits, slots, semesterTerms }) {

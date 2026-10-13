@@ -854,3 +854,14 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-finish-note { flex-basis: 100%; font-size: 11px; color: var(--text-muted); }
 .ds-finish-fine { margin: 14px 0 0; font-size: 11px; line-height: 1.55; color: var(--text-muted); max-width: 70ch; }
 .ds-audit-dates { margin: 4px 0 0; font-size: 11.5px; color: var(--text-muted); }
+
+/* the two Advisement documents: a quiet segmented choice above the preview */
+.ds-adv-docs { display: flex; gap: 6px; margin: 0 0 14px; flex-wrap: wrap; }
+.ds-adv-doc {
+  display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 14px;
+  background: transparent; color: var(--text-muted); font: inherit; font-size: 12px; letter-spacing: .03em;
+  border: 1px solid var(--bg-light); border-radius: 8px; cursor: pointer;
+}
+.ds-adv-doc:hover:not(:disabled) { background: var(--bg-light); color: var(--text); }
+.ds-adv-doc-active, .ds-adv-doc-active:hover { background: var(--bg-light); color: var(--gold); border-color: var(--gold); }
+.ds-adv-doc-soon, .ds-adv-doc-soon:hover { opacity: .55; cursor: default; }
