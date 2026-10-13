@@ -1,6 +1,7 @@
 # PLAN — Double majors and minors
 
-Status (2026-10-13): **planned, nothing built.** Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
+Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). Phases 1 to 8 planned, nothing built.
+Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
 [`PLAN_all-majors.md`](./PLAN_all-majors.md) (which left minors out), [`PLAN_deeper-features.md`](./PLAN_deeper-features.md) (Phase 5 left them out).
 
@@ -91,14 +92,17 @@ Both rows stay in `student_plan_slots`, so removing the second program deletes o
 (a pool is a choice, and a chosen course already counts once). Recommendation over the alternative (two visible cards): the grid is the product, and a duplicate card is wrong.
 
 **D4. General education comes from the primary program only.**
-A student has one general-education program. The added major's `GEN_ED`/`FF_*`/shared-category slots are shadows of the primary's categories, not extra requirements.
-Program-specific requirements that merely *look* like gen-ed (a B.A. language requirement) are not gen-ed slots and stay. The gen-ed exemption (engineering History) follows
-the primary; the added program's own exemption is honoured only if the primary has no exemption for it (assumption; Phase 0 lists the cases).
+A student has one general-education program. The added major's `GEN_ED`/`FF_*`/shared-category pools are shadows of the primary's pools **of the same category** (`SCIENCE` and `FF_SCIENCE` are one category,
+`COMM_REQ` is oral communication), paired off one to one. **Revised by Phase 0:** a pool the primary has no more of **stays on the grid, owned by the added program**, because dropping it loses a requirement
+(Mathematics B.S. asks for `ENG_LIT` and `FF_LITERACY`, which the Computer Science Core plan does not). Only when the added program follows a **different** gen-ed program (legacy against Flight Foundations) are its
+gen-ed pools dropped, since the student follows the primary's. Program-specific requirements that merely *look* like gen-ed (a B.A. language requirement, `FF_FLEX` in the Business plans) are not mapped to a
+category and stay. The gen-ed exemption (engineering History) follows the primary; the added program's own exemption is honoured only if the primary has none for it (still to be written in Phase 2).
 
 **D5. Hours: one total, and the added program fills the Free Elective bucket first.**
-Required hours = the union of unique courses, never below the primary's total (120 for most). A second major's extra required courses are placed against the primary's
-Free Elective hours before they extend the plan, which is how the catalog's unrestricted electives work. The hours shown are `max(primary total, unique required hours)`; the
-header shows how many hours the added program adds. Assumption, with the exact rule written down and unit-tested in Phase 2. **The 120-hour minimum and any residency or
+Required hours = the union of unique courses, never below the primary's total (120 for most) or an added major's own total (ME is 128). A second major's extra required courses are placed against the primary's
+open Free Elective hours before they extend the plan, which is how the catalog's unrestricted electives work; the added program's **own** Free Elective buckets are not requirements (the primary's courses fill them).
+**As built in Phase 0:** `totalHours = max(primary total + extra hours, each added major's total)`, where extra hours = the added programs' own visible hours minus the primary's open Free Elective hours (a bucket
+with a pick is never shrunk below the pick; one used up leaves the grid; stored rows are never changed). The header shows how many hours the added program adds. Assumption, tested in `programMerge.test.js`. **The 120-hour minimum and any residency or
 "unique hours for a second major" rule are unpublished; do not invent one** (Questions, 2 and 3).
 
 **D6. Minors are a different kind of requirement, so they get their own slot form.**
@@ -141,12 +145,48 @@ exist), the sentence says "about" unless the schedule met its lower bound. Free 
 `undoStore.scopeOf` becomes the primary plus a sorted list of added program ids and their years; any change to that set drops the stack, as a change of program does today.
 New undo record types for add/remove program are not offered (removing is confirmed in a dialog instead).
 
+## Findings (Phase 0, 2026-10-13)
+
+Method: `lib/programMerge.js` merged the 2026-27 Flight Foundations plan of **CSC Core** (44 slots, 120 hours) with **Mathematics B.S.** (42 slots, College of Arts and Sciences), **Business Analytics B.S.B.A.**
+(`bai_bsba`, 41 slots, Business) and **Mechanical Engineering** (47 slots, 128 hours, History-exempt), each as a second major. Each pair went through `buildDegreePlan` (ACT Math 29, Fall start), `buildDegreeAudit`,
+`projectDegree` (which runs `scheduleTerms`) and `computePlanCredits`, once as the plain concatenation of the two slot lists ("naive") and once merged. The checked cases are in `src/tests/programMerge.test.js`.
+
+The seven breakages predicted in "What a merged list breaks", each with what the real data does:
+
+1. **Duplicate cards: confirmed.** The concatenation holds 12 (Math), 5 (Business) and 10 (ME) fixed courses twice (`ENGL1010`, `ENGL1020`, `HIST2010`, `HIST2020`, `MATH1910`, the math chain ...). The naive plan runs
+   15, 14 and 15 semesters; merged, 10, 12 and 13. `degreeBuilder`'s `codeToSlotId` is keyed by `class_code`, so with a duplicate the later slot silently replaces the earlier one in prerequisite propagation (read from the code).
+   Merging fixes it: no fixed course is left twice (tested for all three pairs).
+2. **Duplicate general education: confirmed, and it is not symmetrical.** The naive General education block holds 25, 26 and 24 rows; merged, 14, 18 and 17. The added program is not always a subset of the primary: Math B.S.
+   and ME carry `ENG_LIT` and `FF_LITERACY` that CSC Core does not (31 of the 2026-27 plans carry `ENG_LIT`; the line in `docs/claude/CLAUDE.md` that it "exists only in legacy plans" holds for the CSC plans only), and the Business plans
+   carry `FF_FLEX`. D4 is revised above: pair off by category, keep the surplus.
+3. **Free Elective hours: confirmed, and this is the finding with a cost.** CSC Core has only **5** open Free Elective hours, so a second major absorbs 5 and the plan grows by the rest: the added programs' own hours are
+   54, 86 and 103, so the merged totals are **169, 201 and 218 hours** against 120. A student will read that as 3 to 6 extra semesters, which is why the what-if and its delay warning (Phase 7) matter. Two things push
+   the figures up and are not modelled yet, both for the owner: (a) a course fills **one** slot (`getTakenCodes` removes a picked course from every other pool), so a course that both programs' pools list counts for one
+   pool only; (b) the added program's pools are never collapsed with the primary's. The totals are therefore an upper bound under the "a course counts toward every requirement it satisfies" assumption (D2); Phase 2 decides
+   whether a pick may count for two pools.
+4. **Math placement chain and Calculus II floors: partly confirmed.** `planHasMathChain` and the chain archive work on the merged list as is (Math pair: 6 slots archived, as for CSC alone; the naive list archives 12). But
+   `planRequiresCalculusII(merged)` is true for Math and ME, so `placeDegreePlan` applies the **map floor to every slot, the primary's too**. And the two departments' maps both claim semesters 1 to 8: laid on one grid they
+   load 15 to 31 hours a semester, `mapPathHolds` rejects them (more than 21), and the placement algorithm takes over. The effect: **11, 33 and 28 of the primary's own courses move later** than in the primary's plan
+   alone. Phase 2 must therefore place only the *added* slots and leave the saved positions alone (it is already in its text); floors should come from each slot's own program, not from the merged list.
+5. **`homeOf` and the plan's own subject: confirmed.** `ownSubject(merged)` is the primary's (`CSC`). The added major's own courses that also carry a gen-ed category land in the General education block:
+   `MATH1910` for Math B.S., `DS2810` for Business Analytics. Phase 4 gives `homeOf` the subject of the program a slot belongs to (`programsOf`).
+6. **Prior credit archives one slot per credit: confirmed.** An AP credit for `MATH1910` archives one of the two cards in the concatenation and leaves the other on the grid. Merged, it archives the visible card and
+   `expandToShadows` gives the hidden row the same state, so both stored rows agree (tested with `ENGL1010` for all three pairs). A credit for a course that only the added program names archives its (visible) card as today.
+7. **One program named in the header, PDF and audit: by inspection** (the audit takes one `majorLabel`, the Degree Map and audit PDFs one program); Phases 3 and 4.
+
+Also found: with the naive list and a total of 120 the audit's planned hours (141, 147) exceed `totalHours`, so `remaining` reads 0 and the progress bar clamps; a merged list must carry the merged `totalHours` (it does:
+`audit.summary.total` equals it, tested). `computePlanCredits` already counts a course once, so the merged and naive credit totals are equal (tested): hours cannot inflate, which is what the "Risks" entry feared.
+
+Decisions after Phase 0: **D3 stands** (collapse fixed courses, never pools; the other row stays as a shadow). **D4 revised** (pair by category, keep the surplus, drop only across gen-ed programs). **D5 stands with
+the total made `max(primary + extra, each added major's total)`.** `mergePrograms(primary, added, options)` takes `{ programId, slots, totalHours }` objects rather than bare slot arrays, so a slot's program and an
+added major's total travel with it.
+
 ## Phases
 
 Every phase: branch off `main` with `start_branch.sh`, `npm run verify` green, one PR, docs updated in the same PR (`REFERENCE.md`, this plan's status line, the platform-parity
 registry if a branch on platform is added). `DegreePlan.jsx` is touched by Phases 2, 3 and 6: **those three merge back to back, each rebased onto the last**, never in parallel.
 
-### Phase 0 — Spike and decisions (no user-visible change; 1 PR, mostly tests and a findings section)
+### Phase 0 — Spike and decisions (**done 2026-10-13**; see Findings; no user-visible change; 1 PR, mostly tests and a findings section)
 - Write `lib/programMerge.js` as a **pure module with tests only** (nothing imports it yet): `mergePrograms(primarySlots, addedSets[], { overlapPolicy })`.
 - With `tests/support/realStudent.js` (real catalog), merge CSC Core with Mathematics B.S., and with a second program from another college; run the merged list through
   `buildDegreePlan`, `scheduleTerms`, `buildDegreeAudit` and `computePlanCredits`. **List every failure from "What a merged list breaks" with a real example** and write them into a
