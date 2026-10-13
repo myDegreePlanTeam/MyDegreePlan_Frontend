@@ -147,6 +147,7 @@ export function buildDegreeAudit({
       label:        code ?? poolLabel,
       poolLabel:    slot.is_pool ? poolLabel : null,
       choose:       slot.is_pool && !code && poolSize ? `Choose 1 of ${poolSize}` : null,
+      optionCount:  poolSize,
       alsoCounts:   isFF && home.alsoCounts ? CATEGORY_LABELS[home.alsoCounts] ?? null : null,
       alsoCategory: isFF ? home.alsoCounts : null,
       hours:        courses[code]?.credits ?? (slot.is_pool ? (slot.flex_credits ?? POOL_CREDIT_ESTIMATES[slot.class_code] ?? 3) : 0),
@@ -172,7 +173,7 @@ export function buildDegreeAudit({
       const open = getPoolRemainder(slot, planSlots, courses, freeAddSlots)
       if (open > 0) {
         rows.push({
-          ...row, key: `rem_${slot.id}`, code: null, name: null, label: poolLabel, choose: null, required: false,
+          ...row, key: `rem_${slot.id}`, code: null, name: null, label: poolLabel, choose: null, optionCount: null, required: false,
           alsoCounts: null, alsoCategory: null, hours: open, source: 'plan', sourceLabel: null, state: 'not_placed',
         })
       }

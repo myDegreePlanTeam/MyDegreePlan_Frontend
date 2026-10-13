@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { formatMissingForDisplay } from '../../lib/poolResolver'
 import GenEdSummary, { CategoryProgress } from './GenEdProgress'
 
 // State words and marks. The mark and the word carry the state, never the colour alone.
@@ -64,8 +66,64 @@ function RowBody({ row }) {
   )
 }
 
+const OPTION_STATUS = { available: 'Available', locked: 'Not yet', taken: 'Already in your plan' }
+
+// Why a course cannot go in this slot yet, in the picker's own words.
+function lockedReason(option) {
+  if (option.limitHint) return option.limitHint
+  if (option.standingHint) return option.standingHint
+  if (option.removedNote) return option.removedNote
+  if (option.missing?.length) return `Needs ${formatMissingForDisplay(option.missing)} in an earlier term`
+  return null
+}
+
+// What else could fill a choice. Read-only: a plan changes on the plan, so this only explains and points there.
+function Options({ row, getOptions }) {
+  const [options, setOptions] = useState(null)
+  const open = options !== null
+  const count = row.optionCount
+
+  function toggle() {
+    setOptions(prev => (prev === null ? getOptions(row) ?? { open: false, options: [], notice: null } : null))
+  }
+
+  return (
+    <div className="ds-audit-options">
+      <button type="button" className="ds-audit-options-toggle" aria-expanded={open} onClick={toggle}>
+        {open ? 'Hide options' : row.code ? `Other options (${count})` : `See the ${count} options`}
+      </button>
+      {open && (
+        <div className="ds-audit-options-body">
+          {options.notice && <p className="ds-audit-options-note">{options.notice}</p>}
+          <ul className="ds-audit-options-list">
+            {options.options.map(option => (
+              <li key={option.code} className={`ds-audit-option ds-audit-option-${option.status}`}>
+                <span className="ds-audit-option-main">
+                  <span className="ds-audit-code">{option.code}</span>
+                  <span className="ds-audit-name">{option.name}</span>
+                  <span className="ds-audit-option-hours">{option.credits} hrs</span>
+                </span>
+                <span className="ds-audit-option-status">
+                  {option.code === row.code ? 'Your pick' : OPTION_STATUS[option.status]}
+                </span>
+                {option.status === 'locked' && lockedReason(option) && (
+                  <span className="ds-audit-option-why">{lockedReason(option)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="ds-audit-options-note">To choose, open this row on your plan.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// A Free Elective, or any pool that takes any course in the catalog, has no short list to show.
+const hasOptions = row => row.optionCount > 0 && row.source !== 'prior_credit' && typeof row.key === 'number'
+
 // One row style everywhere. A fixed course is a requirement with nothing to choose, so its row is one line.
-function Row({ row, onOpenRow }) {
+function Row({ row, onOpenRow, getOptions }) {
   const cls = `ds-audit-row ds-audit-${row.state}${row.required ? ' ds-audit-compact' : ''}`
   // A row covered by prior credit is not on the grid, so there is nothing to open.
   if (row.source === 'prior_credit') {
@@ -77,6 +135,7 @@ function Row({ row, onOpenRow }) {
         <RowBody row={row} />
         <span className="ds-audit-go" aria-hidden="true">{row.state === 'not_placed' ? 'Choose ›' : 'View ›'}</span>
       </button>
+      {hasOptions(row) && <Options row={row} getOptions={getOptions} />}
     </li>
   )
 }
@@ -110,7 +169,7 @@ function Ref({ item, onOpenRow }) {
   )
 }
 
-function Group({ group, onOpenRow }) {
+function Group({ group, onOpenRow, getOptions }) {
   const compact = group.rows.length > 0 && group.rows.every(r => r.required)
   const done = group.rows.filter(r => r.state === 'done').length
   const empty = group.progress && group.rows.length === 0 && group.refs.length === 0
@@ -126,7 +185,7 @@ function Group({ group, onOpenRow }) {
       {(group.rows.length > 0 || group.refs.length > 0) && (
         <ul className={`ds-audit-list${compact ? ' ds-audit-list-compact' : ''}`}>
           {group.refs.map(item => <Ref key={`ref-${item.key}`} item={item} onOpenRow={onOpenRow} />)}
-          {group.rows.map(row => <Row key={row.key} row={row} onOpenRow={onOpenRow} />)}
+          {group.rows.map(row => <Row key={row.key} row={row} onOpenRow={onOpenRow} getOptions={getOptions} />)}
         </ul>
       )}
       {empty && <p className="ds-audit-empty">Nothing in your plan counts toward this yet.</p>}
@@ -134,7 +193,7 @@ function Group({ group, onOpenRow }) {
   )
 }
 
-function Block({ block, onOpenRow }) {
+function Block({ block, onOpenRow, getOptions }) {
   const { counts, total } = block
   return (
     <section className={`ds-audit-block${block.complete ? ' ds-audit-block-done' : ''}`} aria-labelledby={`ds-audit-${block.id}`}>
@@ -147,12 +206,12 @@ function Block({ block, onOpenRow }) {
         )}
       </div>
       {block.panel && <GenEdSummary panel={block.panel} />}
-      {block.groups.map(group => <Group key={group.id} group={group} onOpenRow={onOpenRow} />)}
+      {block.groups.map(group => <Group key={group.id} group={group} onOpenRow={onOpenRow} getOptions={getOptions} />)}
     </section>
   )
 }
 
-export default function RequirementsView({ audit, onOpenRow }) {
+export default function RequirementsView({ audit, onOpenRow, getOptions }) {
   return (
     <div className="ds-view ds-requirements">
       <p className="ds-eyebrow">Requirements</p>
@@ -168,7 +227,7 @@ export default function RequirementsView({ audit, onOpenRow }) {
       {audit.blocks.length === 0 ? (
         <div className="ds-empty-state">This plan has no requirements to show yet.</div>
       ) : (
-        audit.blocks.map(block => <Block key={block.id} block={block} onOpenRow={onOpenRow} />)
+        audit.blocks.map(block => <Block key={block.id} block={block} onOpenRow={onOpenRow} getOptions={getOptions} />)
       )}
     </div>
   )
