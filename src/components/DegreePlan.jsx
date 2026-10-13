@@ -54,6 +54,7 @@ import WhatIfPanel from './shell/WhatIfPanel'
 import { evaluateAddition, rankMinors } from '../lib/whatIf'
 import { loadCandidate, loadCandidates, extendBase } from '../lib/whatIfLoader'
 import { programLabels, tagsForSlots, dimmedSlots, filterOptions } from '../lib/programTags'
+import { setPreference } from '../lib/theme'
 import './Dashboard.css'
 import './shell/AppShell.css'
 
@@ -1793,9 +1794,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark'
-    document.documentElement.dataset.theme = next
-    localStorage.setItem('theme', next)
-    setTheme(next)
+    setTheme(setPreference(next))   // stores the choice and puts it on <html> (lib/theme.js)
   }
 
   const coursePanel = view === 'plan' && selKey != null && (

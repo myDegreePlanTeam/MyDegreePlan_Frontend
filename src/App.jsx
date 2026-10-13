@@ -4,6 +4,7 @@ import { db } from './lib/dataClient'
 import ErrorBoundary from './components/ErrorBoundary'
 import UpdateBanner from './components/UpdateBanner'
 import DesktopUpdateCard from './components/DesktopUpdateCard'
+import { initTheme } from './lib/theme'
 
 // Route-level code splitting: each page only downloads when first visited.
 // A logged-in user never fetches Login/Signup JS; an anonymous user never
@@ -16,16 +17,8 @@ const Dashboard       = lazy(() => import('./pages/Dashboard'))
 function App() {
   const [session, setSession] = useState(undefined)
 
-  useEffect(() => {
-    const stored = localStorage.getItem('theme')
-    if (stored) {
-      document.documentElement.dataset.theme = stored
-    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-      document.documentElement.dataset.theme = 'light'
-    } else {
-      document.documentElement.dataset.theme = 'dark'
-    }
-  }, [])
+  // The stored preference, or the device's setting followed live (lib/theme.js). public/theme-init.js already set it before first paint.
+  useEffect(() => initTheme(), [])
 
   useEffect(() => {
     // Get the current session on initial load
