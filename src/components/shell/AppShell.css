@@ -272,6 +272,12 @@
 }
 .ds-row-dim { opacity: .38; }
 /* "What if I added...": the effect on the finish, in words */
+/* "Your major(s)" in Settings: the primary one is flagged */
+.ds-major-row { gap: 8px; }
+.ds-major-flag {
+  margin-left: 8px; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; vertical-align: middle;
+  color: var(--gold); border: 1px solid var(--gold); border-radius: 4px; padding: 1px 6px;
+}
 .ds-whatif-controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 22px 12px; }
 .ds-whatif-line { margin: 0 22px 14px; padding: 10px 12px; border: 1px solid var(--bg-light); border-radius: 8px; font-size: 12px; line-height: 1.6; }
 .ds-whatif-line p { margin: 0 0 6px; }

@@ -29,13 +29,13 @@ function twoPrograms(second) {
 
 const rowsOf = audit => audit.blocks.flatMap(b => b.rows)
 
-describe.each(['me', 'bai_bsba'])('the degree audit of Computer Science Core with %s as a second major', second => {
+describe.each(['me', 'bai_bsba'])('the degree audit of Computer Science Core with %s as a secondary major', second => {
   const ctx = twoPrograms(second)
 
   it('has one major block per program, then general education and electives once', () => {
     expect(ctx.audit.blocks.map(b => b.id)).toEqual(['major', `major:${ctx.added.id}`, 'gened', 'electives'])
-    expect(ctx.audit.blocks[0].title).toBe(ctx.primary.name)
-    expect(ctx.audit.blocks[1].title).toBe(ctx.added.name)
+    expect(ctx.audit.blocks[0].title).toBe(`${ctx.primary.name} (primary major)`)
+    expect(ctx.audit.blocks[1].title).toBe(`${ctx.added.name} (secondary major)`)
   })
 
   it('lists every requirement once: no row appears in two blocks', () => {
@@ -95,8 +95,8 @@ describe('the printed documents', () => {
   const profile = { concentrations: { ...prog('core'), total_hours: 120 }, catalog_year: '2026-2027', start_season: 'Fall', start_year: 2026 }
   const added = [{ ...prog('me'), role: 'major' }]
 
-  it('name every program, and the second major under the first', () => {
-    expect(alsoProgramsOf(added)).toEqual([{ role: 'Second major', text: `Mechanical Engineering, ${prog('me').degree}` }])
+  it('name every program, and the secondary major under the primary', () => {
+    expect(alsoProgramsOf(added)).toEqual([{ role: 'Secondary major', text: `Mechanical Engineering, ${prog('me').degree}` }])
     expect(alsoProgramsOf([{ ...prog('me_aero'), role: 'minor' }])[0].role).toBe('Minor')
     expect(alsoProgramsOf([{ ...prog('me_aero'), role: 'major' }])[0].text).toContain('(ME Aerospace)')
     expect(alsoProgramsOf([])).toEqual([])

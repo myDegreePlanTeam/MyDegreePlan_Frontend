@@ -1,6 +1,6 @@
 # PLAN — Double majors and minors
 
-Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
+Status (2026-10-13): **Primary and secondary majors** (owner's request, after Phase 8): Settings "Your major(s)" lists the enrolled majors with the primary flagged and assignable (`lib/majors.js`: `swapPrimary`, `mergeInOrder`, `inheritedRows`; `handleMakePrimary` in `DegreePlan.jsx`), any number of secondary majors can be added and removed, and the wording is "primary major" / "secondary major" everywhere, PDFs included (`PRIMARY MAJOR` in the heading once a secondary major exists; audit blocks end "(primary major)", "(secondary major)", "(minor)"). **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
 engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.additionalPrograms` until Phases 3 and 4, so students do not see an unfinished feature). **Phase 5 done** (Prototype PR #19: all 82 minors in three tiers, 13 / 16 / 53; Deploy #35 allows `kind 'minor'`; the Frontend catalog carries them and the primary pickers ignore them). **Phases 3, 4 and 6 done** (tags, filter, per-program audit and PDF headings, minors). **Phase 7 done** (the what-if and the delay warning). Phase 8 (release) is left, with opening the flag.
 Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
@@ -132,7 +132,7 @@ Tier 1 (structured rules) is generated for **all** minors regardless of wave, si
 **D9. Where the student does it, and what it does not do.**
 Not in onboarding (it asks one thing at a time and most students add a program later). The entry points are **Settings → "Add a second major or a minor"** and a link in the plan
 header, using `ProgramPicker` filtered by role (the major picker offers majors with plans; the minor picker offers minors). "Change degree program" keeps replacing the **primary**
-only and must no longer wipe an added program's rows. Removing an added program removes its rows and leaves shared cards. Terminology stays "degree program"; "minor" and "second major" name the roles.
+only and must no longer wipe an added program's rows. Removing an added program removes its rows and leaves shared cards. Terminology (revised 2026-10-13): "primary major", "secondary major" and "minor" name the roles; "degree program" is no longer used in a screen.
 
 **D11. A what-if is the same engine with nothing saved, and delay is measured against two baselines.**
 The what-if runs `mergePrograms` and `projectDegree` (the Requirements tab's scheduler, `lib/termScheduler.js`) in memory, so what it shows is what an add would produce, not a

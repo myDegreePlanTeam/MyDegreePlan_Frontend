@@ -1,7 +1,7 @@
 // studentPrograms.js
 //
 // The programs a student follows: the primary one on the profile (student_profiles.concentration_id), then the ones they added, a
-// second major or a minor (student_programs; PLAN_double-major-minor.md, D1). Every reader that wants the whole list goes through
+// secondary major or a minor (student_programs; PLAN_double-major-minor.md, D1). Every reader that wants the whole list goes through
 // here, so none of them has to know where each program is stored.
 //
 //   fetchStudentPrograms(client, profile) -> { data: StudentProgram[], error }

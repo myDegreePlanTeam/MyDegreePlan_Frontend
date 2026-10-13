@@ -50,7 +50,7 @@ export const STUDENT_TABLES = {
     pk: 'id', unique: [],
     defaults: { status: 'planned', fills_slot_id: null, credits: null, created_at: now },
   },
-  // The programs a student added to the one on the profile: a second major or a minor (PLAN_double-major-minor.md, D1).
+  // The programs a student added to the one on the profile: a secondary major or a minor (PLAN_double-major-minor.md, D1).
   student_programs: {
     pk: 'id', unique: [['student_id', 'concentration_id']],
     defaults: { role: 'major', catalog_year: null, gened_program: 'legacy', entry_season: null, entry_year: null, position: 0, created_at: now },

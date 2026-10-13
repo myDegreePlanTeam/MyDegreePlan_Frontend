@@ -6,7 +6,7 @@
 //
 // A stored stack must never be applied to a plan it was not made for, so it is dropped when:
 //   - it is older than UNDO_MAX_AGE_MS (a record is stamped with `at` when it is pushed),
-//   - the profile's program or catalog year, or the set of programs added to it (a second major, a minor), differs from the one it
+//   - the profile's program or catalog year, or the set of programs added to it (a secondary major, a minor), differs from the one it
 //     was saved under,
 //   - a record's slot or added course no longer exists (isUndoApplicable, checked on load and again when undoing),
 //   - the data on this device is erased or replaced by an import (clearAllUndo; the local backend reuses profile ids after an erase).

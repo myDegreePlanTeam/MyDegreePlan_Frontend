@@ -8,7 +8,7 @@
 //                      programs, programsOf })
 //     -> { summary, blocks }
 //
-// A student who follows more than one program (a second major, a minor) passes `programs` ([{ programId, name }], the primary first)
+// A student who follows more than one program (a secondary major, a minor) passes `programs` ([{ programId, name, role }], the primary first)
 // and `programsOf` ({ [slotId]: programId[] }, from lib/programMerge.js). The major block then becomes one block per program (`major` for the
 // primary, `major:<programId>` for the others) while general education and electives stay one block each: a course is homed once, in the block
 // of the program that owns its card (the first program that asks for it), and the other programs it serves list it as a reference
@@ -228,7 +228,7 @@ export function buildDegreeAudit({
     }))
   const majorBlocks = multi
     ? programs.map((p, i) => makeBlock(
-      i === 0 ? 'major' : `major:${p.programId}`, (i === 0 && majorLabel) || p.name, rows, panel, isFF, evidence,
+      i === 0 ? 'major' : `major:${p.programId}`, `${(i === 0 && majorLabel) || p.name} (${i === 0 ? 'primary major' : p.role === 'minor' ? 'minor' : 'secondary major'})`, rows, panel, isFF, evidence,
       { kind: 'major', match: r => r.block === 'major' && r.programId === p.programId, refs: sharedRefs(p.programId) },
     ))
     : [makeBlock('major', majorLabel || 'Your major', rows, panel, isFF, evidence)]
@@ -262,7 +262,7 @@ function countRows(rows) {
 function makeBlock(id, title, allRows, panel, isFF, evidence, { kind = id, match = r => r.block === kind, refs = [] } = {}) {
   const rows = allRows.filter(match)
   const groups = kind === 'major' ? majorGroups(rows) : kind === 'gened' ? genEdGroups(rows, panel, isFF, evidence) : electiveGroups(rows, evidence)
-  if (kind === 'major' && refs.length) groups.push({ id: 'shared', title: 'Counted from your other degree program', rows: [], progress: null, refs })
+  if (kind === 'major' && refs.length) groups.push({ id: 'shared', title: 'Counted from your other major or minor', rows: [], progress: null, refs })
   if (groups.length === 0) return null
   const counts = countRows(rows)
   return {

@@ -15,7 +15,7 @@ describe('addableMajors', () => {
     expect(names(options)).not.toContain('core')
   })
 
-  it('leaves out another concentration of the student\'s own major: that is not a second major', () => {
+  it('leaves out another concentration of the student\'s own major: that is not a secondary major', () => {
     const options = addableMajors(T.concentrations, T.degree_plans, '2026-2027', { primary: prog('core'), added: [] })
     expect(options.filter(p => p.major_code === prog('core').major_code)).toEqual([])
   })
@@ -89,7 +89,7 @@ describe('minors', () => {
     expect(addableMinors(T.concentrations, T.degree_plans, null, { added: [] })).toEqual([])
   })
 
-  it('never lists a minor among the second majors', () => {
+  it('never lists a minor among the secondary majors', () => {
     expect(addableMajors(T.concentrations, T.degree_plans, '2026-2027', { primary: prog('core'), added: [] }).some(p => p.kind === 'minor')).toBe(false)
   })
 

@@ -8,7 +8,7 @@ export default function ProgramFilter({ options = [], value = null, onChange }) 
   if (options.length < 2) return null
   const chips = [{ id: null, label: 'All' }, ...options]
   return (
-    <div className="ds-prog-filter" role="group" aria-label="Show courses for a degree program">
+    <div className="ds-prog-filter" role="group" aria-label="Show courses for one of your majors or minors">
       {chips.map(chip => {
         const on = String(chip.id) === String(value) || (chip.id === null && value === null)
         return (

@@ -91,7 +91,7 @@ export async function saveActScoresAndRebuild(profile, numScores) {
   // The catalog holds every university course; the builder only needs this plan's (see plannerCatalog.js).
   // standing_req drives the builder's junior/senior placement — without it CSC3040 jumped ahead of
   // COMM_REQ and the pool front-fill never ran.
-  // Every program the student follows (the one on the profile, and a second major or a minor added to it): the plan is re-placed as one.
+  // Every program the student follows (the one on the profile, and a secondary major or a minor added to it): the plan is re-placed as one.
   const programsRes = await fetchStudentPrograms(db, profile)
   const setsRes = programsRes.error
     ? { data: [], error: programsRes.error }

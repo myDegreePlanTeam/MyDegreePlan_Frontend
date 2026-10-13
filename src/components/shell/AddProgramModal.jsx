@@ -10,9 +10,9 @@ import {
 } from '../../lib/addProgram'
 
 /**
- * "Add a second major" / "Add a minor": pick a degree program, say which term the student starts it, read the notes, confirm.
+ * "Add a major" / "Add a minor": pick a program, say which term the student starts it, read the notes, confirm.
  * `onAdd(row)` receives the student_programs row to write (lib/addProgram.js). Programs already in the plan, another concentration
- * of the student's own major (for a second major), and programs with no plan for the declared term are not offered. A minor the planner
+ * of the student's own major (for a secondary major), and programs with no plan for the declared term are not offered. A minor the planner
  * does not model (it has no slots) is offered with the catalog's own wording and a note that nothing in the plan is checked against it.
  *
  * `evaluate(row)` (optional) works out what adding it would do to the finish (lib/whatIf.js); the answer is shown before the student confirms,
@@ -64,7 +64,7 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
   const years = Array.from({ length: 6 }, (_, i) => today.year - 1 + i)
   const minorsAlready = addedPrograms.filter(p => p.role === 'minor').length
   const transcriptNotice = isMinor && chosen ? minorTranscriptNotice(minorsAlready) : null
-  const noun = isMinor ? 'minor' : 'second major'
+  const noun = isMinor ? 'minor' : 'secondary major'
 
   // does the chosen minor have slots in the plan it would follow? A tier 3 minor has none. null until it is known.
   const checkKey = isMinor && chosen && planYear ? `${chosen.id}:${planYear}` : null
@@ -95,10 +95,10 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
     <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !adding) onClose() }}>
       <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="add-program-title">
         <div className="ds-modal-head">
-          <p className="ds-eyebrow">Degree programs</p>
-          <h3 className="ds-modal-title" id="add-program-title">{isMinor ? 'Add a minor' : 'Add a second major'}</h3>
+          <p className="ds-eyebrow">{isMinor ? 'Your minors' : 'Your majors'}</p>
+          <h3 className="ds-modal-title" id="add-program-title">{isMinor ? 'Add a minor' : 'Add a major'}</h3>
           <p className="ds-sub" style={{ fontSize: 11, lineHeight: 1.6 }}>
-            Your plan keeps its current degree program and adds the courses {isMinor ? 'this minor' : 'this one'} needs.
+            Your plan keeps its primary major and adds the courses {isMinor ? 'this minor' : 'this secondary major'} needs.
           </p>
         </div>
         <div className="ds-modal-body">

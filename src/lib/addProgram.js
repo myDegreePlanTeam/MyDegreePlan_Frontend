@@ -1,6 +1,6 @@
 // addProgram.js
 //
-// Adding a second major or a minor to a student's plan (PLAN_double-major-minor.md, Phases 2 and 6): which programs may be added, in which
+// Adding a secondary major or a minor to a student's plan (PLAN_double-major-minor.md, Phases 2 and 6): which programs may be added, in which
 // catalog year the added program's plan is followed, and the student_programs row that records it. Pure.
 //
 // The plan an added program follows is the one in effect when the student ENTERS it, so it is resolved from the term they declare, not
@@ -13,7 +13,7 @@ export const ENTRY_SEASONS = ['Fall', 'Spring', 'Summer']
 
 /** What the student is told before they confirm: the catalog is silent on how two majors may share courses, and this is what the planner assumes. */
 export const OVERLAP_NOTE =
-  'A course both degree programs need counts toward each and appears once in your plan, and its hours are counted once. '
+  'A course both programs need counts toward each and appears once in your plan, and its hours are counted once. '
   + 'The catalog does not say whether two majors may share courses, so confirm this with your advisor.'
 
 /** What a student is told about a minor: the catalog lets a course count toward a degree and a minor at once. */
@@ -51,9 +51,9 @@ export function addableMinors(programs, plans, termYear, { added = [] } = {}) {
 }
 
 /**
- * The programs that may be added as a second major, from the `concentrations` and `degree_plans` rows.
+ * The programs that may be added as a secondary major, from the `concentrations` and `degree_plans` rows.
  * A major (or a concentration of one) that is open to the declared term and has a plan for it, that the planner supports, and that is
- * not the student's own major: another concentration of the same major is a different plan for the same degree, not a second major.
+ * not the student's own major: another concentration of the same major is a different plan for the same degree, not a secondary major.
  * @param {Array} programs
  * @param {Array} plans
  * @param {string|null} termYear   catalog year of the declared term
@@ -67,7 +67,7 @@ export function addableMajors(programs, plans, termYear, { primary = null, added
 }
 
 /**
- * The student_programs row for adding `program` as a second major, or null when there is no plan for the declared term.
+ * The student_programs row for adding `program` as a secondary major, or null when there is no plan for the declared term.
  * @param {{ studentId: number, program: object, plans: Array, season: string, year: number|string, position?: number, role?: 'major'|'minor' }} input
  */
 export function newProgramRow({ studentId, program, plans, season, year, position = 1, role = 'major' }) {

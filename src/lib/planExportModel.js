@@ -277,7 +277,7 @@ export function buildPlanExportModel({
   return {
     concentrationName: programsTitle(profile?.concentrations?.name ?? null, addedPrograms),
     totalHours:        totalHours ?? profile?.concentrations?.total_hours ?? null,
-    // a second major or a minor, named under the program the document is about
+    // a secondary major or a minor, named under the program the document is about
     alsoPrograms:      alsoProgramsOf(addedPrograms),
     degree:            header.degree,
     major:             header.major,

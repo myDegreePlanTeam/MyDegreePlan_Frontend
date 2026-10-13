@@ -1,6 +1,6 @@
 // whatIf.js
 //
-// What adding a second major or a minor would cost, worked out without saving anything (PLAN_double-major-minor.md, Phase 7, D11). Pure.
+// What adding a secondary major or a minor would cost, worked out without saving anything (PLAN_double-major-minor.md, Phase 7, D11). Pure.
 // It runs the same merge (lib/programMerge.js), audit (lib/degreeAudit.js) and scheduler (lib/degreeProjection.js) the plan itself uses,
 // on the student's real state with and without the candidate, so what it says is what adding the program would give, not a second model.
 //
@@ -46,7 +46,7 @@ export function termNumberFromStart(profile, term) {
 function sideOf(base, added, { candidateIds = new Set() } = {}) {
   const { primary, courses, planSlots, planArchived } = base
   const merged = mergePrograms(primary, added, { courses, planSlots })
-  const programs = [primary, ...added].map(p => ({ programId: p.programId, name: base.names?.[p.programId] ?? 'Degree program' }))
+  const programs = [primary, ...added].map(p => ({ programId: p.programId, name: base.names?.[p.programId] ?? 'Program' }))
 
   // A slot the student has no saved state for yet (the candidate's) is archived the way the degree builder would: a prior credit that covers
   // it, or a math placement that skips it. The student's own saved state is never touched.
@@ -126,7 +126,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 export function describeDelay(result) {
   if (!result) return { state: 'unknown', sentence: '', detail: null }
   const name = result.candidate.name
-  const noun = result.candidate.role === 'minor' ? 'this minor' : 'this second major'
+  const noun = result.candidate.role === 'minor' ? 'this minor' : 'this secondary major'
   if (!result.finishKnown) {
     return { state: 'unknown', sentence: `A finish date cannot be worked out for your plan with ${name} yet.`, detail: result.incomplete ? 'Some course in the plan has a prerequisite that is not in it.' : null }
   }

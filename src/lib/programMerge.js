@@ -1,7 +1,7 @@
 // @ts-check
 // programMerge.js
 //
-// Merges the requirement slots of a student's primary program with the slots of added programs (a second major, a minor) into the one
+// Merges the requirement slots of a student's primary program with the slots of added programs (a secondary major, a minor) into the one
 // list the plan view, the degree builder and the audit already take. Pure: nothing here reads the database, the clock or React.
 // Phase 0 of plans/PLAN_double-major-minor.md (decisions D2 to D5): nothing imports this module yet.
 //

@@ -8,6 +8,7 @@ import {
 } from '../../lib/catalogYears'
 import { selectWithOptional } from '../../lib/dbErrors'
 import { COMING_SOON, groupByCollege, isProgramReady, programPath, searchPrograms } from '../../lib/programBrowser'
+import { majorsHeading } from '../../lib/majors'
 import DeviceDataCard from './DeviceDataCard'
 
 export default function SettingsView({
@@ -22,7 +23,15 @@ export default function SettingsView({
   additionalProgramsOpen = false,
   onOpenAddProgram,
   onRemoveProgram,
+  onMakePrimary,
 }) {
+  // The majors the student is enrolled in: the primary one (on the profile), then the secondary majors they added. A minor is not one.
+  const majors = [
+    { id: null, programId: profile.concentration_id, name: profile.concentrations.name, primary: true, catalogYear: catalogYearForProfile(profile) },
+    ...addedPrograms.filter(p => p.role !== 'minor'),
+  ]
+  const minors = addedPrograms.filter(p => p.role === 'minor')
+
   return (
     <div className="ds-view ds-settings">
       <p className="ds-eyebrow">Preferences</p>
@@ -38,60 +47,78 @@ export default function SettingsView({
             <span className="ds-toggle-knob" />
           </span>
         </button>
+        {/* Your major(s): the plural only when the student really has several. */}
         <div className="ds-setting">
           <span className="ds-setting-text">
-            <span className="ds-setting-label">Degree program</span>
+            <span className="ds-setting-label">{majorsHeading(majors)}</span>
             <span className="ds-setting-desc">
-              Currently {programPath(profile.concentrations)}. Switching clears your course selections; prior credits and ACT scores are kept.
-            </span>
-          </span>
-          <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenConcentration}>
-            Change
-          </button>
-        </div>
-        <div className="ds-setting">
-          <span className="ds-setting-text">
-            <span className="ds-setting-label">Second major</span>
-            <span className="ds-setting-desc">
-              {addedPrograms.length === 0
-                ? 'Add a second degree program to your plan. Courses both need appear once and count toward each.'
-                : 'Your plan includes the programs below. Courses more than one needs appear once and count toward each.'}
+              {additionalProgramsOpen
+                ? 'Your primary major sets your general education and your catalog year. A course more than one of your majors needs appears once and counts toward each.'
+                : `Currently ${programPath(profile.concentrations)}. Switching clears your course selections; prior credits and ACT scores are kept.`}
             </span>
           </span>
           {additionalProgramsOpen ? (
             <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('major')}>
-              Add
+              Add major
             </button>
           ) : (
-            <span className="ds-tab-soon-tag" title="Coming soon">Coming soon</span>
+            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenConcentration}>
+              Change
+            </button>
           )}
         </div>
-        <div className="ds-setting">
-          <span className="ds-setting-text">
-            <span className="ds-setting-label">Minors</span>
-            <span className="ds-setting-desc">
-              Add a minor: fifteen hours or more beyond your degree, and a course your degree also needs counts toward both.
+        {additionalProgramsOpen && majors.map(major => (
+          <div className="ds-setting ds-major-row" key={major.primary ? 'primary' : major.id}>
+            <span className="ds-setting-text">
+              <span className="ds-setting-label">
+                {major.name}
+                {major.primary && <span className="ds-major-flag">Primary</span>}
+              </span>
+              <span className="ds-setting-desc">
+                {major.primary ? 'Primary major' : 'Secondary major'} · follows the {major.catalogYear} catalog
+              </span>
             </span>
-          </span>
-          {additionalProgramsOpen ? (
-            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('minor')}>
-              Add
+            {!major.primary && (
+              <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onMakePrimary(major)} aria-label={`Make ${major.name} your primary major`}>
+                Make primary
+              </button>
+            )}
+            <button
+              className="ds-btn-ghost"
+              style={{ minHeight: 36 }}
+              onClick={() => onRemoveProgram(major)}
+              aria-label={`Remove ${major.name}`}
+              disabled={major.primary}
+              title={major.primary ? (majors.length > 1 ? 'Make another major your primary major first' : 'You need at least one major') : undefined}
+            >
+              Remove major
             </button>
-          ) : (
-            <span className="ds-tab-soon-tag" title="Coming soon">Coming soon</span>
-          )}
-        </div>
-        {addedPrograms.map(program => (
+          </div>
+        ))}
+        {additionalProgramsOpen && (
+          <div className="ds-setting">
+            <span className="ds-setting-text">
+              <span className="ds-setting-label">Minors</span>
+              <span className="ds-setting-desc">
+                Add a minor: fifteen hours or more beyond your major, and a course your major also needs counts toward both.
+              </span>
+            </span>
+            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('minor')}>
+              Add minor
+            </button>
+          </div>
+        )}
+        {additionalProgramsOpen && minors.map(program => (
           <div className="ds-setting" key={program.id}>
             <span className="ds-setting-text">
               <span className="ds-setting-label">{program.name}</span>
               <span className="ds-setting-desc">
-                {program.role === 'minor' ? 'Minor' : 'Second major'} · follows the {program.catalogYear} catalog
+                Minor · follows the {program.catalogYear} catalog
                 {program.modelled === false && ' · requirements not modelled here, so nothing in your plan is checked against it'}
               </span>
             </span>
-            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`} disabled={!additionalProgramsOpen}>
-              Remove
+            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`}>
+              Remove minor
             </button>
           </div>
         ))}
@@ -266,8 +293,8 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
     <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !switching) onClose() }}>
       <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="conc-title">
         <div className="ds-modal-head">
-          <p className="ds-eyebrow">{currentGroup ? degreeTitle(currentGroup) : 'Degree program'}</p>
-          <h3 className="ds-modal-title" id="conc-title">Change degree program</h3>
+          <p className="ds-eyebrow">{currentGroup ? degreeTitle(currentGroup) : 'Your major'}</p>
+          <h3 className="ds-modal-title" id="conc-title">Change your major</h3>
           <p className="ds-sub" style={{ fontSize: 11, lineHeight: 1.6 }}>
             Prior credits and placement scores carry over. The plan is rebuilt for the new requirements.
           </p>
@@ -332,7 +359,7 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
             onClick={() => isDifferent && onSwitch(selected, planForYear(plans, selected.id, entryYear))}
             disabled={!isDifferent || switching}
           >
-            {switching ? 'Switching…' : isDifferent ? `Switch to ${selected.name}` : 'Choose a degree program'}
+            {switching ? 'Switching…' : isDifferent ? `Switch to ${selected.name}` : 'Choose a major'}
           </button>
         </div>
       </div>
@@ -342,17 +369,17 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
 
 // ── RemoveProgramModal ────────────────────────────────────────────────────────
 
-export function RemoveProgramModal({ name, onConfirm, onClose, removing }) {
+export function RemoveProgramModal({ name, role = 'major', onConfirm, onClose, removing }) {
   return (
     <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !removing) onClose() }}>
       <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="remove-program-title">
         <div className="ds-modal-head">
-          <p className="ds-eyebrow">Degree programs</p>
+          <p className="ds-eyebrow">{role === 'minor' ? 'Your minors' : 'Your majors'}</p>
           <h3 className="ds-modal-title" id="remove-program-title">Remove {name}?</h3>
         </div>
         <p className="ds-modal-text" style={{ padding: '16px 22px' }}>
-          This takes the courses only {name} needs out of your plan, along with the selections you made for them. Courses your other degree
-          program needs stay where they are. Prior credits and your other selections are kept.
+          This takes the courses only {name} needs out of your plan, along with the selections you made for them. Courses your
+          {role === 'minor' ? ' majors' : ' other majors'} need stay where they are. Prior credits and your other selections are kept.
         </p>
         <div className="ds-modal-foot">
           <button className="ds-btn-ghost" onClick={onClose} disabled={removing}>Cancel</button>
@@ -376,8 +403,8 @@ export function ResetModal({ onConfirm, onClose, resetting }) {
           <h3 className="ds-modal-title" id="reset-title">Reset this plan?</h3>
         </div>
         <p className="ds-modal-text" style={{ padding: '16px 22px' }}>
-          This clears all your course selections, added courses, and semester notes for this
-          degree program, then rebuilds the default sequence. Prior credits and placement scores are kept.
+          This clears all your course selections, added courses, and semester notes for your
+          primary major, then rebuilds the default sequence. Prior credits and placement scores are kept.
         </p>
         <div className="ds-modal-foot">
           <button className="ds-btn-ghost" onClick={onClose} disabled={resetting}>Cancel</button>

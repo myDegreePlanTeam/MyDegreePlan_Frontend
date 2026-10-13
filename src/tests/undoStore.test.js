@@ -64,7 +64,7 @@ describe('what is dropped', () => {
     expect(loadUndo({ ...profile, catalog_year: '2025-2026' }, { storage, now: NOW })).toEqual([])
   })
 
-  it('a stack saved under another set of added programs (a second major or a minor added or removed)', () => {
+  it('a stack saved under another set of added programs (a secondary major or a minor added or removed)', () => {
     const storage = memoryStorage()
     const math = { programId: 66, catalogYear: '2026-2027' }
     const minor = { programId: 90, catalogYear: '2026-2027' }

@@ -39,9 +39,10 @@ MDP/
 │       │   ├── classifyPrereq.js      ← placement/consent/completion classification
 │       │   ├── poolResolver.js        ← POOL_COURSES, POOL_LABELS, resolvePool, science helpers
 │       │   ├── poolRemainder.js       ← Free Elective hours bucket: hours a chosen course leaves open (pure)
-│       │   ├── programMerge.js        ← merge a primary program's slots with a second major's or a minor's (pure)
+│       │   ├── programMerge.js        ← merge a primary program's slots with a secondary major's or a minor's (pure)
+│       │   ├── majors.js              ← the enrolled majors, "Your major(s)", making a secondary major the primary (pure)
 │       │   ├── placeAdded.js          ← where an added program's new slots go, around the saved positions (pure)
-│       │   ├── addProgram.js          ← which programs may be added as a second major, and the student_programs row (pure)
+│       │   ├── addProgram.js          ← which programs may be added as a secondary major, and the student_programs row (pure)
 │       │   ├── programSlots.js        ← reads each followed program's slots and names (I/O in front of programMerge)
 │       │   ├── flightFoundations.js  ← Flight Foundations gen-ed rules + evaluators (pure)
 │       │   ├── requirementSlots.js    ← program-aware requirement_slots loader
@@ -375,9 +376,9 @@ a program deletes its own slot rows and its `student_programs` row; reloading re
 **`placeAddedSlots({ unplaced, floors, placed, slots, courseMap, prereqMap, coreqMap, priorCredits, planSlots, startSeason })`** places the slots of a newly added program around a plan that already has positions: in the
 order of `floors` (the degree builder's semesters for the merged list), each goes to the first semester at or after its floor that has room (18 hours), is a term the course is offered in, and comes after the
 prerequisites the plan has later. Saved positions are never moved (the builder alone would move 11 to 33 of the primary's courses). `DegreePlan.jsx` uses it only when a program has been added to a plan that already has
-positions. **`addableMajors`, `newProgramRow`** (`addProgram.js`): the supported majors open to the declared term, leaving out the student's own major (another concentration of it is not a second major); the row records the
+positions. **`addableMajors`, `newProgramRow`** (`addProgram.js`): the supported majors open to the declared term, leaving out the student's own major (another concentration of it is not a secondary major); the row records the
 plan year in effect for the declared term (D8). **`fetchProgramSlotSets`, `fetchProgramInfo`** (`programSlots.js`) read each program's slots for the year it follows and its name and total hours. `undoStore` scopes the stack to the
-primary and the sorted set of added programs. Settings has the "Second major" card (`SettingsView.jsx`, `AddProgramModal.jsx`, `RemoveProgramModal`), held back as "Coming soon" by `FEATURES.additionalPrograms` until Phases 3 and 4 land (the plan view reads an added program either way); `handleConcentrationSwitch` keeps added programs unless the new primary is one.
+primary and the sorted set of added programs. Settings has the "Your major(s)" section (`SettingsView.jsx`, `AddProgramModal.jsx`, `RemoveProgramModal`; with the flag closed it is the one row with Change), held back by `FEATURES.additionalPrograms` until Phases 3 and 4 land (the plan view reads an added program either way); `handleConcentrationSwitch` keeps added programs unless the new primary is one.
 **Minors** (Phase 6): a minor's "M hours from this list" is a pool with `bucket: true` in `pools.json` (`BUCKET_POOLS` in `poolResolver.js`), and `isRemainderPool` treats it like a Free Elective: a pick fills part of its
 `flex_credits`, a follow-up row offers the rest (`student_free_add_slots.fills_slot_id`), and the pick list is the pool's course list. `programMerge` counts the courses of **another** program that a bucket's list names toward its hours
 (each course once per program; the upper-division bucket is processed first), shrinking the bucket or, when they cover it, shadowing it (`reason: 'satisfied'`). A minor the planner does not model (no slots, tier 3) is listed, adds
@@ -525,8 +526,8 @@ plan's three category rows plus one list of picks; electives one group per pool,
 **More than one program** (Phase 4 of `plans/PLAN_double-major-minor.md`): given `programs` (`[{ programId, name }]`, primary first) and `programsOf` (from `programMerge`) the major block becomes one block per
 program (`major` for the primary, `major:<programId>` for the others) while general education and electives stay one block each. A row carries `programId` (the program that owns its card) and `programIds`
 (every program it serves); `ownSubject` is worked out per program, so a Business Analytics course with a gen-ed category (DS 2810) stays in Business Analytics' block instead of general education. A course owned by
-another program that this one also needs is a reference in a closing "Counted from your other degree program" group (`Counted from CSC Core`), never a second row. With one program `programs` is ignored and the
-audit is the one it always was (a test pins that). The Degree Map and the audit PDF name every program (`alsoProgramsOf`, `programsTitle` in `programBrowser.js`; `PdfTitleBlock` prints a "Second major" line;
+another program that this one also needs is a reference in a closing "Counted from your other major or minor" group (`Counted from CSC Core`), never a second row. With one program `programs` is ignored and the
+audit is the one it always was (a test pins that). The Degree Map and the audit PDF name every program (`alsoProgramsOf`, `programsTitle` in `programBrowser.js`; `PdfTitleBlock` prints a "Secondary major" line;
 the Degree Map's hours are the merged total) and print the same blocks as the screen (`degreeAuditPrograms.test.js`).
 
 Each row is in one of four calendar-derived states (`done`, `in_progress`, `planned`, `not_placed`). A slot archived by prior credit is `done` and off the grid (`semNum` null,

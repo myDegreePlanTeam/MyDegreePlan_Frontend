@@ -91,7 +91,7 @@ function groupSatisfied(group, satisfiedCodes) {
  * @param {object} opts.coreqMap    — same shape as prereqMap
  * @param {Array}  opts.priorCredits — student's prior_credits rows
  * @param {object} opts.studentProfile — { student_type, act_math, sat_math, start_season }
- * @param {Iterable<number>} [opts.addedSlotIds] - slots owned by a program added to the student's own (a second major, a minor): the math
+ * @param {Iterable<number>} [opts.addedSlotIds] - slots owned by a program added to the student's own (a secondary major, a minor): the math
  *   placement skips what is below the student's start in them, but never drops a course above it that the added program requires
  *
  * @returns {{ assignments: object, archived: object }}

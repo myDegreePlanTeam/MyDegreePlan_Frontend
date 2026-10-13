@@ -6,7 +6,7 @@ import { groupSlotsBySemester, sortByCourseCode } from '../lib/slotOrder'
 import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
 import { applyChosenHours } from '../lib/creditHours'
 import { selectWithOptional, isMissingColumn, isMissingTable } from '../lib/dbErrors'
-import { fetchRequirementSlots } from '../lib/requirementSlots'
+import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requirementSlots'
 import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, termForDate, isSameTerm } from '../lib/semesterTerms'
 import { semesterPhases, statusForPhase, splitCreditsByPhase } from '../lib/termPhase'
 import { UNDO_LIMIT, stampUndo, pruneUndo, isUndoApplicable, loadUndo, saveUndo } from '../lib/undoStore'
@@ -20,6 +20,7 @@ import { fetchMajorCode } from '../lib/requirementSlots'
 import { fetchStudentPrograms } from '../lib/studentPrograms'
 import { fetchProgramSlotSets, fetchProgramInfo } from '../lib/programSlots'
 import { mergePrograms, addedSlotIdsOf } from '../lib/programMerge'
+import { swapPrimary, mergeInOrder, inheritedRows } from '../lib/majors'
 import { placeAddedSlots } from '../lib/placeAdded'
 import { getFlightFoundationsExemptions } from '../lib/flightFoundations'
 import { approximatePlanOf } from '../lib/catalogYears'
@@ -128,12 +129,13 @@ export default function DegreePlan({ profile, onProfileChange }) {
   const [showSwitchModal, setShowSwitchModal]     = useState(false)
   const [switching, setSwitching]                 = useState(false)
   const [showResetModal, setShowResetModal]       = useState(false)
-  // Adding and removing a second major: the dialogs, and the program being removed ({ id, programId, catalogYear, name }) or null
+  // Adding, removing and promoting a secondary major or a minor: the dialogs, and the program being removed ({ id, programId, catalogYear, name }) or null
   const [showAddProgram, setShowAddProgram]       = useState(null)     // 'major' | 'minor' | null: which add dialog is open
   const [addingProgram, setAddingProgram]         = useState(false)
   const [addProgramError, setAddProgramError]     = useState(null)
   const [removeTarget, setRemoveTarget]           = useState(null)
   const [removingProgram, setRemovingProgram]     = useState(false)
+  const [makingPrimary, setMakingPrimary]         = useState(false)
   const [resetting, setResetting]                 = useState(false)
   // conflictModal: { title, reasons: string[] } | null
   const [conflictModal, setConflictModal]         = useState(null)
@@ -159,7 +161,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     [baseCourses, freeAddSlots, planSlots, planSelectedCredits],
   )
 
-  // What the plan is called and how many hours it needs: the primary program's, and with a second major or a minor, all of them.
+  // What the plan is called and how many hours it needs: the primary major's, and with a secondary major or a minor, all of them.
   const addedPrograms = useMemo(
     () => programPlan.programs.filter(p => !p.primary).map(({ programId, catalogYear }) => ({ programId, catalogYear })),
     [programPlan.programs],
@@ -174,7 +176,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   )
   // the audit's per-program blocks: every program followed, the primary first (only with more than one)
   const auditPrograms = useMemo(
-    () => programPlan.programs.map(p => ({ programId: p.programId, name: p.primary ? profile.concentrations.name : (programPlan.info[p.programId]?.name ?? 'Degree program') })),
+    () => programPlan.programs.map(p => ({ programId: p.programId, role: p.role, name: p.primary ? profile.concentrations.name : (programPlan.info[p.programId]?.name ?? 'Program') })),
     [programPlan.programs, programPlan.info, profile.concentrations.name],
   )
   // With more than one program: a tag on each course for the programs it serves, and a filter that dims the rest of the grid
@@ -294,7 +296,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setLoading(true)
 
     async function loadPlan() {
-      // Step 1 — the programs the student follows (the primary one, and any second major or minor added to it) and each one's
+      // Step 1 — the programs the student follows (the primary major, and any secondary major or minor added to it) and each one's
       // requirement slots (template). They are merged into one list below, once the courses are known.
       const { data: programList, error: programError } = await fetchStudentPrograms(db, profile)
       if (programError) { setError(programError.message); setLoading(false); return }
@@ -1493,7 +1495,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     return rankMinors({ base: extendBase(buildWhatIfBase(), catalog), candidates })
   }
 
-  // ── Second major ──────────────────────────────────────────────────
+  // ── Secondary majors and minors ───────────────────────────────────
   // Adding is one row in student_programs: the next load reads the program's slots, merges them with the primary's and places only the
   // new ones, around the positions already saved (lib/placeAdded.js). Removing deletes the program's slot rows and its student_programs row.
   async function handleAddProgram(row) {
@@ -1503,8 +1505,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setAddingProgram(false)
     if (insertError) {
       const message = isMissingTable(insertError)
-        ? 'This install has not been updated to keep a second major yet. Update it, then try again.'
-        : `Could not add the degree program: ${insertError.message}`
+        ? 'This install has not been updated to keep a secondary major yet. Update it, then try again.'
+        : `Could not add the program: ${insertError.message}`
       setAddProgramError(message)
       showSaveError(message)             // the what-if panel adds without a dialog to show it in
       return
@@ -1522,19 +1524,71 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const ids = (slotRows ?? []).map(s => s.id)
     if (ids.length) {
       const { error: slotsError } = await db.from('student_plan_slots').delete().eq('student_id', profile.id).in('requirement_slot_id', ids)
-      if (slotsError) { setRemovingProgram(false); showSaveError(`Could not remove the degree program: ${slotsError.message}`); return }
+      if (slotsError) { setRemovingProgram(false); showSaveError(`Could not remove ${removeTarget.name}: ${slotsError.message}`); return }
     }
     // the courses the student picked to fill an hours bucket of this program (a minor's "M hours from this list") go with it
     if (ids.length) {
       const { error: pickError } = await db.from('student_free_add_slots').delete().eq('student_id', profile.id).in('fills_slot_id', ids)
-      if (pickError && !isMissingColumn(pickError)) { setRemovingProgram(false); showSaveError(`Could not remove the degree program: ${pickError.message}`); return }
+      if (pickError && !isMissingColumn(pickError)) { setRemovingProgram(false); showSaveError(`Could not remove ${removeTarget.name}: ${pickError.message}`); return }
     }
     const { error: rowError } = await db.from('student_programs').delete().eq('id', removeTarget.id)
     setRemovingProgram(false)
-    if (rowError) { showSaveError(`Could not remove the degree program: ${rowError.message}`); return }
+    if (rowError) { showSaveError(`Could not remove ${removeTarget.name}: ${rowError.message}`); return }
     setRemoveTarget(null)
     setUndoStack([])
     markSaved()
+    setResetKey(k => k + 1)
+  }
+
+  // Make a secondary major the primary (lib/majors.js): the two swap places, both stay in the plan, and what the student picked and
+  // placed carries over to the cards that change owners. The inherited rows are written first (they only add), then the profile, then the
+  // program's row; a failure on the last puts the profile back.
+  async function handleMakePrimary(target) {
+    if (makingPrimary || !target?.id) return
+    setMakingPrimary(true)
+    const fail = message => { setMakingPrimary(false); showSaveError(`Could not make ${target.name} your primary major: ${message}`) }
+
+    const { sets, info } = programPlan
+    const totals = Object.fromEntries(Object.entries(info).map(([id, p]) => [id, p.total_hours]))
+    const swap = swapPrimary({ profile, row: target })
+
+    const allSlots = sets.flatMap(set => set.slots)
+    const { data: saved, error: savedError } = await selectWithOptional(
+      columns => db.from('student_plan_slots').select(columns).eq('student_id', profile.id).in('requirement_slot_id', allSlots.map(s => s.id)),
+      'requirement_slot_id, selected_course_code, status, semester_number, credits_remaining, archived, archive_reason, position_source',
+      ['selected_credits'],
+    )
+    if (savedError) return fail(savedError.message)
+
+    const picks = Object.fromEntries(saved.map(r => [r.requirement_slot_id, r.selected_course_code]))
+    const before = mergeInOrder({ sets, primaryId: profile.concentration_id, courses, planSlots: picks, totals })
+    const after = mergeInOrder({ sets, primaryId: target.programId, courses, planSlots: picks, totals })
+    const rows = inheritedRows({ before, after, savedRows: saved, slotsById: new Map(allSlots.map(s => [s.id, s])), studentId: profile.id })
+    for (let i = 0; i < rows.length; i += 100) {
+      const { error: inheritError } = await db.from('student_plan_slots').upsert(rows.slice(i, i + 100), { onConflict: 'student_id, requirement_slot_id' })
+      if (inheritError) return fail(inheritError.message)
+    }
+
+    let { error: profileError } = await db.from('student_profiles').update(swap.profileFields).eq('id', profile.id)
+    if (isMissingProgramColumn(profileError)) {
+      ;({ error: profileError } = await db.from('student_profiles').update({ concentration_id: swap.profileFields.concentration_id }).eq('id', profile.id))
+    }
+    if (profileError) return fail(profileError.message)
+
+    const { error: rowError } = await db.from('student_programs').update(swap.rowFields).eq('id', target.id)
+    if (rowError) {
+      await db.from('student_profiles').update({ concentration_id: profile.concentration_id, catalog_year: profile.catalog_year ?? null, gened_program: profile.gened_program ?? 'legacy' }).eq('id', profile.id)
+      return fail(rowError.message)
+    }
+
+    // the notes are filed under the primary program; they follow the student to the new one (a clash leaves them where they were)
+    await db.from('student_semester_notes').update({ concentration_id: swap.notesTo }).eq('student_id', profile.id).eq('concentration_id', swap.notesFrom)
+
+    const { data: newProgram } = await db.from('concentrations').select('*').eq('id', target.programId).single()
+    setMakingPrimary(false)
+    setUndoStack([])
+    markSaved()
+    onProfileChange({ ...profile, ...swap.profileFields, ...(newProgram ? { concentrations: newProgram } : {}) })
     setResetKey(k => k + 1)
   }
 
@@ -2035,7 +2089,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
             onOpenConcentration={() => setShowSwitchModal(true)}
             onOpenReset={() => setShowResetModal(true)}
             addedPrograms={programPlan.programs.filter(p => !p.primary).map(p => ({
-              ...p, name: programPlan.info[p.programId]?.name ?? 'Degree program', modelled: modelledPrograms.includes(p),
+              ...p, name: programPlan.info[p.programId]?.name ?? 'Program', modelled: modelledPrograms.includes(p),
             }))}
             additionalProgramsOpen={isFeatureOpen('additionalPrograms')}
             whatIfPanel={(
@@ -2049,6 +2103,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
             )}
             onOpenAddProgram={role => { setAddProgramError(null); setShowAddProgram(role) }}
             onRemoveProgram={program => setRemoveTarget(program)}
+            onMakePrimary={handleMakePrimary}
             onActSaved={numScores => {
               setUndoStack([])
               markSaved()
@@ -2108,6 +2163,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       {removeTarget && (
         <RemoveProgramModal
           name={removeTarget.name}
+          role={removeTarget.role}
           onConfirm={handleRemoveProgram}
           onClose={() => setRemoveTarget(null)}
           removing={removingProgram}

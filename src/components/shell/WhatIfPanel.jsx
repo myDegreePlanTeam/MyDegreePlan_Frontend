@@ -10,7 +10,7 @@ import { minorRows } from '../../lib/whatIfLoader'
 const TOP = 5
 
 /**
- * "What if I added...": try a second major or a minor without adding it, and see what it would do to the finish; and "which minor am I
+ * "What if I added...": try a secondary major or a minor without adding it, and see what it would do to the finish; and "which minor am I
  * closest to completing?". Nothing here writes anything: `evaluate(row)` and `rank(rows)` read the plan and the catalog and compute
  * (lib/whatIf.js); only the "Add it" button calls `onAdd(row)`, the same handler the add dialog uses.
  *
@@ -84,17 +84,17 @@ export default function WhatIfPanel({ profile, addedPrograms, evaluate, rank, on
       <div className="ds-setting">
         <span className="ds-setting-text">
           <span className="ds-setting-label" id="whatif-title">What if I added…</span>
-          <span className="ds-setting-desc">See what a second major or a minor would do to your finish before you add it. Nothing is saved.</span>
+          <span className="ds-setting-desc">See what a secondary major or a minor would do to your finish before you add it. Nothing is saved.</span>
         </span>
       </div>
       {loadError && <p className="ds-modal-text" role="alert" style={{ color: 'var(--danger)', padding: '0 22px' }}>{loadError}</p>}
       <div className="ds-whatif-controls">
-        <select className="ds-act-input" style={{ textAlign: 'left' }} aria-label="Second major or minor" value={role} onChange={e => { setRole(e.target.value); setSelectedId('') }}>
+        <select className="ds-act-input" style={{ textAlign: 'left' }} aria-label="Secondary major or minor" value={role} onChange={e => { setRole(e.target.value); setSelectedId('') }}>
           <option value="minor">A minor</option>
-          <option value="major">A second major</option>
+          <option value="major">A secondary major</option>
         </select>
         <select className="ds-act-input" style={{ textAlign: 'left', flex: 1 }} aria-label="Program to try" value={chosen ? String(chosen.id) : ''} onChange={e => setSelectedId(e.target.value)}>
-          <option value="">Choose a {role === 'minor' ? 'minor' : 'second major'}</option>
+          <option value="">Choose a {role === 'minor' ? 'minor' : 'secondary major'}</option>
           {options.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </div>
