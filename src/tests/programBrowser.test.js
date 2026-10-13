@@ -282,17 +282,29 @@ describe('isProgramReady', () => {
   })
 
   it('opens only the Computer Science department, and the majors named one by one, until the other majors are finished', () => {
-    expect(world.filter(isProgramReady).map(p => p.code)).toEqual(['core', 'cyber', 'hpc'])
+    expect(world.filter(isProgramReady).map(p => p.code)).toEqual(['core', 'cyber', 'hpc', 'bio_zool', 'bio_bot'])
     expect(isProgramReady(null)).toBe(false)
     expect(isProgramReady({ department: 'MNE', major_code: 'mechanical_engineering' })).toBe(true)
     expect(isProgramReady({ department: 'MNE', major_code: 'nuclear_engineering' })).toBe(false)
+    // Biology and Chemistry are opened by major, with their concentrations: the departments hold other majors that are not
+    expect(isProgramReady({ department: 'BIOL', major_code: 'biology' })).toBe(true)
+    expect(isProgramReady({ department: 'CHEM', major_code: 'chemistry' })).toBe(true)
+    expect(isProgramReady({ department: 'BIOL', major_code: 'wildlife_and_fisheries_science' })).toBe(false)
+    expect(isProgramReady({ department: 'CHEM', major_code: 'biochemistry' })).toBe(false)
   })
 
-  it('covers every program the CSC department publishes (the AI major included) and Mechanical Engineering with its concentrations, and nothing else', () => {
+  it('covers every program the CSC department publishes (the AI major included), Mechanical Engineering, Biology and Chemistry with their concentrations, and nothing else', () => {
     const programs = catalog.tables.concentrations
     const ready = programs.filter(isProgramReady).map(p => p.code).sort()
-    expect(ready).toEqual(['ai', 'core', 'cybersecurity', 'dsai', 'hpc', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle'])
-    expect(programs.filter(p => !isProgramReady(p)).every(p => p.kind === 'minor' || (p.department !== 'CSC' && p.major_code !== 'mechanical_engineering'))).toBe(true)
+    const biology = ['biol_bibi', 'biol_bieb', 'biol_bihs', 'biol_bot', 'biol_mar', 'biol_micb', 'biol_zool']
+    const chemistry = ['chem_acch', 'chem_achb', 'chem_achf', 'chem_aech', 'chem_ahsc', 'chem_aich', 'chem_chmp']
+    expect(ready).toEqual([...['ai', 'core', 'cybersecurity', 'dsai', 'hpc', 'me', 'me_aero', 'me_mechatronics', 'me_vehicle'], ...biology, ...chemistry].sort())
+    const opened = ['CSC']
+    const openedMajors = ['mechanical_engineering', 'biology', 'chemistry']
+    expect(programs.filter(p => !isProgramReady(p)).every(p => p.kind === 'minor' || (!opened.includes(p.department) && !openedMajors.includes(p.major_code)))).toBe(true)
+    // the other majors of those departments stay closed
+    expect(isProgramReady(programs.find(p => p.code === 'wfs_wfsc'))).toBe(false)
+    expect(isProgramReady(programs.find(p => p.code === 'chem_chmb'))).toBe(false)
   })
 })
 

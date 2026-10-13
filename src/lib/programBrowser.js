@@ -21,8 +21,10 @@ const byName = (a, b) => a.name.localeCompare(b.name)
 // finished, and a student must not be handed a broken degree. Add a department here when its plans are ready.
 export const READY_DEPARTMENTS = ['CSC']
 // A major opened ahead of the rest of its department (by `major_code`, with its concentrations): Mechanical Engineering is
-// with a department advisor for testing, and its department (MNE) also holds Nuclear Engineering, which is not.
-export const READY_MAJORS = ['mechanical_engineering']
+// with a department advisor for testing, and its department (MNE) also holds Nuclear Engineering, which is not. Biology and Chemistry
+// (College of Arts and Sciences) are opened with their concentrations; their departments also hold Wildlife and Fisheries Science
+// (BIOL) and Biochemistry (CHEM), which are not.
+export const READY_MAJORS = ['mechanical_engineering', 'biology', 'chemistry']
 export const COMING_SOON = 'Coming soon'
 
 /**

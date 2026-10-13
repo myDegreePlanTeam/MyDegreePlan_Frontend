@@ -23,7 +23,7 @@
 
 import { classifyPrereq } from './classifyPrereq.js'
 import { getActMathThreshold } from './actScoreResolver.js'
-import { getSatMathThreshold } from './mathPlacement.js'
+import { getSatMathThreshold, MATH_PLACEMENT } from './mathPlacement.js'
 
 // ── checkCoreqs ───────────────────────────────────────────────────────────────
 // Checks whether corequisites for a course are satisfied by availableCodes.
@@ -160,9 +160,16 @@ export function checkPrereqs(
     return { satisfied: true }
   }
   if (classification === 'placement') {
+    // A placement into a course also meets the placement requirement of a course below it: ACT Math 29 places into MATH 1910, and
+    // MATH 1710 asks for 19. Without this a student who tested high got a blocker on the easier course their plan still asks for.
+    const needed = getActMathThreshold(courseCode)
+    const meets = placed => {
+      const tier = MATH_PLACEMENT.tiers.find(t => t.course === placed)
+      return !!tier && needed != null && tier.act >= needed
+    }
     const hasPlacement = (priorCredits ?? []).some(
       pc => pc.credit_type === 'act_placement'
-         && pc.satisfies_course_code === courseCode
+         && (pc.satisfies_course_code === courseCode || meets(pc.satisfies_course_code))
     )
     if (hasPlacement) return { satisfied: true }
     // No recorded placement — fall through to evaluate course prereqs

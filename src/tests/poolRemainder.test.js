@@ -168,3 +168,14 @@ describe('an hours bucket of a minor ("M hours from this list")', () => {
     expect(isRemainderPool({ id: 72, class_code: 'MN_CSC_CSC_UP', is_pool: false, flex_credits: 6 })).toBe(false)
   })
 })
+
+describe('isProvidingPool: which unfilled slots stand in for a course a later course needs', () => {
+  it('is true for the requirement pools and for an "A or B" choice, false for an elective pool', async () => {
+    const { isProvidingPool } = await import('../lib/poolResolver')
+    expect(isProvidingPool('COMM_REQ')).toBe(true)
+    expect(isProvidingPool('OR_BIOL3200_BIOL3230')).toBe(true)
+    expect(isProvidingPool('CSC_ELECTIVE')).toBe(false)
+    expect(isProvidingPool('FREE_ELECTIVE')).toBe(false)
+    expect(isProvidingPool(undefined)).toBe(false)
+  })
+})

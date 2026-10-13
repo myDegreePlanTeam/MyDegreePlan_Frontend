@@ -419,3 +419,40 @@ describe('checkPrereqs — MATH1710 "ACT Math sub-score" placement', () => {
     expect(result.missing).toEqual(['(MATH1000 or ACT Math 19+ / SAT Math 510+)'])
   })
 })
+
+describe('checkPrereqs — a higher placement meets the placement requirement of a course below it', () => {
+  // the course lists a prerequisite course the placement rows do not name, so only the placement can satisfy it
+  const prereqMap = { MATH1710: { 0: { logic: 'AND', codes: ['MATH1000'] } }, MATH1730: { 0: { logic: 'AND', codes: ['MATH1720'] } } }
+  const courseMap = {
+    MATH1710: { description: 'Prerequisites: A minimum ACT Math sub-score of 19, or completion of Learning Competencies 1 through 5, or a minimum grade of C in MATH 1000.' },
+    MATH1730: { description: 'Prerequisites: A minimum ACT Math sub-score of 25, or a minimum grade of C in MATH 1720.' },
+  }
+  const placedAt = course => [{ credit_type: 'act_placement', satisfies_course_code: course, credits_awarded: 0 }]
+
+  it('ACT Math 29 (placed into MATH 1910) meets the ACT 19 that MATH 1710 asks for, and the 25 that MATH 1730 asks for', () => {
+    expect(checkPrereqs('MATH1710', prereqMap, new Set(), placedAt('MATH1910'), courseMap)).toEqual({ satisfied: true })
+    expect(checkPrereqs('MATH1710', prereqMap, new Set(), placedAt('MATH1904'), courseMap)).toEqual({ satisfied: true })
+    expect(checkPrereqs('MATH1730', prereqMap, new Set(), placedAt('MATH1910'), courseMap)).toEqual({ satisfied: true })
+  })
+
+  it('a placement at the same tier meets it too (ACT 25 places into MATH 1730)', () => {
+    expect(checkPrereqs('MATH1730', prereqMap, new Set(), placedAt('MATH1730'), courseMap)).toEqual({ satisfied: true })
+  })
+
+  it('a placement below what the course asks for does not: MATH 1710 (ACT 19) is not enough for MATH 1730 (ACT 25)', () => {
+    const result = checkPrereqs('MATH1730', prereqMap, new Set(), placedAt('MATH1710'), courseMap)
+    expect(result.satisfied).toBe(false)
+    expect(result.missing[0]).toContain('ACT Math 25+')
+  })
+
+  it('no placement at all still warns, and offers the score', () => {
+    const result = checkPrereqs('MATH1710', prereqMap, new Set(), [], courseMap)
+    expect(result.satisfied).toBe(false)
+    expect(result.missing).toEqual(['(MATH1000 or ACT Math 19+ / SAT Math 510+)'])
+  })
+
+  it('a row that is not a placement does not count: an exam credit for MATH 1910 is not an ACT score', () => {
+    const exam = [{ credit_type: 'ap_credit', satisfies_course_code: 'MATH1910', credits_awarded: 4 }]
+    expect(checkPrereqs('MATH1730', prereqMap, new Set(), exam, courseMap).satisfied).toBe(false)
+  })
+})
