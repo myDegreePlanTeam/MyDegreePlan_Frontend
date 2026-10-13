@@ -1,7 +1,7 @@
 # PLAN — Double majors and minors
 
 Status (2026-10-13): **Phase 0 done** (`lib/programMerge.js` with tests, nothing imports it; findings below; D3 to D5 revised). **Phase 1 done** (`student_programs` in the Docker baseline and the local
-engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.additionalPrograms` until Phases 3 and 4, so students do not see an unfinished feature). **Phase 5 done** (Prototype PR #19: all 82 minors in three tiers, 13 / 16 / 53; Deploy #35 allows `kind 'minor'`; the Frontend catalog carries them and the primary pickers ignore them). **Phases 3, 4 and 6 done** (tags, filter, per-program audit and PDF headings, minors). Phases 7 and 8 planned, nothing built.
+engine, backup format 2, `lib/studentPrograms.js`). **Phase 2 done** (second major in the plan view, add and remove in Settings; supported majors only: Computer Science and Mechanical Engineering today; the Settings card is closed by `FEATURES.additionalPrograms` until Phases 3 and 4, so students do not see an unfinished feature). **Phase 5 done** (Prototype PR #19: all 82 minors in three tiers, 13 / 16 / 53; Deploy #35 allows `kind 'minor'`; the Frontend catalog carries them and the primary pickers ignore them). **Phases 3, 4 and 6 done** (tags, filter, per-program audit and PDF headings, minors). **Phase 7 done** (the what-if and the delay warning). Phase 8 (release) is left, with opening the flag.
 Written to be executed in separate sessions; each phase below is one or two PRs and needs a go-ahead.
 Source: the owner's request of 2026-10-13. Related: [`ROADMAP.md`](../ROADMAP.md) ("Certificates and minors", "What-if planning"),
 [`PLAN_all-majors.md`](./PLAN_all-majors.md) (which left minors out), [`PLAN_deeper-features.md`](./PLAN_deeper-features.md) (Phase 5 left them out).
@@ -248,7 +248,7 @@ Art/Music individual-instruction cap (no tier 1 or 2 spec states it); (4) **savi
 Checked in the browser (flag opened locally, reverted): CSC Core + Mathematics Minor (125 hours, MATH 1910 and 2010 shared, the 6 upper-division hours as a bucket filled in two picks, nothing left), removal restoring exactly 44 rows and 0
 added courses; an unmodelled minor (Aquatics) adds nothing and shows a note.
 
-### Phase 7 — What-if, "closest minor", and the delay warning (needs Phases 2 and 5; builds on 6)
+### Phase 7 — What-if, "closest minor", and the delay warning (**done 2026-10-13**; needed Phases 2 and 5, builds on 6)
 A what-if is a **read-only computed plan** (D11): nothing is written until the student chooses to add.
 - `lib/whatIf.js` (pure): `evaluateAddition({ base, addition })` runs `mergePrograms` on the student's real state plus the candidate, then `projectDegree` on both, and returns
   `{ addedHours, newRequiredCourses, sharedCourses, base: { finish, terms }, withAddition: { finish, terms }, delayTerms, pastFourYears, optimal }`.
@@ -262,6 +262,10 @@ A what-if is a **read-only computed plan** (D11): nothing is written until the s
   confirmation dialog**; the PDF and audit are unchanged.
 - Done when: for a real CSC student, the ranking puts a minor the plan already mostly covers above one it does not and the order is stable under a test; a what-if writes nothing
   (checked by asserting no `db` call); the delay figures equal what you get by actually adding the program in a scratch profile; and a student already past four years sees that said.
+
+**Built:** `lib/whatIf.js` (`evaluateAddition`, `describeDelay`, `rankMinors`), `lib/whatIfLoader.js`, the "What if I added..." card in Settings (a second major or a minor, then the effect; "Which minor am I closest to completing?" shows the top five), and the same sentence in the add dialog before the student confirms. Closed with the rest by `FEATURES.additionalPrograms`.
+**Checked:** a what-if writes nothing (the row counts are identical before and after, in the browser; the library is pure and tested against frozen-equal JSON); its figures equal what really adding the program gave (Computer Science Core + Mechanical Engineering: 98 more hours, Fall 2032, 13 terms, in the what-if and in the plan view); the ranking puts the Computer Science Minor first ("your plan already covers it") and Mathematics (10 hours) above Physics (15), is stable, and takes about a second for all the modelled minors on the local backend. The Docker backend makes one request set per candidate: not timed there.
+**Assumptions as built (Questions 9 and 10):** "past four years" is eight Fall/Spring terms from the student's first term (a Summer start counts from the Fall after it); "closest" ranks by hours still needed, not by added semesters. Both are one line each to change.
 
 ### Phase 8 — Release
 - Frontend + Prototype + Deploy docs; `preflight.sh`; the Docker and Desktop releases (see "Release process" in `CLAUDE.md`); the note says what a student can now do.

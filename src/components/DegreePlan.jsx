@@ -49,6 +49,9 @@ import AdvisementView from './shell/AdvisementView'
 import SettingsView, { ConcentrationModal, ResetModal, RemoveProgramModal } from './shell/SettingsView'
 import AddProgramModal from './shell/AddProgramModal'
 import ProgramFilter from './shell/ProgramFilter'
+import WhatIfPanel from './shell/WhatIfPanel'
+import { evaluateAddition, rankMinors } from '../lib/whatIf'
+import { loadCandidate, loadCandidates, extendBase } from '../lib/whatIfLoader'
 import { programLabels, tagsForSlots, dimmedSlots, filterOptions } from '../lib/programTags'
 import './Dashboard.css'
 import './shell/AppShell.css'
@@ -142,7 +145,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // The programs the student follows, the primary first (lib/studentPrograms.js), their names and hours, and what merging their slots gave
   // (lib/programMerge.js): { programs, info: { [programId]: { name, total_hours } }, programsOf: { [slotId]: programId[] }, totalHours }.
   // totalHours is null until loaded; a student with no added program reads the primary's own, as before.
-  const [programPlan, setProgramPlan] = useState({ programs: [], info: {}, programsOf: {}, totalHours: null })
+  const [programPlan, setProgramPlan] = useState({ programs: [], info: {}, programsOf: {}, totalHours: null, sets: [] })
   // addCourseTarget: number | null — which semester the Add Course modal is open for
   const [addCourseTarget, setAddCourseTarget]     = useState(null)
   // draggedSlotId: id of the slot currently being dragged (for DragOverlay label)
@@ -498,7 +501,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       // They appear in planArchivedMap and are filtered out of the grid via
       // semesterMap. No separate client-side filter is needed here.
       setSlots(slotData)
-      setProgramPlan({ programs: programList, info: programInfo, programsOf: merged.programsOf, totalHours: merged.totalHours })
+      setProgramPlan({ programs: programList, info: programInfo, programsOf: merged.programsOf, totalHours: merged.totalHours, sets: slotSets })
       setCourses(courseMap)
       setPrereqMap(prereqMapBuilt)
       setCoreqMap(coreqMapBuilt)
@@ -1458,6 +1461,38 @@ export default function DegreePlan({ profile, onProfileChange }) {
     setResetKey(k => k + 1)
   }
 
+  // ── What if ───────────────────────────────────────────────────────
+  // The student's state as lib/whatIf.js takes it, read when a what-if is asked for (never written back)
+  function buildWhatIfBase() {
+    const [primarySet, ...addedSets] = programPlan.sets
+    const semesterLabelsNow = {}
+    for (const [n, term] of Object.entries(semesterTerms)) semesterLabelsNow[n] = formatTermLabel(term)
+    return {
+      profile,
+      primary: {
+        programId: profile.concentration_id, slots: primarySet?.slots ?? [], genedProgram: profile.gened_program,
+        totalHours: programPlan.info[profile.concentration_id]?.total_hours ?? profile.concentrations.total_hours,
+      },
+      added: addedSets.map(({ program, slots: set }) => ({
+        programId: program.programId, role: program.role, slots: set, genedProgram: program.genedProgram, totalHours: programPlan.info[program.programId]?.total_hours,
+      })),
+      courses, prereqMap, coreqMap, priorCredits, freeAddSlots, planSlots, planArchived, planSemesterOverrides, semesterTerms, semesterPhase,
+      semesterLabels: semesterLabelsNow,
+      genedExempt: getFlightFoundationsExemptions(majorCode),
+      names: { [profile.concentration_id]: profile.concentrations.name, ...Object.fromEntries(Object.entries(programPlan.info).map(([id, p]) => [id, p.name])) },
+    }
+  }
+  async function evaluateAddRow(row) {
+    const { candidate, catalog, error: loadError } = await loadCandidate(db, row)
+    if (loadError || !candidate) return null
+    return evaluateAddition({ base: extendBase(buildWhatIfBase(), catalog), candidate })
+  }
+  async function rankMinorRows(rows) {
+    const { candidates, catalog, error: loadError } = await loadCandidates(db, rows)
+    if (loadError) throw new Error(loadError.message)
+    return rankMinors({ base: extendBase(buildWhatIfBase(), catalog), candidates })
+  }
+
   // ── Second major ──────────────────────────────────────────────────
   // Adding is one row in student_programs: the next load reads the program's slots, merges them with the primary's and places only the
   // new ones, around the positions already saved (lib/placeAdded.js). Removing deletes the program's slot rows and its student_programs row.
@@ -1467,9 +1502,11 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const { error: insertError } = await db.from('student_programs').insert(row)
     setAddingProgram(false)
     if (insertError) {
-      setAddProgramError(isMissingTable(insertError)
+      const message = isMissingTable(insertError)
         ? 'This install has not been updated to keep a second major yet. Update it, then try again.'
-        : `Could not add the degree program: ${insertError.message}`)
+        : `Could not add the degree program: ${insertError.message}`
+      setAddProgramError(message)
+      showSaveError(message)             // the what-if panel adds without a dialog to show it in
       return
     }
     setShowAddProgram(null)
@@ -2001,6 +2038,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
               ...p, name: programPlan.info[p.programId]?.name ?? 'Degree program', modelled: modelledPrograms.includes(p),
             }))}
             additionalProgramsOpen={isFeatureOpen('additionalPrograms')}
+            whatIfPanel={(
+              <WhatIfPanel
+                profile={profile}
+                addedPrograms={programPlan.programs.filter(p => !p.primary)}
+                evaluate={evaluateAddRow}
+                rank={rankMinorRows}
+                onAdd={handleAddProgram}
+              />
+            )}
             onOpenAddProgram={role => { setAddProgramError(null); setShowAddProgram(role) }}
             onRemoveProgram={program => setRemoveTarget(program)}
             onActSaved={numScores => {
@@ -2049,6 +2095,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         <AddProgramModal
           key={showAddProgram}
           role={showAddProgram}
+          evaluate={evaluateAddRow}
           profile={profile}
           addedPrograms={programPlan.programs.filter(p => !p.primary)}
           onAdd={handleAddProgram}

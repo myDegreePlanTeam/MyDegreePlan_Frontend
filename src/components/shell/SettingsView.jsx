@@ -18,6 +18,7 @@ export default function SettingsView({
   onOpenReset,
   onActSaved,
   addedPrograms = [],
+  whatIfPanel = null,
   additionalProgramsOpen = false,
   onOpenAddProgram,
   onRemoveProgram,
@@ -95,6 +96,8 @@ export default function SettingsView({
           </div>
         ))}
       </div>
+
+      {additionalProgramsOpen && whatIfPanel}
 
       <ActScoresCard
         key={ACT_FIELDS.map(({ key }) => profile[key] ?? '').join('|')}
