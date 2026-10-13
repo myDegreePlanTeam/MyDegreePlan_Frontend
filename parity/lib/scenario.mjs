@@ -151,6 +151,13 @@ export async function runScenario(target, { log = () => {} } = {}) {
 
   // Majors: add a secondary major, make it the primary, then remove the other one (src/lib/majors.js). This writes a student_programs
   // row and updates the profile, so on Docker it is the first time those statements run against the real Postgres.
+  // Found by its button, not its label, so a wording difference shows up as a difference instead of breaking the run.
+  await page.locator('.ds-setting').filter({ has: page.getByRole('button', { name: 'Change', exact: true }) }).getByRole('button', { name: 'Change', exact: true }).click()
+  await page.locator('.ds-modal').waitFor({ timeout: STEP_TIMEOUT })
+  await page.getByText('Loading programs').waitFor({ state: 'detached', timeout: STEP_TIMEOUT }).catch(() => {})
+  await grab('settings-change-major')
+  await button('Cancel').click()
+
   await button('Add major', { exact: true }).click()
   await page.locator('.ds-modal').waitFor({ timeout: STEP_TIMEOUT })
   await page.getByText('Loading programs').waitFor({ state: 'detached', timeout: STEP_TIMEOUT }).catch(() => {})
