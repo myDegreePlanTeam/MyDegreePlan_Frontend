@@ -116,7 +116,7 @@ export function projectDegree({
   const graduationTerm = result.termCount > 0 ? nthTerm(result.startTerm, result.termCount) : null
   const planIndex = planTerm ? termIndexFrom(result.startTerm, planTerm) : 0
   // Signed: how far the plan's end is from the schedule's. A plan that ends BEFORE the rules allow (a course ahead of its
-  // prerequisite, too many hours in a term) is later by the difference; the Issues tab says which course.
+  // prerequisite, too many hours in a term) is later by the difference; Plan check says which course.
   const termsSooner = graduationTerm && planTerm ? Math.max(0, planIndex - result.termCount) : 0
   const termsLater = graduationTerm && planTerm ? Math.max(0, result.termCount - planIndex) : 0
   const underway = rows.filter(r => r.state === 'in_progress' && r.term).map(r => r.term).pop() ?? null
@@ -194,7 +194,7 @@ export function describeFinish(p) {
   const compare = termsSooner > 0
     ? `Your plan finishes ${plan.label}. This schedule is ${plural(termsSooner, 'term')} sooner.`
     : termsLater > 0
-      ? `Your plan finishes ${plan?.label}, ${plural(termsLater, 'term')} before these rules allow. The Issues tab shows which courses are out of order.`
+      ? `Your plan finishes ${plan?.label}, ${plural(termsLater, 'term')} before these rules allow. Plan check shows which courses are out of order.`
       : plan ? `Your plan finishes ${plan.label} too: it is already as fast as these rules allow.` : null
   const detail = `${hoursRemaining} hours to go, at up to ${maxHours} hours a term in Fall and Spring.`
     + (compare ? ` ${compare}` : '')

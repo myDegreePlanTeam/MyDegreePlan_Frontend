@@ -1,6 +1,6 @@
 // advisementView.test.jsx
 //
-// The Advisement tab offers two documents, each its own PDF: the Degree Map and the Degree Audit. While the audit is held back it is listed
+// The Advising tab offers two documents, each its own PDF: the Degree Map and the Degree Audit. While the audit is held back it is listed
 // as coming soon and cannot be chosen; when it is open it is a second choice beside the map, and only the chosen one is shown.
 
 import { describe, it, expect } from 'vitest'

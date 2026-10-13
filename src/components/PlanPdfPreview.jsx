@@ -3,7 +3,7 @@
 // through the browser's own PDF viewer (zoom, page nav, print).
 //
 // Same lazy-loading rule as ExportPlanButton: @react-pdf/renderer is only
-// fetched once this component mounts, i.e. when the Advisement tab is opened.
+// fetched once this component mounts, i.e. when the Advising tab is opened.
 
 import { buildPlanExportModel } from '../lib/planExportModel'
 import PdfPreview from './PdfPreview'

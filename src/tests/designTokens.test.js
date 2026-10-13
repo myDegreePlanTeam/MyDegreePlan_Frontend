@@ -42,7 +42,7 @@ function tokens(block) {
 const THEMES = { dark: tokens(blockAfter(':root {')), light: tokens(blockAfter(':root[data-theme="light"] {')) }
 
 const TOKEN_NAMES = [
-  'page', 'surface', 'surface-2', 'hairline', 'border-strong', 'text', 'text-2', 'text-3', 'primary', 'on-primary', 'link', 'focus',
+  'page', 'surface', 'surface-2', 'tint', 'hairline', 'border-strong', 'text', 'text-2', 'text-3', 'primary', 'on-primary', 'link', 'focus',
   'done', 'done-bg', 'progress', 'progress-bg', 'planned', 'planned-bg', 'attention', 'attention-bg', 'blocked', 'blocked-bg', 'marker', 'on-marker',
 ]
 const STATUSES = ['done', 'progress', 'planned', 'attention', 'blocked']
@@ -59,6 +59,8 @@ const PAIRS = [
   ['label on the primary fill',     'on-primary',    'primary',    4.5],
   ['link on surface',               'link',          'surface',    4.5],
   ['link on page',                  'link',          'page',       4.5],
+  ['link on the tint (selected tab)', 'link',        'tint',       4.5],
+  ['text-2 on the tint',            'text-2',        'tint',       4.5],
   ['label on the "now" marker',     'on-marker',     'marker',     4.5],
   ['input border on surface',       'border-strong', 'surface',    3],
   ['input border on page',          'border-strong', 'page',       3],

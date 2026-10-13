@@ -39,7 +39,7 @@ describe('isFeatureOpen', () => {
 })
 
 describe('the sidebar', () => {
-  const render = props => renderToStaticMarkup(<Sidebar view="plan" onNavigate={() => {}} issueCount={0} lastSavedAt={null} {...props} />)
+  const render = props => renderToStaticMarkup(<Sidebar view="plan" onNavigate={() => {}} lastSavedAt={null} {...props} />)
   const tabMarkup = (html, label) => html.split('<button').find(chunk => chunk.includes(`>${label}<`))
 
   it('shows a closed feature tab as coming soon, greyed out, and not a button anyone can press', () => {
@@ -59,12 +59,12 @@ describe('the sidebar', () => {
 
   it('keeps every other tab live, in the same order', () => {
     const html = render()
-    for (const label of ['Plan', 'Issues', 'Advisement', 'Settings']) {
+    for (const label of ['Plan', 'Advising', 'Settings']) {
       const tab = tabMarkup(html, label)
       expect(tab, label).not.toContain('ds-tab-soon')
       expect(tab, label).not.toContain('disabled')
     }
-    const order = ['Plan', 'Requirements', 'Issues', 'Advisement', 'Settings'].map(l => html.indexOf(`>${l}<`))
+    const order = ['Plan', 'Requirements', 'Advising', 'Settings'].map(l => html.indexOf(`>${l}<`))
     expect([...order].sort((a, b) => a - b)).toEqual(order)
   })
 

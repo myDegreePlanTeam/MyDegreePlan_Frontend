@@ -1,20 +1,23 @@
 const ICONS = { blocker: '✕', warning: '⚠', info: 'ℹ' }
 
-export default function IssuesView({ issues, onOpenIssue }) {
+// Plan check: the list of things to review. It is not a tab any more (shell/navTabs.js): the plan's Plan check line opens it, and "Back to plan"
+// returns. The Plan tab stays marked while it is open (Sidebar.jsx).
+export default function IssuesView({ issues, onOpenIssue, onBack }) {
   const blockers = issues.filter(i => i.severity === 'blocker').length
 
   return (
     <div className="ds-view ds-issues">
-      <p className="ds-eyebrow">Validation</p>
+      {onBack && <button className="ds-btn-ghost ds-issues-back" onClick={onBack}>← Back to plan</button>}
+      <p className="ds-eyebrow">Plan check</p>
       <h2 className="ds-h2">
         {issues.length === 0
-          ? 'No issues in this plan'
-          : `${issues.length} ${issues.length === 1 ? 'issue' : 'issues'} in this plan`}
+          ? 'Nothing to review'
+          : `${issues.length} ${issues.length === 1 ? 'thing' : 'things'} to review`}
       </h2>
       <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
         Checked against prerequisites, corequisites, standing, science sequences, term load, and unfinished course selections.
-        {blockers > 0 && ` ${blockers} ${blockers === 1 ? 'is a blocker' : 'are blockers'}; the rest are advisory.`}
-        {' '}Select an issue to jump to it on the plan.
+        {blockers > 0 && ` ${blockers} ${blockers === 1 ? 'needs' : 'need'} fixing; the rest are advice.`}
+        {' '}Select one to jump to it on the plan.
       </p>
 
       {issues.length === 0 ? (

@@ -1,5 +1,5 @@
 // planIssues.js
-// Flattens the plan's warning maps into one ordered list for the Issues tab
+// Flattens the plan's warning maps into one ordered list for the Plan check list
 // and the per-semester "⚠ n" flags. Pure — every input is already computed
 // by DegreePlan; this only decides severity, wording, and order.
 //

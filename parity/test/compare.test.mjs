@@ -94,33 +94,34 @@ test('a target that is not the platform it claims fails (a mis-launched desktop 
   assert.equal(compareRuns([fake], { rules, knownFeatures: features }).problems.some(problem => problem.kind === 'platform'), true)
 })
 
-test('normalizeLines also hides the volatile "Last saved" time', () => {
-  assert.deepEqual(normalizeLines(['Last saved 2:45 PM'], 'web'), ['Last saved {{time}}'])
+test('normalizeLines also hides the volatile "Saved at" time', () => {
+  assert.deepEqual(normalizeLines(['Saved at 2:45 PM'], 'web'), ['Saved at {{time}}'])
+  assert.deepEqual(normalizeLines(['Last saved 2:45 PM'], 'web'), ['Saved at {{time}}'])
 })
 
-// The real rules, against sidebars shaped like the real ones. A rule written for the avatar initials once also matched the two-digit
-// issues badge ("12"), which hid a difference; these keep that from happening again.
+// The real rules, against sidebars shaped like the real ones (the rail: the wordmark, four destinations, the account line). A rule that is too
+// loose once hid a real difference (a two-digit badge matched by a rule for avatar initials); these keep the rules to the account line.
 import fs from 'node:fs'
 const real = JSON.parse(fs.readFileSync(new URL('../expected-differences.json', import.meta.url), 'utf8'))
-const webSidebar = ['MyDegreePlan', 'Degree Planner', 'Plan', 'Issues', '12', 'Advisement', 'Settings', '··', 'On this device', 'Changes save automatically']
-const dockerSidebar = ['MyDegreePlan', 'Degree Planner', 'Plan', 'Issues', '12', 'Advisement', 'Settings', 'PA', 'parity-1@example.test', 'Changes save automatically', 'Sign out']
+const webSidebar = ['MyDegreePlan', 'Plan', 'Requirements', 'Advising', 'Settings', 'On this device', 'Changes save automatically']
+const dockerSidebar = ['MyDegreePlan', 'Plan', 'Requirements', 'Advising', 'Settings', 'parity-1@example.test', 'Changes save automatically', 'Sign out']
 const realOptions = { rules: real.rules, presence: real.presence, knownFeatures: ['accounts', 'docker-update-banner', 'desktop-update-card'] }
 
-test('the real rules accept the real sidebars: avatar initials, the account line and Sign out are the registered account difference', () => {
+test('the real rules accept the real sidebars: the account line and Sign out are the registered account difference', () => {
   const result = compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(dockerSidebar) })], realOptions)
   assert.deepEqual(result.problems, [])
 })
 
-test('the real rules do NOT hide a missing issues badge (two digits are not avatar initials)', () => {
-  const noBadge = dockerSidebar.filter(line => line !== '12')
-  const result = compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(noBadge) })], realOptions)
+test('the real rules do NOT hide a missing destination', () => {
+  const noAdvising = dockerSidebar.filter(line => line !== 'Advising')
+  const result = compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(noAdvising) })], realOptions)
   assert.equal(result.ok, false)
-  assert.ok(result.problems.some(problem => problem.kind === 'text' && problem['only on web']?.includes('12')))
+  assert.ok(result.problems.some(problem => problem.kind === 'text' && problem['only on web']?.includes('Advising')))
 })
 
-test('the real rules do not hide a different badge count either', () => {
-  const other = dockerSidebar.map(line => (line === '12' ? '9' : line))
-  assert.equal(compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(other) })], realOptions).ok, false)
+test('the real rules do not hide a renamed destination either', () => {
+  const renamed = dockerSidebar.map(line => (line === 'Advising' ? 'Advisement' : line))
+  assert.equal(compareRuns([run('web', { plan: screen(webSidebar) }), run('docker', { plan: screen(renamed) })], realOptions).ok, false)
 })
 
 // ── known differences: a registered order-only difference is reported but does not fail; anything else still does ──

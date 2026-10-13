@@ -1,4 +1,4 @@
-// Advisement tab: an in-page preview of the PDF a student would hand an advisor, so they see exactly what is printed. There are two
+// Advising tab (the file keeps its old name, AdvisementView): an in-page preview of the PDF a student would hand an advisor, so they see exactly what is printed. There are two
 // documents, each its own PDF with its own export button: the Degree Map (the plan, semester by semester, on the department's form) and
 // the Degree Audit (every requirement, what counts toward it, and the finish line). One is shown at a time.
 //
@@ -19,7 +19,7 @@ export default function AdvisementView({
     <div className="ds-view ds-adv-view">
       <div className="ds-adv-top">
         <div>
-          <p className="ds-eyebrow">Advisement view</p>
+          <p className="ds-eyebrow">Advising</p>
           <h2 className="ds-h2">{current?.label}</h2>
           <p className="ds-sub">{concentrationName}{email && ` · ${email}`}</p>
         </div>
