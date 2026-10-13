@@ -473,6 +473,17 @@ so the row does not open the plan); `not_applicable` slots are left out. A row's
 hours). `summary` carries `requirements` (counts by state, what only this tab can say) and the hours by state (`computePlanCredits`' counting rules over the slots still on the grid,
 so `done` equals the plan header's `splitCreditsByPhase(...).completed`; a test pins this), shown as one line since the Plan tab's header already has the bar.
 
+### `src/lib/auditEvidence.js`
+
+`buildEvidence(...)` answers two questions for the Requirements tab (called by `buildDegreeAudit`), so no hour is unexplained. **Where a category's hours come from:** a course the
+evaluator counted toward a Flight Foundations category that is not one of that category's own rows (an elective pick, an added course, prior credit that fills no slot) is listed
+under it as a reference (`group.refs`, with a `label` such as "Counted from a course you added"); the courses spending a Free Elective's hours are listed under Free electives. A
+category's courses come from the evaluator's own lists (`flightFoundations.js` keeps each course's `source` and `ref`), so they cannot disagree with the hours. **What did not count
+toward a requirement** (`audit.notCounted`, ordered `over_cap`, `language_cap`, `exempt`, `duplicate`, `extra`, `placement`): hours above a category's limit, introductory language over
+its cap, hours in an exempt category, a course already counted once, a course that fills no listed requirement (still in the total hours), and a placement that awarded none. A course
+counts once, toward one requirement, so it is a row, a reference to the row that holds it, or in this list. A legacy plan's evaluator keeps no course lists: its categories have no
+references, and a prior credit that counts toward History / Humanities / Social is not called unused. A prior credit that covers a pool slot names its own course and note on the row.
+
 ### `src/lib/slotOptions.js`
 
 What can go in a slot, shared by the picker (`SlotModal`) and the Requirements tab so an option has one answer: `resolveSlotCourses` (a pool's members, narrowed by the science

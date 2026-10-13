@@ -42,6 +42,7 @@ import { computePlanCredits, resolveTransferDetails } from './transferCredits.js
 import { POOL_LABELS, POOL_COURSES, POOL_CREDIT_ESTIMATES } from './poolResolver.js'
 import { getPoolRemainder, isRemainderPool } from './poolRemainder.js'
 import { buildGenEdPanel } from './genEdPanel.js'
+import { buildEvidence } from './auditEvidence.js'
 import { FF_PROGRAM_CODE, FF_CATEGORIES, FF_POOL_CATEGORIES, getFlightFoundationsCategory } from './flightFoundations.js'
 
 export const CREDIT_TYPE_LABELS = {
@@ -149,7 +150,6 @@ export function buildDegreeAudit({
       choose:       slot.is_pool && !code && poolSize ? `Choose 1 of ${poolSize}` : null,
       optionCount:  poolSize,
       alsoCounts:   isFF && home.alsoCounts ? CATEGORY_LABELS[home.alsoCounts] ?? null : null,
-      alsoCategory: isFF ? home.alsoCounts : null,
       hours:        courses[code]?.credits ?? (slot.is_pool ? (slot.flex_credits ?? POOL_CREDIT_ESTIMATES[slot.class_code] ?? 3) : 0),
       semNum,
       term:         semNum != null ? (semesterLabels[semNum] ?? null) : null,
@@ -159,10 +159,20 @@ export function buildDegreeAudit({
     }
 
     if (archived) {
-      // Covered by prior credit (or a future Banner import): done, and off the grid.
+      // Covered by prior credit (or a future Banner import): done, and off the grid. The row names the credit's own course and note,
+      // since a pool slot has no course of its own.
+      const credit = priorCredits.find(pc => pc.id === details[slot.id]?.priorCreditId)
       row.state = 'done'
       row.source = 'prior_credit'
       row.sourceLabel = CREDIT_TYPE_LABELS[details[slot.id]?.creditType] ?? null
+      row.sourceNote = credit?.note ?? null
+      if (slot.is_pool && credit?.satisfies_course_code) {
+        row.code = credit.satisfies_course_code
+        row.name = courses[row.code]?.name ?? null
+        row.label = row.code
+        row.choose = null
+        row.hours = credit.credits_awarded ?? row.hours
+      }
     } else if (code) {
       row.state = stateOfSemester(semNum, semesterPhase)
     }
@@ -174,7 +184,7 @@ export function buildDegreeAudit({
       if (open > 0) {
         rows.push({
           ...row, key: `rem_${slot.id}`, code: null, name: null, label: poolLabel, choose: null, optionCount: null, required: false,
-          alsoCounts: null, alsoCategory: null, hours: open, source: 'plan', sourceLabel: null, state: 'not_placed',
+          alsoCounts: null, hours: open, source: 'plan', sourceLabel: null, state: 'not_placed',
         })
       }
     }
@@ -185,10 +195,14 @@ export function buildDegreeAudit({
     exempt: genedExempt,
   })
 
+  const evidence = buildEvidence({
+    rows, panel, isFF, priorCredits, freeAddSlots, courses, details, semesterLabels, semesterPhase, creditTypeLabels: CREDIT_TYPE_LABELS,
+  })
+
   const blocks = [
-    makeBlock('major',     majorLabel || 'Your major', rows, panel, isFF),
-    makeBlock('gened',     'General education',        rows, panel, isFF),
-    makeBlock('electives', 'Electives',                rows, panel, isFF),
+    makeBlock('major',     majorLabel || 'Your major', rows, panel, isFF, evidence),
+    makeBlock('gened',     'General education',        rows, panel, isFF, evidence),
+    makeBlock('electives', 'Electives',                rows, panel, isFF, evidence),
   ].filter(Boolean)
 
   return {
@@ -199,6 +213,8 @@ export function buildDegreeAudit({
       requirements: countRows(rows),
     },
     blocks,
+    // Hours that count toward the total but not toward a requirement, and why (lib/auditEvidence.js).
+    notCounted: evidence.notCounted,
   }
 }
 
@@ -208,9 +224,9 @@ function countRows(rows) {
   return counts
 }
 
-function makeBlock(id, title, allRows, panel, isFF) {
+function makeBlock(id, title, allRows, panel, isFF, evidence) {
   const rows = allRows.filter(r => r.block === id)
-  const groups = id === 'major' ? majorGroups(rows) : id === 'gened' ? genEdGroups(rows, allRows, panel, isFF) : electiveGroups(rows)
+  const groups = id === 'major' ? majorGroups(rows) : id === 'gened' ? genEdGroups(rows, panel, isFF, evidence) : electiveGroups(rows, evidence)
   if (groups.length === 0) return null
   const counts = countRows(rows)
   return {
@@ -233,28 +249,27 @@ function majorGroups(rows) {
   return groups
 }
 
-function electiveGroups(rows) {
+function electiveGroups(rows, evidence) {
   const codes = [...new Set(rows.map(r => r.poolCode))]
   // Free Elective hours last; the department's own electives first.
   codes.sort((a, b) => (a === 'FREE_ELECTIVE') - (b === 'FREE_ELECTIVE'))
   return codes.map(code => {
     const own = rows.filter(r => r.poolCode === code)
-    return { id: `elective:${code}`, title: code === 'FREE_ELECTIVE' ? 'Free electives' : own[0].poolLabel, rows: own, progress: null, refs: [] }
+    // The courses spending a Free Elective's hours are not rows (the bucket is one slot), so they are listed under it.
+    const refs = code === 'FREE_ELECTIVE' ? evidence.freeRefs : []
+    return { id: `elective:${code}`, title: code === 'FREE_ELECTIVE' ? 'Free electives' : own[0].poolLabel, rows: own, progress: null, refs, note: null }
   })
 }
 
 // A Flight Foundations plan is grouped by category, every category shown whether or not it has a slot of its own (it may be
 // met by a major course). A legacy plan has three category rows of hours and one list of picks.
-function genEdGroups(rows, allRows, panel, isFF) {
+function genEdGroups(rows, panel, isFF, evidence) {
   // No gen-ed pool in the plan (so no program summary): the courses that count toward a category are still listed.
   if (!panel) return rows.length ? [{ id: 'picks', title: 'General education courses', progress: null, rows, refs: [] }] : []
-  const refsFor = category => allRows
-    .filter(r => r.alsoCategory === category)
-    .map(r => ({ key: r.key, code: r.code, name: r.name, term: r.term, state: r.state, semNum: r.semNum, source: r.source, sourceLabel: r.sourceLabel }))
-
   if (isFF) {
     const groups = panel.rows.map(p => ({
-      id: p.key, title: p.label, progress: p, rows: rows.filter(r => r.category === p.key), refs: refsFor(p.key),
+      id: p.key, title: p.label, progress: p, rows: rows.filter(r => r.category === p.key),
+      refs: evidence.categoryRefs[p.key] ?? [], note: evidence.categoryNotes[p.key] ?? null,
     }))
     const other = rows.filter(r => !r.category)
     if (other.length) groups.push({ id: 'other', title: 'Other general education', progress: null, rows: other, refs: [] })

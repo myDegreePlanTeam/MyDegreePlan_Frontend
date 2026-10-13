@@ -13,10 +13,13 @@
 //           without American History). `exemptions` lists them: [{ key, label, hours }]. A legacy plan has none (no exempt
 //           major has a legacy plan: each one's first plan is a Flight Foundations plan that covers earlier entrants).
 //
-//   rows: [{ key, label, group, earned, done, inProgress, planned, min, max, state }]
+//   rows: [{ key, label, group, earned, done, inProgress, planned, min, max, state, excess, courses }]
 //     earned  hours counted toward the row, planned or not (the evaluator's number, already capped)
 //     done / inProgress / planned   the same hours by when they happen: prior credit and past terms, the current term,
 //             later terms. They add up to `earned`.
+//     excess  hours in the category above what counts (its limit; for an exempt category, all of them)
+//     courses [{ code, credits, source, ref }] counted toward it, and where each came from: 'prior_credit' (a prior credit id),
+//             'plan' (a slot id) or 'free_add' (an added course id). A legacy plan keeps no course lists.
 //     state   'done'         the minimum is met by hours already earned
 //             'in_progress'  met once the current term's courses are passed
 //             'planned'      met only if the planned courses are taken ("covered by your plan", not done)
@@ -98,6 +101,8 @@ export function buildGenEdPanel({
         min:    c.required,
         max:    Math.max(c.max ?? c.required, c.required),
         exempt: !!c.exempt,
+        excess: c.excess ?? 0,
+        courses: c.courses ?? [],
         state:  c.exempt ? 'exempt' : stateOf(c.required, hours),
       }
     })
@@ -112,6 +117,7 @@ export function buildGenEdPanel({
       satisfied: all.satisfied,
       flexNote:  all.flex && all.flex.total > 0 ? `${all.flex.used} of ${all.flex.total} flexible hours placed` : null,
       exemptions: all.categories.filter(c => c.exempt).map(c => ({ key: c.category, label: c.label, hours: c.catalogMin })),
+      languageExcess: all.languageExcess ?? 0,
       rows,
     }
   }
@@ -131,6 +137,8 @@ export function buildGenEdPanel({
       ...split(hours),
       min:    c.required,
       max:    c.required,
+      excess: 0,
+      courses: [],
       state:  state === 'open' && c.atRisk ? 'risk' : state,
     }
   })
@@ -146,6 +154,7 @@ export function buildGenEdPanel({
     satisfied: rows.every(r => r.min <= r.earned),
     flexNote:  null,
     exemptions: [],
+    languageExcess: 0,
     rows,
   }
 }

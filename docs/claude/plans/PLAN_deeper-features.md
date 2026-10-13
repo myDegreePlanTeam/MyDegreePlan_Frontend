@@ -1,6 +1,6 @@
 # PLAN — Deeper features
 
-Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 to A5 not started. The other phases are not started and need a go-ahead
+Status (2026-10-12): **Phase 1 merged** (Frontend #74); **Phase 1b: A1 built, reworked and merged** (six PRs, Frontend), A2 built (branch `feat/audit-evidence`), A3 to A5 not started. The other phases are not started and need a go-ahead
 each. The source of each item is [`ROADMAP.md`](../ROADMAP.md) ("Feature work"); when a phase ships, delete its roadmap entry and mark it here.
 
 The breadth work (opening more departments, back-filling catalog years) is a separate project: see `PLAN_all-majors.md`.
@@ -70,9 +70,11 @@ this plan does not add one; a department-named grouping ("Major core", "Technica
   slot would warn "prerequisite unmet". The entry is how the plan admits its validity leans on a choice nobody has made: it is a **warning** (not info) when another course
   relies on the slot, and it names those courses; in a past term it says the choice should be recorded. It is a statement about the plan's correctness, not a to-do list, so it
   belongs beside the other validations even though Requirements also shows the open choice. A fresh Cybersecurity plan has 12 of them, all info or warning, no blockers.
-- **A2. Evidence.** Each done or planned row says what counted and why (course, term, source: prior credit, AP, or the plan). A "Not counted" section
-  lists courses that fill no requirement (Flight Foundations hours above a category's cap, free adds that fill nothing). Says plainly that a
-  course counts once (a slot model, unlike Degree Works' best-fit display).
+- **A2. Evidence (built).** `lib/auditEvidence.js`. Every gen-ed category lists the courses behind its hours, including ones that are not its own rows (an added
+  course, prior credit, an elective pick); a prior credit that covers a pool slot names its course and note; Free electives lists the courses spending its hours. A
+  "Not counted toward a requirement" section lists hours above a category's limit, introductory language over its cap, hours in an exempt category, a course counted
+  once already, a course that fills no listed requirement, and a placement that awarded no hours; it says plainly that a course counts once (a slot model, unlike Degree
+  Works' best-fit display). Legacy plans have lighter evidence (their evaluator keeps no course lists).
 - **A3. Projection.** Earliest possible graduation term from the prerequisite chains, a "complete by" term per block, and the critical path
   (the chain of required courses that limits finishing). Built on `buildRequirementMap` and `checkPrereqs`; shares its scheduling code with the
   Phase 4 recommendation engine, so write it as a pure module under `src/lib/` that Phase 4 can import.

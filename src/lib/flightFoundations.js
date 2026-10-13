@@ -254,7 +254,8 @@ export function evaluateFlightFoundations(entries = [], options = {}) {
     }
     const given = Number(entry.credits)
     const credits = given > 0 ? given : (DEFAULT_CREDITS[code] ?? 3)
-    byCategory.get(categoryCode).push({ code: rawCode, credits })
+    // `source` ('prior_credit' | 'plan' | 'free_add') and `ref` (its id) say where the course came from, when the caller says
+    byCategory.get(categoryCode).push({ code: rawCode, credits, ...(entry.source ? { source: entry.source, ref: entry.ref ?? null } : {}) })
   }
 
   // Introductory language: only the first 3 hrs count toward Humanities.
@@ -352,26 +353,26 @@ export function evaluateFlightFoundationsForPlan(
   const minimums = getPlanMinimums(slots)
   const entries = []
   const seen = new Set()
-  const add = (code, credits) => {
+  const add = (code, credits, source, ref) => {
     if (!code || seen.has(code)) return
     seen.add(code)
-    entries.push({ code, credits })
+    entries.push({ code, credits, source, ref })
   }
 
   for (const pc of priorCredits ?? []) {
     if ((pc?.credits_awarded ?? 0) <= 0) continue
-    add(pc.satisfies_course_code, pc.credits_awarded)
+    add(pc.satisfies_course_code, pc.credits_awarded, 'prior_credit', pc.id)
   }
 
   for (const slot of slots ?? []) {
     if (planArchived?.[slot.id]) continue
     const code = slot.is_pool ? planSlots?.[slot.id] : slot.class_code
     if (!code) continue
-    add(code, courses?.[code]?.credits)
+    add(code, courses?.[code]?.credits, 'plan', slot.id)
   }
 
   for (const fa of freeAddSlots ?? []) {
-    add(fa?.course_code, courses?.[fa?.course_code]?.credits)
+    add(fa?.course_code, courses?.[fa?.course_code]?.credits, 'free_add', fa?.id)
   }
 
   return evaluateFlightFoundations(entries, { ...options, minimums })
@@ -437,7 +438,10 @@ export function getFlightFoundationsStatus(
       remaining: c.remaining,
       exempt:    c.exempt,
       catalogMin: c.catalogMin,
+      excess:    c.excess,
+      courses:   c.courses,
     })),
+    languageExcess: ev.languageExcess,
   }
 }
 
