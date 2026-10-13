@@ -39,6 +39,14 @@ export const REQUIREMENT_POOLS = new Set(
   Object.entries(POOL_DEFS).filter(([, def]) => def.gates).sort(([, a], [, b]) => a.gates - b.gates).map(([code]) => code),
 )
 
+/**
+ * Whether an unfilled slot of this pool stands in, provisionally, for a course a later course needs first. The requirement pools do
+ * (REQUIREMENT_POOLS: Communications for CSC 3040), and so does a choice that is exactly "A or B" (`OR_BIOL3200_BIOL3230`): the student will
+ * take one of them, so a course that needs "BIOL 3200 or BIOL 3230" is not out of order for want of a pick. An elective pool is not one (a
+ * slot that can hold any CSC course is no prerequisite). The degree builder keeps its own list: this is for the checks that read a placed plan.
+ */
+export const isProvidingPool = code => REQUIREMENT_POOLS.has(code) || /^OR_/.test(code ?? '')
+
 // ── Pool slot display labels ──────────────────────────────────────────────────
 // Single source of truth shared by Semester (slot row) and SlotModal (modal title).
 

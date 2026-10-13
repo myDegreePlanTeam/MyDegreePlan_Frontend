@@ -176,6 +176,11 @@ Exports two pure functions.
   as completed before the plan began (Semester 0)
 - `courseMap` — full course catalog; used to detect placement/consent gates via `classifyPrereq`
 - OR groups short-circuit when any one member is satisfied
+- A course whose catalog text asks for an ACT/SAT Math score (a placement-classified one) is met by a recorded `act_placement` into that course **or into a higher tier**
+  (ACT 29, placed into MATH 1910, meets the ACT 19 of MATH 1710): without that, a student who tested high got a blocker on an easier course their plan still asks for.
+- An unfilled pool slot stands in for a course a later course needs first when `isProvidingPool(poolCode)` (`poolResolver.js`): the requirement pools, and any "A or B"
+  choice (`OR_*`). The plan view's prerequisite and corequisite checks, the finish line (`degreeProjection`) and the drag check read it; the degree builder keeps its own
+  `REQUIREMENT_POOLS`.
 - **The signature of this function must never change.** The optional parameters were added
   with defaults specifically so all existing callers remain valid.
 

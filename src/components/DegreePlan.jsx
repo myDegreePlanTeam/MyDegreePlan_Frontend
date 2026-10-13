@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { db } from '../lib/dataClient'
-import { getScienceWarnings, getPoolLimitWarnings, POOL_LABELS, POOL_COURSES, REQUIREMENT_POOLS } from '../lib/poolResolver'
+import { getScienceWarnings, getPoolLimitWarnings, POOL_LABELS, POOL_COURSES, isProvidingPool } from '../lib/poolResolver'
 import { groupSlotsBySemester, sortByCourseCode } from '../lib/slotOrder'
 import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
 import { applyChosenHours } from '../lib/creditHours'
@@ -741,7 +741,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
       if (sem == null) continue
       if (code) placed.push({ key: slot.id, code, sem })
-      else if (slot.is_pool && REQUIREMENT_POOLS.has(slot.class_code)) {
+      else if (slot.is_pool && isProvidingPool(slot.class_code)) {
         pending.push({ key: slot.id, sem, codes: POOL_COURSES[slot.class_code] ?? [] })
       }
     }
@@ -782,7 +782,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
       const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
       const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
       if (code && sem != null) placed.push({ key: slot.id, code, sem })
-      else if (sem != null && slot.is_pool && REQUIREMENT_POOLS.has(slot.class_code)) {
+      else if (sem != null && slot.is_pool && isProvidingPool(slot.class_code)) {
         pending.push({ key: slot.id, sem, codes: POOL_COURSES[slot.class_code] ?? [] })
       }
     }

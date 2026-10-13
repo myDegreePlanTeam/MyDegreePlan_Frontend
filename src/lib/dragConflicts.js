@@ -4,7 +4,7 @@
 // and drop and by the course panel's "Move to term" list; both hold a conflicting move back and let the student move
 // anyway. Pure: everything it needs is passed in.
 
-import { POOL_COURSES, REQUIREMENT_POOLS } from './poolResolver'
+import { POOL_COURSES, isProvidingPool } from './poolResolver'
 
 /**
  * Checks the moved course against the hypothetical new placement: its prereqs must be in earlier semesters, its coreqs in
@@ -45,7 +45,7 @@ export function getMoveConflicts({
 
   const pending = []
   for (const s of slots) {
-    if (planArchived[s.id] || !s.is_pool || planSlots[s.id] || !REQUIREMENT_POOLS.has(s.class_code)) continue
+    if (planArchived[s.id] || !s.is_pool || planSlots[s.id] || !isProvidingPool(s.class_code)) continue
     const sem = hypothetical[s.id] ?? s.semester_number
     if (sem != null) pending.push({ key: s.id, sem, codes: POOL_COURSES[s.class_code] ?? [] })
   }

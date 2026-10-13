@@ -28,7 +28,7 @@
 // course never starts before the map term the plan gives it (the same floor degreeBuilder applies).
 
 import { scheduleTerms, nthTerm, DEFAULT_MAX_HOURS } from './termScheduler.js'
-import { POOL_COURSES, REQUIREMENT_POOLS, POOL_FLOORS } from './poolResolver.js'
+import { POOL_COURSES, isProvidingPool, POOL_FLOORS } from './poolResolver.js'
 import { planRequiresCalculusII } from './mathPlacement.js'
 import { advanceTerm, formatTermLabel, isSameTerm } from './semesterTerms.js'
 
@@ -87,7 +87,7 @@ export function projectDegree({
       code: row.code ?? null,
       hours: row.hours,
       pool: openChoice
-        ? { codes: POOL_COURSES[row.poolCode] ?? null, gates: REQUIREMENT_POOLS.has(row.poolCode) }
+        ? { codes: POOL_COURSES[row.poolCode] ?? null, gates: isProvidingPool(row.poolCode) }
         : null,
       floor: mapTerm ? termIndexFrom(start, mapTerm) : 1,
       after: openChoice && POOL_FLOORS[row.poolCode] ? [POOL_FLOORS[row.poolCode]] : [],
