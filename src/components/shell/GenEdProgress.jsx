@@ -23,12 +23,11 @@ function Segments({ row }) {
   )
 }
 
-function Row({ row }) {
-  const note = row.state === 'risk' ? 'The open general-education slots cannot cover what is still needed.' : null
+// One category of a gen-ed program: its hours against the range, in what has happened, what is under way and what is planned.
+export function CategoryProgress({ row }) {
   return (
-    <li className={`ds-gened-row ds-gened-${row.state}`}>
+    <div className={`ds-gened-progress ds-gened-${row.state}`}>
       <div className="ds-gened-top">
-        <span className="ds-gened-label">{row.label}</span>
         <span className="ds-gened-hours">{row.earned} of {formatRange(row)} hrs</span>
         <span className="ds-gened-state">{STATE_LABEL[row.state]}</span>
       </div>
@@ -39,8 +38,10 @@ function Row({ row }) {
       >
         <Segments row={row} />
       </div>
-      {note && <p className="ds-gened-note">{note}</p>}
-    </li>
+      {row.state === 'risk' && (
+        <p className="ds-gened-note">The open general-education slots cannot cover what is still needed.</p>
+      )}
+    </div>
   )
 }
 
@@ -52,11 +53,12 @@ function summaryLine(panel) {
   return 'Counts prior credit and the courses you have placed in your plan. Hours in a future term are planned, not earned.'
 }
 
-export default function GenEdProgress({ panel }) {
+// The program's own total, shown once under the General education heading.
+export default function GenEdSummary({ panel }) {
   if (!panel) return null
   return (
-    <section className="ds-gened" aria-labelledby="ds-gened-title">
-      <h3 className="ds-h3" id="ds-gened-title">{panel.title}: {panel.earned} of {panel.required} hours covered</h3>
+    <div className="ds-gened-summary">
+      <p className="ds-gened-headline">{panel.title}: {panel.earned} of {panel.required} hours covered</p>
       <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
         {summaryLine(panel)}
         {panel.flexNote && ` ${panel.flexNote}.`}
@@ -68,9 +70,6 @@ export default function GenEdProgress({ panel }) {
         <span className="ds-sep">·</span>
         <span>{panel.planned} planned</span>
       </p>
-      <ul className="ds-gened-list">
-        {panel.rows.map(row => <Row key={row.key} row={row} />)}
-      </ul>
-    </section>
+    </div>
   )
 }

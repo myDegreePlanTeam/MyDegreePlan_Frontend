@@ -1,4 +1,4 @@
-import GenEdProgress from './GenEdProgress'
+import GenEdSummary, { CategoryProgress } from './GenEdProgress'
 
 // State words and marks. The mark and the word carry the state, never the colour alone.
 const STATES = {
@@ -37,11 +37,13 @@ function Summary({ summary }) {
   )
 }
 
+function whereOf(row) {
+  return row.source === 'prior_credit' ? `Prior credit${row.sourceLabel ? ` (${row.sourceLabel})` : ''}` : row.term
+}
+
 function RowBody({ row }) {
   const state = STATES[row.state]
-  const where = row.source === 'prior_credit'
-    ? `Prior credit${row.sourceLabel ? ` (${row.sourceLabel})` : ''}`
-    : row.term
+  const where = whereOf(row)
   return (
     <>
       <span className="ds-audit-mark" aria-hidden="true">{state.mark}</span>
@@ -53,8 +55,8 @@ function RowBody({ row }) {
         <span className="ds-audit-meta">
           <span className={`ds-audit-state ds-audit-state-${row.state}`}>{state.label}</span>
           {where && <span>{where}</span>}
-          {row.required && <span className="ds-audit-tag">Required</span>}
           {row.choose && <span className="ds-audit-tag">{row.choose}</span>}
+          {row.alsoCounts && <span className="ds-audit-tag">Also counts for {row.alsoCounts}</span>}
           {row.hours > 0 && <span>{row.hours} hrs</span>}
         </span>
       </span>
@@ -62,18 +64,73 @@ function RowBody({ row }) {
   )
 }
 
+// One row style everywhere. A fixed course is a requirement with nothing to choose, so its row is one line.
 function Row({ row, onOpenRow }) {
+  const cls = `ds-audit-row ds-audit-${row.state}${row.required ? ' ds-audit-compact' : ''}`
   // A row covered by prior credit is not on the grid, so there is nothing to open.
   if (row.source === 'prior_credit') {
-    return <li className={`ds-audit-row ds-audit-${row.state}`}><div className="ds-audit-line"><RowBody row={row} /></div></li>
+    return <li className={cls}><div className="ds-audit-line"><RowBody row={row} /></div></li>
   }
   return (
-    <li className={`ds-audit-row ds-audit-${row.state}`}>
+    <li className={cls}>
       <button type="button" className="ds-audit-line ds-audit-open" onClick={() => onOpenRow(row)}>
         <RowBody row={row} />
         <span className="ds-audit-go" aria-hidden="true">{row.state === 'not_placed' ? 'Choose ›' : 'View ›'}</span>
       </button>
     </li>
+  )
+}
+
+// A major course that also counts toward this category: listed once, in the major, and pointed at from here.
+function Ref({ item, onOpenRow }) {
+  const state = STATES[item.state]
+  const where = whereOf(item)
+  const body = (
+    <>
+      <span className="ds-audit-mark" aria-hidden="true">{state.mark}</span>
+      <span className="ds-audit-main">
+        <span className="ds-audit-title">
+          <span className="ds-audit-code">{item.code}</span>
+          {item.name && <span className="ds-audit-name">{item.name}</span>}
+        </span>
+        <span className="ds-audit-meta">
+          <span className={`ds-audit-state ds-audit-state-${item.state}`}>{state.label}</span>
+          {where && <span>{where}</span>}
+          <span className="ds-audit-tag">Counted from your major</span>
+        </span>
+      </span>
+    </>
+  )
+  return (
+    <li className={`ds-audit-row ds-audit-ref ds-audit-${item.state}`}>
+      {item.source === 'prior_credit'
+        ? <div className="ds-audit-line">{body}</div>
+        : <button type="button" className="ds-audit-line ds-audit-open" onClick={() => onOpenRow(item)}>{body}</button>}
+    </li>
+  )
+}
+
+function Group({ group, onOpenRow }) {
+  const compact = group.rows.length > 0 && group.rows.every(r => r.required)
+  const done = group.rows.filter(r => r.state === 'done').length
+  const empty = group.progress && group.rows.length === 0 && group.refs.length === 0
+  return (
+    <section className="ds-audit-group" aria-label={group.title}>
+      <div className="ds-audit-group-head">
+        <h4 className="ds-audit-group-title">{group.title}</h4>
+        {!group.progress && group.rows.length > 0 && (
+          <span className="ds-audit-count">{done} of {group.rows.length} done</span>
+        )}
+      </div>
+      {group.progress && <CategoryProgress row={group.progress} />}
+      {(group.rows.length > 0 || group.refs.length > 0) && (
+        <ul className={`ds-audit-list${compact ? ' ds-audit-list-compact' : ''}`}>
+          {group.refs.map(item => <Ref key={`ref-${item.key}`} item={item} onOpenRow={onOpenRow} />)}
+          {group.rows.map(row => <Row key={row.key} row={row} onOpenRow={onOpenRow} />)}
+        </ul>
+      )}
+      {empty && <p className="ds-audit-empty">Nothing in your plan counts toward this yet.</p>}
+    </section>
   )
 }
 
@@ -89,12 +146,8 @@ function Block({ block, onOpenRow }) {
           </span>
         )}
       </div>
-      {block.panel && <GenEdProgress panel={block.panel} />}
-      {block.rows.length > 0 && (
-        <ul className="ds-audit-list">
-          {block.rows.map(row => <Row key={row.key} row={row} onOpenRow={onOpenRow} />)}
-        </ul>
-      )}
+      {block.panel && <GenEdSummary panel={block.panel} />}
+      {block.groups.map(group => <Group key={group.id} group={group} onOpenRow={onOpenRow} />)}
     </section>
   )
 }
@@ -105,8 +158,9 @@ export default function RequirementsView({ audit, onOpenRow }) {
       <p className="ds-eyebrow">Requirements</p>
       <h2 className="ds-h2">Degree audit</h2>
       <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
-        Every requirement of your degree program, read from your plan and prior credit. A course in a past term counts as done, one in
-        the current term as in progress, and one in a later term as planned. Select a row to see it on your plan.
+        Every requirement of your degree program, read from your plan and prior credit: your major, general education, then
+        electives. A course in a past term counts as done, one in the current term as in progress, and one in a later term as
+        planned. To change anything, select a row to open it on your plan.
       </p>
 
       <Summary summary={audit.summary} />
