@@ -6,6 +6,7 @@ import { calculateCredits } from '../lib/semesterCredits'
 import { formatCourseCode } from '../lib/courseCodeFormat'
 import { codesText } from '../lib/planCheck'
 import StatusChip from './shell/StatusChip'
+import { hoursText } from '../lib/hoursText'
 
 // Maps prior_credit.credit_type to a short label shown on transfer-filled slots
 const CREDIT_TYPE_LABELS = {
@@ -18,7 +19,6 @@ const CREDIT_TYPE_LABELS = {
   cambridge:       'Cambridge',
 }
 
-const hoursText = n => (typeof n === 'number' ? `${n} ${n === 1 ? 'hour' : 'hours'}` : '— hours')
 
 // One semester card on the plan (redesign Phase 3b). The header says where the semester stands (Now, In progress, Planned, Done) and how many
 // hours it holds; a row says nothing about status unless it is an exception (blocked, needs attention) or an open pick. Clicking a row selects

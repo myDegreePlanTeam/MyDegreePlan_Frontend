@@ -31,6 +31,8 @@ import { calculateCredits } from '../lib/semesterCredits'
 import { getPoolRemainder } from '../lib/poolRemainder'
 import SlotModal from './SlotModal'
 import CoursePanel from './CoursePanel'
+import { hoursText } from '../lib/hoursText'
+import { formatCourseCode } from '../lib/courseCodeFormat'
 import AddCourseModal from './AddCourseModal'
 import { DegreeplanSkeleton } from './Skeletons'
 import PriorCreditWizard from './PriorCreditWizard'
@@ -1748,7 +1750,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const before = semCredits(n)
     const after  = before + (selCourse?.credits ?? 0)
     const tone   = after > HEAVY_LOAD_MAX || after < FULL_TIME_MIN ? 'warn' : 'ok'
-    return { ...base, note: `${before} → ${after} cr${semesterPhase[n] === 'past' ? ' · past term' : ''}`, tone, disabled: false }
+    return { ...base, note: `${before} → ${after} hours${semesterPhase[n] === 'past' ? ' · past term' : ''}`, tone, disabled: false }
   }) : []
 
   function selectSlot(slot) {
@@ -1799,10 +1801,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
     <CoursePanel
       key={`${selKey}:${selCode ?? 'empty'}`}
       eyebrow={semLabels[selSem] ?? ''}
-      title={selIsEmptyPool ? (POOL_LABELS[selSlot.class_code] ?? selSlot.class_code) : selCode}
+      title={selIsEmptyPool ? (POOL_LABELS[selSlot.class_code] ?? selSlot.class_code) : formatCourseCode(selCode)}
       subtitle={selIsEmptyPool
-        ? `Choose a course · ${selRemainder ? selFollowUpHours : (remainders[selSlot.id] ?? selSlot.flex_credits ?? 3)} cr${selRemainder ? ' left to fill' : ''}`
-        : `${selCourse?.name ?? 'Course not in catalog'}${selCourse ? ` · ${selCourse.credits} cr` : ''}`}
+        ? `Choose a course · ${hoursText(selRemainder ? selFollowUpHours : (remainders[selSlot.id] ?? selSlot.flex_credits ?? 3))}${selRemainder ? ' left to fill' : ''}`
+        : `${selCourse?.name ?? 'Course not in catalog'}${selCourse ? ` · ${hoursText(selCourse.credits)}` : ''}`}
       course={selCourse}
       courseMap={courses}
       prereqMap={prereqMap}
