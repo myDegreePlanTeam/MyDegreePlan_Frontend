@@ -14,7 +14,7 @@ const run = (target, screens, over = {}) => ({
 const screen = (sidebar, main = ['Settings'], extra = {}) => ({ sidebar, main, modal: [], page: [], ...extra })
 const settings = platform => {
   const w = platformWords(platform)
-  return screen([platform === 'docker' ? 'a@b.test' : 'On this device'], ['Your data', w.storedMeta, w.backupText, w.eraseLabel, `Deletes your plan from ${w.where}, then starts onboarding again.`])
+  return screen([platform === 'docker' ? 'a@b.test' : 'On this device'], ['Your data', w.storedMeta, w.backupText, w.eraseLabel, `Deletes your plan from ${w.where}, then starts onboarding again.`, w.eraseButton])
 }
 const rules = [
   { feature: 'accounts', platforms: ['docker'], regions: ['sidebar'], match: '^(Sign out|Signed in|\\S+@\\S+)$' },

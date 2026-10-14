@@ -29,6 +29,15 @@ describe('platformOf', () => {
 describe('platformWords', () => {
   const keys = Object.keys(platformWords('web'))
 
+  // parity/lib/compare.mjs replaces each word's text with a token named after its key. Docker's erase label and button were both
+  // "Erase my plan", so both lines became the label's token there and the Docker leg failed on every Settings screen.
+  it('no two words read the same on one platform (the parity run could not tell them apart)', () => {
+    for (const p of PLATFORMS) {
+      const values = keys.filter(k => k !== 'label').map(k => platformWords(p)[k])
+      expect(new Set(values).size, p).toBe(values.length)
+    }
+  })
+
   it('has every word for every platform (a missing one would show "undefined" to a student)', () => {
     for (const p of PLATFORMS) {
       expect(Object.keys(platformWords(p)).sort(), p).toEqual([...keys].sort())
