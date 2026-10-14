@@ -675,6 +675,14 @@ Undo is a sentence and a button that appear after a change: **`shell/UndoToast.j
 reload, and the toast does not). `lib/undoStore.js` is untouched. On a phone the semesters are one column, the details are a bottom sheet and the toast sits above the tab bar; the plan's own buttons (Expand all, Undo last change) are
 44 px in the interface font. `undoToast.test.jsx` pins the above.
 
+### The Requirements screen (`PLAN_redesign.md`, Phase 4)
+
+`shell/RequirementsView.jsx` and `shell/GenEdProgress.jsx` draw the same audit and projection as before (`degreeAudit.js`, `degreeProjection.js`: no data change). The page is titled **Requirements** ("Degree audit" is now only the
+name of the Advising document). A summary card says "27 of 39 requirements are done or placed in your plan" and "12 course picks are still to make", with a bar and a legend that carries a number, a word and a swatch; the finish is a
+headline ("Earliest finish: Spring 2030") and one sentence. Each section has a count ("0 of 23 done"), each general-education category "N of M hours" and its state in words. A row is one line of a card, like a semester's rows: the code
+in the code face ("CSC 1300"), the title, then the term and hours; its status is a `StatusChip`, and an open choice shows **Pick a course** and opens that pick on the plan. Hours are written out here and in the two strings the screen
+shares with other places (`auditEvidence.js`, `slotOptions.js`). The parity scenario waits for `.ds-requirements .ds-audit-summary`, not the old title. `requirementsRender.test.jsx` pins the above on a real plan.
+
 ### `src/lib/genEdPanel.js`
 
 

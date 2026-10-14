@@ -14,7 +14,7 @@ import { NAV_TABS } from '../components/shell/navTabs'
 
 const css = readFileSync(fileURLToPath(new URL('../components/shell/AppShell.css', import.meta.url)), 'utf8').replace(/\r\n/g, '\n')
 const sidebarCss = css.slice(css.indexOf('/* -- Sidebar:'), css.indexOf('/* ── Main column'))
-const phoneCss = css.slice(css.indexOf('@media (max-width: 760px) {'), css.indexOf('/* ── General-education progress'))
+const phoneCss = css.slice(css.indexOf('@media (max-width: 760px) {'), css.indexOf('/* -- Requirements (redesign Phase 4)'))
 
 const render = props => renderToStaticMarkup(<Sidebar view="plan" onNavigate={() => {}} lastSavedAt={null} {...props} />)
 const labelsOf = html => [...html.matchAll(/class="ds-tab-label">([^<]+)</g)].map(m => m[1])

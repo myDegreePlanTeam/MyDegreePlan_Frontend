@@ -110,7 +110,7 @@ export async function runScenario(target, { log = () => {} } = {}) {
 
   // The Requirements tab (the degree audit, src/lib/features.js) is open: it must show the same audit on every platform.
   await openTab('Requirements')
-  await page.getByText('Degree audit').first().waitFor({ timeout: STEP_TIMEOUT })
+  await page.locator('.ds-requirements .ds-audit-summary').waitFor({ timeout: STEP_TIMEOUT })
   await page.getByText(/Earliest finish|Every requirement is done|You finish at the end of|No finish can be worked out/).first().waitFor({ timeout: STEP_TIMEOUT }).catch(() => {})
   await grab('requirements')
 
