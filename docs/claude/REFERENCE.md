@@ -705,6 +705,23 @@ class names `Dashboard.css` gave them (`.modal-*`, `.wizard-*`, `.add-credit-*`)
 in both themes, and sets the type once (the interface font, sentence case, 15 px, codes in the code face) and the controls to 44 px. The old `.modal-backdrop`, `.modal-card`, `.modal-header`, `.modal-eyebrow`, `.modal-title`, `.modal-sub`,
 `.modal-close` and `.wizard-card` rules are deleted. Hours are written out and codes read "MATH 1904". The parity scenario reads every dialog through `.ds-modal`.
 
+### First run (`PLAN_redesign.md`, Phase 7)
+
+`components/Onboarding.jsx` is four screens on one card (`FirstRun.css`, classes `fr-*`), with "Step N of 4" in words and one filled button each:
+
+1. **Choose your major** (`components/ProgramPicker.jsx`, model `majorListModel` in `lib/programPicker.js`): a labelled search box first; the colleges as filter chips (only when there are several); the majors the planner
+   supports (`isProgramReady`) listed by college, with "Show the rest" for the others, which stay disabled and marked Coming soon; a major with more than one program opens in place and shows its concentrations as radios
+   ("Concentration", or "Concentration (optional)" when the major itself is a program). A search result chooses the major and the concentration at once. Closed programs stay behind "Show closed programs". Import a backup is here.
+2. **When do you start?** Year, then semester, limited to the terms the major has a plan for; the notes about a past start and an approximate plan are unchanged.
+3. **Scores and credits**: the six optional scores, and "Credits you already have" through the prior-credit wizard ("Add a credit"). The button is "Build my plan".
+4. **Your plan is ready**: the finish ("Spring 2030", "8 semesters · 120 hours"), this semester's (or the first semester's) hours and courses, where math starts and why ("ACT Math 29 places you into MATH 1910."), and how many
+   picks are left. Back returns to step 3 with nothing written; **Open my plan** saves.
+
+**`lib/firstPlan.js`** (pure): `buildFirstPlan` turns the choices, the plan's slots and its slice of the catalog into the profile columns, the `prior_credits` rows (ACT English credit, the math placement, then the student's own) and the
+`student_plan_slots` rows; `summarizeFirstPlan` gives the last screen its facts. `Onboarding.handleBuild` reads and builds; `saveFirstPlan` writes the profile, the credits and the slots, in that order, with the same fallbacks for an older
+database as before. The board named the first pick that matters on the last screen; that needs the plan view's dependency check, so the screen points at Plan check instead. `ProgramPicker.css` is gone. `firstPlan.test.js`,
+`programPicker.test.jsx`, `programPickerModel.test.js` and `firstRun.test.jsx` pin the above; the parity scenario's first half walks these four screens.
+
 ### `src/lib/genEdPanel.js`
 
 

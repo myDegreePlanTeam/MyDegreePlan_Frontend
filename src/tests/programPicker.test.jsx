@@ -2,124 +2,117 @@ import { describe, it, expect } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ProgramPicker from '../components/ProgramPicker'
 
-// A render smoke test for each step of the picker (the server renderer shows a component's initial state: no clicks). Onboarding owns
-// which step is showing and what is chosen; the behavior behind the clicks is in programPicker.test.js, programBrowser.test.js and
-// catalogYears.test.js. This covers that each step draws the level it should for the programs it is given, and fails loudly where it
-// must (a loading skeleton, an error).
+// A render smoke test of the first screen of first run (redesign Phase 7; the server renderer shows a component's initial state: no
+// clicks). Onboarding owns what is chosen; the behavior behind the clicks is in programPickerModel.test.js, programBrowser.test.js and
+// catalogYears.test.js. This covers what the screen draws for the programs it is given: search first, colleges as chips, the supported
+// majors by college, the chosen major's concentrations in place, and where it must fail loudly (a loading skeleton, an error).
 
 const program = (id, code, name, over = {}) => ({
   id, code, name, major_name: over.major_name ?? name, degree: 'B.S.', department: 'CSC', college: 'engineering', major_code: over.major_name ? over.major_name.toLowerCase().replace(/\W+/g, '_') : code,
   is_base: false, description: `About ${name}`, last_catalog_year: null, aliases: null, ...over,
 })
 const plans = [1, 2, 3, 4, 5].map(id => ({ id, concentration_id: id, catalog_year: '2026-2027', covers_earlier: false }))
-const render = props => renderToStaticMarkup(<ProgramPicker programs={[]} plans={plans} stage="major" value={null} {...props} />)
+const render = props => renderToStaticMarkup(<ProgramPicker programs={[]} plans={plans} value={null} {...props} />)
+const text = html => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+const majorButtons = html => html.match(/<button[^>]*class="fr-major[^"]*"[^>]*>/g) ?? []
 
-describe('ProgramPicker, the college step', () => {
+describe('ProgramPicker: search, then colleges as chips', () => {
   const programs = [
     program(1, 'cs', 'Computer Science', { is_base: true }),
-    program(2, 'bio_bot', 'Botany', { major_name: 'Biology', college: 'cas' }),
-    program(3, 'bio_zool', 'Zoology', { major_name: 'Biology', college: 'cas' }),
+    program(2, 'bio_bot', 'Botany', { major_name: 'Biology', college: 'cas', major_code: 'biology' }),
+    program(3, 'bio_zool', 'Zoology', { major_name: 'Biology', college: 'cas', major_code: 'biology' }),
   ]
 
-  it('lists the colleges with their number of majors, and no majors', () => {
-    const html = render({ programs, stage: 'college', searchable: true })
-    expect(html).toContain('program-college')
-    expect(html).toContain('Arts &amp; Sciences')
-    expect(html).toContain('1 major')
-    expect(html).toContain('Engineering')
-    expect(html).not.toContain('program-major')
-    expect(html).not.toContain('program-concentrations')
-    expect(html).toContain('Search majors and concentrations')
+  it('leads with a labelled search box', () => {
+    const html = render({ programs })
+    expect(html.indexOf('type="search"')).toBeGreaterThan(-1)
+    expect(html.indexOf('type="search"')).toBeLessThan(html.indexOf('fr-chips'))
+    expect(text(html)).toContain('Search majors and concentrations')
   })
 
-  it('dims a college with no ready major but keeps it open to browse', () => {
-    const html = render({ stage: 'college', programs: [program(1, 'cs', 'Computer Science', { is_base: true }), program(2, 'bio', 'Biology', { is_base: true, college: 'cas', department: 'BIOL' })] })
-    const colleges = html.match(/<button[^>]*program-college[^>]*>/g)
-    expect(colleges).toHaveLength(2)
-    expect(colleges.filter(b => b.includes('program-soon'))).toHaveLength(1)
-    expect(colleges.some(b => b.includes('disabled'))).toBe(false)
+  it('offers the colleges as filter chips, with All colleges chosen, and lists every supported major under its college', () => {
+    const html = render({ programs })
+    const chips = html.match(/<button[^>]*class="fr-chip[^"]*"[^>]*>[^<]+/g).map(c => c.replace(/<[^>]+>/, ''))
+    expect(chips).toEqual(['All colleges', 'Arts &amp; Sciences', 'Engineering'])
+    expect(html).toMatch(/class="fr-chip fr-chip-on" aria-pressed="true"[^>]*>All colleges|aria-pressed="true"[^>]*class="fr-chip fr-chip-on"[^>]*>All colleges/)
+    expect(text(html)).toContain('Biology, B.S.')
+    expect(text(html)).toContain('Computer Science, B.S.')
+    expect(text(html)).toContain('2 concentrations')
   })
 
-  it('marks the chosen college', () => {
-    const html = render({ programs, stage: 'college', collegeCode: 'cas' })
-    expect(html.match(/<button[^>]*aria-pressed="true"[^>]*program-college[^>]*>|<button[^>]*program-college[^>]*aria-pressed="true"[^>]*>/g)).toHaveLength(1)
+  it('has no chips with one college', () => {
+    expect(render({ programs: [program(1, 'cs', 'Computer Science', { is_base: true })] })).not.toContain('fr-chips')
   })
 })
 
-describe('ProgramPicker, the major step', () => {
-  it('with one college, lists the majors under "Majors"', () => {
-    const html = render({ programs: [program(1, 'cs', 'Computer Science', { is_base: true }), program(2, 'me', 'Mechanical Engineering', { is_base: true })], searchable: true })
-    expect(html).not.toContain('program-college')
-    expect(html).toContain('Majors')
-    expect(html).toContain('Computer Science, B.S.')
-    expect(html).toContain('no concentrations')
+describe('ProgramPicker: the majors the planner supports', () => {
+  const programs = [program(1, 'cs', 'Computer Science', { is_base: true }), program(2, 'art', 'Art', { is_base: true, department: 'ART', college: 'cas' })]
+
+  it('lists the supported ones and offers the rest', () => {
+    const html = render({ programs })
+    expect(text(html)).toContain('Showing majors the planner supports today.')
+    expect(text(html)).toContain('Show the rest')
+    expect(text(html)).toContain('Computer Science, B.S.')
+    expect(text(html)).not.toContain('Art, B.S.')
+    expect(majorButtons(html).some(b => b.includes('disabled'))).toBe(false)
   })
 
-  it('with a college chosen among several, lists that college\'s majors only', () => {
-    const programs = [program(1, 'cs', 'Computer Science', { is_base: true }), program(2, 'bio', 'Biology', { is_base: true, college: 'cas', department: 'BIOL' })]
-    const html = render({ programs, collegeCode: 'cas' })
-    expect(html).toContain('Majors in Arts &amp; Sciences')
-    expect(html).toContain('Biology, B.S.')
-    expect(html).not.toContain('Computer Science, B.S.')
-    expect(html).not.toContain('Search majors')            // the search box is on the first step only
-  })
-
-  it('grays out a major that is not ready, with a Coming soon tag, and leaves a ready one clickable', () => {
-    const html = render({ programs: [program(1, 'cs', 'Computer Science', { is_base: true }), program(2, 'me', 'Mechanical Engineering', { is_base: true, department: 'MNE' })] })
-    const buttons = html.match(/<button[^>]*program-major[^>]*>/g)
-    expect(buttons).toHaveLength(2)
-    expect(buttons.filter(b => b.includes('disabled'))).toHaveLength(1)
-    expect(html).toContain('Coming soon')
-    expect(html.match(/<button[^>]*program-major[^>]*>(?:(?!<\/button>).)*Computer Science(?:(?!<\/button>).)*<\/button>/)[0]).not.toContain('Coming soon')
+  it('says nothing about the rest when every major is supported', () => {
+    expect(text(render({ programs: [programs[0]] }))).not.toContain('Show the rest')
   })
 })
 
-describe('ProgramPicker, the concentration step', () => {
+describe('ProgramPicker: a major and its concentrations', () => {
   const programs = [
     program(1, 'cs', 'Computer Science', { is_base: true, major_name: 'Computer Science', major_code: 'cs_major' }),
     program(2, 'cyber', 'CSC Cybersecurity', { major_name: 'Computer Science', major_code: 'cs_major' }),
   ]
 
-  it('lists the concentrations of the chosen major, with "No concentration" for the base, and says the choice is optional', () => {
-    const html = render({ programs, stage: 'concentration', majorKey: 'cs_major', value: 'cyber' })
-    expect(html).toContain('Concentration (optional)')
-    expect(html).toContain('No concentration')
-    expect(html).toContain('CSC Cybersecurity')
-    expect(html).toContain('aria-pressed="true"')
-    expect(html).not.toContain('program-colleges')
+  it('shows the concentrations of the opened major as radios, in place, with none chosen yet', () => {
+    const html = render({ programs, majorKey: 'cs_major' })
+    expect(html.match(/type="radio"/g)).toHaveLength(2)
+    expect(html).not.toContain('checked=""')
+    expect(text(html)).toContain('Concentration (optional)')
+    expect(text(html)).toContain('No concentration. About Computer Science')
+    expect(text(html)).toContain('Choose a concentration below')
+    expect(html).toContain('aria-expanded="true"')
   })
 
-  it('shows the selection as a path', () => {
-    const html = render({ programs, stage: 'concentration', majorKey: 'cs_major', value: 'cyber' })
-    expect(html).toContain('Your program')
-    expect(html).toContain('Engineering › Computer Science › CSC Cybersecurity')
+  it('checks the chosen concentration and shows the choice as a path', () => {
+    const html = render({ programs, value: 'cyber' })
+    expect(html.match(/checked=""/g)).toHaveLength(1)
+    expect(text(html)).toContain('Your major Engineering › Computer Science › CSC Cybersecurity')
   })
 
-  it('a major whose concentrations are all required says so', () => {
-    const bio = [program(1, 'bot', 'Botany', { major_name: 'Biology', major_code: 'biology', college: 'cas' }), program(2, 'zool', 'Zoology', { major_name: 'Biology', major_code: 'biology', college: 'cas' })]
-    expect(render({ programs: bio, stage: 'concentration', majorKey: 'biology', value: 'zool' })).toContain('Choose your concentration')
+  it('a major whose concentrations are all required says Concentration, not optional', () => {
+    const bio = [program(1, 'bot', 'Botany', { major_name: 'Biology', major_code: 'biology', college: 'cas', department: 'CSC' }), program(2, 'zool', 'Zoology', { major_name: 'Biology', major_code: 'biology', college: 'cas', department: 'CSC' })]
+    const t = text(render({ programs: bio, majorKey: 'biology' }))
+    expect(t).toContain('Concentration')
+    expect(t).not.toContain('(optional)')
+  })
+
+  it('a major that is its own program has no radios', () => {
+    expect(render({ programs: [programs[0]], value: 'cs' })).not.toContain('type="radio"')
   })
 })
 
-describe('ProgramPicker, whatever the step', () => {
-  it('keeps a closed program behind a disclosure on the first step, unless it is the selection', () => {
+describe('ProgramPicker: closed programs, loading and errors', () => {
+  it('keeps a closed program behind a disclosure, unless it is the selection', () => {
     const programs = [program(1, 'new', 'New Program', { is_base: true }), program(2, 'old', 'Old Program', { is_base: true, last_catalog_year: '2025-2026' })]
     const oldPlans = [{ id: 1, concentration_id: 1, catalog_year: '2026-2027' }, { id: 2, concentration_id: 2, catalog_year: '2025-2026' }]
-    const hidden = render({ programs, plans: oldPlans, searchable: true })
+    const hidden = render({ programs, plans: oldPlans })
     expect(hidden).toContain('Show closed programs')
     expect(hidden).not.toContain('Old Program')
-    const chosen = render({ programs, plans: oldPlans, value: 'old', searchable: true })
+    const chosen = render({ programs, plans: oldPlans, value: 'old' })
     expect(chosen).not.toContain('Show closed programs')
     expect(chosen).toContain('Old Program')
     expect(chosen).toContain('Hide closed programs')
     expect(hidden).not.toContain('Hide closed programs')
-    // not offered on a later step, where it would only be noise
-    expect(render({ programs, plans: oldPlans })).not.toContain('Show closed programs')
   })
 
   it('drops a program that has no plan, and shows a skeleton while loading and the error when it fails', () => {
     expect(render({ programs: [program(9, 'noplan', 'No Plan Yet')] })).not.toContain('No Plan Yet')
     expect(render({ loading: true })).toContain('sk-pulse')
-    expect(render({ error: 'boom' })).toContain('Could not load programs: boom')
+    expect(render({ error: 'boom' })).toContain('Could not load the majors: boom')
   })
 })

@@ -64,37 +64,33 @@ export async function runScenario(target, { log = () => {} } = {}) {
     await button('Create account').click()
   }
 
-  // ── Onboarding ──
-  // The program is chosen one level at a time: college, major, concentration (each its own screen).
-  await page.waitForSelector('.program-college', { timeout: STEP_TIMEOUT })
-  await grab('onboarding-1-college')
-  await page.locator('.program-college', { hasText: 'Engineering' }).first().click()
+  // ── First run: four screens (src/lib/programPicker.js onboardingSteps) ──
+  // 1. The major, and its concentration on the same screen (radios that appear under the chosen major).
+  await page.waitForSelector('.fr-major', { timeout: STEP_TIMEOUT })
+  await grab('onboarding-1-major')
+  await page.locator('.fr-major', { hasText: 'Computer Science' }).first().click()
+  await page.locator('.fr-conc').first().waitFor({ timeout: STEP_TIMEOUT })
+  await grab('onboarding-1-concentration')
+  await page.locator('.fr-conc', { hasText: 'CSC Cybersecurity' }).first().click()
   await button('Continue').click()
 
-  await page.locator('.program-major').first().waitFor({ timeout: STEP_TIMEOUT })
-  await grab('onboarding-2-major')
-  await page.locator('.program-major', { hasText: 'Computer Science' }).first().click()
-  await button('Continue').click()
-
-  await page.locator('.concentration-card').first().waitFor({ timeout: STEP_TIMEOUT })
-  await grab('onboarding-3-concentration')
-  await page.locator('.concentration-card', { hasText: 'CSC Cybersecurity' }).first().click()
-  await button('Continue').click()
-
+  // 2. The first semester.
   await page.getByText('When do you start?').waitFor({ timeout: STEP_TIMEOUT })
-  await grab('onboarding-4-start-term')
-  await page.locator('select.onboarding-select').nth(0).selectOption('2026')
-  await page.locator('select.onboarding-select').nth(1).selectOption('Fall')
+  await grab('onboarding-2-start-term')
+  await page.locator('select.fr-select').nth(0).selectOption('2026')
+  await page.locator('select.fr-select').nth(1).selectOption('Fall')
   await button('Continue').click()
 
-  await page.getByText('Test Scores').first().waitFor({ timeout: STEP_TIMEOUT })
-  await grab('onboarding-5-scores')
-  await page.locator('input.onboarding-input').nth(0).fill('29')
-  await button('Continue').click()
+  // 3. Test scores, and credits already earned.
+  await page.getByText('Scores and credits').first().waitFor({ timeout: STEP_TIMEOUT })
+  await grab('onboarding-3-scores-and-credits')
+  await page.locator('input.fr-input[type=number]').nth(0).fill('29')
+  await button('Build my plan').click()
 
-  await page.getByText('Any prior credits?').first().waitFor({ timeout: STEP_TIMEOUT })
-  await grab('onboarding-6-prior-credit')
-  await button('Build my degree plan').click()
+  // 4. The plan to look over. Nothing is saved until "Open my plan", so every platform must show the same facts here.
+  await page.getByText('Your plan is ready').first().waitFor({ timeout: 60_000 })
+  await grab('onboarding-4-ready')
+  await button('Open my plan').click()
 
   // ── The plan ──
   await page.waitForSelector('.ds-sem', { timeout: 60_000 })
