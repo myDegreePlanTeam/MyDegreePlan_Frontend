@@ -9,12 +9,12 @@ import {
 import { selectWithOptional } from '../../lib/dbErrors'
 import { COMING_SOON, groupByCollege, isProgramReady, programPath, searchPrograms } from '../../lib/programBrowser'
 import { majorsHeading } from '../../lib/majors'
-import DeviceDataCard from './DeviceDataCard'
+import DeviceDataCard, { EraseCard } from './DeviceDataCard'
 
 export default function SettingsView({
   profile,
-  theme,
-  onToggleTheme,
+  themePreference = 'system',
+  onChooseTheme,
   onOpenConcentration,
   onOpenReset,
   onActSaved,
@@ -34,116 +34,163 @@ export default function SettingsView({
 
   return (
     <div className="ds-view ds-settings">
-      <p className="ds-eyebrow">Preferences</p>
-      <h2 className="ds-h2" style={{ marginBottom: 24 }}>Settings</h2>
+      <h2 className="ds-h2 ds-page-title">Settings</h2>
+      <p className="ds-audit-lede">Changes save automatically.</p>
 
-      <div className="ds-card">
-        <button className="ds-setting" onClick={onToggleTheme} role="switch" aria-checked={theme === 'light'}>
-          <span className="ds-setting-text">
-            <span className="ds-setting-label">Light mode</span>
-            <span className="ds-setting-desc">Lavender low-glare theme. Remembered on this device.</span>
-          </span>
-          <span className={`ds-toggle${theme === 'light' ? ' ds-toggle-on' : ''}`} aria-hidden="true">
-            <span className="ds-toggle-knob" />
-          </span>
-        </button>
+      <div className="ds-settings-grid">
         {/* Your major(s): the plural only when the student really has several. */}
-        <div className="ds-setting">
-          <span className="ds-setting-text">
-            <span className="ds-setting-label">{majorsHeading(majors)}</span>
-            <span className="ds-setting-desc">
-              {`Currently ${programPath(profile.concentrations)}. Change replaces your primary major and clears your course selections; prior credits and ACT scores are kept.`}
+        <section className="ds-scard" aria-labelledby="set-majors">
+          <div className="ds-scard-head">
+            <h3 className="ds-scard-title" id="set-majors">{majorsHeading(majors)}</h3>
+            <p className="ds-scard-desc">
+              Your primary major decides your general education courses and your catalog year.
               {additionalProgramsOpen && ' A course more than one of your majors needs appears once and counts toward each.'}
-            </span>
-          </span>
-          <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={onOpenConcentration}>
-              Change
-            </button>
+            </p>
+          </div>
+          <div className="ds-card">
+            <div className="ds-setting">
+              <span className="ds-setting-text">
+                <span className="ds-setting-label">{programPath(profile.concentrations)}</span>
+                <span className="ds-setting-desc">
+                  Change replaces your primary major and clears your course selections; prior credits and ACT scores are kept.
+                </span>
+              </span>
+              <span className="ds-setting-actions">
+                <button className="ds-btn-ghost" onClick={onOpenConcentration}>
+                  Change
+                </button>
+                {additionalProgramsOpen && (
+                  <button className="ds-btn-ghost" onClick={() => onOpenAddProgram('major')}>
+                    Add major
+                  </button>
+                )}
+              </span>
+            </div>
+            {additionalProgramsOpen && majors.map(major => (
+              <div className="ds-setting ds-major-row" key={major.primary ? 'primary' : major.id}>
+                <span className="ds-setting-text">
+                  <span className="ds-setting-label">
+                    {major.name}
+                    {major.primary && <span className="ds-major-flag">Primary</span>}
+                  </span>
+                  <span className="ds-setting-desc">
+                    {major.primary ? 'Primary major' : 'Secondary major'} · follows the {major.catalogYear} catalog
+                  </span>
+                </span>
+                <span className="ds-setting-actions">
+                  {!major.primary && (
+                    <button className="ds-btn-ghost" onClick={() => onMakePrimary(major)} aria-label={`Make ${major.name} your primary major`}>
+                      Make primary
+                    </button>
+                  )}
+                  <button
+                    className="ds-btn-ghost"
+                    onClick={() => onRemoveProgram(major)}
+                    aria-label={`Remove ${major.name}`}
+                    disabled={major.primary}
+                    title={major.primary ? (majors.length > 1 ? 'Make another major your primary major first' : 'You need at least one major') : undefined}
+                  >
+                    Remove major
+                  </button>
+                </span>
+              </div>
+            ))}
             {additionalProgramsOpen && (
-              <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('major')}>
-                Add major
-              </button>
+              <div className="ds-setting">
+                <span className="ds-setting-text">
+                  <span className="ds-setting-label">Minors</span>
+                  <span className="ds-setting-desc">
+                    Add a minor: fifteen hours or more beyond your major, and a course your major also needs counts toward both.
+                  </span>
+                </span>
+                <span className="ds-setting-actions">
+                  <button className="ds-btn-ghost" onClick={() => onOpenAddProgram('minor')}>
+                    Add minor
+                  </button>
+                </span>
+              </div>
             )}
-          </span>
-        </div>
-        {additionalProgramsOpen && majors.map(major => (
-          <div className="ds-setting ds-major-row" key={major.primary ? 'primary' : major.id}>
+            {additionalProgramsOpen && minors.map(program => (
+              <div className="ds-setting" key={program.id}>
+                <span className="ds-setting-text">
+                  <span className="ds-setting-label">{program.name}</span>
+                  <span className="ds-setting-desc">
+                    Minor · follows the {program.catalogYear} catalog
+                    {program.modelled === false && ' · requirements not modelled here, so nothing in your plan is checked against it'}
+                  </span>
+                </span>
+                <span className="ds-setting-actions">
+                  <button className="ds-btn-ghost" onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`}>
+                    Remove minor
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {additionalProgramsOpen && whatIfPanel}
+
+        <ActScoresCard
+          key={ACT_FIELDS.map(({ key }) => profile[key] ?? '').join('|')}
+          profile={profile}
+          onSaved={onActSaved}
+        />
+
+        <AppearanceCard preference={themePreference} onChoose={onChooseTheme} />
+
+        <DeviceDataCard />
+
+        {/* Two different things, kept apart so they are not mixed up: one rebuilds the semesters, the other deletes everything. */}
+        <section className="ds-scard" aria-labelledby="set-startover">
+          <div className="ds-scard-head">
+            <h3 className="ds-scard-title" id="set-startover">Start over</h3>
+            <p className="ds-scard-desc">Two different things, kept apart so they are not mixed up.</p>
+          </div>
+          <div className="ds-danger-card">
             <span className="ds-setting-text">
-              <span className="ds-setting-label">
-                {major.name}
-                {major.primary && <span className="ds-major-flag">Primary</span>}
-              </span>
+              <span className="ds-setting-label">Reset plan</span>
               <span className="ds-setting-desc">
-                {major.primary ? 'Primary major' : 'Secondary major'} · follows the {major.catalogYear} catalog
+                Rebuilds your semesters from the default plan: it clears your course selections, added courses and semester notes. Prior credits and ACT scores are kept.
               </span>
             </span>
-            {!major.primary && (
-              <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onMakePrimary(major)} aria-label={`Make ${major.name} your primary major`}>
-                Make primary
-              </button>
-            )}
-            <button
-              className="ds-btn-ghost"
-              style={{ minHeight: 36 }}
-              onClick={() => onRemoveProgram(major)}
-              aria-label={`Remove ${major.name}`}
-              disabled={major.primary}
-              title={major.primary ? (majors.length > 1 ? 'Make another major your primary major first' : 'You need at least one major') : undefined}
-            >
-              Remove major
-            </button>
+            <button className="ds-btn-ghost" onClick={onOpenReset}>Reset plan</button>
           </div>
-        ))}
-        {additionalProgramsOpen && (
-          <div className="ds-setting">
-            <span className="ds-setting-text">
-              <span className="ds-setting-label">Minors</span>
-              <span className="ds-setting-desc">
-                Add a minor: fifteen hours or more beyond your major, and a course your major also needs counts toward both.
-              </span>
-            </span>
-            <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={() => onOpenAddProgram('minor')}>
-              Add minor
-            </button>
-          </div>
-        )}
-        {additionalProgramsOpen && minors.map(program => (
-          <div className="ds-setting" key={program.id}>
-            <span className="ds-setting-text">
-              <span className="ds-setting-label">{program.name}</span>
-              <span className="ds-setting-desc">
-                Minor · follows the {program.catalogYear} catalog
-                {program.modelled === false && ' · requirements not modelled here, so nothing in your plan is checked against it'}
-              </span>
-            </span>
-            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={() => onRemoveProgram(program)} aria-label={`Remove ${program.name}`}>
-              Remove minor
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {additionalProgramsOpen && whatIfPanel}
-
-      <ActScoresCard
-        key={ACT_FIELDS.map(({ key }) => profile[key] ?? '').join('|')}
-        profile={profile}
-        onSaved={onActSaved}
-      />
-
-      <DeviceDataCard />
-
-      <div className="ds-danger-card">
-        <span className="ds-setting-text">
-          <span className="ds-setting-label">Reset plan</span>
-          <span className="ds-setting-desc">
-            Clears your course selections, added courses, and semester notes, then rebuilds the default sequence. Prior credits and ACT scores are kept.
-          </span>
-        </span>
-        <button className="ds-btn-danger" onClick={onOpenReset}>Reset plan</button>
+          <EraseCard />
+        </section>
       </div>
     </div>
+  )
+}
+
+// ── AppearanceCard ────────────────────────────────────────────────────────────
+// Three ways to choose the colours (lib/theme.js): follow the device, or always light, or always dark.
+
+const THEME_CHOICES = [
+  { value: 'system', label: 'Match my device' },
+  { value: 'light',  label: 'Light' },
+  { value: 'dark',   label: 'Dark' },
+]
+
+export function AppearanceCard({ preference, onChoose }) {
+  return (
+    <section className="ds-scard" aria-labelledby="set-appearance">
+      <div className="ds-scard-head">
+        <h3 className="ds-scard-title" id="set-appearance">Appearance</h3>
+        <p className="ds-scard-desc">Match my device switches with your device's light or dark setting.</p>
+      </div>
+      <div className="ds-seg" role="radiogroup" aria-labelledby="set-appearance">
+        {THEME_CHOICES.map(choice => (
+          <label key={choice.value} className={`ds-seg-option${preference === choice.value ? ' ds-seg-on' : ''}`}>
+            <input
+              type="radio" name="ds-theme" className="ds-seg-radio" value={choice.value}
+              checked={preference === choice.value} onChange={() => onChoose(choice.value)}
+            />
+            {choice.label}
+          </label>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -193,14 +240,14 @@ function ActScoresCard({ profile, onSaved }) {
     : saving
       ? { text: 'Saving and recalculating your plan…', cls: '' }
       : dirty
-        ? { text: 'Unsaved changes — placement is not updated until you save.', cls: 'ds-act-status-dirty' }
+        ? { text: 'Not saved yet. Your placement updates when you save.', cls: 'ds-act-status-dirty' }
         : { text: 'Saved. Placement and credit reflect these scores.', cls: '' }
 
   return (
-    <>
-      <div className="ds-section-head">
-        <p className="ds-eyebrow">Test scores</p>
-        <p className="ds-section-meta">ACT or SAT Math sets your math placement; ACT English can earn credit. Leave blank what you do not have.</p>
+    <section className="ds-scard" aria-labelledby="set-scores">
+      <div className="ds-scard-head">
+        <h3 className="ds-scard-title" id="set-scores">Test scores</h3>
+        <p className="ds-scard-desc">Your ACT or SAT Math score decides where your math starts, and ACT English can earn credit. Leave blank what you do not have.</p>
       </div>
       <div className="ds-card ds-act">
         {ACT_FIELDS.map(({ key, label, min = 1, max = 36 }) => (
@@ -245,7 +292,7 @@ function ActScoresCard({ profile, onSaved }) {
           </button>
         </div>
       </div>
-    </>
+    </section>
   )
 }
 

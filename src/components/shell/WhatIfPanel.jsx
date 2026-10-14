@@ -80,23 +80,27 @@ export default function WhatIfPanel({ profile, addedPrograms, evaluate, rank, on
   const chooseMinor = id => { setRole('minor'); setSelectedId(String(id)) }
 
   return (
-    <div className="ds-card ds-whatif" aria-labelledby="whatif-title">
-      <div className="ds-setting">
-        <span className="ds-setting-text">
-          <span className="ds-setting-label" id="whatif-title">What if I added…</span>
-          <span className="ds-setting-desc">See what a secondary major or a minor would do to your finish before you add it. Nothing is saved.</span>
-        </span>
+    <section className="ds-scard ds-whatif" aria-labelledby="whatif-title">
+      <div className="ds-scard-head">
+        <h3 className="ds-scard-title" id="whatif-title">Try before you add</h3>
+        <p className="ds-scard-desc">See what a secondary major or a minor would do to your finish before you add it. Nothing is saved.</p>
       </div>
-      {loadError && <p className="ds-modal-text" role="alert" style={{ color: 'var(--danger)', padding: '0 22px' }}>{loadError}</p>}
+      {loadError && <p className="ds-act-status ds-act-status-error" role="alert">{loadError}</p>}
       <div className="ds-whatif-controls">
-        <select className="ds-act-input" style={{ textAlign: 'left' }} aria-label="Secondary major or minor" value={role} onChange={e => { setRole(e.target.value); setSelectedId('') }}>
-          <option value="minor">A minor</option>
-          <option value="major">A secondary major</option>
-        </select>
-        <select className="ds-act-input" style={{ textAlign: 'left', flex: 1 }} aria-label="Program to try" value={chosen ? String(chosen.id) : ''} onChange={e => setSelectedId(e.target.value)}>
-          <option value="">Choose a {role === 'minor' ? 'minor' : 'secondary major'}</option>
-          {options.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <label className="ds-field">
+          <span className="ds-field-label">I want to try</span>
+          <select className="ds-select" value={role} onChange={e => { setRole(e.target.value); setSelectedId('') }}>
+            <option value="minor">A minor</option>
+            <option value="major">A secondary major</option>
+          </select>
+        </label>
+        <label className="ds-field ds-field-grow">
+          <span className="ds-field-label">{role === 'minor' ? 'Minor' : 'Secondary major'}</span>
+          <select className="ds-select" value={chosen ? String(chosen.id) : ''} onChange={e => setSelectedId(e.target.value)}>
+            <option value="">Choose a {role === 'minor' ? 'minor' : 'secondary major'}</option>
+            {options.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
       </div>
       {chosen && !result && !failed && <p className="ds-whatif-line" role="status">Working it out…</p>}
       {failed && <p className="ds-whatif-line ds-whatif-unknown" role="status">Could not work this out right now.</p>}
@@ -105,16 +109,16 @@ export default function WhatIfPanel({ profile, addedPrograms, evaluate, rank, on
           <p>{delay.sentence}</p>
           {delay.detail && <p className="ds-whatif-detail">{delay.detail}</p>}
           <p className="ds-whatif-detail">An estimate: it follows the same prerequisites, offering terms and hours limits as your plan, and does not see seats or the schedule of classes.</p>
-          <button className="ds-btn-primary" style={{ minHeight: 36 }} onClick={() => onAdd(row)}>Add {chosen.name}</button>
+          <button className="ds-btn-primary" onClick={() => onAdd(row)}>Add {chosen.name}</button>
         </div>
       )}
 
-      <div className="ds-setting" style={{ borderTop: '1px solid var(--ds-hairline)' }}>
+      <div className="ds-whatif-closest">
         <span className="ds-setting-text">
-          <span className="ds-setting-label">Which minor am I closest to completing?</span>
+          <span className="ds-setting-label">Which minor am I closest to finishing?</span>
           <span className="ds-setting-desc">Ranked by the hours you would still need, from the plan you have now.</span>
         </span>
-        <button className="ds-btn-ghost" style={{ minHeight: 36, color: 'var(--gold)' }} onClick={findClosest} disabled={ranking.status === 'working' || programs.length === 0}>
+        <button className="ds-btn-ghost" onClick={findClosest} disabled={ranking.status === 'working' || programs.length === 0}>
           {ranking.status === 'working' ? 'Working…' : 'Find out'}
         </button>
       </div>
@@ -136,6 +140,6 @@ export default function WhatIfPanel({ profile, addedPrograms, evaluate, rank, on
           </p>
         </div>
       )}
-    </div>
+    </section>
   )
 }

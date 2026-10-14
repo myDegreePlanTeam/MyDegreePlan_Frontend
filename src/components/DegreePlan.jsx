@@ -59,7 +59,7 @@ import WhatIfPanel from './shell/WhatIfPanel'
 import { evaluateAddition, rankMinors } from '../lib/whatIf'
 import { loadCandidate, loadCandidates, extendBase } from '../lib/whatIfLoader'
 import { programLabels, tagsForSlots, dimmedSlots, filterOptions } from '../lib/programTags'
-import { setPreference } from '../lib/theme'
+import { readPreference, setPreference } from '../lib/theme'
 import { summarizePlanCheck, flagsBySemester } from '../lib/planCheck'
 import { defaultOpenSemesters } from '../lib/semesterDefaults'
 import './Dashboard.css'
@@ -112,7 +112,7 @@ const CREDIT_TYPE_LABELS = {
 }
 
 export default function DegreePlan({ profile, onProfileChange }) {
-  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
+  const [themePreference, setThemePreference] = useState(() => { try { return readPreference(localStorage) } catch { return 'system' } })
   const [slots, setSlots]                         = useState([])
   // baseCourses: the catalog rows as loaded. `courses` (below) is the same map with the student's chosen
   // hours applied for a course that carries a range of credit hours (see creditHours.js).
@@ -1805,9 +1805,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
     })
   }
 
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setTheme(setPreference(next))   // stores the choice and puts it on <html> (lib/theme.js)
+  // 'system', 'light' or 'dark': stores the choice and puts the theme it resolves to on <html> (lib/theme.js)
+  function chooseTheme(preference) {
+    setThemePreference(preference)
+    setPreference(preference)
   }
 
   const coursePanel = view === 'plan' && selKey != null && (
@@ -2083,8 +2084,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
         {view === 'settings' && (
           <SettingsView
             profile={profile}
-            theme={theme}
-            onToggleTheme={toggleTheme}
+            themePreference={themePreference}
+            onChooseTheme={chooseTheme}
             onOpenConcentration={() => setShowSwitchModal(true)}
             onOpenReset={() => setShowResetModal(true)}
             addedPrograms={programPlan.programs.filter(p => !p.primary).map(p => ({
