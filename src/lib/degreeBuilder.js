@@ -45,6 +45,10 @@ const FULL_TIME      = 12  // leveling lifts semesters below this where it can
 const BALANCE_MIN    = FULL_TIME   // Step 13: every regular semester but the last holds at least this
 const BALANCE_MAX    = 16          // and, where the plan allows, no more than this
 
+// General education: no place in the major's own order, so Step 13 may move it ahead of the semester a department map prints for it
+// (the map's semester stays a floor for every other slot). Its prerequisites, and the options' own, still hold.
+export const GEN_ED_SLOT_CODES = new Set(['GEN_ED', 'FF_SOCIAL', 'FF_HUMANITIES', 'FF_LITERACY', 'ENG_LIT', 'COMM_REQ', 'HIST2010', 'HIST2020'])
+
 // ─── Standing requirement thresholds ─────────────────────────────────────────
 
 const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
@@ -909,7 +913,8 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
   // 9-hour one. Every regular semester should hold BALANCE_MIN to BALANCE_MAX hours: first no semester below
   // BALANCE_MIN except the last (filling it would take a semester the plan does not have), then as few hours above
   // BALANCE_MAX as there can be, never past CREDIT_MAX and never a semester more. A slot moves only when no
-  // prerequisite, corequisite, pool or standing rule that held before the move breaks; the capstone and the SCIENCE
+  // prerequisite, corequisite, pool or standing rule that held before the move breaks, and never ahead of the semester a
+  // department map gives the slot unless it is general education (GEN_ED_SLOT_CODES); the capstone and the SCIENCE
   // sequence stay where they are. Each move strictly improves (plan length, hours short, hours over), so this ends.
   function balanceLoads() {
     const regular = sem => creditTarget(sem) === CREDIT_TARGET
@@ -939,7 +944,8 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
       for (const slot of movable) {
         const from = assignments[slot.id]
         const cr   = slotCredits(slot, courseMap)
-        for (let to = minSem[slot.id] ?? 1; to <= base[0]; to++) {
+        const floor = GEN_ED_SLOT_CODES.has(slot.class_code) ? 1 : (minSem[slot.id] ?? 1)
+        for (let to = floor; to <= base[0]; to++) {
           if (to === from || (semCredits[to] ?? 0) + cr > creditMax(to)) continue
           moveSlot(slot, from, to)
           const after = score()

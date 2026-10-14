@@ -490,7 +490,9 @@ the database allows only those two values.
   can be, never past 18 and never a semester more. A move is made only when every prerequisite,
   corequisite, pool and standing rule that held still holds (`requiredSem`, the check
   `enforceOrdering` uses), and never earlier than `minSem` (an engineering map's semester is a
-  floor, gen-eds included). The capstone and SCIENCE slots stay. Tests: `semesterBalance.test.js`.
+  floor) except for general education (`GEN_ED_SLOT_CODES`: the gen-ed pools, COMM_REQ, HIST 2010/2020),
+  which may move ahead of the map to lighten a semester. The capstone and SCIENCE slots stay.
+  Tests: `semesterBalance.test.js`, `engineeringPlacement.test.js`.
 - Tests: `src/tests/degreeBuilder.test.js` (live-catalog fixtures).
 
 ### `src/lib/semesterTerms.js` and `src/lib/semesterRestrictions.js`
