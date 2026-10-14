@@ -12,6 +12,7 @@ import { fetchRequirementSlots, isMissingProgramColumn } from '../lib/requiremen
 import { fetchPlannerCatalog } from '../lib/plannerCatalog'
 import { formatCourseCode } from '../lib/courseCodeFormat'
 import { hoursText } from '../lib/hoursText'
+import { codesText } from '../lib/planCheck'
 import PriorCreditWizard from './PriorCreditWizard'
 import ProgramPicker from './ProgramPicker'
 import ImportBackupButton from './ImportBackupButton'
@@ -204,6 +205,7 @@ export default function Onboarding({ profileId, onComplete }) {
     const summary = summarizeFirstPlan({
       plan, slots, courseMap: result.courseMap, assignments: result.assignments, actFields: result.actFields,
       startSeason, startYear, hasMathChain: planHasMathChain(slots),
+      prereqMap: result.prereqMap, coreqMap: result.coreqMap, records: result.records,
     })
     setBuilt({ ...result, plan, program: selectedProgram, summary })
     setLoading(false)
@@ -534,7 +536,11 @@ export default function Onboarding({ profileId, onComplete }) {
               {summary.picks > 0 && (
                 <section className="fr-fact">
                   <h3 className="fr-fact-title">{summary.picks} course {summary.picks === 1 ? 'pick is' : 'picks are'} still to make</h3>
-                  <p className="fr-fact-text">Plan check, at the top of your plan, says which one to start with. The rest can wait.</p>
+                  <p className="fr-fact-text">
+                    {summary.firstPick
+                      ? `Start with ${summary.firstPick.label}, in ${summary.firstPick.term}: ${codesText(summary.firstPick.dependents)} ${summary.firstPick.dependents.length === 1 ? 'depends' : 'depend'} on it. The rest can wait.`
+                      : `Nothing in your plan depends on ${summary.picks === 1 ? 'it' : 'them'} yet, so ${summary.picks === 1 ? 'it' : 'they'} can wait. Plan check, at the top of your plan, lists ${summary.picks === 1 ? 'it' : 'them'}.`}
+                  </p>
                 </section>
               )}
             </div>

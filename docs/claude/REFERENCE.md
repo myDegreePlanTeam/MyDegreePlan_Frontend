@@ -720,7 +720,9 @@ in both themes, and sets the type once (the interface font, sentence case, 15 px
 
 **`lib/firstPlan.js`** (pure): `buildFirstPlan` turns the choices, the plan's slots and its slice of the catalog into the profile columns, the `prior_credits` rows (ACT English credit, the math placement, then the student's own) and the
 `student_plan_slots` rows; `summarizeFirstPlan` gives the last screen its facts. `Onboarding.handleBuild` reads and builds; `saveFirstPlan` writes the profile, the credits and the slots, in that order, with the same fallbacks for an older
-database as before. The board named the first pick that matters on the last screen; that needs the plan view's dependency check, so the screen points at Plan check instead. `ProgramPicker.css` is gone. `firstPlan.test.js`,
+database as before. The last screen names the first pick that matters (`summary.firstPick`: label, dependents, term). **`lib/pickReliance.js`** (pure) is the check behind it: `prereqStanding` and `coreqStanding` read
+prerequisites and corequisites from a plan's positions and return `{ warnings, reliance }` (which open picks a later course leans on), and `firstDependentPick` is the earliest such pick. `DegreePlan.jsx` calls the same two functions
+for its warnings and the Plan check strip, so the preview and the plan name the same pick; change the rule there, never in one caller. `ProgramPicker.css` is gone. `firstPlan.test.js`, `pickReliance.test.js`,
 `programPicker.test.jsx`, `programPickerModel.test.js` and `firstRun.test.jsx` pin the above; the parity scenario's first half walks these four screens.
 
 ### The edges (`PLAN_redesign.md`, Phase 8)

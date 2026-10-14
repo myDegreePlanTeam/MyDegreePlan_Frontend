@@ -21,7 +21,8 @@ const build = (over = {}) => buildFirstPlan({
 })
 const summarize = (built, over = {}) => summarizeFirstPlan({
   plan, slots, courseMap: built.courseMap, assignments: built.assignments, actFields: built.actFields,
-  startSeason: 'Fall', startYear: 2026, today: new Date(2026, 9, 13), hasMathChain: planHasMathChain(slots), ...over,
+  startSeason: 'Fall', startYear: 2026, today: new Date(2026, 9, 13), hasMathChain: planHasMathChain(slots),
+  prereqMap: built.prereqMap, coreqMap: built.coreqMap, records: built.records, ...over,
 })
 
 describe('buildFirstPlan', () => {
@@ -65,7 +66,7 @@ describe('buildFirstPlan', () => {
   })
 
   it('writes nothing itself: it has no database', () => {
-    expect(Object.keys(built).sort()).toEqual(['actFields', 'archived', 'assignments', 'courseMap', 'extraProfileFields', 'planSlotRows', 'profileFields', 'records'])
+    expect(Object.keys(built).sort()).toEqual(['actFields', 'archived', 'assignments', 'coreqMap', 'courseMap', 'extraProfileFields', 'planSlotRows', 'prereqMap', 'profileFields', 'records'])
   })
 })
 
@@ -104,5 +105,14 @@ describe('summarizeFirstPlan', () => {
 
   it('counts the picks still to make: the 12 of the sample plan', () => {
     expect(s.picks).toBe(12)
+  })
+
+  // The same pick the plan's Plan check strip starts with once the plan is open (planCheck.test.js: Communications, which CSC 3040 needs).
+  it('names the pick to start with: the earliest one a later course depends on', () => {
+    expect(s.firstPick).toEqual({ label: 'Communications', dependents: ['CSC3040'], term: 'Fall 2027' })
+  })
+
+  it('names no pick when it is not given the requisites to check', () => {
+    expect(summarize(built, { prereqMap: undefined }).firstPick).toBeNull()
   })
 })
