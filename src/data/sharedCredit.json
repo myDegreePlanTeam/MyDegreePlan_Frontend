@@ -1,0 +1,9 @@
+{
+ "_comment": "Hand-maintained. Different courses that count for one another when a student's majors each require one of them: the plan keeps the first major's course and it serves both (lib/programMerge.js). Not an equivalence for prerequisites (that is the Prototype's catalog/equivalents.json). Keep one entry per pair, with who said so and when.",
+ "groups": [
+  {
+   "courses": ["BIOL3920", "CHEM4920"],
+   "why": "BIOL 3920 Biological Communication Skills and CHEM 4920 Chemistry Seminar count for each other in a Biology and Chemistry double major that would otherwise take both: one seminar serves both majors. Confirmed by the departments (relayed by the project owner), 2026-10-14."
+  }
+ ]
+}

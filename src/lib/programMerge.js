@@ -15,14 +15,20 @@
 //                education. The slot objects are the stored rows themselves, except a Free Elective bucket that an added program
 //                has used up part of, which is a copy with fewer `flex_credits`.
 //   programsOf   { [slotId]: programId[] }  every program a visible slot counts toward, owner first
-//   shadows      [{ slotId, programId, targetSlotId | null, reason }]  the added program's slots that are not on the grid.
-//                reason 'duplicate'  the same fixed course as a visible slot (D3); targetSlotId is that slot
+//   shadows      [{ slotId, programId, targetSlotId | null, reason }]  the slots that are not on the grid (an added program's, but for
+//                a primary pool or bucket another program's course stands in for).
+//                reason 'duplicate'  the same fixed course as a visible slot (D3), or a course that counts for it in a double major
+//                                    (src/data/sharedCredit.json: CHEM 4920 Chemistry Seminar for BIOL 3920); targetSlotId is that slot
 //                       'gen_ed'     general education, which comes from the primary program only (D4). targetSlotId is the primary's
 //                                    pool of the same category that it stands behind; null when the added program follows a different
 //                                    general-education program than the primary (legacy against Flight Foundations), so nothing stands behind it
-//                       'satisfied'  a pool of the added program that a fixed course another program already put on the grid satisfies (Mathematics
+//                       'satisfied'  a pool of one program that a fixed course of another program on the grid satisfies (Mathematics
 //                                    B.S. asks for "CSC 1300 or ENGR 1120" and Computer Science has CSC 1300); targetSlotId is that course's slot.
 //                                    Only a pool with a list of courses is satisfied this way, one course per pool, and only by another program's course.
+//                                    It works both ways: a pool of the primary (or of a program added earlier) that a later program's required course
+//                                    satisfies leaves the grid too, while nothing else has been picked for it (Biology's "Health Science Biology
+//                                    Directed Electives" and Chemistry's required BIOL 4150 Molecular Genetics; Chemistry's "PHYS 2010 or PHYS 2110"
+//                                    and Biology's required PHYS 2010), so one course counts for both and the plan never asks for it twice.
 //                       (An hours bucket of the added program, "M hours from this list", that other programs' fixed courses cover only in part is not
 //                        a shadow: it stays on the grid with the hours they leave open, as `flex_credits`, and the courses count toward it.)
 //                       'free_elective'  the added program's own unrestricted hours, which the primary's bucket stands in for (D5); also
@@ -48,11 +54,19 @@
 
 import { POOL_CREDIT_ESTIMATES, POOL_COURSES, BUCKET_POOLS } from './poolResolver.js'
 import { FF_POOL_CATEGORIES } from './flightFoundations.js'
+import SHARED_CREDIT from '../data/sharedCredit.json'
 
 /** @typedef {{ id: number|string, class_code: string, is_pool: boolean, flex_credits?: number|null, [key: string]: any }} Slot */
 /** @typedef {{ programId: number|string, role?: 'major'|'minor', slots: Slot[], totalHours?: number, genedProgram?: string }} ProgramSlots */
 
 export const DEFAULT_OVERLAP_POLICY = Object.freeze({ shareCourses: true })
+
+// The courses that count for each course in a double major besides itself (src/data/sharedCredit.json)
+/** @type {Record<string, string[]>} */
+const SHARED_WITH = {}
+for (const { courses } of SHARED_CREDIT.groups) {
+  for (const code of courses) SHARED_WITH[code] = [...(SHARED_WITH[code] ?? []), ...courses.filter(c => c !== code)]
+}
 
 // The general-education category a pool slot fills, or null when the pool is a program requirement. Two plans may spell the same
 // category differently (a Flight Foundations plan's FF_SCIENCE, a plan's own SCIENCE sequence), and the primary program decides.
@@ -144,7 +158,8 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
         // nothing of this category left on the primary's side: it stays, owned by the added program (see above)
       }
       if (!slot.is_pool && policy.shareCourses) {
-        const target = claimableFixed.get(slot.class_code)?.shift() ?? null
+        const code = [slot.class_code, ...(SHARED_WITH[slot.class_code] ?? [])].find(c => claimableFixed.get(c)?.length)
+        const target = code ? claimableFixed.get(code).shift() : null
         if (target) {
           shadows.push({ slotId: slot.id, programId: program.programId, targetSlotId: target.id, reason: 'duplicate' })
           programsOf[target.id].push(program.programId)
@@ -205,10 +220,33 @@ export function mergePrograms(primary, added = [], { courses = {}, planSlots = {
     }
   }
 
+  // The other way round: a pool of the primary, or of a program added earlier, that a fixed course of a program added after it satisfies.
+  // The loop above only looks back at the courses already on the grid. A pool the student has picked another course for keeps its pick.
+  // A primary pool that leaves the grid frees its hours, which the added program's course stood for in `addedOwn`.
+  let sharedHours = 0
+  for (const pool of policy.shareCourses ? [...visible] : []) {
+    if (!pool.is_pool || isFreeElective(pool) || genEdKey(pool) || BUCKET_POOLS.has(pool.class_code)) continue
+    const members = POOL_COURSES[pool.class_code]
+    if (!Array.isArray(members)) continue
+    const owner = programsOf[pool.id][0]
+    const pick = planSlots[pool.id]
+    const keyOf = c => `${c.slot.id}:${owner}`
+    const card = fixedCards.find(c => c.owner !== owner && members.includes(c.slot.class_code) && (!pick || pick === c.slot.class_code)
+      && !spent.has(keyOf(c)) && !coveredHours.get(keyOf(c)))
+    if (!card) continue
+    spent.add(keyOf(card))
+    visible.splice(visible.indexOf(pool), 1)
+    if (addedOwn.includes(pool)) addedOwn.splice(addedOwn.indexOf(pool), 1)
+    else sharedHours += Math.min(hoursOfSlot(pool, courses), courses?.[card.slot.class_code]?.credits ?? 3)
+    delete programsOf[pool.id]
+    shadows.push({ slotId: pool.id, programId: owner, targetSlotId: card.slot.id, reason: 'satisfied' })
+    if (!programsOf[card.slot.id].includes(owner)) programsOf[card.slot.id].push(owner)
+  }
+
   // Free Elective hours (D5): the added programs' own hours are spent from the primary's open bucket hours first
   const primaryBuckets = primary.slots.filter(s => isFreeElective(s))
   const primaryHours = primaryBuckets.reduce((sum, s) => sum + openHours(s, courses, planSlots), 0)
-  const addedHours = addedOwn.reduce((sum, s) => sum + hoursOfSlot(s, courses), 0)
+  const addedHours = Math.max(0, addedOwn.reduce((sum, s) => sum + hoursOfSlot(s, courses), 0) - sharedHours)
   const absorbed = Math.min(primaryHours, addedHours)
   const extraHours = addedHours - absorbed
 
