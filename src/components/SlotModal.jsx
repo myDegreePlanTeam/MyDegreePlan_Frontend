@@ -4,6 +4,7 @@ import {
   POOL_LABELS, POOL_COURSES, POOL_NOTES, formatMissingForDisplay,
   GEN_ED_CATEGORIES, getGenEdStatus,
 } from '../lib/poolResolver'
+import { spaceCourseCodes } from '../lib/courseCodeFormat'
 import { getFlightFoundationsStatus, FF_POOL_CATEGORIES } from '../lib/flightFoundations'
 import { resolveSlotCourses, buildOptionContext, annotateOption } from '../lib/slotOptions'
 import { getPlanCodes } from '../lib/removedPrereqs'
@@ -412,7 +413,7 @@ function CourseRow({ course, selected, onSelect, sectionDisabled = false }) {
         )}
         {course.status === 'locked' && course.missing && (
           <span className="modal-prereq-hint">
-            Needs: {formatMissingForDisplay(course.missing)}
+            Needs: {spaceCourseCodes(formatMissingForDisplay(course.missing))}
           </span>
         )}
         {course.removedNote && (

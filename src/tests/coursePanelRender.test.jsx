@@ -23,8 +23,8 @@ describe('CoursePanel, info view', () => {
   it('a course in a past term reads Passed and says how to retake it', () => {
     const html = render({ status: 'completed', phase: 'past' })
     expect(html).toContain('Passed')
-    expect(html).toContain('This term is over, so the course counts as passed.')
-    expect(html).toContain('move it to a later term to retake it.')
+    expect(html).toContain('This semester is over, so the course counts as passed.')
+    expect(html).toContain('move it to a later semester to retake it.')
     expect(html).not.toContain('or remove it')   // a required course can be moved, not removed
   })
 
@@ -36,7 +36,7 @@ describe('CoursePanel, info view', () => {
   it('the current term reads In progress, a later one Planned, with no note for a later one', () => {
     const current = render({ status: 'in_progress', phase: 'current' })
     expect(current).toContain('In progress')
-    expect(current).toContain('You are taking this course this term.')
+    expect(current).toContain('You are taking this course this semester.')
     const future = render({})
     expect(future).toContain('Planned')
     expect(future).not.toContain('counts as passed')

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { formatPrereqs, formatCoreqs } from '../lib/formatRequisites'
 import { formatMissingForDisplay } from '../lib/poolResolver'
+import { spaceCourseCodes } from '../lib/courseCodeFormat'
 import { getSeasonRestriction } from '../lib/semesterRestrictions'
 import { hoursText } from '../lib/hoursText'
 import StatusChip from './shell/StatusChip'
@@ -21,8 +22,8 @@ import MoveList from './MoveList'
 const STATUS_LABELS = { planned: 'Planned', in_progress: 'In progress', completed: 'Passed' }
 const STATUS_TONE = { planned: 'planned', in_progress: 'progress', completed: 'done' }
 const phaseNote = (phase, canRemove) => phase === 'past'
-  ? `This term is over, so the course counts as passed. If you did not pass it, move it to a later term to retake it${canRemove ? ', or remove it' : ''}.`
-  : phase === 'current' ? 'You are taking this course this term.' : null
+  ? `This semester is over, so the course counts as passed. If you did not pass it, move it to a later semester to retake it${canRemove ? ', or remove it' : ''}.`
+  : phase === 'current' ? 'You are taking this course this semester.' : null
 
 export default function CoursePanel({
   eyebrow,
@@ -101,11 +102,11 @@ export default function CoursePanel({
             <h4 className="ds-panel-heading" id="ds-move-heading">Move to</h4>
             <MoveList targets={moveTargets} chosen={target} onChoose={setTarget} labelledBy="ds-move-heading" />
             <p className="ds-panel-fine">
-              A term that would break a prerequisite or corequisite asks you to confirm first. A term the course is not offered in cannot be chosen.
+              A semester that would break a prerequisite or corequisite asks you to confirm first. A semester the course is not offered in cannot be chosen.
             </p>
             <div className="ds-panel-actions">
               <button className="ds-btn-primary" disabled={!chosen} onClick={() => chosen && onMove(chosen.semNum)}>
-                {chosen ? `Move to ${chosen.name}` : 'Choose a term'}
+                {chosen ? `Move to ${chosen.name}` : 'Choose a semester'}
               </button>
               <button className="ds-btn-ghost" onClick={() => { setMode('info'); setTarget(null) }}>Cancel</button>
             </div>
@@ -120,12 +121,12 @@ export default function CoursePanel({
 
             {warnings.prereq?.length > 0 && (
               <p className="ds-panel-alert ds-panel-alert-blocked">
-                Needs {formatMissingForDisplay(warnings.prereq)} completed in an earlier term.
+                Needs {spaceCourseCodes(formatMissingForDisplay(warnings.prereq))} in an earlier semester.
               </p>
             )}
             {warnings.coreq?.length > 0 && (
               <p className="ds-panel-alert ds-panel-alert-blocked">
-                Needs {formatMissingForDisplay(warnings.coreq)} in the same term or earlier.
+                Needs {spaceCourseCodes(formatMissingForDisplay(warnings.coreq))} in the same semester or an earlier one.
               </p>
             )}
             {warnings.science && (
@@ -195,7 +196,7 @@ export default function CoursePanel({
               )}
               {!isPool && !isFreeAdd && (
                 <p className="ds-panel-fine">
-                  Required for the degree — it can be moved to another term, but not removed.
+                  Required for the degree — it can be moved to another semester, but not removed.
                 </p>
               )}
             </div>

@@ -9,9 +9,13 @@
 //   warning — science sequence problems, under- or over-loaded terms, and a
 //             pool slot left empty that another course's prerequisite leans on
 //   info    — junior/senior standing not yet reached, and any other pool slot
-//             the student hasn't chosen a course for yet (incomplete selection)
+//             the student hasn't chosen a course for yet (an open pick)
+//
+// Wording (plans/PLAN_redesign.md, "Wording"): "semester", "pick", "hours", course codes with a space, and each
+// message says what is wrong, why, and what to do next. Never "slot", "credits" or "term" in a title or a body.
 
 import { formatMissingForDisplay } from './poolResolver'
+import { formatCourseCode, spaceCourseCodes } from './courseCodeFormat'
 
 export const FULL_TIME_MIN = 12
 // The undergraduate catalog ("Student Course Load"): the maximum load for a student in good standing is
@@ -20,6 +24,13 @@ export const HEAVY_LOAD_MAX = 20
 
 const STANDING_CREDITS = { junior: 60, senior: 90 }
 const SEVERITY_ORDER   = { blocker: 0, warning: 1, info: 2 }
+
+const hoursText = n => `${n} ${n === 1 ? 'hour' : 'hours'}`
+const needsText = missing => spaceCourseCodes(formatMissingForDisplay(missing))
+const codeList  = list => {
+  const shown = list.map(formatCourseCode)
+  return shown.length <= 2 ? shown.join(' and ') : `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`
+}
 
 // semesters: [{ semNum, label, credits, completed, items: [{ key, code }] }]
 //   in display order. `key` is the warning-map key (slot id or `fa_<id>`).
@@ -42,12 +53,13 @@ export function buildPlanIssues({
     const push  = issue => issues.push({ semNum: sem.semNum, order, where, ...issue })
 
     for (const item of sem.items) {
+      const code = formatCourseCode(item.code)   // a pick's `code` is its label ("Humanities"), which this leaves alone
       const prereq = prereqWarnings[item.key]
       if (prereq?.length > 0) {
         push({
           id: `prereq:${item.key}`, key: item.key, severity: 'blocker',
-          title: `${item.code} prerequisite unmet`,
-          body:  `${item.code} needs ${formatMissingForDisplay(prereq)} completed in an earlier term.`,
+          title: `${code} is missing a prerequisite`,
+          body:  `${code} needs ${needsText(prereq)} in an earlier semester. Move ${code} to a later semester, or take what it needs sooner.`,
         })
       }
 
@@ -55,8 +67,8 @@ export function buildPlanIssues({
       if (coreq?.length > 0) {
         push({
           id: `coreq:${item.key}`, key: item.key, severity: 'blocker',
-          title: `${item.code} corequisite unmet`,
-          body:  `${item.code} needs ${formatMissingForDisplay(coreq)} in the same term or earlier.`,
+          title: `${code} is missing a corequisite`,
+          body:  `${code} needs ${needsText(coreq)} in the same semester or an earlier one. Move one of them so they line up.`,
         })
       }
 
@@ -68,13 +80,13 @@ export function buildPlanIssues({
           // `kind`, `label` and `dependents` are for lib/planCheck.js, which groups the picks still to make
           kind: 'pick', label: incomplete.label, dependents,
           severity: dependents.length > 0 ? 'warning' : 'info',
-          title: `Incomplete selection: ${incomplete.label}`,
-          body:  (sem.completed
-            ? `This semester is over. Choose the course you took for this ${incomplete.label} slot.`
-            : `Choose a course for this ${incomplete.label} slot.`)
-            + (dependents.length > 0
-              ? ` ${dependents.join(', ')} ${dependents.length === 1 ? 'depends' : 'depend'} on it to meet ${dependents.length === 1 ? 'its' : 'their'} prerequisite.`
-              : ''),
+          title: `Pick a course for ${incomplete.label}`,
+          body:  [
+            sem.completed ? 'This semester is over, so pick the course you took.' : null,
+            dependents.length > 0
+              ? `${codeList(dependents)} ${dependents.length === 1 ? 'depends' : 'depend'} on this pick to meet ${dependents.length === 1 ? 'its' : 'their'} prerequisite, so make it first.`
+              : (sem.completed ? null : 'Nothing else in your plan depends on this pick.'),
+          ].filter(Boolean).join(' '),
         })
       }
 
@@ -86,8 +98,8 @@ export function buildPlanIssues({
             ? `Complete your ${science.sequenceName} sequence`
             : 'Science sequence conflict',
           body: science.type === 'incomplete'
-            ? `${item.code} is half of a two-course sequence. Choose its partner course in another science slot.`
-            : `${item.code} does not pair with the science course chosen in your other science slot.`,
+            ? `${code} is half of a two-course sequence. Pick its partner as your other science course.`
+            : `${code} does not pair with your other science course. Pick two courses from the same sequence.`,
         })
       }
 
@@ -95,8 +107,8 @@ export function buildPlanIssues({
         push({
           id: `pool-limit:${item.key}:${limit.label}`, key: item.key, severity: 'warning',
           title: `Too many hours of ${limit.label.toLowerCase()}`,
-          where: `${item.code} · ${sem.label}`,
-          body:  `${limit.hours} hours are chosen and at most ${limit.maxHours} count. ${limit.why} Choose a different course for one of these slots.`,
+          where: `${code} · ${sem.label}`,
+          body:  `${hoursText(limit.hours)} are chosen and at most ${limit.maxHours} count. ${limit.why} Pick a different course for one of them.`,
         })
       }
 
@@ -105,10 +117,10 @@ export function buildPlanIssues({
         const label = standing === 'senior' ? 'Senior' : 'Junior'
         push({
           id: `standing:${item.key}`, key: item.key, severity: 'info',
-          title: `${label} standing required`,
-          where: `${item.code} · ${sem.label}`,
-          body:  `${item.code} requires ${STANDING_CREDITS[standing] ?? ''}+ credits before the term begins. `
-            + 'Your plan does not reach that total by then.',
+          title: `${code} needs ${label.toLowerCase()} standing`,
+          where: `${code} · ${sem.label}`,
+          body:  `${code} needs ${STANDING_CREDITS[standing] ?? ''} hours earned before the semester starts, and your plan has fewer by then. `
+            + `Move ${code} to a later semester, or move other courses earlier.`,
         })
       }
     }
@@ -118,13 +130,13 @@ export function buildPlanIssues({
         push({
           id: `load-low:${sem.semNum}`, severity: 'warning',
           title: 'Below full-time enrollment',
-          body:  `This term carries ${sem.credits} credits. Full-time status and most scholarships require ${FULL_TIME_MIN} or more.`,
+          body:  `This semester has ${hoursText(sem.credits)}. Full-time status and most scholarships need ${FULL_TIME_MIN} or more, so add a course or move one here.`,
         })
       } else if (sem.credits > HEAVY_LOAD_MAX) {
         push({
           id: `load-high:${sem.semNum}`, severity: 'warning',
           title: 'Heavy course load',
-          body:  `This term carries ${sem.credits} credits. Loads above ${HEAVY_LOAD_MAX} need approval from your major department chair and your dean.`,
+          body:  `This semester has ${hoursText(sem.credits)}. More than ${HEAVY_LOAD_MAX} needs approval from your department chair and your dean, so move a course to another semester or ask for the approval.`,
         })
       }
     }

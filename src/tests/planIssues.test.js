@@ -25,11 +25,11 @@ describe('buildPlanIssues', () => {
       prereqWarnings: { 7: ['CSC1310'] },
     })
     expect(issue.severity).toBe('blocker')
-    expect(issue.title).toBe('CSC2100 prerequisite unmet')
+    expect(issue.title).toBe('CSC 2100 is missing a prerequisite')
     expect(issue.where).toBe('Spring 2026')
     expect(issue.semNum).toBe(2)
     expect(issue.key).toBe(7)
-    expect(issue.body).toContain('CSC1310')
+    expect(issue.body).toBe('CSC 2100 needs CSC 1310 in an earlier semester. Move CSC 2100 to a later semester, or take what it needs sooner.')
   })
 
   it('reports unmet corequisites as blockers', () => {
@@ -38,7 +38,8 @@ describe('buildPlanIssues', () => {
       coreqWarnings: { fa_3: ['MATH1910'] },
     })
     expect(issue.severity).toBe('blocker')
-    expect(issue.title).toBe('PHYS2110 corequisite unmet')
+    expect(issue.title).toBe('PHYS 2110 is missing a corequisite')
+    expect(issue.body).toBe('PHYS 2110 needs MATH 1910 in the same semester or an earlier one. Move one of them so they line up.')
   })
 
   it('reports standing as info and names the course in `where`', () => {
@@ -47,9 +48,9 @@ describe('buildPlanIssues', () => {
       standingWarnings: { 9: 'junior' },
     })
     expect(issue.severity).toBe('info')
-    expect(issue.title).toBe('Junior standing required')
-    expect(issue.where).toBe('CSC3040 · Fall 2026')
-    expect(issue.body).toContain('60+')
+    expect(issue.title).toBe('CSC 3040 needs junior standing')
+    expect(issue.where).toBe('CSC 3040 · Fall 2026')
+    expect(issue.body).toContain('needs 60 hours earned before the semester starts')
   })
 
   it('reports both science warning types', () => {
@@ -116,10 +117,52 @@ describe('buildPlanIssues - an unchosen pool course in a past semester', () => {
   const pastSem = (completed) => ({ semNum: 1, label: 'Fall 2024', credits: 15, completed, items: [{ key: 7, code: 'Humanities' }] })
   it('asks for the course the student took, once the semester is over', () => {
     const [issue] = buildPlanIssues({ semesters: [pastSem(true)], incompleteSlots })
-    expect(issue.body).toBe('This semester is over. Choose the course you took for this Humanities slot.')
+    expect(issue.title).toBe('Pick a course for Humanities')
+    expect(issue.body).toBe('This semester is over, so pick the course you took.')
   })
   it('keeps the plain wording for a semester that is not over', () => {
     const [issue] = buildPlanIssues({ semesters: [pastSem(false)], incompleteSlots })
-    expect(issue.body).toBe('Choose a course for this Humanities slot.')
+    expect(issue.body).toBe('Nothing else in your plan depends on this pick.')
+  })
+})
+
+// The redesign's vocabulary (plans/PLAN_redesign.md, "Wording"): every message the Plan check list can show, built once here.
+describe('buildPlanIssues - the words a student reads', () => {
+  const issues = buildPlanIssues({
+    semesters: [
+      sem(1, 'Fall 2026', [{ key: 1, code: 'CSC2100' }, { key: 2, code: 'PHYS2110' }, { key: 3, code: 'Communications' }, { key: 4, code: 'Humanities' }], 1),
+      sem(2, 'Spring 2027', [{ key: 5, code: 'BIOL1010' }, { key: 6, code: 'CHEM1110' }, { key: 7, code: 'CSC3040' }, { key: 8, code: 'ME4020' }], 21),
+      sem(3, 'Fall 2025', [{ key: 9, code: 'Free Elective' }], 15, true),
+    ],
+    prereqWarnings: { 1: ['CSC1310', '(COMM2025 or PC2500)'] },
+    coreqWarnings: { 2: ['MATH1910'] },
+    incompleteSlots: {
+      3: { label: 'Communications', dependents: ['CSC3040', 'CSC4100', 'CSC4200'] },
+      4: { label: 'Humanities', dependents: [] },
+      9: { label: 'Free Elective', dependents: ['CSC3040'] },
+    },
+    scienceWarnings: { 5: { type: 'incomplete', sequenceName: 'Biology' }, 6: { type: 'conflict' } },
+    standingWarnings: { 7: 'senior' },
+    poolLimitWarnings: { 8: [{ label: 'Area of Emphasis', why: 'Only 6 hours may come from one list.', hours: 9, maxHours: 6 }] },
+  })
+  const texts = issues.flatMap(i => [i.title, i.body, i.where])
+
+  it('covers every kind of message', () => {
+    expect(new Set(issues.map(i => i.id.split(':')[0]))).toEqual(
+      new Set(['prereq', 'coreq', 'incomplete', 'science', 'pool-limit', 'standing', 'load-low', 'load-high']))
+  })
+
+  it('never says slot, credits, term or selection', () => {
+    for (const t of texts) expect(t).not.toMatch(/slot|credit|term|selection|unmet/i)
+  })
+
+  it('writes every course code with a space', () => {
+    for (const t of texts) expect(t).not.toMatch(/[A-Z]{2,5}[0-9]{4}/)
+  })
+
+  it('says one hour, not one hours, and lists three codes with commas and an and', () => {
+    expect(issues.find(i => i.id === 'load-low:1').body).toContain('This semester has 1 hour.')
+    expect(issues.find(i => i.id === 'incomplete:3').body).toContain('CSC 3040, CSC 4100 and CSC 4200 depend on this pick')
+    expect(issues.find(i => i.id === 'incomplete:9').body).toBe('This semester is over, so pick the course you took. CSC 3040 depends on this pick to meet its prerequisite, so make it first.')
   })
 })

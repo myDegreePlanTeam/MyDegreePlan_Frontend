@@ -344,7 +344,7 @@ that section before changing the module. Rules that must hold even if you do not
   and dispatch an event. Pick the **year before the season**: changing the year clears the season. **Pass the `tabId` that
   `preview_start` returns to every browser call** (and `tabs_select` it): without it a call runs in whichever tab is fronted, which
   can be another site (two calls ran on claude.ai on 2026-10-08). `mdpOnboard` was rewritten on 2026-10-13 for the four-screen first run: the same steps pass
-  in Playwright (`parity/lib/scenario.mjs`), but the snippet itself has not been run in the pane since. Paste this once per page load, then call it:
+  in Playwright (`parity/lib/scenario.mjs`), and the snippet was run in the pane on port 5175 the same day (the defaults below built the plan). Paste this once per page load, then call it:
 
   ```js
   const sleep = ms => new Promise(r => setTimeout(r, ms))

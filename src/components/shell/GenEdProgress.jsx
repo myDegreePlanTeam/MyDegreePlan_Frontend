@@ -55,7 +55,7 @@ function summaryLine(panel) {
   if (panel.state === 'in_progress' || panel.state === 'planned') {
     return `Your plan covers every requirement. ${panel.done} hours are earned so far; the rest depend on courses still ahead.`
   }
-  return 'Counts prior credit and the courses you have placed in your plan. Hours in a future term are planned, not earned.'
+  return 'Counts prior credit and the courses you have placed in your plan. Hours in a future semester are planned, not earned.'
 }
 
 // The program's own total, shown once under the General education heading.
