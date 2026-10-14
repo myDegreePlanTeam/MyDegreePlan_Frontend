@@ -101,7 +101,7 @@ export function buildEvidence({
       categoryRefs[p.key] = refs
       const capExcess = p.excess - (p.key === 'HUM' ? panel.languageExcess ?? 0 : 0)
       if (!p.exempt && capExcess > 0) {
-        categoryNotes[p.key] = `${capExcess} hrs above this category's limit count toward your degree total, not toward the category.`
+        categoryNotes[p.key] = `${capExcess} hours above this category's limit count toward your degree total, not toward the category.`
       }
     }
   }

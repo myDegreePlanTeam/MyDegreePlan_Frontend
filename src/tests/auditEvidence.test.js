@@ -107,7 +107,7 @@ describe('what did not count toward a requirement', () => {
     expect(hum.excess).toBeGreaterThan(0)
     const item = itemsOf(a, 'over_cap')[0]
     expect(item).toMatchObject({ name: 'Humanities and Cultural Expression', hours: hum.excess })
-    expect(group(a, 'HUM').note).toMatch(new RegExp(`${hum.excess} hrs above`))
+    expect(group(a, 'HUM').note).toMatch(new RegExp(`${hum.excess} hours above`))
   })
 
   it('lists introductory language beyond its cap once, not again as a category overflow', () => {

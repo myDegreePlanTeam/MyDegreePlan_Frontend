@@ -33,7 +33,7 @@ export function CategoryProgress({ row }) {
   return (
     <div className={`ds-gened-progress ds-gened-${row.state}`}>
       <div className="ds-gened-top">
-        <span className="ds-gened-hours">{row.earned} of {formatRange(row)} hrs</span>
+        <span className="ds-gened-hours">{row.earned} of {formatRange(row)} hours</span>
         <span className="ds-gened-state">{STATE_LABEL[row.state]}</span>
       </div>
       <div
@@ -64,23 +64,21 @@ export default function GenEdSummary({ panel }) {
   return (
     <div className="ds-gened-summary">
       <p className="ds-gened-headline">{panel.title}: {panel.earned} of {panel.required} hours covered</p>
-      <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
+      <p className="ds-audit-lede">
         {summaryLine(panel)}
         {panel.flexNote && ` ${panel.flexNote}.`}
       </p>
       {panel.exemptions.length > 0 && (
-        <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
-          Exempt for your major: {panel.exemptions.map(e => `${e.label} (${e.hours} hrs)`).join(', ')}. The catalog's general
+        <p className="ds-audit-lede">
+          Exempt for your major: {panel.exemptions.map(e => `${e.label} (${e.hours} hours)`).join(', ')}. The catalog's general
           requirements excuse Chemical, Civil, Computer, Electrical, General and Mechanical Engineering majors from American
           History. Confirm with your advisor.
         </p>
       )}
       <p className="ds-gened-legend">
-        <span className="ds-legend-done">{panel.done} earned</span>
-        <span className="ds-sep">·</span>
-        <span>{panel.inProgress} in progress</span>
-        <span className="ds-sep">·</span>
-        <span>{panel.planned} planned</span>
+        <span className="ds-legend-item ds-legend-done"><strong>{panel.done}</strong> earned</span>
+        <span className="ds-legend-item ds-legend-current"><strong>{panel.inProgress}</strong> in progress</span>
+        <span className="ds-legend-item ds-legend-planned"><strong>{panel.planned}</strong> planned</span>
       </p>
     </div>
   )

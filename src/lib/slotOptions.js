@@ -116,13 +116,13 @@ export function annotateOption(course, ctx) {
   if (course.standing_req === 'senior' && creditsBefore < 90) {
     return {
       ...course, status: 'locked',
-      standingHint: `Requires senior standing: 90+ credit hours planned before this semester (${creditsBefore} hrs so far)`,
+      standingHint: `Requires senior standing: 90+ credit hours planned before this semester (${creditsBefore} hours so far)`,
     }
   }
   if (course.standing_req === 'junior' && creditsBefore < 60) {
     return {
       ...course, status: 'locked',
-      standingHint: `Requires junior standing: 60+ credit hours planned before this semester (${creditsBefore} hrs so far)`,
+      standingHint: `Requires junior standing: 60+ credit hours planned before this semester (${creditsBefore} hours so far)`,
     }
   }
 

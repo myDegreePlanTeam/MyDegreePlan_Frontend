@@ -3,8 +3,16 @@ import { formatMissingForDisplay } from '../../lib/poolResolver'
 import GenEdSummary, { CategoryProgress } from './GenEdProgress'
 import { ROW_STATES } from '../../lib/auditLabels'
 import { describeFinish, describeBlockDates } from '../../lib/degreeProjection'
+import { formatCourseCode } from '../../lib/courseCodeFormat'
+import { hoursText } from '../../lib/hoursText'
+import StatusChip from './StatusChip'
 
 const STATES = ROW_STATES
+// a requirement's state as a chip (an icon, a word, a colour); an open choice has no chip: it shows "Pick a course"
+const CHIP_TONE = { done: 'done', in_progress: 'progress', planned: 'planned' }
+const Chevron = () => (
+  <svg className="ds-audit-go" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3.5l4.5 4.5L6 12.5" /></svg>
+)
 
 function Summary({ summary }) {
   const { requirements: r, total, done, inProgress, planned } = summary
@@ -14,9 +22,11 @@ function Summary({ summary }) {
   return (
     <section className="ds-audit-summary" aria-label="Requirements progress">
       <p className="ds-audit-total">
-        <strong>{placed}</strong> of {all} requirements are done or placed in your plan
-        {r.not_placed > 0 && <>; <strong>{r.not_placed}</strong> {r.not_placed === 1 ? 'choice is' : 'choices are'} still open</>}
+        <strong>{placed} of {all}</strong> requirements are done or placed in your plan
       </p>
+      {r.not_placed > 0 && (
+        <p className="ds-audit-open-count">{r.not_placed} {r.not_placed === 1 ? 'course pick is' : 'course picks are'} still to make.</p>
+      )}
       <div
         className="ds-progress-track"
         role="img"
@@ -27,13 +37,10 @@ function Summary({ summary }) {
         <div className="ds-progress-planned" style={{ width: `${pct(r.planned)}%` }} />
       </div>
       <div className="ds-progress-legend">
-        <span className="ds-legend-done">{r.done} done</span>
-        <span className="ds-sep">·</span>
-        <span>{r.in_progress} in progress</span>
-        <span className="ds-sep">·</span>
-        <span>{r.planned} planned</span>
-        <span className="ds-sep">·</span>
-        <span>{r.not_placed} open</span>
+        <span className="ds-legend-item ds-legend-done"><strong>{r.done}</strong> done</span>
+        <span className="ds-legend-item ds-legend-current"><strong>{r.in_progress}</strong> in progress</span>
+        <span className="ds-legend-item ds-legend-planned"><strong>{r.planned}</strong> planned</span>
+        <span className="ds-legend-item ds-legend-open"><strong>{r.not_placed}</strong> to pick</span>
       </div>
       <p className="ds-audit-hours">
         In hours: {done} done, {inProgress} in progress and {planned} planned, of the {total} your degree needs.
@@ -46,26 +53,27 @@ function whereOf(row) {
   return row.source === 'prior_credit' ? `Prior credit${row.sourceLabel ? ` (${row.sourceLabel})` : ''}` : row.term
 }
 
-function RowBody({ row }) {
+function RowBody({ row, pick }) {
   const state = STATES[row.state]
   const where = whereOf(row)
   return (
     <>
-      <span className="ds-audit-mark" aria-hidden="true">{state.mark}</span>
       <span className="ds-audit-main">
         <span className="ds-audit-title">
-          {row.code ? <span className="ds-audit-code">{row.code}</span> : null}
+          {row.code ? <span className="ds-audit-code">{formatCourseCode(row.code)}</span> : null}
           <span className="ds-audit-name">{row.code ? row.name : row.label}</span>
         </span>
         <span className="ds-audit-meta">
-          <span className={`ds-audit-state ds-audit-state-${row.state}`}>{state.label}</span>
           {where && <span>{where}</span>}
+          {row.hours > 0 && <span>{hoursText(row.hours)}</span>}
           {row.sourceNote && <span className="ds-audit-note">{row.sourceNote}</span>}
           {row.choose && <span className="ds-audit-tag">{row.choose}</span>}
           {row.alsoCounts && <span className="ds-audit-tag">Also counts for {row.alsoCounts}</span>}
-          {row.hours > 0 && <span>{row.hours} hrs</span>}
         </span>
       </span>
+      {CHIP_TONE[row.state]
+        ? <StatusChip tone={CHIP_TONE[row.state]} label={state.label} />
+        : pick ? <span className="ds-row-pick">Pick a course</span> : <span className="ds-audit-state">{state.label}</span>}
     </>
   )
 }
@@ -103,9 +111,9 @@ function Options({ row, getOptions }) {
             {options.options.map(option => (
               <li key={option.code} className={`ds-audit-option ds-audit-option-${option.status}`}>
                 <span className="ds-audit-option-main">
-                  <span className="ds-audit-code">{option.code}</span>
+                  <span className="ds-audit-code">{formatCourseCode(option.code)}</span>
                   <span className="ds-audit-name">{option.name}</span>
-                  <span className="ds-audit-option-hours">{option.credits} hrs</span>
+                  <span className="ds-audit-option-hours">{hoursText(option.credits)}</span>
                 </span>
                 <span className="ds-audit-option-status">
                   {option.code === row.code ? 'Your pick' : OPTION_STATUS[option.status]}
@@ -136,8 +144,8 @@ function Row({ row, onOpenRow, getOptions }) {
   return (
     <li className={cls}>
       <button type="button" className="ds-audit-line ds-audit-open" onClick={() => onOpenRow(row)}>
-        <RowBody row={row} />
-        <span className="ds-audit-go" aria-hidden="true">{row.state === 'not_placed' ? 'Choose ›' : 'View ›'}</span>
+        <RowBody row={row} pick />
+        {row.state !== 'not_placed' && <Chevron />}
       </button>
       {hasOptions(row) && <Options row={row} getOptions={getOptions} />}
     </li>
@@ -150,20 +158,21 @@ function Ref({ item, onOpenRow }) {
   const where = whereOf(item)
   const body = (
     <>
-      <span className="ds-audit-mark" aria-hidden="true">{state.mark}</span>
       <span className="ds-audit-main">
         <span className="ds-audit-title">
-          <span className="ds-audit-code">{item.code}</span>
+          <span className="ds-audit-code">{formatCourseCode(item.code)}</span>
           {item.name && <span className="ds-audit-name">{item.name}</span>}
         </span>
         <span className="ds-audit-meta">
-          <span className={`ds-audit-state ds-audit-state-${item.state}`}>{state.label}</span>
           {where && <span>{where}</span>}
+          {item.hours > 0 && <span>{hoursText(item.hours)}</span>}
           {item.note && <span className="ds-audit-note">{item.note}</span>}
-          {item.hours > 0 && <span>{item.hours} hrs</span>}
           <span className="ds-audit-tag">{item.label}</span>
         </span>
       </span>
+      {CHIP_TONE[item.state]
+        ? <StatusChip tone={CHIP_TONE[item.state]} label={state.label} />
+        : <span className="ds-audit-state">{state.label}</span>}
     </>
   )
   return (
@@ -208,7 +217,7 @@ function Block({ block, dates, onOpenRow, getOptions }) {
         <h3 className="ds-h3" id={`ds-audit-${block.id}`}>{block.title}</h3>
         {total > 0 && (
           <span className="ds-audit-count">
-            {block.complete ? '✓ ' : ''}{counts.done} of {total} done
+{counts.done} of {total} done
           </span>
         )}
       </div>
@@ -227,7 +236,7 @@ function NotCounted({ items, onOpenRow }) {
         <h3 className="ds-h3" id="ds-audit-notcounted">Not counted toward a requirement</h3>
         {items.length > 0 && <span className="ds-audit-count">{items.length} {items.length === 1 ? 'item' : 'items'}</span>}
       </div>
-      <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
+      <p className="ds-audit-lede">
         A course counts once, toward one requirement. Hours that fill no requirement, or sit above a category's limit, are listed
         here so none of them goes missing.
       </p>
@@ -239,11 +248,11 @@ function NotCounted({ items, onOpenRow }) {
             const body = (
               <span className="ds-audit-main">
                 <span className="ds-audit-title">
-                  {item.code && <span className="ds-audit-code">{item.code}</span>}
+                  {item.code && <span className="ds-audit-code">{formatCourseCode(item.code)}</span>}
                   <span className="ds-audit-name">{item.name}</span>
                 </span>
                 <span className="ds-audit-meta">
-                  {item.hours > 0 && <span>{item.hours} hrs</span>}
+                  {item.hours > 0 && <span>{hoursText(item.hours)}</span>}
                   {item.term && <span>{item.term}</span>}
                 </span>
                 <span className="ds-audit-why">{item.reason}</span>
@@ -270,17 +279,15 @@ function FinishLine({ projection, onOpenRow }) {
 
   if (f.complete) {
     return (
-      <section className="ds-finish" aria-label="Finish line">
-        <p className="ds-eyebrow">Finish line</p>
-        <p className="ds-finish-big">{f.lead}</p>
+      <section className="ds-finish" aria-label="When you finish">
+        <h3 className="ds-finish-big">{f.lead}</h3>
       </section>
     )
   }
 
   return (
-    <section className="ds-finish" aria-label="Finish line">
-      <p className="ds-eyebrow">Finish line</p>
-      <p className="ds-finish-big">{f.lead}{f.graduationLabel && <strong>{f.graduationLabel}</strong>}</p>
+    <section className="ds-finish" aria-label="When you finish">
+      <h3 className="ds-finish-big">{f.lead}{f.graduationLabel && <strong>{f.graduationLabel}</strong>}</h3>
       <p className="ds-finish-sub">{f.detail}</p>
 
       {f.pace && (
@@ -292,7 +299,7 @@ function FinishLine({ projection, onOpenRow }) {
                 <li key={step.key}>
                   <button type="button" className="ds-finish-step" onClick={() => onOpenRow(step)}>
                     <span className="ds-finish-term">{step.termLabel}</span>
-                    <span className="ds-finish-course">{step.code ?? step.label}</span>
+                    <span className="ds-finish-course">{step.code ? formatCourseCode(step.code) : step.label}</span>
                     {step.name && <span className="ds-finish-name">{step.name}</span>}
                     {step.note && <span className="ds-finish-note">{step.note}</span>}
                   </button>
@@ -312,7 +319,7 @@ function FinishLine({ projection, onOpenRow }) {
             {f.blocked.map(b => (
               <li key={b.key}>
                 <button type="button" className="ds-finish-step" onClick={() => onOpenRow(b)}>
-                  <span className="ds-finish-course">{b.code ?? b.label}</span>
+                  <span className="ds-finish-course">{b.code ? formatCourseCode(b.code) : b.label}</span>
                   <span className="ds-finish-note">{b.text}</span>
                 </button>
               </li>
@@ -329,12 +336,10 @@ function FinishLine({ projection, onOpenRow }) {
 export default function RequirementsView({ audit, projection, onOpenRow, getOptions }) {
   return (
     <div className="ds-view ds-requirements">
-      <p className="ds-eyebrow">Requirements</p>
-      <h2 className="ds-h2">Degree audit</h2>
-      <p className="ds-sub" style={{ maxWidth: '72ch', lineHeight: 1.6 }}>
-        Every requirement of your major, read from your plan and prior credit: your major (and any other major or minor), general education, then
-        electives. A course in a past term counts as done, one in the current term as in progress, and one in a later term as
-        planned. To change anything, select a row to open it on your plan.
+      <h2 className="ds-h2 ds-page-title">Requirements</h2>
+      <p className="ds-audit-lede">
+        Every requirement of your degree, read from your plan and the credits you already have. A course in a past term counts as done, one
+        in the current term as in progress, and one in a later term as planned. Select a row to open it on your plan.
       </p>
 
       <Summary summary={audit.summary} />
