@@ -116,3 +116,43 @@ describe('the dialog stylesheet', () => {
     expect(block).toMatch(/\.ds-modal-backdrop \{\s*position: fixed; inset: 0; z-index: 200;/)
   })
 })
+
+describe('the pickers use the same dialog (Phase 6b)', () => {
+  const files = ['../components/SlotModal.jsx', '../components/AddCourseModal.jsx', '../components/PriorCreditWizard.jsx']
+
+  it('none draws its own backdrop, card or cross', () => {
+    for (const file of files) {
+      const src = read(file)
+      expect(src, file).toMatch(/import Dialog, \{ DialogHead \} from '\.\/Dialog'/)
+      expect(src, file).not.toMatch(/className="modal-(backdrop|card|header|eyebrow|title|sub|close)/)
+      expect(src, file).not.toContain('handleBackdropClick')
+      expect(src, file).not.toMatch(/\bcr</)
+    }
+  })
+
+  it('each is labelled by its title and has a Close button with a word', () => {
+    expect(read('../components/AddCourseModal.jsx')).toContain('<Dialog labelledBy="add-course-title"')
+    expect(read('../components/SlotModal.jsx')).toContain('<Dialog labelledBy="slot-modal-title"')
+    expect(read('../components/PriorCreditWizard.jsx')).toContain('<Dialog labelledBy="prior-credit-title" onClose={onClose} busy={saving}')
+    const head = renderToStaticMarkup(<DialogHead id="x" title="Add a course" onClose={() => {}} />)
+    expect(text(head)).toBe('Add a course Close')
+    expect(head).toContain('class="ds-modal-close"')
+  })
+
+  it('the old dialog rules are gone from Dashboard.css', () => {
+    const old = read('../components/Dashboard.css')
+    for (const cls of ['modal-backdrop', 'modal-card', 'modal-header', 'modal-eyebrow', 'modal-title', 'modal-sub', 'modal-close', 'wizard-card']) {
+      expect(old, cls).not.toMatch(new RegExp(`^[.]${cls}(?![a-z-])`, 'm'))
+    }
+  })
+
+  it('inside a dialog the old colour names mean the redesign colours, in both themes', () => {
+    const css = read('../components/shell/AppShell.css')
+    const block = css.slice(css.indexOf('/* -- The pickers inside a dialog (redesign Phase 6b)'), css.indexOf('/* ── Loading skeleton'))
+    expect(block).toMatch(/:is\(\.ds-modal, \.ds-picker\) \{[^}]*--gold: var\(--c-link\);[^}]*--danger: var\(--c-blocked\);/)
+    expect(block).toMatch(/:root\[data-theme="light"\] :is\(\.ds-modal, \.ds-picker\) \{[^}]*--gold-rgb: 75, 50, 148;/)
+    expect(block).toMatch(/font-family: var\(--font-ui\); font-size: var\(--fs-ui\); line-height: var\(--lh-ui\); letter-spacing: 0; text-transform: none;/)
+    expect(block).toMatch(/:is\(\.onboarding-btn, \.onboarding-btn-secondary, \.modal-remove-btn\) \{\s*min-height: var\(--target\)/)
+    expect(block).toMatch(/\.ds-modal-close \{[^}]*min-height: var\(--target\)/)
+  })
+})

@@ -700,6 +700,11 @@ optional line saying what it belongs to, the title, an optional sentence. Centre
 change major, add a major or minor, remove, reset (`SettingsView.jsx`, `AddProgramModal.jsx`) and the requisite conflict (`DegreePlan.jsx`). A choice in a list is a `.ds-option` with `aria-pressed` and a radio drawn by `.ds-option-mark`.
 No component draws its own `.ds-modal` (`dialog.test.jsx`). The parity scenario still finds a dialog by `.ds-modal`.
 
+**Phase 6b:** the course picker (`SlotModal.jsx`), Add a course (`AddCourseModal.jsx`) and the prior-credit wizard (`PriorCreditWizard.jsx`) use the same `Dialog`, with a `DialogHead` that has a Close button (`onClose`). Their inner rows keep the
+class names `Dashboard.css` gave them (`.modal-*`, `.wizard-*`, `.add-credit-*`), which read the old colour names; inside `.ds-modal` and `.ds-picker` (the picker in the details panel) `AppShell.css` maps those names to the redesign's colours
+in both themes, and sets the type once (the interface font, sentence case, 15 px, codes in the code face) and the controls to 44 px. The old `.modal-backdrop`, `.modal-card`, `.modal-header`, `.modal-eyebrow`, `.modal-title`, `.modal-sub`,
+`.modal-close` and `.wizard-card` rules are deleted. Hours are written out and codes read "MATH 1904". The parity scenario reads every dialog through `.ds-modal`.
+
 ### `src/lib/genEdPanel.js`
 
 

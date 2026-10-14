@@ -10,6 +10,8 @@ import { getPlanCodes } from '../lib/removedPrereqs'
 import { formatCredits, isVariableCredit, validateHours } from '../lib/creditHours'
 import CreditHoursField from './CreditHoursField'
 import './Dashboard.css'
+import Dialog, { DialogHead } from './Dialog'
+import { formatCourseCode } from '../lib/courseCodeFormat'
 
 export default function SlotModal({
   slot,
@@ -153,10 +155,6 @@ export default function SlotModal({
     onSave(slot, selected, hoursVariable ? Number(hours) : null)
   }
 
-  function handleBackdropClick(e) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   // ── Flight Foundations category progress ───────────────────────────
   // FF pool slots each fill one category; show where that category stands
   // (e.g. "Humanities & Cultural Expression · 3/6–9 hrs").
@@ -205,7 +203,7 @@ export default function SlotModal({
                 {catStatus?.label ?? cat}
                 {catStatus && (
                   <span className="modal-section-credits">
-                    {' · '}{catStatus.filled}/{catStatus.required} hrs
+                    {' · '}{catStatus.filled} of {catStatus.required} hours
                   </span>
                 )}
               </p>
@@ -315,7 +313,7 @@ export default function SlotModal({
               {ffCategory.label}
               <span className="modal-section-credits">
                 {' · '}{ffCategory.filled}/{ffCategory.required}
-                {ffCategory.max > ffCategory.required ? `–${ffCategory.max}` : ''} hrs
+                {ffCategory.max > ffCategory.required ? `–${ffCategory.max}` : ''} hours
               </span>
             </p>
           )}
@@ -371,23 +369,16 @@ export default function SlotModal({
   if (embedded) return <div className="ds-picker">{content}</div>
 
   return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-card">
-
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Select a course</p>
-            <h3 className="modal-title">
-              {POOL_LABELS[slot.class_code] ?? slot.class_code}
-            </h3>
-            <p className="modal-sub">Semester {planSemesterOverrides?.[slot.id] ?? slot.semester_number}</p>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-
+    <Dialog labelledBy="slot-modal-title" onClose={onClose} className="ds-modal-picker">
+        <DialogHead
+          id="slot-modal-title" onClose={onClose}
+          kicker={`Semester ${planSemesterOverrides?.[slot.id] ?? slot.semester_number}`}
+          title={POOL_LABELS[slot.class_code] ?? slot.class_code}
+        >
+          Pick a course.
+        </DialogHead>
         {content}
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -402,7 +393,7 @@ function CourseRow({ course, selected, onSelect, sectionDisabled = false }) {
     >
       <div className="modal-course-info">
         <div className="modal-course-top">
-          <span className="modal-course-code">{course.code}</span>
+          <span className="modal-course-code">{formatCourseCode(course.code)}</span>
           {course.status === 'taken' && (
             <span className="modal-status-badge taken">Already selected</span>
           )}
@@ -428,7 +419,7 @@ function CourseRow({ course, selected, onSelect, sectionDisabled = false }) {
           <span className="modal-prereq-hint">{course.removedNote}</span>
         )}
       </div>
-      <span className="modal-course-credits">{formatCredits(course)} cr</span>
+      <span className="modal-course-credits">{formatCredits(course)} hours</span>
     </button>
   )
 }

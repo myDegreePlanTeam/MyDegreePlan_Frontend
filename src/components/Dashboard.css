@@ -395,76 +395,6 @@
 
 /* ── Modal ───────────────────────────────────────────────────────── */
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 1rem;
-  animation: fadeIn 0.15s ease both;
-}
-
-.modal-card {
-  background: var(--navy-mid);
-  border: 1px solid var(--navy-light);
-  border-radius: 14px;
-  width: 100%;
-  max-width: 480px;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  animation: fadeUp 0.2s ease both;
-  overflow: hidden;
-}
-
-.modal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid var(--navy-light);
-  flex-shrink: 0;
-}
-
-.modal-eyebrow {
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin-bottom: 0.25rem;
-}
-
-.modal-title {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  color: var(--white);
-  margin-bottom: 0.2rem;
-}
-
-.modal-sub {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.modal-close {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 0.875rem;
-  cursor: pointer;
-  padding: 0.25rem;
-  line-height: 1;
-  transition: color 0.2s;
-  flex-shrink: 0;
-}
-
-.modal-close:hover {
-  color: var(--white);
-}
-
 .modal-search-wrap {
   padding: 0.75rem 1.5rem;
   border-bottom: 1px solid var(--navy-light);
@@ -1388,7 +1318,7 @@
    Appears at the bottom-center of the viewport when a background
    Supabase write fails after an optimistic update. Fixed position so
    it floats above the semester grid and any open modals.
-   z-index 200 puts it above the modal-backdrop (100). */
+   z-index 200 keeps it above the plan and the details panel. */
 
 .save-error-toast {
   position: fixed;
@@ -2366,15 +2296,10 @@
 
 /* ── Wizard styles (PriorCreditWizard) ──────────────────────────────────── */
 
-.wizard-card {
-  max-width: 520px;
-  width: 95vw;
-}
-
 .wizard-body {
   padding: 1.25rem 1.5rem;
   min-height: 160px;
-  /* Claim the remaining vertical space inside .modal-card (which is a
+  /* Claim the remaining vertical space inside the dialog (which is a
      flex column, capped at 80vh) and scroll internally when the step's
      content overflows — matters on short viewports and for Step 4 when
      an exam awards several courses. */
