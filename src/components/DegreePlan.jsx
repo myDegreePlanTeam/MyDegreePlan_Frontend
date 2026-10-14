@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDroppable, useDraggable } from '@dnd-kit/core'
 import { db } from '../lib/dataClient'
-import { getScienceWarnings, getPoolLimitWarnings, POOL_LABELS, POOL_COURSES, isProvidingPool } from '../lib/poolResolver'
+import { getScienceWarnings, getPoolLimitWarnings, POOL_LABELS } from '../lib/poolResolver'
+import { prereqStanding, coreqStanding } from '../lib/pickReliance'
 import { groupSlotsBySemester, sortByCourseCode } from '../lib/slotOrder'
 import { plannerCodes, fetchCourseDetail } from '../lib/plannerCatalog'
 import { applyChosenHours } from '../lib/creditHours'
@@ -11,7 +12,7 @@ import { computeSemesterTerms, formatTermLabel, lastNonSummerTerm, advanceTerm, 
 import { semesterPhases, statusForPhase, splitCreditsByPhase, creditsInPhase } from '../lib/termPhase'
 import { UNDO_LIMIT, stampUndo, pruneUndo, isUndoApplicable, loadUndo, saveUndo } from '../lib/undoStore'
 import { isEnrollmentAllowed, getSeasonRestriction } from '../lib/semesterRestrictions'
-import { checkPrereqs, checkCoreqsProvisional } from '../lib/prereqChecker'
+
 import { getMoveConflicts } from '../lib/dragConflicts'
 import { resolveTransferCredits, resolveTransferDetails, computePlanCredits, getTakenCodes, creditsBeforeSemester, summarizePriorCredits } from '../lib/transferCredits'
 import { buildDegreePlan } from '../lib/degreeBuilder'
@@ -746,36 +747,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // meets a prereq its pool offers (CSC3040 after an empty Communications
   // slot); poolReliance records which slots that leaned on, and which courses
   // leaned on them, for the Plan check list's "incomplete selection" entries.
+  // The check itself is lib/pickReliance.js, which first run's last screen shares.
   const { prereqWarnings, poolReliance } = useMemo(() => {
-    const placed  = []
-    const pending = []
-
-    for (const slot of activeSlots) {
-      const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
-      const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
-      if (sem == null) continue
-      if (code) placed.push({ key: slot.id, code, sem })
-      else if (slot.is_pool && isProvidingPool(slot.class_code)) {
-        pending.push({ key: slot.id, sem, codes: POOL_COURSES[slot.class_code] ?? [] })
-      }
-    }
-    for (const fa of freeAddSlots) {
-      placed.push({ key: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
-    }
-
-    const warnings = {}
-    const reliance = {}
-    for (const item of placed) {
-      const completedCodes = new Set(
-        placed
-          .filter(p => p.sem < item.sem)
-          .map(p => p.code)
-      )
-      const pendingPools = pending.filter(p => p.sem < item.sem)
-      const result = checkPrereqs(item.code, prereqMap, completedCodes, priorCredits, courses, coreqMap, pendingPools)
-      if (!result.satisfied) warnings[item.key] = result.missing
-      for (const key of result.relyingOn ?? []) (reliance[key] ??= []).push(item.code)
-    }
+    const { warnings, reliance } = prereqStanding({
+      slots: activeSlots, semesterOf: slot => planSemesterOverrides[slot.id] ?? slot.semester_number,
+      planSlots, freeAddSlots, prereqMap, coreqMap, priorCredits, courses,
+    })
     return { prereqWarnings: warnings, poolReliance: reliance }
   }, [activeSlots, planSlots, freeAddSlots, planSemesterOverrides, prereqMap, priorCredits, courses, coreqMap])
 
@@ -789,46 +766,10 @@ export default function DegreePlan({ profile, onProfileChange }) {
   // offers (CSC3220 with the Statistics slot), as it does for prerequisites; coreqReliance records which slots that
   // leaned on, for the same "incomplete selection" entries.
   const { coreqWarnings, coreqReliance } = useMemo(() => {
-    const placed = []
-    const pending = []
-
-    for (const slot of activeSlots) {
-      const sem  = planSemesterOverrides[slot.id] ?? slot.semester_number
-      const code = slot.is_pool ? planSlots[slot.id] : slot.class_code
-      if (code && sem != null) placed.push({ key: slot.id, code, sem })
-      else if (sem != null && slot.is_pool && isProvidingPool(slot.class_code)) {
-        pending.push({ key: slot.id, sem, codes: POOL_COURSES[slot.class_code] ?? [] })
-      }
-    }
-    for (const fa of freeAddSlots) {
-      placed.push({ key: `fa_${fa.id}`, code: fa.course_code, sem: fa.semester_number })
-    }
-
-    const priorCodes = priorCredits
-      .filter(pc => pc.satisfies_course_code)
-      .map(pc => pc.satisfies_course_code)
-
-    const warnings = {}
-    const reliance = {}
-    for (const item of placed) {
-      const completedCodes = new Set([
-        ...placed
-          .filter(p => p.sem < item.sem)
-          .map(p => p.code),
-        ...priorCodes,
-      ])
-
-      const availableCodes = new Set([
-        ...completedCodes,
-        ...placed
-          .filter(p => p.sem === item.sem && p.code !== item.code)
-          .map(p => p.code),
-      ])
-
-      const result = checkCoreqsProvisional(item.code, coreqMap, availableCodes, pending.filter(p => p.sem <= item.sem))
-      if (!result.satisfied) warnings[item.key] = result.missing
-      for (const key of result.relyingOn ?? []) (reliance[key] ??= []).push(item.code)
-    }
+    const { warnings, reliance } = coreqStanding({
+      slots: activeSlots, semesterOf: slot => planSemesterOverrides[slot.id] ?? slot.semester_number,
+      planSlots, freeAddSlots, coreqMap, priorCredits,
+    })
     return { coreqWarnings: warnings, coreqReliance: reliance }
   }, [activeSlots, planSlots, freeAddSlots, planSemesterOverrides, coreqMap, priorCredits])
 
