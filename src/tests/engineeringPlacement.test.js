@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import catalog from '../data/catalog.json'
-import { buildDegreePlan } from '../lib/degreeBuilder'
+import { buildDegreePlan, GEN_ED_SLOT_CODES } from '../lib/degreeBuilder'
 import { buildRequirementMap } from '../lib/requirementMap'
 import { mathChainFor, planRequiresCalculusII } from '../lib/mathPlacement'
 
@@ -64,8 +64,8 @@ describe.each(['me', 'me_aero', 'me_mechatronics', 'me_vehicle', 'ne'])('%s: eve
 
     // Calculus II is never skipped, whatever the placement
     expect(r.archived[slots.find(s => s.class_code === 'MATH1920').id]).toBeUndefined()
-    // nothing starts before the semester the department map gives it
-    for (const s of active.filter(x => Number.isInteger(x.map_semester))) {
+    // nothing of the major starts before the semester the department map gives it (general education may, to even the loads)
+    for (const s of active.filter(x => Number.isInteger(x.map_semester) && !GEN_ED_SLOT_CODES.has(x.class_code))) {
       expect(r.assignments[s.id], `${s.class_code} (map ${s.map_semester})`).toBeGreaterThanOrEqual(s.map_semester)
     }
     // the calculus order: Calculus I (or its extended pair) before II, II before III and Differential Equations

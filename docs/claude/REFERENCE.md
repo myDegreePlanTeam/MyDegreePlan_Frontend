@@ -484,6 +484,15 @@ the database allows only those two values.
   (SCIENCE, COMM_REQ, MATH_STATS, ENG_LIT, GEN_ED) after gating pools; electives take the tail;
   Step 11b lifts semesters below `FULL_TIME` (12 cr) by moving an elective or GEN_ED/ENG_LIT
   in, only if every standing threshold that held still holds.
+- **Load balancing (Step 13, every algorithm plan, never a department map used as printed):**
+  moves one slot at a time, best move first, toward 12 to 16 hours per regular semester: no
+  semester under `BALANCE_MIN` (12) but the last, then as few hours over `BALANCE_MAX` (16) as
+  can be, never past 18 and never a semester more. A move is made only when every prerequisite,
+  corequisite, pool and standing rule that held still holds (`requiredSem`, the check
+  `enforceOrdering` uses), and never earlier than `minSem` (an engineering map's semester is a
+  floor) except for general education (`GEN_ED_SLOT_CODES`: the gen-ed pools, COMM_REQ, HIST 2010/2020),
+  which may move ahead of the map to lighten a semester. The capstone and SCIENCE slots stay.
+  Tests: `semesterBalance.test.js`, `engineeringPlacement.test.js`.
 - Tests: `src/tests/degreeBuilder.test.js` (live-catalog fixtures).
 
 ### `src/lib/semesterTerms.js` and `src/lib/semesterRestrictions.js`
