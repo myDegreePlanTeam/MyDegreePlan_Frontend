@@ -45,7 +45,9 @@ const WORDS = {
   docker: {
     label: 'Docker install',
     where: 'this install',
-    eraseLabel: 'Erase my plan',
+    // Not the button's words: the parity run turns each word into a token by its text, so two words that read the same on one
+    // platform cannot be told apart there (platform.test.js).
+    eraseLabel: 'Erase the plan in this account',
     eraseButton: 'Erase my plan',
     storedMeta: 'Stored in this install',
     backupText: 'Export your plan to a file, or import one made here, in the web version or in the desktop app. An import replaces the plan in this account.',
