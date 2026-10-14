@@ -224,5 +224,6 @@ All five questions this plan first asked are answered in Phase 0. What remains: 
 - **"Coming soon" has two meanings and kept one**: a major the planner does not have reads "Not in the planner yet"; a feature held back by `lib/features.js` still reads "Coming soon".
 - **Phase 8 was not looked at on a real install**: the sign-in pages (Docker) and the update banner and card (Docker, the Windows app) are covered by tests and by reading the diff only.
 - **Docker parity leg**: the definition of done asks for it from the branch whenever `parity/` changes. It was not run for any phase (web ran locally, web and the Windows app in CI). The first nightly run after these merges is the first time Docker walks the new first run.
+- **The Plan check list keeps the old words**: `lib/planIssues.js` still says "Incomplete selection", "slot", "credits" and "term", and writes codes without a space. The strip above the plan uses the new words; the list of things to review, and a few sentences in the course details, do not yet. A wording pass over about ten messages and the tests that pin them.
 - **Board images**: the approved boards were not exported to `docs/claude/design/`; only the canvas can export them.
 - **Not started**: the landing site's tokens and fonts (`MyDegreePlan_Site`, its own PR), and the app icon (`public/favicon.svg` is still the Vite default).
