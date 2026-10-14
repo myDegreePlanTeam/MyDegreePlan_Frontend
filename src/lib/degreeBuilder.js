@@ -42,6 +42,8 @@ const SUMMER_MAX    = 9
 const SEMESTER_CAP  = 20   // standing checks never push a course past this
 const GEN_ED_RESERVE = 3   // held back from required courses per regular semester
 const FULL_TIME      = 12  // leveling lifts semesters below this where it can
+const BALANCE_MIN    = FULL_TIME   // Step 13: every regular semester but the last holds at least this
+const BALANCE_MAX    = 16          // and, where the plan allows, no more than this
 
 // ─── Standing requirement thresholds ─────────────────────────────────────────
 
@@ -586,6 +588,76 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
     semCredits[target]    = (semCredits[target] ?? 0) + cr
   }
 
+  // The earliest semester a placed slot may hold given where everything else is: its own semester when every prerequisite,
+  // corequisite, pool and standing rule holds there, later when one does not.
+  function requiredSem(slot, creditsBeforeFn) {
+    // ── Pool slot: not before the prereqs of all its options ─────────────
+    if (slot.is_pool) return Math.max(assignments[slot.id], poolEarliest(slot, id => assignments[id] ?? minSem[id]))
+
+    const coreqSet = coreqCodesFor[slot.class_code] ?? new Set()
+    let minRequired = assignments[slot.id]
+
+    // ── Pool prereq order: after the pool slot(s) that provide it ────────
+    for (const dep of poolDepsFor[slot.id] ?? []) {
+      const ready = poolReadySem(dep, id => assignments[id])
+      if (ready !== undefined) minRequired = Math.max(minRequired, ready + dep.lag)
+    }
+
+    // ── Prereq order: must be strictly after every assigned prerequisite ─
+    const groups = prereqMap[slot.class_code] ?? {}
+    for (const group of Object.values(groups)) {
+      if (groupSatisfied(group, priorSatisfied)) continue
+
+      if (group.logic === 'AND') {
+        for (const code of group.codes) {
+          if (priorSatisfied.has(code) || coreqSet.has(code)) continue
+          const depId = codeToSlotId[code]
+          if (!depId || assignments[depId] === undefined) continue
+          minRequired = Math.max(minRequired, assignments[depId] + 1)
+        }
+      } else {
+        // OR group: satisfied if at least one packed dep is strictly earlier.
+        const packedDeps = group.codes.filter(
+          c => !priorSatisfied.has(c) && !coreqSet.has(c)
+            && codeToSlotId[c] && assignments[codeToSlotId[c]] !== undefined
+        )
+        if (packedDeps.length === 0) continue
+        const anyEarlier = packedDeps.some(
+          c => assignments[codeToSlotId[c]] < assignments[slot.id]
+        )
+        if (!anyEarlier) {
+          const minDep = Math.min(...packedDeps.map(c => assignments[codeToSlotId[c]]))
+          minRequired = Math.max(minRequired, minDep + 1)
+        }
+      }
+    }
+
+    // ── Coreq order: same semester as, or after, its corequisites ────────
+    // A coreq pushed later (e.g. CSC4610 by senior standing) must drag
+    // the courses that take it concurrently along with it.
+    const coreqGroups = coreqMap[slot.class_code] ?? {}
+    for (const group of Object.values(coreqGroups)) {
+      if (groupSatisfied(group, priorSatisfied)) continue
+      const depSems = group.codes
+        .filter(c => !priorSatisfied.has(c) && codeToSlotId[c]
+          && assignments[codeToSlotId[c]] !== undefined)
+        .map(c => assignments[codeToSlotId[c]])
+      if (depSems.length === 0) continue
+      const needed = group.logic === 'OR' ? Math.min(...depSems) : Math.max(...depSems)
+      minRequired = Math.max(minRequired, needed)
+    }
+
+    // ── Standing requirement: credit-hour threshold before this semester ─
+    const standingReq = courseMap[slot.class_code]?.standing_req
+    const threshold   = STANDING_THRESHOLDS[standingReq] ?? 0
+    if (threshold > 0) {
+      while (creditsBeforeFn(minRequired) < threshold && minRequired < SEMESTER_CAP) {
+        minRequired++
+      }
+    }
+    return minRequired
+  }
+
   // Push required slots later until prereq order and standing both hold.
   // Moves only ever go later, and a standing check never pushes past
   // SEMESTER_CAP, so the loop settles. (The old `> 20` guard only exited the
@@ -601,81 +673,9 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
 
       for (const slot of sorted) {
         if (assignments[slot.id] === undefined) continue   // pools, before Step 11
-
-        // ── Pool slot: not before the prereqs of all its options ─────────────
-        if (slot.is_pool) {
-          const need = poolEarliest(slot, id => assignments[id] ?? minSem[id])
-          if (need > assignments[slot.id]) {
-            reassign(slot, need)
-            changed = true
-          }
-          continue
-        }
-
-        const coreqSet = coreqCodesFor[slot.class_code] ?? new Set()
-        let minRequired = assignments[slot.id]
-
-        // ── Pool prereq order: after the pool slot(s) that provide it ────────
-        for (const dep of poolDepsFor[slot.id] ?? []) {
-          const ready = poolReadySem(dep, id => assignments[id])
-          if (ready !== undefined) minRequired = Math.max(minRequired, ready + dep.lag)
-        }
-
-        // ── Prereq order: must be strictly after every assigned prerequisite ─
-        const groups = prereqMap[slot.class_code] ?? {}
-        for (const group of Object.values(groups)) {
-          if (groupSatisfied(group, priorSatisfied)) continue
-
-          if (group.logic === 'AND') {
-            for (const code of group.codes) {
-              if (priorSatisfied.has(code) || coreqSet.has(code)) continue
-              const depId = codeToSlotId[code]
-              if (!depId || assignments[depId] === undefined) continue
-              minRequired = Math.max(minRequired, assignments[depId] + 1)
-            }
-          } else {
-            // OR group: satisfied if at least one packed dep is strictly earlier.
-            const packedDeps = group.codes.filter(
-              c => !priorSatisfied.has(c) && !coreqSet.has(c)
-                && codeToSlotId[c] && assignments[codeToSlotId[c]] !== undefined
-            )
-            if (packedDeps.length === 0) continue
-            const anyEarlier = packedDeps.some(
-              c => assignments[codeToSlotId[c]] < assignments[slot.id]
-            )
-            if (!anyEarlier) {
-              const minDep = Math.min(...packedDeps.map(c => assignments[codeToSlotId[c]]))
-              minRequired = Math.max(minRequired, minDep + 1)
-            }
-          }
-        }
-
-        // ── Coreq order: same semester as, or after, its corequisites ────────
-        // A coreq pushed later (e.g. CSC4610 by senior standing) must drag
-        // the courses that take it concurrently along with it.
-        const coreqGroups = coreqMap[slot.class_code] ?? {}
-        for (const group of Object.values(coreqGroups)) {
-          if (groupSatisfied(group, priorSatisfied)) continue
-          const depSems = group.codes
-            .filter(c => !priorSatisfied.has(c) && codeToSlotId[c]
-              && assignments[codeToSlotId[c]] !== undefined)
-            .map(c => assignments[codeToSlotId[c]])
-          if (depSems.length === 0) continue
-          const needed = group.logic === 'OR' ? Math.min(...depSems) : Math.max(...depSems)
-          minRequired = Math.max(minRequired, needed)
-        }
-
-        // ── Standing requirement: credit-hour threshold before this semester ─
-        const standingReq = courseMap[slot.class_code]?.standing_req
-        const threshold   = STANDING_THRESHOLDS[standingReq] ?? 0
-        if (threshold > 0) {
-          while (creditsBeforeFn(minRequired) < threshold && minRequired < SEMESTER_CAP) {
-            minRequired++
-          }
-        }
-
-        if (minRequired > assignments[slot.id]) {
-          reassign(slot, minRequired)
+        const need = requiredSem(slot, creditsBeforeFn)
+        if (need > assignments[slot.id]) {
+          reassign(slot, need)
           changed = true
         }
       }
@@ -903,6 +903,63 @@ function placeDegreePlan({ slots, courseMap, prereqMap, coreqMap, priorCredits, 
   // totals (anything still short moves later) and re-pin the capstone.
   enforceOrdering(creditsBefore)
   pinCapstone()
+
+  // ── Step 13: Balance the semester loads ─────────────────────────────────
+  // Steps 10-12 push a course to the first semester with room, so a plan can carry an 18-hour semester ahead of a
+  // 9-hour one. Every regular semester should hold BALANCE_MIN to BALANCE_MAX hours: first no semester below
+  // BALANCE_MIN except the last (filling it would take a semester the plan does not have), then as few hours above
+  // BALANCE_MAX as there can be, never past CREDIT_MAX and never a semester more. A slot moves only when no
+  // prerequisite, corequisite, pool or standing rule that held before the move breaks; the capstone and the SCIENCE
+  // sequence stay where they are. Each move strictly improves (plan length, hours short, hours over), so this ends.
+  function balanceLoads() {
+    const regular = sem => creditTarget(sem) === CREDIT_TARGET
+    const placed  = activeSlots.filter(s => assignments[s.id] !== undefined)
+    const movable = placed.filter(s => s !== csc4615Slot && s.class_code !== 'SCIENCE')
+    const score = () => {
+      const last = Math.max(...placed.map(s => assignments[s.id]))
+      let short = 0, over = 0
+      for (let sem = 1; sem <= last; sem++) {
+        if (!regular(sem)) continue
+        const load = semCredits[sem] ?? 0
+        if (sem < last && load > 0) short += Math.max(0, BALANCE_MIN - load)
+        over += Math.max(0, load - BALANCE_MAX)
+      }
+      return [last, short, over]
+    }
+    const compare = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]
+    const broken  = () => new Set(placed.filter(s => requiredSem(s, creditsBefore) > assignments[s.id]).map(s => s.id))
+
+    for (let round = 0; round < activeSlots.length * 2; round++) {
+      const base = score()
+      if (base[1] === 0 && base[2] === 0) return
+      if (base[0] > SEMESTER_CAP) return     // a rule no placement can meet (a prerequisite cycle) has already pushed the plan past any sense
+      // The moves that would improve the loads, best first; the first one that breaks no rule is made. (Scoring is cheap and
+      // the rule check is not, so the check runs only until a move passes.)
+      const moves = []
+      for (const slot of movable) {
+        const from = assignments[slot.id]
+        const cr   = slotCredits(slot, courseMap)
+        for (let to = minSem[slot.id] ?? 1; to <= base[0]; to++) {
+          if (to === from || (semCredits[to] ?? 0) + cr > creditMax(to)) continue
+          moveSlot(slot, from, to)
+          const after = score()
+          if (compare(after, base) < 0) moves.push({ slot, from, to, score: after })
+          moveSlot(slot, to, from)
+        }
+      }
+      moves.sort((a, b) => compare(a.score, b.score))
+      const brokenBefore = moves.length ? broken() : null
+      const made = moves.find(({ slot, from, to }) => {
+        moveSlot(slot, from, to)
+        if ([...broken()].every(id => brokenBefore.has(id))) return true
+        moveSlot(slot, to, from)
+        return false
+      })
+      if (!made) return
+    }
+  }
+
+  balanceLoads()
 
   return { assignments, archived }
 }
