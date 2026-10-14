@@ -7,6 +7,7 @@
     "src/lib/data/remoteClient.js": { "kind": "infrastructure", "platforms": ["docker"], "why": "The supabase-js client for the Docker stack's API." },
     "src/lib/brand.js": { "kind": "infrastructure", "platforms": ["docker"], "why": "Institution wording; the Docker config can override it (brand: 'neutral' for demos)." },
     "src/components/ErrorBoundary.jsx": { "kind": "words", "platforms": ["web", "desktop", "docker"], "why": "The reload wording: the desktop app has no page to reload." },
+    "src/pages/Dashboard.jsx": { "kind": "words", "platforms": ["web", "desktop", "docker"], "why": "The screen shown when the plan cannot be loaded says how to reload: the desktop app has no page to refresh." },
     "src/components/shell/DeviceDataCard.jsx": { "kind": "words", "platforms": ["web", "desktop", "docker"], "why": "Where the plan lives (browser / computer / install), and the Erase button's label." },
     "src/components/shell/Sidebar.jsx": { "kind": "feature", "platforms": ["docker"], "why": "Accounts: the Docker install shows the signed-in email and a Sign out button; web and desktop have one implicit user ('On this device')." },
     "src/lib/actScores.js": { "kind": "words", "platforms": ["web", "desktop", "docker"], "why": "The recovery hint after a failed reload of degree data." },

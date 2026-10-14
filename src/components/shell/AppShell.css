@@ -844,38 +844,34 @@ button.ds-setting:hover { background: var(--ds-hover); }
   .ds-modal .modal-footer-btns > button { width: 100%; }
 }
 
-/* ── Loading skeleton (DegreeplanSkeleton in Skeletons.jsx) ──────────────
-   Bars use .sk-pulse from Dashboard.css. Sizes track the real elements
-   above (46px headers, 54px rows, 43px card footers, 38px buttons) so nothing shifts on load. */
-.sk-dp-eyebrow  { height: 12px; width: 130px; margin-bottom: 7px; }
-.sk-dp-title    { height: 40px; width: 280px; margin-bottom: 8px; }
+/* -- Loading skeleton (DegreeplanSkeleton in Skeletons.jsx; redesign Phase 8) -------------------------------------------------------
+   Bars use .sk-pulse from Dashboard.css. Sizes track the real elements above (the 40 px page title, the finish card, the 64 px
+   semester header and rows, the 60 px card footer, 44 px buttons), so nothing shifts when the plan arrives. */
+.sk-dp-title    { height: 44px; width: 280px; margin-bottom: 8px; }
 .sk-dp-finish   { height: 46px; width: 220px; margin-bottom: 8px; }
 .sk-dp-head     { height: 28px; width: 60%; margin-bottom: 10px; }
-.sk-dp-meta     { height: 11px; width: 210px; margin-bottom: 6px; }
+.sk-dp-meta     { height: 16px; width: 240px; margin-bottom: 6px; }
 .sk-dp-credit-bar { height: 12px; margin: 10px 0; }
-.sk-dp-legend   { height: 11px; width: 70%; margin-top: 9px; }
-.sk-dp-btn      { height: 38px; width: 110px; border-radius: 7px; }
-.sk-dp-btn-wide { width: 150px; }
+.sk-dp-legend   { height: 14px; width: 70%; margin-top: 9px; }
+.sk-dp-btn      { height: var(--target); width: 130px; border-radius: var(--r-control); }
+.sk-dp-strip    { height: 76px; border-radius: var(--r-card); }
 
 .sk-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  min-height: 46px; padding: 0 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  min-height: 64px; padding: 0 var(--sp-5);
 }
-.ds-sem-open > .sk-head { border-bottom: 1px solid var(--bg-light); }
-.sk-sem-label   { height: 10px; width: 90px; }
-.sk-sem-credits { height: 10px; width: 45px; }
+.sk-sem-label   { height: 20px; width: 130px; }
+.sk-sem-credits { height: 14px; width: 64px; }
 
 .sk-row {
-  display: flex; align-items: center; gap: 10px;
-  min-height: 54px; padding: 0 14px;
-  border-bottom: 1px solid var(--ds-hairline);
+  display: flex; align-items: center; gap: var(--sp-3);
+  min-height: 64px; padding: 0 var(--sp-4) 0 var(--sp-5);
+  border-top: 1px solid var(--c-hairline);
 }
-.sk-foot { height: 43px; }
-.sk-row-dot  { width: 7px; height: 7px; border-radius: 4px; flex-shrink: 0; }
-.sk-row-info { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-.sk-slot-code    { height: 11px; width: 68px; }
-.sk-slot-name    { height: 9px;  width: 55%; max-width: 190px; }
-.sk-slot-credits { height: 9px;  width: 22px; }
+.sk-foot { height: 60px; border-top: 1px solid var(--c-hairline); }
+.sk-slot-code    { height: 16px; width: 84px; flex-shrink: 0; }
+.sk-slot-name    { height: 14px; flex: 1; max-width: 260px; }
+.sk-slot-credits { height: 14px; width: 56px; margin-left: auto; flex-shrink: 0; }
 
 .sk-account-name { height: 14px; width: 110px; margin-bottom: 4px; }
 .sk-account-meta { height: 13px; width: 130px; }

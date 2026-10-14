@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { db } from '../lib/dataClient'
+import { db, platform } from '../lib/dataClient'
+import { platformWords } from '../lib/platform'
 import { isMissingProgramColumn } from '../lib/requirementSlots'
 import { withProgramDetails } from '../lib/programDetails'
 import Onboarding from '../components/Onboarding'
@@ -138,10 +139,24 @@ export default function Dashboard() {
 
   if (loading) return <OnboardingSkeleton />
 
+  // the words that differ by platform: the Windows app has no page to refresh (lib/platform.js)
+  const words = platformWords(platform)
+
   if (error) {
     return (
-      <div className="dashboard-error">
-        <p>Something went wrong: {error}</p>
+      <div className="fr-shell">
+        <div className="fr-card">
+          <div className="fr-header">
+            <h2 className="fr-title">Your plan could not be loaded</h2>
+            <p className="fr-sub">Nothing was changed. {words.reloadHint}</p>
+          </div>
+          <div className="fr-body">
+            <p className="fr-error" role="alert">{error}</p>
+            <div className="fr-actions">
+              <button className="fr-btn fr-btn-primary" onClick={() => window.location.reload()}>{words.reloadButton}</button>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

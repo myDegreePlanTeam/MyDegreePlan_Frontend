@@ -1206,22 +1206,19 @@
 }
 
 .sk-pulse {
-  background: var(--navy-light);
+  background: var(--c-hairline);
   border-radius: 4px;
   animation: skeletonPulse 1.5s ease-in-out infinite;
 }
 
 /* ── Onboarding skeleton ─────────────────────────────────────────── */
 
-.sk-ob-eyebrow   { height: 10px; width: 200px; }
-.sk-ob-title     { height: 26px; width: 250px; margin-top: 4px; }
-.sk-ob-sub       { height: 10px; width: 230px; margin-top: 2px; }
-
-/* Concentration card placeholders — match the real button height */
-.sk-ob-conc-card { height: 72px; border-radius: 10px; }
-
-/* Continue button placeholder */
-.sk-ob-btn { height: 44px; border-radius: 6px; }
+/* first run's header (the brand line, the title, the sentence), the search field and the Continue button */
+.sk-ob-eyebrow   { height: 22px; width: 220px; }
+.sk-ob-title     { height: 44px; width: 320px; max-width: 80%; margin-bottom: 12px; }
+.sk-ob-sub       { height: 18px; width: 420px; max-width: 95%; }
+.sk-ob-field     { height: 68px; border-radius: 8px; }
+.sk-ob-btn       { height: 44px; width: 120px; align-self: flex-end; border-radius: 8px; }
 
 /* ── Mobile responsiveness (≤ 480px) ────────────────────────────────
    All rules here are additive — no desktop layout is changed.
