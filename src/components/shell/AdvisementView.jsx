@@ -19,9 +19,8 @@ export default function AdvisementView({
     <div className="ds-view ds-adv-view">
       <div className="ds-adv-top">
         <div>
-          <p className="ds-eyebrow">Advising</p>
-          <h2 className="ds-h2">{current?.label}</h2>
-          <p className="ds-sub">{concentrationName}{email && ` · ${email}`}</p>
+          <h2 className="ds-h2 ds-page-title">Advising</h2>
+          <p className="ds-adv-lede">{current?.label} · {concentrationName}{email && ` · ${email}`}</p>
         </div>
         {current?.exportButton}
       </div>

@@ -62,11 +62,6 @@
   margin-bottom: 1.5rem;
 }
 
-.auth-brand-dept {
-  font-size: var(--fs-caption);
-  color: var(--c-text-2);
-}
-
 /* ── Right form panel ── */
 .auth-form-panel {
   display: flex;

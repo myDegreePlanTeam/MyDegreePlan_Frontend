@@ -613,12 +613,13 @@ a **file, not an inline script**, because the Windows app (`MyDegreePlan_Desktop
 `src/tests/theme.test.js` runs the script and the module against the same cases so they cannot drift. Storage may be blocked: every read and write is guarded.
 
 **Tokens.** `src/index.css` has `--c-*` tokens named by role (`--c-page`, `--c-surface`, `--c-text`, `--c-primary`, `--c-done` / `--c-done-bg` and the other four statuses, `--c-marker` ...) for dark (`:root`) and
-light (`:root[data-theme="light"]`), plus the type scale (`--fs-*`, nothing under 13 px), space (`--sp-*`), radii (`--r-*`) and `--target` (44 px). Until a screen moves over, nothing reads them; the older
-`--bg`, `--gold`, `--navy` ... stay. `src/tests/designTokens.test.js` computes the contrast of every text pair (4.5:1), input border and focus ring (3:1), so an edit that fails them fails the test.
+light (`:root[data-theme="light"]`), plus the type scale (`--fs-*`, nothing under 13 px), space (`--sp-*`), radii (`--r-*`) and `--target` (44 px). **They are the only colour and size names there are**: the older
+`--bg`, `--gold`, `--navy`, `--white`, `--muted`, `--danger`, `--status-*`, the `*-rgb` splits and the shell's `--ds-*` extras were removed in Phase 9, and `redesignCleanup.test.js` fails if one is used or defined again. A tint
+of a colour is `color-mix(in srgb, var(--c-blocked) 12%, transparent)`, not an `rgba()` of a split. `src/tests/designTokens.test.js` computes the contrast of every text pair (4.5:1), input border and focus ring (3:1), so an edit that fails them fails the test.
 
 **Fonts.** Atkinson Hyperlegible (interface), DM Serif Display (titles) and DM Mono (course codes) are woff2 files in `public/fonts/`, declared by `@font-face` in `index.css`, with the SIL Open Font License of each
 in `public/fonts/licenses/`. They are **never loaded from a font service**: the Windows app and the Docker web container allow fonts only from the page's own origin, so before this the Google Fonts links silently
-fell back to system faces there. `designTokens.test.js` fails on a font-service URL, a missing file, a file that is not woff2 and an inline script in `index.html`. Atkinson is declared but unused until Phase 2 (a browser fetches a font only when a rule uses it).
+fell back to system faces there. `designTokens.test.js` fails on a font-service URL, a missing file, a file that is not woff2 and an inline script in `index.html`.
 
 ### The shell's navigation (`PLAN_redesign.md`, Phase 2)
 
@@ -627,7 +628,7 @@ fell back to system faces there. `designTokens.test.js` fails on a font-service 
 Plan check strip on the plan (`PlanCheckStrip.jsx`, below) opens it with "See the list" (`view === 'issues'`, `IssuesView.jsx`), "Back to plan" returns, and the Plan tab stays marked while it is open.
 The Advisement tab became **Advising**; `AdvisementView.jsx` keeps its file name.
 
-**The rail** (`.ds-sidebar`, 240 px) uses the `--c-*` tokens and the interface font; the page beside it still uses the old tokens until Phases 3 to 5. At 760 px or less (`PHONE_QUERY`) it is a
+**The rail** (`.ds-sidebar`, 240 px) uses the `--c-*` tokens and the interface font, as every screen now does. At 760 px or less (`PHONE_QUERY`) it is a
 **fixed bottom tab bar**, four labelled tabs 52 px tall, and `.ds-main` leaves room for it (`env(safe-area-inset-bottom)` for a phone's home bar). The old account avatar and the Issues count badge are gone
 (the account line is "On this device" or the signed-in email, then "Saved at 2:14 PM"). `.ds-app :focus-visible` draws a 3 px focus ring on every control. `src/tests/shellNav.test.jsx` pins the four
 destinations, the marked tab, the icons, the tokens, the 13 px and 44 px floors and the bottom bar.
@@ -690,7 +691,7 @@ shares with other places (`auditEvidence.js`, `slotOptions.js`). The parity scen
 Match my device, Light, Dark), the three preferences of `lib/theme.js`; `DegreePlan` reads the stored one once (`readPreference`) and stores a choice with `setPreference` (`chooseTheme`; the old Light mode switch is gone).
 Your data (`DeviceDataCard.jsx`) is "Export a backup" and "Import a backup". **Start over keeps two things apart**: Reset plan (a quiet button: it rebuilds the semesters and keeps credits and scores) and Erase (`EraseCard`, the only
 danger button: it deletes the plan, credits and scores, and asks once more). The erase row's label and button are platform words (`eraseLabel`, `eraseButton`: "Erase everything", or "Erase my plan" on Docker). The styles are scoped to
-`.ds-settings`, so the dialogs that still use `.ds-card` and `.ds-setting` keep their look until Phase 6. The parity scenario still finds Change through `.ds-setting` and Reset plan through `.ds-danger-card`. `settingsRender.test.jsx` pins the above.
+`.ds-settings`. The parity scenario still finds Change through `.ds-setting` and Reset plan through `.ds-danger-card`. `settingsRender.test.jsx` pins the above.
 
 ### The one dialog (`PLAN_redesign.md`, Phase 6)
 
@@ -730,6 +731,15 @@ title, "Nothing was changed.", the error as an alert, and a reload button; its r
 in words ("Show technical details") with `aria-expanded`. **Sign-in and create-account** (`pages/Auth.css`, Docker only), the error screen (`ErrorBoundary.css`) and the update card and banner (`UpdateBanner.css`, which
 `DesktopUpdateCard` shares) read the redesign tokens: no old colour name, no text under 13 px, no all-caps, the interface font, 44 px controls. `edges.test.jsx` pins the above. The sign-in pages and the update cards were not looked
 at in a browser: they need the Docker install or the Windows app.
+
+### After the redesign: what a new screen has to do (`PLAN_redesign.md`, Phase 9)
+
+The redesign is finished; these are its rules, each kept by a test. **Colour and size**: only the `--c-*`, `--fs-*`, `--sp-*`, `--r-*` and `--target` tokens of `index.css`, in both themes (`redesignCleanup.test.js`, `designTokens.test.js`).
+**Type**: the interface font everywhere, the display font for page and dialog titles, the code face only for a course code; nothing under 13 px; no all-caps. **Controls**: 44 px or more, a 3 px focus ring, one filled button per
+screen. **Status**: a `StatusChip` (an icon, a word and a colour), and only where it is news. **Words**: "hours" (never "cr"), "CSC 1300", "semester", "pick", "Plan check", "Advising", and a major the planner does not have yet
+reads "Not in the planner yet" (`COMING_SOON` in `programBrowser.js`; "Coming soon" is only for a feature held back by `lib/features.js`). **Dialogs**: `components/Dialog.jsx`, which listens for Escape and Tab on the document
+(a step that swaps its content drops focus to the page, and a listener on the dialog itself would stop hearing them). **Platform words** stay in `lib/platform.js`. Phase 9 also deleted 287 style rules no component used
+(`Dashboard.css` went from 2,860 lines to about 1,080) and converted the rest with a script: the old names to tokens, `rgba(var(--x-rgb), a)` to `color-mix`, small sizes to the scale.
 
 ### `src/lib/genEdPanel.js`
 

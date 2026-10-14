@@ -1,173 +1,21 @@
 /* ── Onboarding ─────────────────────────────────────────────────── */
 
-.onboarding-shell {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  background: var(--navy);
-}
-
-.onboarding-card {
-  width: 100%;
-  max-width: 640px;
-  background: var(--navy-mid);
-  border: 1px solid var(--navy-light);
-  border-radius: 16px;
-  overflow: hidden;
-  animation: fadeUp 0.5s ease both;
-}
-
-.onboarding-header {
-  padding: 2.5rem 2.5rem 2rem;
-  border-bottom: 1px solid var(--navy-light);
-}
-
-.onboarding-eyebrow {
-  font-size: 0.7rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin-bottom: 0.75rem;
-}
-
-.onboarding-title {
-  font-family: var(--font-display);
-  font-size: 1.75rem;
-  color: var(--white);
-  margin-bottom: 0.5rem;
-}
-
-.onboarding-sub {
-  font-size: 0.82rem;
-  color: var(--muted);
-  line-height: 1.7;
-  margin-bottom: 1.5rem;
-}
-
-.onboarding-steps {
-  display: flex;
-  gap: 6px;
-}
-
-.onboarding-step {
-  height: 3px;
-  width: 32px;
-  border-radius: 2px;
-  background: var(--navy-light);
-  transition: background 0.3s;
-}
-
-.onboarding-step.active {
-  background: var(--gold);
-}
-
-.onboarding-body {
-  padding: 2rem 2.5rem 2.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.concentration-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.concentration-card {
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
-  border-radius: 10px;
-  padding: 1.25rem;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.concentration-card:hover {
-  border-color: var(--muted);
-}
-
-.concentration-card.selected {
-  border-color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.06);
-}
-
-.concentration-name {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--white);
-}
-
-.concentration-desc {
-  font-size: 0.75rem;
-  color: var(--muted);
-  line-height: 1.6;
-}
-
-.season-year-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.onboarding-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.onboarding-label {
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.onboarding-select {
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.onboarding-select:focus {
-  border-color: var(--gold);
-}
-
-.onboarding-btn-row {
-  display: flex;
-  gap: 0.75rem;
-}
-
 .onboarding-btn {
   flex: 1;
   padding: 0.85rem 1rem;
-  background: var(--gold);
-  color: var(--navy);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
   border: none;
   border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s, opacity 0.2s;
-  letter-spacing: 0.05em;
 }
 
 .onboarding-btn:hover:not(:disabled) {
-  background: var(--gold-light);
+  background: var(--c-primary);
 }
 
 .onboarding-btn:disabled {
@@ -178,27 +26,18 @@
 .onboarding-btn-secondary {
   padding: 0.85rem 1.5rem;
   background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--navy-light);
+  color: var(--c-text-2);
+  border: 1px solid var(--c-hairline);
   border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
 }
 
 .onboarding-btn-secondary:hover:not(:disabled) {
-  border-color: var(--muted);
-  color: var(--white);
-}
-
-.onboarding-error {
-  font-size: 0.8rem;
-  color: var(--danger);
-  padding: 0.75rem 1rem;
-  background: rgba(var(--danger-rgb), 0.08);
-  border: 1px solid rgba(var(--danger-rgb), 0.2);
-  border-radius: 6px;
+  border-color: var(--c-text-2);
+  color: var(--c-text);
 }
 
 .dashboard-loading,
@@ -207,220 +46,44 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--muted);
-  font-size: 0.875rem;
+  color: var(--c-text-2);
+  font-size: var(--fs-ui);
 }
 
 /* ── Degree Plan ─────────────────────────────────────────────────── */
 
-.degreeplan-shell {
-  min-height: 100vh;
-  background: var(--navy);
-  display: flex;
-  flex-direction: column;
-}
-
-.degreeplan-header {
-  background: var(--navy-mid);
-  border-bottom: 1px solid var(--navy-light);
-  padding: 1.5rem 2rem;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.degreeplan-header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.degreeplan-eyebrow {
-  font-size: 0.68rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin-bottom: 0.25rem;
-}
-
-.degreeplan-title {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  color: var(--white);
-  margin-bottom: 0.2rem;
-}
-
-.degreeplan-meta {
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
-.degreeplan-signout {
-  background: transparent;
-  border: 1px solid var(--navy-light);
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
-}
-
-.degreeplan-signout:hover {
-  border-color: var(--muted);
-  color: var(--white);
-}
-
-.degreeplan-main {
-  flex: 1;
-  padding: 2rem;
-}
-
-.degreeplan-grid {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1rem;
-}
-
 /* ── Semester card ───────────────────────────────────────────────── */
 
-.semester-card {
-  background: var(--navy-mid);
-  border: 1px solid var(--navy-light);
-  border-radius: 12px;
-  overflow: hidden;
-  animation: fadeUp 0.4s ease both;
-}
-
-.semester-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.875rem 1.25rem;
-  border-bottom: 1px solid var(--navy-light);
-}
-
-.semester-label {
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--gold);
-  font-weight: 500;
-}
-
-.semester-credits {
-  font-size: 0.72rem;
-  color: var(--white);
-  font-weight: 500;
-}
-
-.semester-header-right .semester-credits {
-  padding-right: 0.25rem;
-  border-right: 1px solid var(--navy-light);
-  margin-right: 0.25rem;
-}
-
-.semester-slots {
-  display: flex;
-  flex-direction: column;
-}
-
 /* ── Slot rows ───────────────────────────────────────────────────── */
-
-.slot-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--navy-light);
-  gap: 0.75rem;
-  transition: background 0.15s;
-}
-
-.slot-row:last-child {
-  border-bottom: none;
-}
-
-.slot-row:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.slot-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
-  flex: 1;
-}
-
-.slot-code {
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--white);
-  white-space: nowrap;
-}
-
-.slot-name {
-  font-size: 0.72rem;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.slot-credits {
-  font-size: 0.72rem;
-  color: var(--muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.pool-code {
-  color: var(--gold);
-}
-
-.pool-name {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.slot-missing .slot-code {
-  color: var(--danger);
-}
 
 /* ── Modal ───────────────────────────────────────────────────────── */
 
 .modal-search-wrap {
   padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid var(--navy-light);
+  border-bottom: 1px solid var(--c-border-strong);
   flex-shrink: 0;
 }
 
 .modal-search {
   width: 100%;
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
+  background: var(--c-page);
+  border: 1px solid var(--c-border-strong);
   border-radius: 6px;
   padding: 0.6rem 0.875rem;
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
   outline: none;
   transition: border-color 0.2s;
 }
 
 .modal-search::placeholder {
-  color: var(--muted);
+  color: var(--c-text-2);
   opacity: 0.6;
 }
 
 .modal-search:focus {
-  border-color: var(--gold);
+  border-color: var(--c-link);
 }
 
 .modal-course-list {
@@ -438,15 +101,15 @@
 }
 
 .modal-course-list::-webkit-scrollbar-thumb {
-  background: var(--navy-light);
+  background: var(--c-surface-2);
   border-radius: 2px;
 }
 
 .modal-empty {
   padding: 2rem 1.5rem;
   text-align: center;
-  color: var(--muted);
-  font-size: 0.8rem;
+  color: var(--c-text-2);
+  font-size: var(--fs-caption);
 }
 
 .modal-course-row {
@@ -464,15 +127,15 @@
 }
 
 .modal-course-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--c-surface-2);
 }
 
 .modal-course-row.selected {
-  background: rgba(var(--gold-rgb), 0.08);
+  background: color-mix(in srgb, var(--c-link) 8%, transparent);
 }
 
 .modal-course-row.selected .modal-course-code {
-  color: var(--gold);
+  color: var(--c-link);
 }
 
 .modal-course-info {
@@ -484,29 +147,29 @@
 }
 
 .modal-course-code {
-  font-size: 0.8rem;
+  font-size: var(--fs-caption);
   font-weight: 500;
-  color: var(--white);
+  color: var(--c-text);
   transition: color 0.15s;
 }
 
 .modal-course-name {
-  font-size: 0.72rem;
-  color: var(--muted);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .modal-course-credits {
-  font-size: 0.72rem;
-  color: var(--muted);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
   flex-shrink: 0;
 }
 
 .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid var(--navy-light);
+  border-top: 1px solid var(--c-hairline);
   flex-shrink: 0;
 }
 
@@ -514,12 +177,6 @@
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
-}
-
-.modal-error {
-  font-size: 0.78rem;
-  color: var(--danger);
-  margin-bottom: 0.75rem;
 }
 
 @keyframes fadeUp {
@@ -530,19 +187,6 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
-}
-
-.slot-row.clickable {
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  border: none;
-  font-family: var(--font-mono);
-  background: transparent;
-  color: inherit;
-}
-.slot-row.slot-filled .slot-code {
-  color: var(--gold);
 }
 
 /* ── Modal course status styles ──────────────────────────────────── */
@@ -569,59 +213,55 @@
 }
 
 .modal-status-badge {
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--fs-caption);
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
   font-weight: 500;
 }
 
 .modal-status-badge.taken {
-  background: rgba(var(--muted-rgb), 0.15);
-  color: var(--muted);
+  background: color-mix(in srgb, var(--c-text-2) 15%, transparent);
+  color: var(--c-text-2);
 }
 
 .modal-status-badge.locked {
-  background: rgba(var(--danger-rgb), 0.12);
-  color: var(--danger);
+  background: color-mix(in srgb, var(--c-blocked) 12%, transparent);
+  color: var(--c-blocked);
 }
 
 .modal-prereq-hint {
-  font-size: 0.68rem;
-  color: var(--danger);
+  font-size: var(--fs-caption);
+  color: var(--c-blocked);
   opacity: 0.8;
   margin-top: 0.1rem;
 }
 
 .modal-autofill-notice {
   padding: 0.75rem 1.5rem;
-  font-size: 0.75rem;
-  color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.06);
-  border-bottom: 1px solid var(--navy-light);
+  font-size: var(--fs-caption);
+  color: var(--c-link);
+  background: color-mix(in srgb, var(--c-link) 6%, transparent);
+  border-bottom: 1px solid var(--c-hairline);
 }
 
 .modal-section-label {
   padding: 0.5rem 1.5rem 0.25rem;
-  font-size: 0.65rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  border-bottom: 1px solid var(--navy-light);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
+  border-bottom: 1px solid var(--c-hairline);
 }
 
 /* BUG-43: GEN_ED sub-category section wrappers */
 .modal-gen-ed-section + .modal-gen-ed-section {
-  border-top: 1px solid var(--navy-light);
+  border-top: 1px solid var(--c-hairline);
   margin-top: 0.5rem;
   padding-top: 0.25rem;
 }
 
 /* Promote GEN_ED section headers above the base muted label style */
 .modal-gen-ed-section .modal-section-label {
-  font-size: 0.75rem;
-  color: var(--white);
+  font-size: var(--fs-caption);
+  color: var(--c-text);
   border-bottom: none;
   padding-bottom: 0.4rem;
 }
@@ -630,13 +270,13 @@
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--muted);
+  color: var(--c-text-2);
 }
 
 /* BUG-43: satisfied GEN_ED sub-sections — greyed and non-interactive.
    Use double-class selector to beat .modal-gen-ed-section specificity. */
 .modal-section-satisfied.modal-gen-ed-section .modal-section-label {
-  color: var(--muted);
+  color: var(--c-text-2);
 }
 .modal-section-satisfied .modal-course-row {
   opacity: 0.45;
@@ -645,33 +285,13 @@
 
 /* ── Slot status visuals ─────────────────────────────────────────── */
 
-.slot-row.status-in_progress {
-  border-left: 2px solid var(--status-progress);
-  padding-left: calc(1.25rem - 2px);
-  background: rgba(var(--status-progress-rgb), 0.04);
-}
-
-.slot-row.status-completed {
-  border-left: 2px solid var(--status-done);
-  padding-left: calc(1.25rem - 2px);
-  background: rgba(var(--status-done-rgb), 0.04);
-}
-
 /* slot-right holds the status badge + credit count side by side */
-.slot-right {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-}
 
 /* ── Status badge ────────────────────────────────────────────────── */
 
 .status-badge {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
   padding: 0.18rem 0.45rem;
   border-radius: 20px;
   border: 1px solid transparent;
@@ -685,141 +305,42 @@
 }
 
 .status-badge-planned {
-  color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.12);
-  border-color: rgba(var(--gold-rgb), 0.25);
+  color: var(--c-link);
+  background: color-mix(in srgb, var(--c-link) 12%, transparent);
+  border-color: color-mix(in srgb, var(--c-link) 25%, transparent);
 }
 
 .status-badge-in_progress {
-  color: var(--status-progress);
-  background: rgba(var(--status-progress-rgb), 0.12);
-  border-color: rgba(var(--status-progress-rgb), 0.25);
+  color: var(--c-progress);
+  background: color-mix(in srgb, var(--c-progress) 12%, transparent);
+  border-color: color-mix(in srgb, var(--c-progress) 25%, transparent);
 }
 
 .status-badge-completed {
-  color: var(--status-done);
-  background: rgba(var(--status-done-rgb), 0.12);
-  border-color: rgba(var(--status-done-rgb), 0.25);
+  color: var(--c-done);
+  background: color-mix(in srgb, var(--c-done) 12%, transparent);
+  border-color: color-mix(in srgb, var(--c-done) 25%, transparent);
 }
 
 /* ── Credit progress bar ─────────────────────────────────────────── */
 
-.credit-bar-wrap {
-  margin-top: 0.75rem;
-}
-
-.credit-bar-track {
-  height: 4px;
-  background: var(--navy-light);
-  border-radius: 2px;
-  overflow: hidden;
-  display: flex;
-  width: 260px;
-  max-width: 100%;
-}
-
-.credit-bar-completed {
-  background: var(--status-done);
-  transition: width 0.4s ease;
-}
-
-.credit-bar-planned {
-  background: var(--gold);
-  opacity: 0.6;
-  transition: width 0.4s ease;
-}
-
-.credit-bar-label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.35rem;
-  font-size: 0.7rem;
-  color: var(--muted);
-}
-
-.credit-label-completed {
-  color: var(--status-done);
-}
-
-.credit-label-planned {
-  color: var(--gold);
-  opacity: 0.85;
-}
-
-.credit-label-dot {
-  color: var(--navy-light);
-}
-
 /* ── Header action group ─────────────────────────────────────────── */
-
-.degreeplan-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
 
 .degreeplan-settings {
   background: transparent;
-  border: 1px solid var(--navy-light);
+  border: 1px solid var(--c-hairline);
   border-radius: 6px;
   padding: 0.5rem 1rem;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
+  color: var(--c-text-2);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s;
 }
 
 .degreeplan-settings:hover {
-  border-color: var(--muted);
-  color: var(--white);
-}
-
-.degreeplan-reset {
-  background: transparent;
-  border: 1px solid rgba(var(--danger-rgb), 0.35);
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
-  color: var(--danger);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.degreeplan-reset:hover {
-  border-color: var(--danger);
-  background: rgba(var(--danger-rgb), 0.06);
-}
-
-.degreeplan-modal-danger {
-  background: rgba(var(--danger-rgb), 0.12);
-  border: 1px solid rgba(var(--danger-rgb), 0.4);
-  border-radius: 6px;
-  padding: 0.6rem 1.25rem;
-  color: var(--danger);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.degreeplan-modal-danger:hover:not(:disabled) {
-  background: rgba(var(--danger-rgb), 0.22);
-  border-color: var(--danger);
-}
-
-.degreeplan-modal-danger:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.modal-reset-body {
-  font-size: 0.84rem;
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 0;
+  border-color: var(--c-text-2);
+  color: var(--c-text);
 }
 
 /* ── Undo button ─────────────────────────────────────────────────── */
@@ -828,148 +349,31 @@
    anything to undo. Opacity 0.35 is noticeably dimmer than the muted
    text (0.6 range) so it reads as truly inactive, not just quiet. */
 
-.degreeplan-undo {
-  background: transparent;
-  border: 1px solid var(--navy-light);
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: border-color 0.2s, color 0.2s, opacity 0.2s;
-}
-
-.degreeplan-undo:hover:not(:disabled) {
-  border-color: var(--muted);
-  color: var(--white);
-}
-
-.degreeplan-undo:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
 /* ── Concentration switch modal ──────────────────────────────────── */
-
-.concentration-switch-warning {
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  font-size: 0.78rem;
-  color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.08);
-  border: 1px solid rgba(var(--gold-rgb), 0.25);
-  border-radius: 6px;
-  line-height: 1.6;
-}
-
-.concentration-current-badge {
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.15rem 0.4rem;
-  border-radius: 3px;
-  background: rgba(var(--gold-rgb), 0.15);
-  color: var(--gold);
-  font-weight: 500;
-  align-self: flex-start;
-}
 
 /* ── Science sequence warnings on slot rows ──────────────────────── */
 /* Rendered inside .slot-info beneath .slot-name for SCIENCE pool slots.
    Incomplete = student started a sequence but hasn't filled the partner slot.
    Conflict   = both science slots are filled with courses from different sequences. */
 
-.slot-science-warning {
-  font-size: 0.63rem;
-  font-style: normal;
-  margin-top: 0.15rem;
-  line-height: 1.3;
-}
-
-.slot-science-warning-incomplete {
-  color: var(--gold);
-  opacity: 0.85;
-}
-
-.slot-science-warning-conflict {
-  color: var(--danger);
-}
-
 /* ── GEN_ED sub-requirement tracker ─────────────────────────────── */
 /* Sits below the credit bar in the sticky header.
    Three chips side by side — one per sub-category.
    Color encodes status: muted=empty, gold=in-progress, green=satisfied, red=at-risk. */
 
-.gen-ed-tracker {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.gen-ed-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 20px;
-  border: 1px solid transparent;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-}
-
-.gen-ed-chip-label {
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.gen-ed-chip-count {
-  opacity: 0.85;
-}
-
 /* Empty — nothing selected yet, still on track */
-.gen-ed-chip-empty {
-  color: var(--muted);
-  background: rgba(var(--muted-rgb), 0.08);
-  border-color: rgba(var(--muted-rgb), 0.18);
-}
 
 /* In progress — some credits filled, still achievable */
-.gen-ed-chip-progress {
-  color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.08);
-  border-color: rgba(var(--gold-rgb), 0.22);
-}
 
 /* Satisfied — 6+ credits filled */
-.gen-ed-chip-satisfied {
-  color: var(--status-done);
-  background: rgba(var(--status-done-rgb), 0.08);
-  border-color: rgba(var(--status-done-rgb), 0.22);
-}
 
 /* At risk — can't reach 6 hrs given remaining empty slots */
-.gen-ed-chip-risk {
-  color: var(--danger);
-  background: rgba(var(--danger-rgb), 0.08);
-  border-color: rgba(var(--danger-rgb), 0.22);
-}
 
 /* ── Graduation projection ───────────────────────────────────────── */
 /* Sits inline in .degreeplan-meta alongside "Started Fall XXXX".
    Slightly lighter than full muted so it reads as informational,
    not decorative. No extra element needed — reuses the dot separator
    already used in the credit bar label. */
-
-.degreeplan-graduation {
-  color: var(--white);
-  opacity: 0.7;
-}
 
 /* ── Semester credit hour warnings ───────────────────────────────── */
 /* Rendered between the semester header row and the slot list.
@@ -978,214 +382,46 @@
    Low  = gold  (below full-time, < 12 cr) — caution, not danger
    High = danger (heavy load, > 19 cr)    — stronger signal */
 
-.semester-credit-warning {
-  padding: 0.3rem 1.25rem 0.3rem 1.1rem;
-  font-family: var(--font-mono);
-  font-size: 0.63rem;
-  border-bottom: 1px solid var(--navy-light);
-  border-left: 2px solid transparent;
-  line-height: 1.4;
-}
-
-.semester-credit-warning-low {
-  color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.06);
-  border-left-color: var(--gold);
-  opacity: 0.9;
-}
-
-.semester-credit-warning-high {
-  color: var(--danger);
-  background: rgba(var(--danger-rgb), 0.06);
-  border-left-color: var(--danger);
-  opacity: 0.9;
-}
-
 /* ── Course detail modal body ────────────────────────────────────── */
 /* The scrollable content area inside CourseDetailModal.
    Each section has a small-caps label above its value, matching the
    visual style used throughout the app for metadata fields. */
 
-.course-detail-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-}
-
-.course-detail-body::-webkit-scrollbar {
-  width: 4px;
-}
-.course-detail-body::-webkit-scrollbar-track { background: transparent; }
-.course-detail-body::-webkit-scrollbar-thumb {
-  background: var(--navy-light);
-  border-radius: 2px;
-}
-
-.course-detail-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.course-detail-label {
-  font-size: 0.63rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.course-detail-value {
-  font-size: 0.82rem;
-  color: var(--white);
-  line-height: 1.5;
-}
-
 /* Standing requirement gets a subtle gold tint to signal it's a gate */
-.course-detail-standing {
-  color: var(--gold);
-  opacity: 0.9;
-}
-
-.course-detail-desc {
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.7;
-  margin: 0;
-}
-
-.course-detail-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.course-detail-list-item {
-  font-size: 0.78rem;
-  color: var(--white);
-  line-height: 1.5;
-  padding-left: 0.9rem;
-  position: relative;
-}
 
 /* Bullet dot using a pseudo-element so we can control its color */
-.course-detail-list-item::before {
-  content: '·';
-  position: absolute;
-  left: 0;
-  color: var(--gold);
-  font-weight: 700;
-}
-
-.course-detail-none {
-  font-size: 0.78rem;
-  color: var(--muted);
-  opacity: 0.6;
-  font-style: italic;
-}
 
 /* ── Semester header right group ─────────────────────────────────── */
 /* Groups the credit count and notes icon into a flex row so they
    sit side-by-side on the right side of the semester header. */
-
-.semester-header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
 
 /* ── Semester notes ──────────────────────────────────────────────── */
 /* Small pencil icon button. Muted by default; turns gold when the
    semester already has a note so the student can see at a glance
    which semesters have annotations. */
 
-.semester-notes-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  opacity: 0.5;
-  cursor: pointer;
-  padding: 0.15rem;
-  border-radius: 3px;
-  transition: color 0.2s, opacity 0.2s;
-  line-height: 1;
-}
-
-.semester-notes-btn:hover {
-  color: var(--white);
-  opacity: 0.9;
-}
-
-.semester-notes-btn-active {
-  color: var(--gold);
-  opacity: 0.85;
-}
-
-.semester-notes-btn-active:hover {
-  color: var(--gold);
-  opacity: 1;
-}
-
 /* Inline textarea that appears below the semester header when the
    notes icon is toggled. No border-radius on top to visually connect
    it to the header above. Auto-saves on blur — no button needed. */
-
-.semester-notes-wrap {
-  border-bottom: 1px solid var(--navy-light);
-}
-
-.semester-notes-input {
-  width: 100%;
-  box-sizing: border-box;
-  background: rgba(var(--gold-rgb), 0.04);
-  border: none;
-  border-top: 1px solid rgba(var(--gold-rgb), 0.15);
-  padding: 0.6rem 1.25rem;
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  line-height: 1.6;
-  resize: none;
-  outline: none;
-  transition: background 0.2s;
-}
-
-.semester-notes-input::placeholder {
-  color: var(--muted);
-  opacity: 0.5;
-}
-
-.semester-notes-input:focus {
-  background: rgba(var(--gold-rgb), 0.07);
-}
 
 /* ── Remove selection button ─────────────────────────────────────── */
 
 .modal-remove-btn {
   padding: 0.85rem 1rem;
   background: transparent;
-  color: var(--danger);
-  border: 1px solid rgba(var(--danger-rgb), 0.3);
+  color: var(--c-blocked);
+  border: 1px solid color-mix(in srgb, var(--c-blocked) 30%, transparent);
   border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
   margin-right: auto;
 }
 
 .modal-remove-btn:hover:not(:disabled) {
-  border-color: var(--danger);
-  background: rgba(var(--danger-rgb), 0.06);
+  border-color: var(--c-blocked);
+  background: color-mix(in srgb, var(--c-blocked) 6%, transparent);
 }
 
 .modal-remove-btn:disabled {
@@ -1231,63 +467,32 @@
   /* ── Onboarding ── */
 
   /* Give the card more horizontal room by shrinking the shell padding */
-  .onboarding-shell {
-    padding: 1rem;
-  }
-
+  
   /* Reduce the generous desktop side-padding inside the card */
-  .onboarding-header {
-    padding: 1.5rem 1.25rem 1.25rem;
-  }
-
-  .onboarding-body {
-    padding: 1.25rem 1.25rem 1.5rem;
-  }
-
+  
+  
   /* Concentration cards: two columns are too narrow at 375px —
      collapse to a single readable column */
-  .concentration-grid {
-    grid-template-columns: 1fr;
-  }
-
+  
   /* Season + year selectors: side-by-side is cramped at 375px —
      stack them vertically so each gets a full-width touch target */
-  .season-year-row {
-    grid-template-columns: 1fr;
-  }
-
+  
   /* ── Dashboard header ── */
 
   /* Reduce outer padding so the inner content has more room */
-  .degreeplan-header {
-    padding: 1rem;
-  }
-
+  
   /* Stack title block above actions instead of fighting for
      horizontal space — avoids overflow and truncation on narrow screens */
-  .degreeplan-header-inner {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
-
+  
   /* Let the action buttons left-align and wrap under the title.
      Without flex-wrap, three buttons (Undo + Change concentration +
      Sign out) overflow the 375px viewport. */
-  .degreeplan-header-actions {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
+  
   /* ── Semester grid ── */
 
   /* Tighten main padding; the auto-fill grid already collapses to
      one column at this width via minmax(260px, 1fr) */
-  .degreeplan-main {
-    padding: 1rem;
-  }
-
+  
   /* ── Modals (SlotModal + CourseDetailModal share these classes) ── */
 
   /* Tighten footer padding */
@@ -1325,13 +530,13 @@
   display: flex;
   align-items: center;
   gap: 0.875rem;
-  background: rgba(var(--danger-rgb), 0.12);
-  border: 1px solid rgba(var(--danger-rgb), 0.35);
+  background: color-mix(in srgb, var(--c-blocked) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-blocked) 35%, transparent);
   border-radius: 8px;
   padding: 0.75rem 0.875rem 0.75rem 1.125rem;
-  color: var(--danger);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  color: var(--c-blocked);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
   line-height: 1.5;
   z-index: 200;
   max-width: min(480px, calc(100vw - 2rem));
@@ -1341,8 +546,8 @@
 .save-error-toast-close {
   background: transparent;
   border: none;
-  color: var(--danger);
-  font-size: 0.875rem;
+  color: var(--c-blocked);
+  font-size: var(--fs-ui);
   cursor: pointer;
   padding: 0;
   opacity: 0.65;
@@ -1356,35 +561,6 @@
 
 /* ── Conflict modal (drag hard-block) ──────────────────────────────── */
 
-.conflict-modal {
-  max-width: 480px;
-  width: 100%;
-}
-
-.conflict-modal-intro {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  margin-bottom: 0.75rem;
-}
-
-.conflict-modal-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.conflict-modal-reason {
-  border-left: 3px solid #dc3545;
-  background: rgba(220, 53, 69, 0.08);
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 0.875rem;
-  padding: 0.5rem 0.75rem;
-}
-
 /* ── Drag handle ─────────────────────────────────────────────────────
    Grip icon visible on hover of a slot row. Only this element is the
    dnd-kit drag activator, so clicking the rest of the row still fires
@@ -1392,158 +568,32 @@
    parent .slot-row reveals it. cursor: grab switches to grabbing while
    active, matching native drag UX. */
 
-.slot-drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  opacity: 0;
-  cursor: grab;
-  padding: 0 0.25rem;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-  line-height: 1;
-  touch-action: none;   /* required for pointer events in dnd-kit */
-}
-
-.slot-row:hover .slot-drag-handle {
-  opacity: 0.45;
-}
-
-.slot-drag-handle:hover {
-  opacity: 0.85 !important;
-}
-
-.slot-drag-handle:active {
-  cursor: grabbing;
-}
-
 /* ── Dragging state ──────────────────────────────────────────────────
    The original slot row becomes semi-transparent while its ghost
    (DragOverlay) follows the cursor. This gives a clear visual cue
    that the slot is "picked up" without removing it from the layout,
    which would cause jarring layout shifts. */
 
-.slot-dragging {
-  opacity: 0.35;
-  pointer-events: none;
-}
-
 /* ── Drag overlay ghost ──────────────────────────────────────────────
    Compact floating label that follows the cursor during a drag. */
-
-.slot-drag-overlay {
-  background: var(--navy-mid);
-  border: 1px solid var(--gold);
-  border-radius: 6px;
-  padding: 0.35rem 0.75rem;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--gold);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  white-space: nowrap;
-  pointer-events: none;
-}
 
 /* ── Semester drop target highlight ──────────────────────────────────
    When a draggable hovers over a semester, add a gold ring so the
    student sees where they'll land. */
 
-.semester-card-drag-over {
-  outline: 2px solid rgba(var(--gold-rgb), 0.55);
-  outline-offset: -2px;
-}
-
 /* ── Add Course button ───────────────────────────────────────────────
    Sits at the bottom of every semester card. Muted by default;
    brightens on hover. Full-width so it's easy to tap on mobile. */
-
-.semester-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid var(--navy-light);
-  padding-right: 1.25rem;
-}
-
-.semester-add-course-btn {
-  flex: 1;
-  padding: 0.55rem 1.25rem;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  text-align: left;
-  transition: color 0.15s, background 0.15s;
-}
-
-.semester-add-course-btn:hover {
-  color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.04);
-}
 
 /* ── Free-add slot row ───────────────────────────────────────────────
    Visually distinct from required/pool slots via a dashed left border
    and a subtle tint. The "Added" badge labels it as self-placed. */
 
-.slot-free-add {
-  border-left: 2px dashed rgba(var(--muted-rgb), 0.35);
-  padding-left: calc(1.25rem - 2px);
-  background: rgba(var(--muted-rgb), 0.02);
-}
-
-.slot-free-add-top {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.slot-free-add-badge {
-  font-size: 0.58rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.1rem 0.35rem;
-  border-radius: 3px;
-  background: rgba(var(--muted-rgb), 0.12);
-  color: var(--muted);
-  font-weight: 500;
-}
-
 /* × remove button — small, muted, appears only on free-add rows */
-.slot-free-add-remove {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 0.65rem;
-  cursor: pointer;
-  padding: 0.15rem 0.25rem;
-  opacity: 0.45;
-  transition: opacity 0.15s, color 0.15s;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.slot-free-add-remove:hover {
-  opacity: 1;
-  color: var(--danger);
-}
 
 /* ── Flex credits remaining ──────────────────────────────────────────
    Shown under the course name on a partially filled flex slot.
    Gold tint signals "still needs attention" without being alarming. */
-
-.slot-credits-remaining {
-  font-size: 0.63rem;
-  color: var(--gold);
-  opacity: 0.8;
-  margin-top: 0.1rem;
-}
 
 /* ── Prereq warning badge ────────────────────────────────────────────
    Yellow warning shown inline on a slot when its prerequisites are not
@@ -1551,30 +601,16 @@
    just an advisory so the student knows to review the order.
    Clears automatically when the plan is reordered correctly. */
 
-.slot-prereq-warning {
-  font-size: 0.63rem;
-  color: var(--status-warn);
-  background: rgba(var(--status-warn-rgb), 0.08);
-  border: 1px solid rgba(var(--status-warn-rgb), 0.2);
-  border-radius: 3px;
-  padding: 0.1rem 0.35rem;
-  margin-top: 0.15rem;
-  line-height: 1.4;
-  display: inline-block;
-}
-
 /* ── Add Course modal subject code chip ─────────────────────────────
    Small label next to the course code showing the subject area
    (e.g. "MATH", "CSC") so students can scan results faster. */
 
 .add-course-subject {
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--fs-caption);
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
-  background: rgba(var(--muted-rgb), 0.12);
-  color: var(--muted);
+  background: color-mix(in srgb, var(--c-text-2) 12%, transparent);
+  color: var(--c-text-2);
   font-weight: 500;
 }
 
@@ -1584,396 +620,48 @@
    Placement panel shares the same structure but has a muted accent
    since placement gates are less actionable than transfer credits. */
 
-.prior-credits-panel {
-  background: var(--navy-mid);
-  border: 1px solid var(--navy-light);
-  border-radius: 10px;
-  overflow: hidden;
-  transition: border-color 0.2s;
-}
-
-.prior-credits-panel-drag-over {
-  border-color: rgba(var(--gold-rgb), 0.65);
-  box-shadow: 0 0 0 2px rgba(var(--gold-rgb), 0.18);
-}
-
-.prior-credits-panel-placement {
-  border-color: rgba(var(--muted-rgb), 0.3);
-}
-
-.prior-credits-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.7rem 1.25rem;
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.15s;
-}
-
-.prior-credits-panel-header:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.prior-credits-panel-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--gold);
-  font-weight: 500;
-}
-
-.prior-credits-panel-placement .prior-credits-panel-title {
-  color: var(--muted);
-}
-
-.prior-credits-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  background: rgba(var(--gold-rgb), 0.2);
-  color: var(--gold);
-  border-radius: 10px;
-  font-size: 0.6rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.prior-credits-panel-placement .prior-credits-count {
-  background: rgba(var(--muted-rgb), 0.15);
-  color: var(--muted);
-}
-
-.prior-credits-panel-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.prior-credits-drop-hint {
-  font-size: 0.65rem;
-  color: var(--gold);
-  opacity: 0.85;
-  letter-spacing: 0.06em;
-}
-
-.prior-credits-chevron {
-  font-size: 0.6rem;
-  color: var(--muted);
-  opacity: 0.5;
-}
-
-.prior-credits-body {
-  border-top: 1px solid var(--navy-light);
-  padding: 0.75rem 1.25rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.prior-credits-empty {
-  font-size: 0.75rem;
-  color: var(--muted);
-  opacity: 0.6;
-  line-height: 1.6;
-}
-
-.prior-credits-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
 /* Individual prior credit row */
-.prior-credit-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.4rem 0.6rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--navy-light);
-  border-radius: 6px;
-}
-
-.prior-credit-code {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--white);
-  min-width: 70px;
-}
-
-.prior-credit-note {
-  font-size: 0.72rem;
-  color: var(--muted);
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.prior-credit-hrs {
-  font-size: 0.7rem;
-  color: var(--muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.prior-credit-hrs-gate {
-  font-style: italic;
-  opacity: 0.6;
-}
 
 /* Separator dot between fields in the prior credit row (BUG-29).
    Visible gap + a dot character so fields never visually concatenate. */
-.prior-credit-sep {
-  color: var(--muted);
-  opacity: 0.5;
-  font-size: 0.72rem;
-  flex-shrink: 0;
-}
-
-.onboarding-pending-sep {
-  color: var(--muted);
-  opacity: 0.5;
-  flex-shrink: 0;
-}
 
 /* Grouped prior-coursework sections (BUG-30). Each section has a small
    header and its own row list so the panel reads as AP / IB / ACT / etc. */
-.prior-credits-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.prior-credits-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.prior-credits-group-header {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  opacity: 0.85;
-  padding: 0 0.1rem;
-}
-
-.onboarding-pending-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.onboarding-pending-group-header {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  opacity: 0.85;
-  padding: 0 0.1rem;
-  margin-bottom: 0.35rem;
-}
-
-.prior-credit-remove {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 0.62rem;
-  cursor: pointer;
-  padding: 0.1rem 0.2rem;
-  opacity: 0.4;
-  flex-shrink: 0;
-  transition: opacity 0.15s, color 0.15s;
-  line-height: 1;
-}
-
-.prior-credit-remove:hover {
-  opacity: 1;
-  color: var(--danger);
-}
-
-.prior-credits-add-btn {
-  align-self: flex-start;
-  background: transparent;
-  border: 1px dashed rgba(var(--gold-rgb), 0.3);
-  border-radius: 5px;
-  color: var(--gold);
-  opacity: 0.75;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  padding: 0.35rem 0.75rem;
-  cursor: pointer;
-  transition: opacity 0.2s, border-color 0.2s;
-}
-
-.prior-credits-add-btn:hover {
-  opacity: 1;
-  border-color: rgba(var(--gold-rgb), 0.7);
-}
 
 /* ── Credit type chips ───────────────────────────────────────────────
    Each credit type gets a distinct but muted color so rows are
    scannable at a glance without being visually noisy. */
-
-.credit-type-chip {
-  display: inline-block;
-  font-size: 0.58rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-weight: 600;
-  padding: 0.12rem 0.4rem;
-  border-radius: 3px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.credit-type-ap_credit {
-  background: rgba(var(--status-progress-rgb), 0.15);
-  color: var(--status-progress);
-}
-
-.credit-type-transfer_credit {
-  background: rgba(var(--gold-rgb), 0.15);
-  color: var(--gold);
-}
-
-.credit-type-dual_enrollment {
-  background: rgba(var(--status-done-rgb), 0.15);
-  color: var(--status-done);
-}
-
-.credit-type-test_out {
-  background: rgba(var(--status-purple-rgb), 0.15);
-  color: var(--status-purple);
-}
-
-.credit-type-ib_credit {
-  background: rgba(var(--status-orange-rgb), 0.15);
-  color: var(--status-orange);
-}
-
-.credit-type-act_placement {
-  background: rgba(var(--muted-rgb), 0.15);
-  color: var(--muted);
-}
 
 /* ── Standing requirement warning badge ─────────────────────────────
    Blue info badge distinct from the yellow prereq warning. Signals
    that a credit-hour threshold (junior/senior standing) is not yet met,
    not a missing course. Shown inline below the slot name. */
 
-.slot-standing-warning {
-  font-size: 0.63rem;
-  color: var(--status-progress);
-  background: rgba(var(--status-progress-rgb), 0.1);
-  border: 1px solid rgba(var(--status-progress-rgb), 0.25);
-  border-radius: 3px;
-  padding: 0.1rem 0.35rem;
-  margin-top: 0.15rem;
-  line-height: 1.4;
-  display: inline-block;
-}
-
 /* ── Transfer-filled slot ────────────────────────────────────────────
    Slots satisfied by prior credits are shown slightly muted with a
    green left border (similar to "completed") to signal they're covered. */
 
-.slot-transfer-filled {
-  border-left: 2px solid rgba(var(--status-done-rgb), 0.6);
-  padding-left: calc(1.25rem - 2px);
-  background: rgba(var(--status-done-rgb), 0.03);
-  opacity: 0.85;
-}
-
 /* Badge shown on transfer-filled required course slots */
-.slot-transfer-badge {
-  display: inline-block;
-  font-size: 0.55rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-weight: 600;
-  padding: 0.08rem 0.35rem;
-  border-radius: 3px;
-  background: rgba(var(--status-done-rgb), 0.15);
-  color: var(--status-done);
-  vertical-align: middle;
-  margin-left: 0.3rem;
-}
 
 /* Flex row for the code + transfer badge in required slots */
-.slot-code-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
 
 /* ── Locked slot (satisfied and persisted by a prior credit) ─────────
    Inherits .slot-transfer-filled visual treatment but removes all
    interactive affordances: no hover cursor, no focus ring, no drag. */
 
-.slot-locked {
-  cursor: default !important;
-  user-select: none;
-}
-
-.slot-locked:focus,
-.slot-locked:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-
 /* ── Add Credit modal form ───────────────────────────────────────────
    Uses the same modal shell as other modals.
    Field layout: vertically stacked labels + inputs. */
 
-.add-credit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.add-credit-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.875rem 1.5rem;
-  border-bottom: 1px solid var(--navy-light);
-}
-
-.add-credit-field:last-of-type {
-  border-bottom: none;
-}
-
-.add-credit-label {
-  font-size: 0.65rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
 .add-credit-select,
 .add-credit-input {
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
+  background: var(--c-page);
+  border: 1px solid var(--c-border-strong);
   border-radius: 6px;
   padding: 0.6rem 0.875rem;
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
   outline: none;
   transition: border-color 0.2s;
   width: 100%;
@@ -1982,21 +670,7 @@
 
 .add-credit-select:focus,
 .add-credit-input:focus {
-  border-color: var(--gold);
-}
-
-.add-credit-input-sm {
-  max-width: 80px;
-}
-
-.add-credit-course-field {
-  position: relative;
-}
-
-.add-credit-search-hint {
-  font-size: 0.68rem;
-  color: var(--muted);
-  opacity: 0.6;
+  border-color: var(--c-link);
 }
 
 .add-credit-results {
@@ -2004,8 +678,8 @@
   top: calc(100% - 0.4rem);
   left: 0;
   right: 0;
-  background: var(--navy-mid);
-  border: 1px solid var(--navy-light);
+  background: var(--c-surface);
+  border: 1px solid var(--c-hairline);
   border-radius: 6px;
   overflow-y: auto;
   max-height: 200px;
@@ -2027,21 +701,21 @@
 }
 
 .add-credit-result-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--c-surface-2);
 }
 
 .add-credit-result-code {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   font-weight: 500;
-  color: var(--gold);
+  color: var(--c-link);
   flex-shrink: 0;
   min-width: 72px;
 }
 
 .add-credit-result-name {
-  font-size: 0.72rem;
-  color: var(--muted);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2052,244 +726,23 @@
    cards but lighter — a simple list rather than a grid. The sub-form
    for transfer credits animates in below the checkbox it belongs to. */
 
-.onboarding-prior-credits {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.onboarding-checkbox-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.onboarding-checkbox-row:hover {
-  border-color: var(--muted);
-}
-
-.onboarding-checkbox {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  margin-top: 1px;
-  accent-color: var(--gold);
-  cursor: pointer;
-}
-
-.onboarding-checkbox-label {
-  font-size: 0.82rem;
-  color: var(--white);
-  line-height: 1.5;
-}
-
-.onboarding-transfer-sub {
-  margin-top: 0.25rem;
-  margin-left: 1.5rem;
-  padding: 0.75rem;
-  background: rgba(var(--gold-rgb), 0.04);
-  border: 1px solid rgba(var(--gold-rgb), 0.18);
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
 /* ── Semester completion & collapse (Tier 9) ────────────────────────────── */
 
-.semester-header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.semester-collapse-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 0.7rem;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  line-height: 1;
-  transition: color 0.15s;
-}
-.semester-collapse-btn:hover { color: var(--white); }
-
 /* Collapsed summary row */
-.semester-card-collapsed {
-  background: var(--navy-light);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.semester-collapsed-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: none;
-  border: none;
-  color: var(--white);
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-family: inherit;
-  text-align: left;
-}
-.semester-collapsed-row:hover { background: rgba(255,255,255,0.03); }
-
-.semester-collapsed-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex: 1;
-  justify-content: flex-end;
-  margin-right: 0.75rem;
-}
-
-.semester-done-badge {
-  font-size: 0.72rem;
-  color: var(--status-done);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.semester-chevron {
-  color: var(--muted);
-  font-size: 0.7rem;
-}
 
 /* Completed semester border accent */
-.semester-card-done {
-  border-color: rgba(var(--status-done-rgb), 0.25) !important;
-}
 
 /* Remove empty semester button */
-.semester-delete-btn {
-  font-size: 0.72rem;
-  font-family: inherit;
-  padding: 3px 8px;
-  border-radius: 5px;
-  border: 1px solid rgba(var(--danger-rgb), 0.25);
-  background: transparent;
-  color: var(--danger);
-  cursor: pointer;
-  opacity: 0.7;
-  transition: border-color 0.15s, opacity 0.15s;
-  white-space: nowrap;
-}
-.semester-delete-btn:hover {
-  border-color: var(--danger);
-  opacity: 1;
-}
 
 /* Mark Complete button */
-.semester-complete-btn {
-  font-size: 0.72rem;
-  font-family: inherit;
-  padding: 3px 8px;
-  border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-  white-space: nowrap;
-}
-.semester-complete-btn:hover:not(:disabled) {
-  border-color: var(--status-done);
-  color: var(--status-done);
-}
-.semester-complete-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.semester-complete-btn-undo {
-  border-color: rgba(var(--status-done-rgb), 0.4);
-  color: var(--status-done);
-}
-.semester-complete-btn-undo:hover {
-  border-color: var(--danger-light) !important;
-  color: var(--danger-light) !important;
-}
 
 /* Warning gate message */
-.semester-warning-gate {
-  font-size: 0.75rem;
-  color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.06);
-  border-left: 2px solid var(--gold);
-  padding: 0.4rem 0.75rem;
-  margin: 0 1rem 0.5rem;
-  border-radius: 0 4px 4px 0;
-}
 
 /* ── Global grid controls ────────────────────────────────────────────────── */
 
-.degreeplan-grid-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  max-width: 1200px;
-  margin: 0 auto 0.75rem;
-  padding: 0 0.5rem;
-}
-
-.grid-control-btn {
-  font-size: 0.75rem;
-  font-family: inherit;
-  padding: 4px 10px;
-  border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-.grid-control-btn:hover {
-  border-color: rgba(255,255,255,0.3);
-  color: var(--white);
-}
-
 /* ── Add Semester button ─────────────────────────────────────────────────── */
 
-.degreeplan-add-semester-wrap {
-  max-width: 1200px;
-  margin: 0.75rem auto 0;
-  padding: 0 0.5rem;
-  display: flex;
-  justify-content: flex-start;
-}
-
-.degreeplan-add-semester-btn {
-  font-size: 0.78rem;
-  font-family: var(--font-mono);
-  padding: 0.4rem 0.875rem;
-  border-radius: 6px;
-  border: 1px dashed rgba(255,255,255,0.18);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.degreeplan-add-semester-btn:hover {
-  border-color: rgba(255,255,255,0.4);
-  color: var(--white);
-}
-
 /* ── Coreq warning (distinct from prereq) ────────────────────────────────── */
-
-.slot-coreq-warning {
-  color: var(--status-info) !important; /* blue instead of yellow/amber */
-}
 
 /* ── Wizard styles (PriorCreditWizard) ──────────────────────────────────── */
 
@@ -2312,27 +765,27 @@
 
 .wizard-type-btn {
   padding: 0.75rem 1rem;
-  background: var(--navy);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--c-page);
+  border: 1px solid var(--c-hairline);
   border-radius: 8px;
-  color: var(--white);
-  font-size: 0.88rem;
+  color: var(--c-text);
+  font-size: var(--fs-ui);
   font-family: inherit;
   cursor: pointer;
   text-align: center;
   transition: border-color 0.15s, background 0.15s;
 }
 .wizard-type-btn:hover {
-  border-color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.06);
+  border-color: var(--c-link);
+  background: color-mix(in srgb, var(--c-link) 6%, transparent);
 }
 
 .wizard-type-btn-disabled,
 .wizard-type-btn-disabled:hover {
   cursor: not-allowed;
   opacity: 0.55;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.015);
+  border-color: var(--c-hairline);
+  background: var(--c-surface-2);
 }
 
 .wizard-type-btn-label {
@@ -2342,37 +795,12 @@
 .wizard-type-btn-pill {
   display: inline-block;
   margin-left: 0.5rem;
-  font-size: 0.58rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--fs-caption);
   font-weight: 600;
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
-  background: rgba(var(--gold-rgb), 0.18);
-  color: var(--gold);
-  vertical-align: middle;
-}
-
-.onboarding-checkbox-row-disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.onboarding-checkbox-row-disabled .onboarding-checkbox {
-  cursor: not-allowed;
-}
-
-.onboarding-coming-soon-pill {
-  display: inline-block;
-  margin-left: 0.5rem;
-  font-size: 0.58rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 600;
-  padding: 0.1rem 0.4rem;
-  border-radius: 3px;
-  background: rgba(var(--gold-rgb), 0.18);
-  color: var(--gold);
+  background: color-mix(in srgb, var(--c-link) 18%, transparent);
+  color: var(--c-link);
   vertical-align: middle;
 }
 
@@ -2389,11 +817,11 @@
 .wizard-exam-btn,
 .wizard-score-btn {
   padding: 0.6rem 1rem;
-  background: var(--navy);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--c-page);
+  border: 1px solid var(--c-hairline);
   border-radius: 7px;
-  color: var(--white);
-  font-size: 0.85rem;
+  color: var(--c-text);
+  font-size: var(--fs-ui);
   font-family: inherit;
   cursor: pointer;
   text-align: left;
@@ -2401,8 +829,8 @@
 }
 .wizard-exam-btn:hover,
 .wizard-score-btn:hover {
-  border-color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.05);
+  border-color: var(--c-link);
+  background: color-mix(in srgb, var(--c-link) 5%, transparent);
 }
 
 .wizard-score-btn {
@@ -2412,15 +840,15 @@
 }
 
 .wizard-step-hint {
-  font-size: 0.8rem;
-  color: var(--muted);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
   margin-bottom: 0.75rem;
 }
 
 .wizard-loading,
 .wizard-empty {
-  font-size: 0.82rem;
-  color: var(--muted);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
   text-align: center;
   padding: 1rem 0;
 }
@@ -2442,25 +870,25 @@
 
 /* Confirm step */
 .wizard-confirm-header {
-  font-size: 0.9rem;
+  font-size: var(--fs-ui);
   font-weight: 600;
-  color: var(--white);
+  color: var(--c-text);
   margin-bottom: 1rem;
 }
 .wizard-confirm-score {
-  color: var(--muted);
+  color: var(--c-text-2);
 }
 
 /* An exam whose credit is one of several courses: one radio per choice (examOptions.js) */
 .wizard-options {
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--c-hairline);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   margin: 0 0 0.75rem;
 }
 .wizard-options-legend {
-  font-size: 0.82rem;
-  color: var(--white);
+  font-size: var(--fs-caption);
+  color: var(--c-text);
   padding: 0 0.35rem;
 }
 .wizard-option {
@@ -2472,22 +900,22 @@
   border-radius: 6px;
   cursor: pointer;
 }
-.wizard-option:hover { background: rgba(255,255,255,0.04); }
-.wizard-option.selected { border-color: var(--gold); }
-.wizard-option input { margin-top: 0.2rem; accent-color: var(--gold); }
+.wizard-option:hover { background: var(--c-surface-2); }
+.wizard-option.selected { border-color: var(--c-link); }
+.wizard-option input { margin-top: 0.2rem; accent-color: var(--c-link); }
 .wizard-option-body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .wizard-option-codes {
-  font-size: 0.82rem;
+  font-size: var(--fs-caption);
   font-weight: 700;
-  color: var(--gold);
+  color: var(--c-link);
   font-family: var(--font-mono, monospace);
 }
-.wizard-option-names { font-size: 0.78rem; color: var(--muted); }
-.wizard-options-note { font-size: 0.76rem; color: var(--muted); margin: 0.5rem 0 0; }
+.wizard-option-names { font-size: var(--fs-caption); color: var(--c-text-2); }
+.wizard-options-note { font-size: var(--fs-caption); color: var(--c-text-2); margin: 0.5rem 0 0; }
 
 .wizard-award-card {
-  background: var(--navy);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--c-page);
+  border: 1px solid var(--c-hairline);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   margin-bottom: 0.5rem;
@@ -2501,261 +929,66 @@
 }
 
 .wizard-award-code {
-  font-size: 0.82rem;
+  font-size: var(--fs-caption);
   font-weight: 700;
-  color: var(--gold);
+  color: var(--c-link);
   font-family: var(--font-mono, monospace);
 }
 
 .wizard-award-name {
-  font-size: 0.85rem;
-  color: var(--white);
+  font-size: var(--fs-ui);
+  color: var(--c-text);
   flex: 1;
 }
 
 .wizard-award-cr {
-  font-size: 0.78rem;
-  color: var(--muted);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
   white-space: nowrap;
 }
 
 .wizard-award-effect {
-  font-size: 0.78rem;
-  color: var(--status-done);
+  font-size: var(--fs-caption);
+  color: var(--c-done);
   margin: 0;
 }
 
 .wizard-award-effect-no-slot {
-  color: var(--muted) !important;
+  color: var(--c-text-2) !important;
 }
 
 .wizard-award-pool {
-  font-size: 0.75rem;
-  color: var(--status-info);
+  font-size: var(--fs-caption);
+  color: var(--c-progress);
   margin: 0.25rem 0 0;
 }
 
 .wizard-save-error {
-  font-size: 0.8rem;
-  color: var(--danger, #f87171);
+  font-size: var(--fs-caption);
+  color: var(--c-blocked);
   margin-top: 0.75rem;
 }
 
 .add-credit-result-cr {
-  font-size: 0.75rem;
-  color: var(--muted);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
   margin-left: auto;
   white-space: nowrap;
 }
 
 /* ── Onboarding Step 1: student type toggle ───────────────────────────────── */
 
-.onboarding-toggle-prompt {
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 0.25rem;
-}
-
 /* Step 1 footer link (local backend): load a plan backup made on another device. */
-.onboarding-import {
-  font-size: 0.8rem;
-  color: var(--muted);
-  text-align: center;
-  margin-top: 0.25rem;
-}
-
-.onboarding-import-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: var(--gold);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.onboarding-toggle-row {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.onboarding-toggle-btn {
-  flex: 1;
-  padding: 0.75rem 0.75rem;
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
-  border-radius: 8px;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  cursor: pointer;
-  text-align: center;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
-}
-
-.onboarding-toggle-btn:hover {
-  border-color: var(--muted);
-  color: var(--white);
-}
-
-.onboarding-toggle-btn.selected {
-  border-color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.08);
-  color: var(--white);
-}
 
 /* ── Onboarding Step 3: ACT score inputs ─────────────────────────────────── */
 
-.onboarding-act-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
 /* Last field (Composite) spans full width for visual balance */
-.onboarding-act-grid .onboarding-field:last-child {
-  grid-column: span 2;
-}
-
-.onboarding-input {
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
-  border-radius: 6px;
-  padding: 0.6rem 0.875rem;
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  outline: none;
-  transition: border-color 0.2s;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.onboarding-input:focus {
-  border-color: var(--gold);
-}
-
-.onboarding-input::placeholder {
-  color: var(--muted);
-  opacity: 0.55;
-}
-
-.onboarding-input.onboarding-input-error {
-  border-color: var(--danger);
-}
 
 /* Hide number-input spinners so it looks like the course search bar */
-.onboarding-input[type="number"]::-webkit-outer-spin-button,
-.onboarding-input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.onboarding-input[type="number"] {
-  -moz-appearance: textfield;
-}
-
-.onboarding-field-error {
-  font-size: 0.7rem;
-  color: var(--danger);
-  line-height: 1.4;
-  margin-top: -0.15rem;
-}
 
 /* ── Onboarding Step 4: pending prior credits list ───────────────────────── */
 /* Mirrors .prior-credit-row / .prior-credits-group visual language from the
    dashboard Prior Coursework panel so the list looks consistent. */
-
-.onboarding-readonly-value {
-  font-size: 0.8rem;
-  color: var(--muted);
-  opacity: 0.6;
-  font-style: italic;
-}
-
-.onboarding-pending-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.onboarding-pending-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.onboarding-pending-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.4rem 0.6rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--navy-light);
-  border-radius: 6px;
-}
-
-.onboarding-pending-code {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--white);
-  min-width: 72px;
-}
-
-.onboarding-pending-note {
-  font-size: 0.72rem;
-  color: var(--muted);
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.onboarding-pending-cr {
-  font-size: 0.7rem;
-  color: var(--muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.onboarding-pending-remove {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 0.65rem;
-  cursor: pointer;
-  padding: 0.1rem 0.25rem;
-  opacity: 0.4;
-  flex-shrink: 0;
-  transition: opacity 0.15s, color 0.15s;
-  line-height: 1;
-}
-
-.onboarding-pending-remove:hover {
-  opacity: 1;
-  color: var(--danger);
-}
-
-/* ── Onboarding responsive (≤ 480px) ────────────────────────────────────── */
-
-@media (max-width: 480px) {
-  .onboarding-toggle-row {
-    flex-direction: column;
-  }
-
-  .onboarding-act-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .onboarding-act-grid .onboarding-field:last-child {
-    grid-column: span 1;
-  }
-}
 
 /* ── Course search: undergraduate / graduate / placeholder switch ─────────── */
 .kind-tabs {
@@ -2767,12 +1000,12 @@
 
 .kind-tab {
   background: transparent;
-  border: 1px solid var(--navy-light);
+  border: 1px solid var(--c-hairline);
   border-radius: 999px;
   padding: 0.3rem 0.75rem;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
+  color: var(--c-text-2);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -2781,18 +1014,18 @@
 }
 
 .kind-tab:hover {
-  border-color: var(--gold);
-  color: var(--white);
+  border-color: var(--c-link);
+  color: var(--c-text);
 }
 
 .kind-tab.active {
-  border-color: var(--gold);
-  background: rgba(var(--gold-rgb), 0.12);
-  color: var(--gold);
+  border-color: var(--c-link);
+  background: color-mix(in srgb, var(--c-link) 12%, transparent);
+  color: var(--c-link);
 }
 
 .kind-tab-count {
-  font-size: 0.65rem;
+  font-size: var(--fs-caption);
   opacity: 0.8;
 }
 
@@ -2806,55 +1039,42 @@
 }
 
 .hours-field-label {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--white);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+  color: var(--c-text);
 }
 
 .hours-field-range {
-  color: var(--muted);
+  color: var(--c-text-2);
   margin-left: 0.25rem;
 }
 
 .hours-field-input {
   width: 5rem;
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
+  background: var(--c-page);
+  border: 1px solid var(--c-border-strong);
   border-radius: 6px;
   padding: 0.4rem 0.6rem;
-  color: var(--white);
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
   outline: none;
 }
 
 .hours-field-input:focus {
-  border-color: var(--gold);
+  border-color: var(--c-link);
 }
 
 .hours-field-input-error {
-  border-color: var(--danger);
+  border-color: var(--c-blocked);
 }
 
 .hours-field-error {
   flex-basis: 100%;
   margin: 0;
-  font-size: 0.7rem;
-  color: var(--danger-light);
+  font-size: var(--fs-caption);
+  color: var(--c-blocked);
 }
 
 /* ── Program picker: programs grouped under their major ───────────────────── */
-.concentration-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
 
-.concentration-group-title {
-  margin: 0 0 0.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gold);
-}

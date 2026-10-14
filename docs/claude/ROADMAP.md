@@ -132,12 +132,11 @@ approval workflow (advisor sign-off, audit trail, exemption tokens) is
 deferred — this is the visible-cue version only.
 
 ### Grid redesign: what is left
-The desktop app shell (Plan / Requirements / Issues / Advisement / Settings tabs), paired semester cards and a drag-conflict modal shipped in September; the
-original redesign list was not re-checked against them. From it: a tab structure with a read-only Plan beside a What-If grid; mobile tap-to-move and
-a bottom drawer for Prior Coursework; a persistent right sidebar for Prior Coursework on desktop; a hard block on an invalid drag with an override
-dialog and a persistent flag; dashed, italic placeholders for pool slots; purple for progress and gold for prerequisite warnings only. Reference: the
-Claude Design mockup (`first_prototype.png`, not in the repo). A full redesign of the look, wording and first run, with the phases and what each touches, is proposed in
-[`plans/PLAN_redesign.md`](./plans/PLAN_redesign.md); it supersedes the list above once the owner approves it.
+The full redesign of the look, wording and first run ([`plans/PLAN_redesign.md`](./plans/PLAN_redesign.md)) is built and merged (2026-10-13). From the older list it replaced, these shipped with it: moving a course without
+dragging, on any screen size ("Move to…" in the course details, a bottom sheet on a phone); purple for progress and one small gold marker for the current semester only; an invalid move that asks before it happens and stays
+flagged afterwards (the requisite conflict dialog, then Plan check and a Blocked chip); a plain "Pick a course" for an open pool slot in place of the dashed, italic placeholder. Still not built, and not planned: a read-only
+Plan beside a What-If grid (the what-if is "Try before you add" in Settings); a persistent right sidebar or a bottom drawer for prior coursework (it is the "Credits you already have" row). Left over from the redesign itself:
+the landing site's tokens and fonts, the app icon (below), and the department's word on "Advising", "Plan check" and "semester".
 
 ### What-if planning and a recommendation engine
 Beyond saving a plan snapshot (see "Plan history / versioning"): compare other programs, double majors and minors side by side (see "A try three

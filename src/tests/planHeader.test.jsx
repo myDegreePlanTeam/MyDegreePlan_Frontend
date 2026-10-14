@@ -146,11 +146,8 @@ describe('the plan header stylesheet', () => {
 })
 
 describe('the interface font reaches the buttons', () => {
-  it('overrides the app-wide monospace button rule for the strip, the credits row and the Plan check back link', () => {
-    expect(css).toMatch(/\.ds-app button \{ font-family: var\(--font-mono\); \}/)
-    const m = css.match(/(\.ds-app [^{]+)\{ font-family: var\(--font-ui\); \}/g) ?? []
-    const rule = m.find(r => r.includes('.ds-plancheck-block button'))
-    expect(rule).toBeTruthy()
-    for (const sel of ['.ds-prior-head', '.ds-prior-add', '.ds-issues-back']) expect(rule).toContain(`.ds-app ${sel}`)
+  it('draws every button in the interface font: one app-wide rule, and no monospace button anywhere', () => {
+    expect(css).toMatch(/\.ds-app button \{ font-family: var\(--font-ui\); \}/)
+    expect(css).not.toMatch(/button[^{]*\{[^}]*font-family: var\(--font-mono\)/)
   })
 })
