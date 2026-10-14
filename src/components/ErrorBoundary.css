@@ -9,15 +9,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--navy);
+  background: var(--c-page);
   padding: 2rem;
 }
 
 .error-boundary-card {
   width: 100%;
   max-width: 520px;
-  background: var(--navy-mid);
-  border: 1px solid var(--navy-light);
+  background: var(--c-surface);
+  border: 1px solid var(--c-hairline);
   border-radius: 16px;
   padding: 2.5rem;
   display: flex;
@@ -26,42 +26,39 @@
 }
 
 .error-boundary-eyebrow {
-  font-size: 0.7rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--gold);
+  font-size: var(--fs-caption);
+  color: var(--c-link);
 }
 
 .error-boundary-title {
   font-family: var(--font-display);
   font-size: 1.75rem;
-  color: var(--white);
+  color: var(--c-text);
 }
 
 .error-boundary-body {
-  font-size: 0.875rem;
-  color: var(--muted);
+  font-size: var(--fs-ui);
+  color: var(--c-text-2);
   line-height: 1.7;
 }
 
 /* Primary action — gold fill matching onboarding-btn language */
 .error-boundary-reload {
   padding: 0.85rem 1.5rem;
-  background: var(--gold);
-  color: var(--navy);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
   border: none;
   border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
-  letter-spacing: 0.05em;
   align-self: flex-start;
 }
 
 .error-boundary-reload:hover {
-  background: var(--gold-light);
+  background: var(--c-primary);
 }
 
 /* Secondary toggle — understated, matches the muted link language used
@@ -69,9 +66,9 @@
 .error-boundary-toggle {
   background: transparent;
   border: none;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+  color: var(--c-text-2);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
   cursor: pointer;
   padding: 0;
   text-align: left;
@@ -80,22 +77,25 @@
 }
 
 .error-boundary-toggle:hover {
-  color: var(--white);
+  color: var(--c-text);
 }
 
 /* Technical detail block — navy background, monospace, danger red text
    so it reads clearly as developer output, not user-facing copy */
 .error-boundary-details {
-  background: var(--navy);
-  border: 1px solid var(--navy-light);
+  background: var(--c-page);
+  border: 1px solid var(--c-hairline);
   border-radius: 8px;
   padding: 1rem 1.25rem;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--danger);
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+  color: var(--c-blocked);
   line-height: 1.6;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
 }
+
+/* redesign Phase 8: the two buttons are 44 px or more, in the interface font */
+.error-boundary-reload, .error-boundary-toggle { min-height: var(--target); font-family: var(--font-ui); }

@@ -7,53 +7,57 @@
   bottom: 1.25rem;
   z-index: 1000;
   width: min(360px, calc(100vw - 2.5rem));
-  padding: 1rem 2.25rem 1rem 1.1rem;
+  padding: 1rem 3rem 1rem 1.1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: var(--navy-mid);
-  color: var(--white);
-  border: 1px solid var(--navy-light);
-  border-left: 3px solid var(--gold);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: 1px solid var(--c-hairline);
+  border-left: 3px solid var(--c-link);
   border-radius: 12px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
-  font-size: 0.875rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
   line-height: 1.45;
 }
-.upd-card--warn { border-left-color: var(--danger); }
+.upd-card--warn { border-left-color: var(--c-blocked); }
 
 .upd-x {
   position: absolute;
-  top: 0.35rem;
-  right: 0.5rem;
+  top: 0;
+  right: 0;
   background: none;
   border: 0;
-  color: var(--muted);
+  color: var(--c-text-2);
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
+  min-width: var(--target);
+  min-height: var(--target);
 }
-.upd-x:hover { color: var(--white); }
+.upd-x:hover { color: var(--c-text); }
 
 .upd-strong { font-weight: 600; }
-.upd-muted  { color: var(--muted); }
-.upd-error  { color: var(--danger-light); }
+.upd-muted  { color: var(--c-text-2); }
+.upd-error  { color: var(--c-blocked); }
 
 .upd-actions { display: flex; align-items: center; gap: 0.9rem; margin-top: 0.25rem; }
 
 .upd-primary {
-  background: var(--gold);
-  color: #1b1030;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
   border: 0;
   border-radius: 8px;
-  padding: 0.5rem 1rem;
+  min-height: var(--target);
+  padding: 0 1rem;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
-.upd-primary:hover { background: var(--gold-light); }
+.upd-primary:hover { background: var(--c-primary); filter: brightness(1.08); }
 .upd-primary:focus-visible, .upd-link:focus-visible, .upd-x:focus-visible {
-  outline: 2px solid var(--gold-light);
+  outline: 3px solid var(--c-focus);
   outline-offset: 2px;
 }
 
@@ -61,22 +65,23 @@
   background: none;
   border: 0;
   padding: 0;
-  color: var(--muted);
+  min-height: var(--target);
+  color: var(--c-link);
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
   align-self: flex-start;
 }
 .upd-actions .upd-link { align-self: center; }
-.upd-link:hover { color: var(--white); }
+.upd-link:hover { color: var(--c-text); }
 
 .upd-auto {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.25rem;
-  color: var(--muted);
-  font-size: 0.8rem;
+  color: var(--c-text-2);
+  font-size: var(--fs-caption);
   cursor: pointer;
 }
 
@@ -84,18 +89,18 @@
 .upd-progress {
   width: 100%;
   height: 8px;
-  accent-color: var(--gold);
+  accent-color: var(--c-link);
 }
 
 .upd-notes {
   max-height: 10rem;
   overflow: auto;
   padding: 0.6rem 0.75rem;
-  background: rgba(var(--bg-rgb), 0.5);
+  background: color-mix(in srgb, var(--c-page) 50%, transparent);
   border-radius: 8px;
   white-space: pre-wrap;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-caption);
 }
 
 /* Full-screen states: required update and in-progress. */
@@ -107,7 +112,7 @@
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background: rgba(var(--bg-rgb), 0.92);
+  background: color-mix(in srgb, var(--c-page) 92%, transparent);
 }
 .upd-panel {
   width: 100%;
@@ -116,20 +121,20 @@
   flex-direction: column;
   gap: 0.9rem;
   padding: 2rem;
-  background: var(--navy-mid);
-  color: var(--white);
-  border: 1px solid var(--navy-light);
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: 1px solid var(--c-hairline);
   border-radius: 16px;
 }
 .upd-panel h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 400; }
-.upd-eyebrow { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
+.upd-eyebrow { font-size: var(--fs-ui); color: var(--c-text-2); }
 .upd-live { font-weight: 600; }
 
 .upd-spinner {
   width: 28px;
   height: 28px;
-  border: 3px solid var(--navy-light);
-  border-top-color: var(--gold);
+  border: 3px solid var(--c-hairline);
+  border-top-color: var(--c-link);
   border-radius: 50%;
   animation: upd-spin 0.9s linear infinite;
 }

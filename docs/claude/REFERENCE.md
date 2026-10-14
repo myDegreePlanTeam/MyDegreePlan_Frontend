@@ -722,6 +722,15 @@ in both themes, and sets the type once (the interface font, sentence case, 15 px
 database as before. The board named the first pick that matters on the last screen; that needs the plan view's dependency check, so the screen points at Plan check instead. `ProgramPicker.css` is gone. `firstPlan.test.js`,
 `programPicker.test.jsx`, `programPickerModel.test.js` and `firstRun.test.jsx` pin the above; the parity scenario's first half walks these four screens.
 
+### The edges (`PLAN_redesign.md`, Phase 8)
+
+The screens around the plan. **Loading**: `Skeletons.jsx` has the shape of what follows it. `OnboardingSkeleton` is first run's own card (`fr-shell`, `fr-card`, four step segments); `DegreeplanSkeleton` is the rail, the title, the finish
+card, the Plan check strip, the credits row and eight semesters in one column, the first two open with five 64 px rows and the rest one line, as the plan opens. **The plan could not be loaded** (`pages/Dashboard.jsx`) is a screen: a
+title, "Nothing was changed.", the error as an alert, and a reload button; its reload words are platform words, so the file is registered in `parity/platform-branches.json`. **The error screen** (`ErrorBoundary.jsx`) names its toggle
+in words ("Show technical details") with `aria-expanded`. **Sign-in and create-account** (`pages/Auth.css`, Docker only), the error screen (`ErrorBoundary.css`) and the update card and banner (`UpdateBanner.css`, which
+`DesktopUpdateCard` shares) read the redesign tokens: no old colour name, no text under 13 px, no all-caps, the interface font, 44 px controls. `edges.test.jsx` pins the above. The sign-in pages and the update cards were not looked
+at in a browser: they need the Docker install or the Windows app.
+
 ### `src/lib/genEdPanel.js`
 
 

@@ -1,43 +1,32 @@
 import { isFeatureOpen } from '../lib/features'
 import './Dashboard.css'
+import './FirstRun.css'
 import { getBrand } from '../lib/brand'
 import { NAV_TABS } from './shell/navTabs'
 import NavIcon from './shell/NavIcon'
 
 // ── OnboardingSkeleton ────────────────────────────────────────────────────────
 // Shown by Dashboard.jsx while the student_profiles row is being fetched.
-// Reuses the real onboarding structural classes (.onboarding-shell,
-// .onboarding-card, etc.) so the card dimensions match exactly — only the
-// inner content is replaced with animated placeholder bars (.sk-pulse).
-//
-// This avoids layout shift: the card appears at the correct size immediately,
-// then the real Onboarding component snaps in at the same size.
+// Reuses first run's own card (.fr-shell, .fr-card, .fr-header, .fr-body in FirstRun.css) so the card is the size of the
+// screen that follows; only the inner content is replaced with animated placeholder bars (.sk-pulse).
 
 export function OnboardingSkeleton() {
   return (
-    <div className="onboarding-shell">
-      <div className="onboarding-card">
+    <div className="fr-shell" aria-busy="true" aria-label="Loading">
+      <div className="fr-card">
 
-        <div className="onboarding-header">
+        <div className="fr-header">
           <div className="sk-pulse sk-ob-eyebrow" />
-          <div className="sk-pulse sk-ob-title"   />
-          <div className="sk-pulse sk-ob-sub"     />
-          {/* Step dots — reuse the real step class for correct sizing */}
-          <div className="onboarding-steps">
-            <div className="onboarding-step" />
-            <div className="onboarding-step" />
+          <div className="fr-progress" aria-hidden="true">
+            {[0, 1, 2, 3].map(i => <span key={i} className="fr-progress-seg" />)}
           </div>
+          <div className="sk-pulse sk-ob-title" />
+          <div className="sk-pulse sk-ob-sub"   />
         </div>
 
-        <div className="onboarding-body">
-          {/* Four concentration card placeholders in the real 2-col grid */}
-          <div className="concentration-grid">
-            <div className="sk-pulse sk-ob-conc-card" />
-            <div className="sk-pulse sk-ob-conc-card" />
-            <div className="sk-pulse sk-ob-conc-card" />
-            <div className="sk-pulse sk-ob-conc-card" />
-          </div>
-          {/* Continue button placeholder */}
+        <div className="fr-body">
+          <div className="sk-pulse sk-ob-field" />
+          {[0, 1, 2, 3].map(i => <div key={i} className="sk-pulse fr-major-skeleton" />)}
           <div className="sk-pulse sk-ob-btn" />
         </div>
 
@@ -49,13 +38,14 @@ export function OnboardingSkeleton() {
 // ── DegreeplanSkeleton ────────────────────────────────────────────────────────
 // Shown by DegreePlan.jsx while slots, courses, prereqs, and notes are loading.
 // Mirrors the real app shell so nothing shifts when the plan arrives: the
-// sidebar on the left (real .ds-sidebar chrome, static tab labels, placeholder
-// account block) and, on the right, the plan header, the Prior Coursework strip,
-// and the semester grid. Eight cards approximate an 8-semester plan; each gets
-// 6 rows and a footer, close to a typical semester.
+// rail on the left (real .ds-sidebar chrome, static tab labels, placeholder
+// account block) and, on the right, the plan header, the finish card, the Plan
+// check strip, the credits row, and the semesters in one column. Eight cards
+// approximate an 8-semester plan: the first two open with five rows, as the
+// plan opens (lib/semesterDefaults.js), and the rest as one line each.
 //
 // Reuses .ds-app, .ds-sidebar, .ds-main, .ds-plan*, .ds-prior, .ds-grid, and
-// .ds-sem, so the two-per-row grid and card borders match the real plan.
+// .ds-sem, so the column and the card borders match the real plan.
 
 // The same destinations as the real rail (shell/navTabs.js, shell/NavIcon.jsx).
 const SKELETON_TABS = NAV_TABS.map(tab => ({ ...tab, active: tab.id === 'plan' }))
@@ -75,7 +65,6 @@ export function DegreeplanSkeleton() {
             </div>
             <div className="ds-header-actions">
               <div className="sk-pulse sk-dp-btn" />
-              <div className="sk-pulse sk-dp-btn sk-dp-btn-wide" />
             </div>
           </div>
 
@@ -91,6 +80,10 @@ export function DegreeplanSkeleton() {
             </div>
           </div>
 
+          <div className="ds-plancheck-block">
+            <div className="sk-pulse sk-dp-strip" />
+          </div>
+
           <div className="ds-plan-body">
             <div className="ds-prior">
               <div className="sk-head">
@@ -99,7 +92,7 @@ export function DegreeplanSkeleton() {
             </div>
 
             <div className="ds-grid">
-              {[6, 6, 6, 6, 6, 6, 6, 6].map((rowCount, i) => (
+              {[5, 5, 0, 0, 0, 0, 0, 0].map((rowCount, i) => (
                 <SkeletonSemesterCard key={i} rowCount={rowCount} />
               ))}
             </div>
@@ -143,30 +136,32 @@ function SkeletonSidebar() {
 // ── SkeletonSemesterCard ──────────────────────────────────────────────────────
 // A single placeholder semester card. Uses .ds-sem for the real card shell
 // (border, radius, bg) and replaces the header and rows with animated bars.
+// With no rows it is a collapsed semester: the header line only.
 
 function SkeletonSemesterCard({ rowCount }) {
   return (
-    <div className="ds-sem ds-sem-open">
+    <div className={`ds-sem${rowCount > 0 ? ' ds-sem-open' : ''}`}>
 
       <div className="sk-head">
         <div className="sk-pulse sk-sem-label"   />
         <div className="sk-pulse sk-sem-credits" />
       </div>
 
-      <div className="ds-sem-body">
-        {Array.from({ length: rowCount }).map((_, i) => (
-          <div key={i} className="sk-row">
-            <div className="sk-pulse sk-row-dot" />
-            <div className="sk-row-info">
-              <div className="sk-pulse sk-slot-code" />
-              <div className="sk-pulse sk-slot-name" />
-            </div>
-            <div className="sk-pulse sk-slot-credits" />
+      {rowCount > 0 && (
+        <>
+          <div className="ds-sem-body">
+            {Array.from({ length: rowCount }).map((_, i) => (
+              <div key={i} className="sk-row">
+                <div className="sk-pulse sk-slot-code" />
+                <div className="sk-pulse sk-slot-name" />
+                <div className="sk-pulse sk-slot-credits" />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="sk-foot" />
+          <div className="sk-foot" />
+        </>
+      )}
 
     </div>
   )

@@ -81,9 +81,10 @@ export default class ErrorBoundary extends Component {
                 demo situations without hiding the error completely. */}
             <button
               className="error-boundary-toggle"
+              aria-expanded={showDetails}
               onClick={() => this.setState(prev => ({ showDetails: !prev.showDetails }))}
             >
-              {showDetails ? '▲ Hide' : '▼ Show'} technical details
+              {showDetails ? 'Hide technical details' : 'Show technical details'}
             </button>
 
             {showDetails && (

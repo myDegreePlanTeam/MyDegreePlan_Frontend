@@ -91,7 +91,7 @@ describe('the shell dialogs use it', () => {
 
 describe('the dialog stylesheet', () => {
   const css = read('../components/shell/AppShell.css')
-  const block = css.slice(css.indexOf('/* -- Dialog (redesign Phase 6)'), css.indexOf('/* ── Loading skeleton'))
+  const block = css.slice(css.indexOf('/* -- Dialog (redesign Phase 6)'), css.indexOf('/* -- Loading skeleton'))
 
   it('reads the redesign tokens only, with no all-caps', () => {
     expect(block).toContain('var(--c-surface)')
@@ -148,7 +148,7 @@ describe('the pickers use the same dialog (Phase 6b)', () => {
 
   it('inside a dialog the old colour names mean the redesign colours, in both themes', () => {
     const css = read('../components/shell/AppShell.css')
-    const block = css.slice(css.indexOf('/* -- The pickers inside a dialog (redesign Phase 6b)'), css.indexOf('/* ── Loading skeleton'))
+    const block = css.slice(css.indexOf('/* -- The pickers inside a dialog (redesign Phase 6b)'), css.indexOf('/* -- Loading skeleton'))
     expect(block).toMatch(/:is\(\.ds-modal, \.ds-picker\) \{[^}]*--gold: var\(--c-link\);[^}]*--danger: var\(--c-blocked\);/)
     expect(block).toMatch(/:root\[data-theme="light"\] :is\(\.ds-modal, \.ds-picker\) \{[^}]*--gold-rgb: 75, 50, 148;/)
     expect(block).toMatch(/font-family: var\(--font-ui\); font-size: var\(--fs-ui\); line-height: var\(--lh-ui\); letter-spacing: 0; text-transform: none;/)
