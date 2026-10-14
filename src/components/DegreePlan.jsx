@@ -1205,7 +1205,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         return
       }
 
-      pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester, label: `Moved ${formatCourseCode(courseCode ?? slotCode(slot))} to ${semLabels[newSemester] ?? 'another term'}` })
+      pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester, label: `Moved ${formatCourseCode(courseCode ?? slotCode(slot))} to ${semLabels[newSemester] ?? 'another semester'}` })
       const prevOverrides = planSemesterOverrides
       setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
 
@@ -1238,7 +1238,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         return
       }
 
-      pushUndo({ type: 'drag_free', freeAddId: slotId, prevSemester: fa.semester_number, label: `Moved ${formatCourseCode(fa.course_code)} to ${semLabels[newSemester] ?? 'another term'}` })
+      pushUndo({ type: 'drag_free', freeAddId: slotId, prevSemester: fa.semester_number, label: `Moved ${formatCourseCode(fa.course_code)} to ${semLabels[newSemester] ?? 'another semester'}` })
       const prevFreeAdds = freeAddSlots
       setFreeAddSlots(list =>
         list.map(f => f.id === slotId ? { ...f, semester_number: newSemester } : f)
@@ -1764,7 +1764,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const before = semCredits(n)
     const after  = before + (selCourse?.credits ?? 0)
     const tone   = after > HEAVY_LOAD_MAX || after < FULL_TIME_MIN ? 'warn' : 'ok'
-    return { ...base, note: `${before} → ${after} hours${semesterPhase[n] === 'past' ? ' · past term' : ''}`, tone, disabled: false }
+    return { ...base, note: `${before} → ${after} hours${semesterPhase[n] === 'past' ? ' · past semester' : ''}`, tone, disabled: false }
   }) : []
 
   function selectSlot(slot) {

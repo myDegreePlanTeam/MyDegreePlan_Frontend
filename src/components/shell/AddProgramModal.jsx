@@ -124,7 +124,7 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
                 />
               )}
               {(isMinor ? minorList.length === 0 : tree.length === 0) && (
-                <p className="ds-modal-text">{query.trim() ? `No program matches “${query.trim()}”.` : `No other ${noun} can be added for that term yet.`}</p>
+                <p className="ds-modal-text">{query.trim() ? `No program matches “${query.trim()}”.` : `No other ${noun} can be added for that semester yet.`}</p>
               )}
               {isMinor && minorList.map(c => (
                 <button key={c.id} className={`ds-option${chosen?.id === c.id ? ' ds-option-selected' : ''}`} aria-pressed={chosen?.id === c.id} onClick={() => setSelected(c)} disabled={adding}>

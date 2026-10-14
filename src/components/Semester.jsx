@@ -3,7 +3,7 @@ import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { useDragEnabled } from '../lib/dragEnabled'
 import { POOL_LABELS, formatMissingForDisplay } from '../lib/poolResolver'
 import { calculateCredits } from '../lib/semesterCredits'
-import { formatCourseCode } from '../lib/courseCodeFormat'
+import { formatCourseCode, spaceCourseCodes } from '../lib/courseCodeFormat'
 import { codesText } from '../lib/planCheck'
 import StatusChip from './shell/StatusChip'
 import { hoursText } from '../lib/hoursText'
@@ -215,10 +215,10 @@ export default function Semester({
 //   -> { chip: 'blocked' | 'attention' | null, tone: 'blocked' | 'attention' | 'info' | null, note: string | null, pick: boolean }
 function describeRow({ prereqMissing, coreqMissing, scienceWarning, poolLimitWarning, standingWarning, fallbackNote, isEmptyPool, needs }) {
   if (prereqMissing?.length > 0) {
-    return { chip: 'blocked', tone: 'blocked', note: `Needs ${formatMissingForDisplay(prereqMissing)} in an earlier term`, pick: false }
+    return { chip: 'blocked', tone: 'blocked', note: `Needs ${spaceCourseCodes(formatMissingForDisplay(prereqMissing))} in an earlier semester`, pick: false }
   }
   if (coreqMissing?.length > 0) {
-    return { chip: 'blocked', tone: 'blocked', note: `Take with ${formatMissingForDisplay(coreqMissing)}`, pick: false }
+    return { chip: 'blocked', tone: 'blocked', note: `Take with ${spaceCourseCodes(formatMissingForDisplay(coreqMissing))}`, pick: false }
   }
   if (scienceWarning) {
     return {
@@ -233,7 +233,7 @@ function describeRow({ prereqMissing, coreqMissing, scienceWarning, poolLimitWar
     return { chip: 'attention', tone: 'attention', note: `${w.hours} hours of ${w.label.toLowerCase()}; at most ${w.maxHours} count`, pick: false }
   }
   if (standingWarning) {
-    return { chip: null, tone: 'info', note: `${standingWarning === 'senior' ? 'Senior' : 'Junior'} standing required`, pick: false }
+    return { chip: null, tone: 'info', note: `Needs ${standingWarning === 'senior' ? 'senior' : 'junior'} standing`, pick: false }
   }
   if (isEmptyPool) {
     return { chip: null, tone: needs?.length ? 'attention' : null, note: needs?.length ? `${codesText(needs)} ${needs.length === 1 ? 'needs' : 'need'} this first` : fallbackNote, pick: true }

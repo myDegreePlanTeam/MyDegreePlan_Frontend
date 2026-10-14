@@ -22,7 +22,7 @@ export default function IssuesView({ issues, onOpenIssue, onBack }) {
 
       {issues.length === 0 ? (
         <div className="ds-empty-state">
-          <strong>All clear.</strong> Every course sits after its prerequisites, and every term is within a normal load.
+          <strong>All clear.</strong> Every course sits after its prerequisites, and every semester is within a normal load.
         </div>
       ) : (
         <div className="ds-issue-list">

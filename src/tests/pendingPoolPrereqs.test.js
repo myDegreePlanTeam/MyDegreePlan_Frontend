@@ -96,10 +96,10 @@ describe('buildPlanIssues — incomplete selection', () => {
       incompleteSlots: { 5: { label: 'Communications', dependents: ['CSC3040'] } },
     })
     expect(issue.severity).toBe('warning')
-    expect(issue.title).toBe('Incomplete selection: Communications')
+    expect(issue.title).toBe('Pick a course for Communications')
     expect(issue.key).toBe(5)
     expect(issue.semNum).toBe(2)
-    expect(issue.body).toContain('CSC3040 depends on it')
+    expect(issue.body).toBe('CSC 3040 depends on this pick to meet its prerequisite, so make it first.')
   })
 
   it('flags other empty pool slots as info', () => {
@@ -108,7 +108,7 @@ describe('buildPlanIssues — incomplete selection', () => {
       incompleteSlots: { 3: { label: 'General Education', dependents: [] } },
     })
     expect(issue.severity).toBe('info')
-    expect(issue.body).not.toContain('depend')
+    expect(issue.body).toBe('Nothing else in your plan depends on this pick.')
   })
 
   it('pluralises several dependents', () => {
@@ -116,7 +116,7 @@ describe('buildPlanIssues — incomplete selection', () => {
       semesters: [sem(1, 'Fall 2025', [{ key: 3, code: 'Natural Science' }])],
       incompleteSlots: { 3: { label: 'Natural Science', dependents: ['CHEM1120', 'PHYS2020'] } },
     })
-    expect(issue.body).toContain('CHEM1120, PHYS2020 depend on it to meet their prerequisite')
+    expect(issue.body).toContain('CHEM 1120 and PHYS 2020 depend on this pick to meet their prerequisite')
   })
 
   it('reports nothing when every slot is filled', () => {

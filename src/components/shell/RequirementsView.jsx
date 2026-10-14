@@ -3,7 +3,7 @@ import { formatMissingForDisplay } from '../../lib/poolResolver'
 import GenEdSummary, { CategoryProgress } from './GenEdProgress'
 import { ROW_STATES } from '../../lib/auditLabels'
 import { describeFinish, describeBlockDates } from '../../lib/degreeProjection'
-import { formatCourseCode } from '../../lib/courseCodeFormat'
+import { formatCourseCode, spaceCourseCodes } from '../../lib/courseCodeFormat'
 import { hoursText } from '../../lib/hoursText'
 import StatusChip from './StatusChip'
 
@@ -85,7 +85,7 @@ function lockedReason(option) {
   if (option.limitHint) return option.limitHint
   if (option.standingHint) return option.standingHint
   if (option.removedNote) return option.removedNote
-  if (option.missing?.length) return `Needs ${formatMissingForDisplay(option.missing)} in an earlier term`
+  if (option.missing?.length) return `Needs ${spaceCourseCodes(formatMissingForDisplay(option.missing))} in an earlier semester`
   return null
 }
 

@@ -130,7 +130,7 @@ describe('Semester rows', () => {
   it('an unmet prerequisite is Blocked, with the reason', () => {
     const html = open({ prereqWarnings: { 1: ['CSC1300'] } })
     expect(html).toContain('ds-chip-blocked')
-    expect(text(html)).toMatch(/Needs .* in an earlier term/)
+    expect(text(html)).toMatch(/Needs .* in an earlier semester/)
   })
 
   it('a science conflict needs attention', () => {

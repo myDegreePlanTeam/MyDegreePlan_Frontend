@@ -106,7 +106,7 @@ describe('real problems are kept apart from the picks', () => {
   it('words one line per group, blockers first, naming the first and counting the rest', () => {
     const lines = problemLines(summary)
     expect(lines.map(l => l.tone)).toEqual(['blocker', 'advice'])
-    expect(lines[0].text).toBe('1 needs fixing: CSC2310 prerequisite unmet')
+    expect(lines[0].text).toBe('1 needs fixing: CSC 2310 is missing a prerequisite')
     expect(lines[1].text).toBe('1 to look at: Science sequence conflict')
     expect(lines[0].issue.id).toBe('prereq:x')
   })
