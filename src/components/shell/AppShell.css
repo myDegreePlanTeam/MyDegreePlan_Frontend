@@ -1051,3 +1051,117 @@ button.ds-setting:hover { background: var(--ds-hover); }
 
 /* `.ds-app button` sets the old monospace face on every button; these are drawn in the interface font (one class more, so they win). */
 .ds-app .ds-plancheck-block button, .ds-app .ds-prior-head, .ds-app .ds-prior-add, .ds-app .ds-issues-back { font-family: var(--font-ui); }
+
+/* -- Settings (redesign Phase 5) --------------------------------------------------------------------------------------------------
+   Two columns of cards, each a titled section: Your majors, Try before you add, Test scores, Appearance, Your data, Start over.
+   Scoped to .ds-settings so the dialogs that still use .ds-card and .ds-setting keep their look until Phase 6. --c-* tokens, the
+   interface font, nothing under 13 px, every control 44 px. */
+.ds-settings { max-width: 1180px; font-family: var(--font-ui); color: var(--c-text); }
+.ds-app .ds-settings button, .ds-app .ds-settings select, .ds-app .ds-settings input { font-family: var(--font-ui); }
+.ds-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); align-items: start; margin-top: var(--sp-5); }
+.ds-scard {
+  min-width: 0; padding: var(--sp-5) var(--sp-5) var(--sp-5);
+  background: var(--c-surface); border: 1px solid var(--c-hairline); border-radius: var(--r-card);
+}
+.ds-scard-head { margin-bottom: var(--sp-4); }
+.ds-scard-title { margin: 0 0 var(--sp-1); font-size: var(--fs-heading); line-height: var(--lh-heading); font-weight: 700; }
+.ds-scard-desc { margin: 0; font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-scard-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+
+.ds-settings .ds-card { margin: 0; background: transparent; border: 1px solid var(--c-hairline); border-radius: var(--r-control); overflow: hidden; }
+.ds-settings .ds-setting { flex-wrap: wrap; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); color: var(--c-text); }
+.ds-settings .ds-setting + .ds-setting { border-top: 1px solid var(--c-hairline); }
+.ds-settings .ds-setting-text { flex: 1 1 220px; }
+.ds-settings .ds-setting-label { margin-bottom: 2px; font-size: var(--fs-body); line-height: var(--lh-ui); font-weight: 700; }
+.ds-settings .ds-setting-desc { font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-setting-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); flex-shrink: 0; }
+.ds-settings .ds-major-flag {
+  margin-left: var(--sp-2); padding: 1px var(--sp-2); vertical-align: middle;
+  font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 700; letter-spacing: 0; text-transform: none;
+  color: var(--c-link); border: 1px solid var(--c-link); border-radius: 999px;
+}
+
+/* buttons: one filled (Save scores, Add …), quiet outlines for the rest, the blocked colour for what cannot be undone */
+.ds-settings .ds-btn-primary, .ds-settings .ds-btn-ghost, .ds-settings .ds-btn-danger {
+  min-height: var(--target); padding: 0 var(--sp-4); border-radius: var(--r-control);
+  font-size: var(--fs-body); font-weight: 700; letter-spacing: 0;
+}
+.ds-settings .ds-btn-primary { background: var(--c-primary); color: var(--c-on-primary); }
+.ds-settings .ds-btn-primary:hover:not(:disabled) { background: var(--c-primary); filter: brightness(1.08); }
+.ds-settings .ds-btn-primary:disabled { background: var(--c-surface-2); color: var(--c-text-2); box-shadow: inset 0 0 0 1px var(--c-hairline); }
+.ds-settings .ds-btn-ghost { background: transparent; color: var(--c-link); border: 2px solid var(--c-border-strong); }
+.ds-settings .ds-btn-ghost:hover:not(:disabled) { color: var(--c-link); border-color: var(--c-link); background: var(--c-tint); }
+.ds-settings .ds-btn-ghost:disabled { color: var(--c-text-2); opacity: 1; border-color: var(--c-hairline); }
+.ds-settings .ds-btn-danger { background: transparent; color: var(--c-blocked); border: 2px solid var(--c-blocked); }
+.ds-settings .ds-btn-danger:hover:not(:disabled) { background: var(--c-blocked-bg); }
+
+/* test scores */
+.ds-settings .ds-act { padding: 0 var(--sp-4); }
+.ds-settings .ds-act-row { gap: var(--sp-3); min-height: 56px; flex-wrap: wrap; padding: var(--sp-1) 0; }
+.ds-settings .ds-act-row + .ds-act-row { border-top: 1px solid var(--c-hairline); }
+.ds-settings .ds-act-label { font-size: var(--fs-body); }
+.ds-settings .ds-act-note { min-width: 0; font-size: var(--fs-ui); color: var(--c-text-2); }
+.ds-settings .ds-act-note-error { color: var(--c-blocked); font-weight: 700; }
+.ds-settings .ds-act-input {
+  width: 72px; min-height: var(--target); padding: 0 var(--sp-2);
+  background: var(--c-surface); color: var(--c-text); border: 2px solid var(--c-border-strong); border-radius: var(--r-control);
+  font-family: var(--font-mono); font-size: var(--fs-body);
+}
+.ds-settings .ds-act-input:focus { border-color: var(--c-link); }
+.ds-settings .ds-act-input-composite { color: var(--c-text); }
+.ds-settings .ds-act-input-error { border-color: var(--c-blocked); }
+.ds-settings .ds-act-foot { flex-wrap: wrap; gap: var(--sp-3); padding: var(--sp-3) 0; border-top: 1px solid var(--c-hairline); }
+.ds-settings .ds-act-status { flex: 1 1 200px; margin: var(--sp-3) 0 0; font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-settings .ds-act-foot .ds-act-status { margin: 0; }
+.ds-settings .ds-act-status-dirty { color: var(--c-attention); font-weight: 700; }
+.ds-settings .ds-act-status-error { color: var(--c-blocked); font-weight: 700; display: block; }
+.ds-settings .ds-act-foot .ds-btn-ghost, .ds-settings .ds-act-foot .ds-btn-primary { min-height: var(--target); }
+
+/* appearance: three radios drawn as one segmented control */
+.ds-seg { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ds-seg-option {
+  display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--target); padding: 0 var(--sp-4); cursor: pointer;
+  border: 2px solid var(--c-border-strong); border-radius: var(--r-control); font-size: var(--fs-body); font-weight: 700; color: var(--c-text);
+}
+.ds-seg-option:hover { border-color: var(--c-link); }
+.ds-seg-on { border-color: var(--c-link); background: var(--c-tint); color: var(--c-link); }
+.ds-seg-radio { width: 18px; height: 18px; margin: 0; accent-color: var(--c-primary); }
+
+/* try before you add */
+.ds-settings .ds-whatif-controls { display: flex; flex-wrap: wrap; gap: var(--sp-3); padding: 0; margin-bottom: var(--sp-4); }
+.ds-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.ds-field-grow { flex: 1 1 220px; }
+.ds-field-label { font-size: var(--fs-ui); font-weight: 700; color: var(--c-text-2); }
+.ds-select {
+  min-height: var(--target); max-width: 100%; padding: 0 var(--sp-3);
+  background: var(--c-surface); color: var(--c-text); border: 2px solid var(--c-border-strong); border-radius: var(--r-control);
+  font-size: var(--fs-body);
+}
+.ds-settings .ds-whatif-line {
+  margin: 0 0 var(--sp-4); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-hairline); border-left-width: 4px; border-radius: var(--r-control);
+  font-size: var(--fs-body); line-height: var(--lh-ui);
+}
+.ds-settings .ds-whatif-line p { margin: 0 0 var(--sp-2); }
+.ds-settings .ds-whatif-detail { color: var(--c-text-2); font-size: var(--fs-ui); }
+.ds-settings .ds-whatif-none { border-color: var(--c-done); }
+.ds-settings .ds-whatif-later { border-color: var(--c-progress); }
+.ds-settings .ds-whatif-past_four_years { border-color: var(--c-attention); }
+.ds-settings .ds-whatif-rank { margin: 0 0 var(--sp-2); padding-left: var(--sp-5); }
+.ds-settings .ds-whatif-pick { color: var(--c-link); min-height: 0; padding: 0; font-weight: 700; }
+.ds-whatif-closest { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding-top: var(--sp-4); border-top: 1px solid var(--c-hairline); margin-bottom: var(--sp-3); }
+
+/* start over: Reset plan rebuilds, Erase deletes. The second is the only red one. */
+.ds-settings .ds-danger-card {
+  flex-wrap: wrap; gap: var(--sp-3); margin: 0; padding: var(--sp-3) var(--sp-4);
+  background: transparent; border: 1px solid var(--c-hairline); border-radius: var(--r-control);
+}
+.ds-settings .ds-danger-card + .ds-danger-card { margin-top: var(--sp-3); }
+.ds-settings .ds-danger-card-erase { border-color: var(--c-blocked); }
+
+@media (max-width: 900px) {
+  .ds-settings-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .ds-scard { padding: var(--sp-4); }
+  .ds-settings .ds-setting-actions, .ds-scard-actions { width: 100%; }
+}

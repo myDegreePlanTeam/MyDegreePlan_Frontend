@@ -683,6 +683,15 @@ headline ("Earliest finish: Spring 2030") and one sentence. Each section has a c
 in the code face ("CSC 1300"), the title, then the term and hours; its status is a `StatusChip`, and an open choice shows **Pick a course** and opens that pick on the plan. Hours are written out here and in the two strings the screen
 shares with other places (`auditEvidence.js`, `slotOptions.js`). The parity scenario waits for `.ds-requirements .ds-audit-summary`, not the old title. `requirementsRender.test.jsx` pins the above on a real plan.
 
+### Settings (`PLAN_redesign.md`, Phase 5)
+
+`shell/SettingsView.jsx` is a titled page of cards in two columns (one under 900 px), each a `<section class="ds-scard">` with an `<h3>`: **Your major(s)** (the list, Change beside Add major, Make primary, Remove major, minors),
+**Try before you add** (`WhatIfPanel.jsx`, two labelled selects and "Which minor am I closest to finishing?"), **Test scores**, **Appearance**, **Your data** and **Start over**. Appearance is three radios (`AppearanceCard`:
+Match my device, Light, Dark), the three preferences of `lib/theme.js`; `DegreePlan` reads the stored one once (`readPreference`) and stores a choice with `setPreference` (`chooseTheme`; the old Light mode switch is gone).
+Your data (`DeviceDataCard.jsx`) is "Export a backup" and "Import a backup". **Start over keeps two things apart**: Reset plan (a quiet button: it rebuilds the semesters and keeps credits and scores) and Erase (`EraseCard`, the only
+danger button: it deletes the plan, credits and scores, and asks once more). The erase row's label and button are platform words (`eraseLabel`, `eraseButton`: "Erase everything", or "Erase my plan" on Docker). The styles are scoped to
+`.ds-settings`, so the dialogs that still use `.ds-card` and `.ds-setting` keep their look until Phase 6. The parity scenario still finds Change through `.ds-setting` and Reset plan through `.ds-danger-card`. `settingsRender.test.jsx` pins the above.
+
 ### `src/lib/genEdPanel.js`
 
 

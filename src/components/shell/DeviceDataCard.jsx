@@ -12,7 +12,6 @@ import { clearAllUndo } from '../../lib/undoStore'
 export default function DeviceDataCard() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)       // { text, error }
-  const [confirmErase, setConfirmErase] = useState(false)
   const persistent = db.planData.persistent
   const words = platformWords(platform)
 
@@ -28,13 +27,52 @@ export default function DeviceDataCard() {
       link.click()
       link.remove()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
-      setMessage({ text: 'Plan exported. Keep the file somewhere safe; Import loads it back.' })
+      setMessage({ text: 'Plan exported. Keep the file somewhere safe; Import a backup loads it back.' })
     } catch (err) {
       setMessage({ text: `Could not export: ${err.message}`, error: true })
     } finally {
       setBusy(false)
     }
   }
+
+  return (
+    <section className="ds-scard" aria-labelledby="set-data">
+      <div className="ds-scard-head">
+        <h3 className="ds-scard-title" id="set-data">Your data</h3>
+        <p className="ds-scard-desc">{words.storedMeta}. {words.backupText}</p>
+      </div>
+      <div className="ds-scard-actions">
+        <button className="ds-btn-ghost" onClick={handleExport} disabled={busy}>Export a backup</button>
+        <ImportBackupButton
+          className="ds-btn-ghost"
+          disabled={busy}
+          onBusy={setBusy}
+          onError={text => setMessage({ text, error: true })}
+        >
+          Import a backup
+        </ImportBackupButton>
+      </div>
+      {!persistent && (
+        <p className="ds-act-status ds-act-status-error" role="alert">
+          {words.notPersistent}
+        </p>
+      )}
+      {message && (
+        <p className={`ds-act-status${message.error ? ' ds-act-status-error' : ''}`} role="status">
+          {message.text}
+        </p>
+      )}
+    </section>
+  )
+}
+
+// Erase: deletes the plan, the credits and the scores, then starts over from the first screen. It sits in Settings' "Start over" section
+// beside Reset plan, worded differently so the two are not mixed up, and asks once more before it does anything.
+export function EraseCard() {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [confirmErase, setConfirmErase] = useState(false)
+  const words = platformWords(platform)
 
   async function handleErase() {
     setBusy(true)
@@ -43,66 +81,28 @@ export default function DeviceDataCard() {
       clearAllUndo()
       window.location.reload()
     } catch (err) {
-      setMessage({ text: `Could not erase: ${err.message}`, error: true })
+      setError(`Could not erase: ${err.message}`)
       setBusy(false)
     }
   }
 
   return (
-    <>
-      <div className="ds-section-head">
-        <p className="ds-eyebrow">Your data</p>
-        <p className="ds-section-meta">{words.storedMeta}</p>
-      </div>
-      <div className="ds-card">
-        <div className="ds-setting">
-          <span className="ds-setting-text">
-            <span className="ds-setting-label">Back up or move your plan</span>
-            <span className="ds-setting-desc">
-              {words.backupText}
-            </span>
-          </span>
-          <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="ds-btn-ghost" style={{ minHeight: 36 }} onClick={handleExport} disabled={busy}>Export</button>
-            <ImportBackupButton
-              className="ds-btn-ghost"
-              style={{ minHeight: 36 }}
-              disabled={busy}
-              onBusy={setBusy}
-              onError={text => setMessage({ text, error: true })}
-            >
-              Import
-            </ImportBackupButton>
-          </span>
-        </div>
-        {!persistent && (
-          <p className="ds-act-status ds-act-status-error" role="alert" style={{ padding: '0 16px 12px', margin: 0 }}>
-            {words.notPersistent}
-          </p>
-        )}
-        {message && (
-          <p className={`ds-act-status${message.error ? ' ds-act-status-error' : ''}`} role="status" style={{ padding: '0 16px 12px', margin: 0 }}>
-            {message.text}
-          </p>
-        )}
-      </div>
-
-      <div className="ds-danger-card">
-        <span className="ds-setting-text">
-          <span className="ds-setting-label">{words.eraseLabel}</span>
-          <span className="ds-setting-desc">
-            Deletes your plan, prior credits and notes from {words.where}, then starts onboarding again. This cannot be undone unless you exported a backup.
-          </span>
+    <div className="ds-danger-card ds-danger-card-erase">
+      <span className="ds-setting-text">
+        <span className="ds-setting-label">{words.eraseLabel}</span>
+        <span className="ds-setting-desc">
+          Deletes your plan, prior credits and scores from {words.where}, then starts from the first screen again. This cannot be undone unless you exported a backup.
         </span>
-        {confirmErase ? (
-          <span style={{ display: 'flex', gap: 8 }}>
-            <button className="ds-btn-ghost" onClick={() => setConfirmErase(false)} disabled={busy}>Cancel</button>
-            <button className="ds-btn-danger" onClick={handleErase} disabled={busy}>Yes, erase</button>
-          </span>
-        ) : (
-          <button className="ds-btn-danger" onClick={() => setConfirmErase(true)} disabled={busy}>Erase data</button>
-        )}
-      </div>
-    </>
+        {error && <span className="ds-act-status ds-act-status-error" role="alert">{error}</span>}
+      </span>
+      {confirmErase ? (
+        <span className="ds-setting-actions">
+          <button className="ds-btn-ghost" onClick={() => setConfirmErase(false)} disabled={busy}>Cancel</button>
+          <button className="ds-btn-danger" onClick={handleErase} disabled={busy}>Yes, erase</button>
+        </span>
+      ) : (
+        <button className="ds-btn-danger" onClick={() => setConfirmErase(true)} disabled={busy}>{words.eraseButton}</button>
+      )}
+    </div>
   )
 }
