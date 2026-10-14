@@ -136,7 +136,7 @@ The full redesign of the look, wording and first run ([`plans/PLAN_redesign.md`]
 dragging, on any screen size ("Move to…" in the course details, a bottom sheet on a phone); purple for progress and one small gold marker for the current semester only; an invalid move that asks before it happens and stays
 flagged afterwards (the requisite conflict dialog, then Plan check and a Blocked chip); a plain "Pick a course" for an open pool slot in place of the dashed, italic placeholder. Still not built, and not planned: a read-only
 Plan beside a What-If grid (the what-if is "Try before you add" in Settings); a persistent right sidebar or a bottom drawer for prior coursework (it is the "Credits you already have" row). Left over from the redesign itself:
-the landing site's tokens and fonts, the app icon (below), and the department's word on "Advising", "Plan check" and "semester".
+the board images, and the department's word on "Advising", "Plan check" and "semester" (the landing site is `MyDegreePlan_Site` PR #11; the app icon was already done, below).
 
 ### What-if planning and a recommendation engine
 Beyond saving a plan snapshot (see "Plan history / versioning"): compare other programs, double majors and minors side by side (see "A try three
@@ -154,7 +154,9 @@ transferable-course list, and the full Tennessee Tech catalog search now covers 
 course is entered today as Transfer Credit. Decide whether they are separate types before building anything; this is what is left of BUG-22 in `tracking/bug.md`.
 
 ### App icon
-`public/favicon.svg` is still the Vite default from the initial commit. No design asset exists; one must be created or sourced first.
+Done. `public/favicon.svg` is the MyDegreePlan icon (the semester grid rising to a gold card) since Frontend PR #65 (2026-10-09), the Windows app's
+`build-resources/icon.svg` is the same design with text lines, and the landing site uses the same file (Site PR #11). It keeps the colors it was drawn
+with, which are close to the redesign's tokens but not the same values.
 
 ---
 
