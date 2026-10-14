@@ -30,7 +30,7 @@
 .ds-app {
   display: flex;
   min-height: 100vh;
-  background: var(--bg);
+  background: var(--c-page);
   color: var(--text);
   font-family: var(--font-mono);
 }
@@ -148,14 +148,17 @@
   font-size: 12px; line-height: 1.6; color: var(--text-muted);
 }
 .ds-plan-note strong { color: var(--text); font-weight: 500; }
+/* The title, the program line and the two actions; the finish card and the Plan check strip follow it (redesign Phase 3a). */
 .ds-plan-header {
-  padding: 24px 32px 20px;
-  border-bottom: 1px solid var(--bg-light);
-  background: var(--ds-header);
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 32px; flex-wrap: wrap;
+  padding: 32px 32px 0;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px 32px; flex-wrap: wrap;
 }
 .ds-plan-heading { min-width: 0; }
+.ds-plan-heading .ds-h2 { margin: 0; font-size: var(--fs-page); line-height: var(--lh-page); }
+.ds-plan-heading .ds-sub {
+  margin: 4px 0 0; font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--c-text-2);
+}
 .ds-progress { flex: 1; min-width: 200px; max-width: 520px; }
 .ds-progress-track {
   height: 6px; background: var(--bg-light); border-radius: 3px;
@@ -682,9 +685,11 @@ button.ds-setting:hover { background: var(--ds-hover); }
    Bars use .sk-pulse from Dashboard.css. Sizes track the real elements
    above (46px headers, 54px rows, 43px card footers, 38px buttons) so nothing shifts on load. */
 .sk-dp-eyebrow  { height: 12px; width: 130px; margin-bottom: 7px; }
-.sk-dp-title    { height: 33px; width: 240px; margin-bottom: 8px; }
+.sk-dp-title    { height: 40px; width: 280px; margin-bottom: 8px; }
+.sk-dp-finish   { height: 46px; width: 220px; margin-bottom: 8px; }
+.sk-dp-head     { height: 28px; width: 60%; margin-bottom: 10px; }
 .sk-dp-meta     { height: 11px; width: 210px; margin-bottom: 6px; }
-.sk-dp-credit-bar { height: 6px; }
+.sk-dp-credit-bar { height: 12px; margin: 10px 0; }
 .sk-dp-legend   { height: 11px; width: 70%; margin-top: 9px; }
 .sk-dp-btn      { height: 38px; width: 110px; border-radius: 7px; }
 .sk-dp-btn-wide { width: 150px; }
@@ -898,23 +903,89 @@ button.ds-setting:hover { background: var(--ds-hover); }
 .ds-adv-doc-active, .ds-adv-doc-active:hover { background: var(--bg-light); color: var(--gold); border-color: var(--gold); }
 .ds-adv-doc-soon, .ds-adv-doc-soon:hover { opacity: .55; cursor: default; }
 
-/* -- Plan check line on the plan (redesign Phase 2) -------------------------------------------------------------------------
-   The way into the list of things to review now that Issues is not a tab. A quiet tint, never an alarm colour; the full strip with the
-   picks to make comes in Phase 3a. */
+/* -- Plan header, finish card and Plan check strip (redesign Phase 3a) -------------------------------------------------------
+   Drawn with the --c-* tokens and the interface font. The semester cards below move over in Phase 3b. */
+.ds-summary {
+  margin: var(--sp-5) 32px 0; padding: 28px;
+  display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.4fr); gap: var(--sp-5) 40px; align-items: center;
+  background: var(--c-surface); border: 1px solid var(--c-hairline); border-radius: var(--r-card);
+  font-family: var(--font-ui); color: var(--c-text);
+}
+.ds-summary-label { margin: 0 0 2px; font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--c-text-3); }
+.ds-summary-big { margin: 0; font-family: var(--font-display); font-size: 40px; line-height: 46px; font-weight: 400; }
+.ds-summary-none { font-size: 24px; line-height: 32px; color: var(--c-text-2); }
+.ds-summary-meta { margin: 6px 0 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--c-text-2); }
+.ds-summary-head { margin: 0; font-size: var(--fs-heading); line-height: var(--lh-heading); font-weight: 700; }
+.ds-summary-bar { display: flex; height: 12px; margin: 10px 0; border-radius: 6px; overflow: hidden; background: var(--c-surface-2); }
+.ds-summary-seg { transition: width .3s ease; }
+.ds-summary-seg-done     { background: var(--c-done); }
+.ds-summary-seg-progress { background: var(--c-progress); }
+.ds-summary-seg-planned  { background: var(--c-planned); }
+.ds-summary-legend { display: flex; gap: 6px 18px; flex-wrap: wrap; margin: 0; font-size: 14px; line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-summary-done { color: var(--c-done); }
+.ds-summary-progress-n { color: var(--c-progress); }
+.ds-summary-planned-n { color: var(--c-planned); }
+
+.ds-plancheck-block { margin: var(--sp-4) 32px 0; display: grid; gap: var(--sp-2); font-family: var(--font-ui); }
 .ds-plancheck {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap;
-  padding: var(--sp-3) 32px;
-  background: var(--c-tint); border-bottom: 1px solid var(--c-hairline);
-  font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--c-text);
+  display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--c-tint); border: 1px solid var(--c-hairline); border-radius: var(--r-card);
+  color: var(--c-text);
 }
-.ds-plancheck-fix { color: var(--c-text-2); }
-.ds-plancheck .ds-btn-ghost {
-  min-height: var(--target); padding: 0 var(--sp-5);
+.ds-plancheck-icon { width: 24px; height: 24px; flex-shrink: 0; }
+.ds-plancheck > .ds-plancheck-icon { color: var(--c-link); }
+.ds-plancheck-text { flex: 1; min-width: 240px; }
+.ds-plancheck-text strong { display: block; font-size: 17px; line-height: var(--lh-body); font-weight: 700; }
+.ds-plancheck-text span { display: block; font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-plancheck-list {
+  min-height: var(--target); padding: 0 var(--sp-3); background: none; border: none; cursor: pointer;
+  color: var(--c-link); font-family: var(--font-ui); font-size: var(--fs-body); text-decoration: underline;
+}
+.ds-plancheck-start {
+  min-height: var(--target); padding: 0 var(--sp-5); cursor: pointer;
+  background: var(--c-primary); color: var(--c-on-primary); border: 2px solid transparent; border-radius: var(--r-control);
+  font-family: var(--font-ui); font-size: var(--fs-body); font-weight: 700; line-height: 1;
+}
+.ds-plancheck-start:hover { filter: brightness(1.08); }
+.ds-plancheck-problem {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4); border-radius: var(--r-card);
+  font-size: var(--fs-body); line-height: var(--lh-ui);
+}
+.ds-plancheck-problem-blocker { background: var(--c-blocked-bg); color: var(--c-blocked); box-shadow: inset 0 0 0 1px var(--c-blocked); }
+.ds-plancheck-problem-advice  { background: var(--c-attention-bg); color: var(--c-attention); box-shadow: inset 0 0 0 1px var(--c-attention); }
+.ds-plancheck-problem-text { flex: 1; min-width: 0; font-weight: 700; }
+.ds-plancheck-action {
+  flex-shrink: 0; min-height: var(--target); padding: 0 var(--sp-4); cursor: pointer;
+  background: transparent; color: inherit; border: 2px solid currentColor; border-radius: var(--r-control);
   font-family: var(--font-ui); font-size: var(--fs-body); font-weight: 700;
-  color: var(--c-link); background: var(--c-surface); border: 2px solid var(--c-border-strong);
 }
-.ds-plancheck .ds-btn-ghost:hover:not(:disabled) { color: var(--c-link); border-color: var(--c-link); }
 .ds-issues-back { margin-bottom: var(--sp-4); min-height: var(--target); font-family: var(--font-ui); font-size: var(--fs-body); }
-@media (max-width: 760px) {
-  .ds-plancheck { padding-left: 16px; padding-right: 16px; }
+
+/* Credits you already have: the prior-coursework row, on the same tokens. It is still the drop target that records a dragged course as transfer credit. */
+.ds-prior { background: var(--c-surface); border: 1px solid var(--c-hairline); font-family: var(--font-ui); }
+.ds-prior-dropready { border: 2px dashed var(--c-border-strong); }
+.ds-prior-over { border-color: var(--c-link); box-shadow: 0 0 0 2px var(--c-tint); }
+.ds-prior-head { min-height: 56px; padding: 0 var(--sp-4); font-family: var(--font-ui); color: var(--c-text); }
+.ds-prior-head:hover { background: var(--c-surface-2); }
+.ds-prior-title { flex: 1; text-align: left; font-size: var(--fs-body); letter-spacing: 0; text-transform: none; font-weight: 700; color: var(--c-text); }
+.ds-prior-hint { font-size: var(--fs-ui); color: var(--c-link); }
+.ds-prior-add {
+  min-height: var(--target); font-family: var(--font-ui); font-size: var(--fs-body); letter-spacing: 0; color: var(--c-link); text-decoration: underline;
+  border-top: 1px solid var(--c-hairline);
 }
+.ds-prior-add:hover { color: var(--c-link); }
+
+@media (max-width: 760px) {
+  .ds-plan-header { padding-top: var(--sp-5); }
+  .ds-plan-heading .ds-h2 { font-size: 32px; line-height: 40px; }
+  .ds-summary { margin-left: 16px; margin-right: 16px; padding: var(--sp-5); grid-template-columns: 1fr; }
+  .ds-summary-big { font-size: 36px; line-height: 42px; }
+  .ds-plancheck-block { margin-left: 16px; margin-right: 16px; }
+  .ds-plancheck { padding: var(--sp-4); }
+  .ds-plancheck-start { width: 100%; }
+}
+
+/* `.ds-app button` sets the old monospace face on every button; these are drawn in the interface font (one class more, so they win). */
+.ds-app .ds-plancheck-block button, .ds-app .ds-prior-head, .ds-app .ds-prior-add, .ds-app .ds-issues-back { font-family: var(--font-ui); }

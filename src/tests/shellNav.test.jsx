@@ -85,11 +85,6 @@ describe('the rail stylesheet', () => {
     expect(phoneCss).toMatch(/\.ds-main \{ padding-bottom: calc\(64px \+ env\(safe-area-inset-bottom\)\)/)
   })
 
-  it('draws the Plan check line and its button with the redesign tokens, the button readable and 44 px tall', () => {
-    expect(css).toMatch(/\.ds-plancheck \{[^}]*background: var\(--c-tint\)/)
-    expect(css).toMatch(/\.ds-plancheck \.ds-btn-ghost \{[^}]*min-height: var\(--target\)[^}]*color: var\(--c-link\)[^}]*border: 2px solid var\(--c-border-strong\)/)
-  })
-
   it('draws a focus ring on every control for a keyboard user', () => {
     expect(css).toMatch(/\.ds-app :focus-visible \{ outline: 3px solid var\(--c-focus\)/)
   })

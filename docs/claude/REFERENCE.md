@@ -602,7 +602,7 @@ limit / `taken`), and `listSlotOptions` (annotated and ordered; `open: true` for
 
 `useIsPhone()` (viewport at most 760px wide, the width the sidebar becomes a top bar) and `DragEnabledContext`. On a phone the plan grid does not drag: every draggable and drop zone
 is `disabled`, rows carry no drag listeners or "draggable" role, and CSS gives the rows back `touch-action: auto` so the page scrolls. The equivalents are "Move" in the course panel,
-"+ Add prior credit" and the x on a prior credit. Keep the list passed to `useSensors` the same length at every width: its memo keys on the length.
+"Add credit" and the x on a prior credit. Keep the list passed to `useSensors` the same length at every width: its memo keys on the length.
 
 ### `src/lib/theme.js`, the redesign tokens and the fonts (`PLAN_redesign.md`, Phase 1)
 
@@ -624,13 +624,26 @@ fell back to system faces there. `designTokens.test.js` fails on a font-service 
 
 **Four destinations**, from `components/shell/navTabs.js` (read by `Sidebar.jsx` and by the loading skeleton, so the two cannot drift): Plan, Requirements, Advising, Settings, each with an SVG icon
 (`NavIcon.jsx`). A destination whose flag in `lib/features.js` is closed is still listed greyed and tagged "Coming soon". **Issues is no longer a tab**: the list is called **Plan check**, the plan's
-"N things to review" line (`.ds-plancheck`, `DegreePlan.jsx`) opens it (`view === 'issues'`, `IssuesView.jsx`), "Back to plan" returns, and the Plan tab stays marked while it is open. (Phase 3a replaces
-the line with the full Plan check strip.) The Advisement tab became **Advising**; `AdvisementView.jsx` keeps its file name.
+Plan check strip on the plan (`PlanCheckStrip.jsx`, below) opens it with "See the list" (`view === 'issues'`, `IssuesView.jsx`), "Back to plan" returns, and the Plan tab stays marked while it is open.
+The Advisement tab became **Advising**; `AdvisementView.jsx` keeps its file name.
 
 **The rail** (`.ds-sidebar`, 240 px) uses the `--c-*` tokens and the interface font; the page beside it still uses the old tokens until Phases 3 to 5. At 760 px or less (`PHONE_QUERY`) it is a
 **fixed bottom tab bar**, four labelled tabs 52 px tall, and `.ds-main` leaves room for it (`env(safe-area-inset-bottom)` for a phone's home bar). The old account avatar and the Issues count badge are gone
 (the account line is "On this device" or the signed-in email, then "Saved at 2:14 PM"). `.ds-app :focus-visible` draws a 3 px focus ring on every control. `src/tests/shellNav.test.jsx` pins the four
 destinations, the marked tab, the icons, the tokens, the 13 px and 44 px floors and the bottom bar.
+
+### The plan header and the Plan check strip (`PLAN_redesign.md`, Phase 3a)
+
+**`lib/planCheck.js`** (pure) groups the issues from `lib/planIssues.js`. `buildPlanIssues` marks an unfinished pick `kind: 'pick'` with its `label` and `dependents` (the courses whose prerequisite is met only
+provisionally by the empty slot): `info`, or `warning` when something depends on it. `summarizePlanCheck(issues)` returns the picks, the pick to start with (the earliest one a later course depends on, else the
+earliest), the blockers and the other advice; `picksText` words "12 course picks still to make" and "Start with Communications: CSC 3040 depends on it."; `problemLines` gives one line per group of real problems,
+blockers first. On the sample CSC Cybersecurity plan all 12 issues are picks (11 `info`, 1 `warning`), so nothing there is a problem. `termPhase.creditsInPhase` is the hours under way in one phase; the finish card uses
+it to split `creditTotals.planned` into in progress and planned (`creditTotals.inProgress` is new, `completed` and `planned` are unchanged).
+
+**The top of the plan** is the title and program line, then `shell/PlanSummary.jsx` (the finish card: "You finish Spring 2030", "83 of 120 hours planned", a bar split into done, in progress and planned, and the hours left
+as "in picks to make": `totalHours` minus what is placed), then `shell/PlanCheckStrip.jsx` (a real problem on its own line, red for a blocker and amber for advice, then the quiet violet strip with "See the list" and
+the one filled button, "Start picking", which opens the pick to start with through `openIssue`). Nothing shows when there is nothing to review. "Prior coursework" is now "Credits you already have" (hours, not "cr"); it is
+still the drop target that records a dragged course as transfer credit. The page background is `--c-page`. `src/tests/planCheck.test.js` and `planHeader.test.jsx` pin the above.
 
 ### `src/lib/genEdPanel.js`
 

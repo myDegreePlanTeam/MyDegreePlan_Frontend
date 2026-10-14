@@ -114,9 +114,9 @@ export async function runScenario(target, { log = () => {} } = {}) {
   await page.getByText(/Earliest finish|Every requirement is done|You finish at the end of|No finish can be worked out/).first().waitFor({ timeout: STEP_TIMEOUT }).catch(() => {})
   await grab('requirements')
 
-  // Plan check (the list of things to review) is not a tab: the plan's Plan check line opens it.
+  // Plan check (the list of things to review) is not a tab: the plan's Plan check strip opens it.
   await openTab('Plan')
-  await page.locator('.ds-plancheck').getByRole('button', { name: 'Review' }).click()
+  await page.locator('.ds-plancheck').getByRole('button', { name: 'See the list' }).click()
   await page.getByText('Plan check').first().waitFor({ timeout: STEP_TIMEOUT })
   await page.waitForTimeout(400)
   await grab('issues')

@@ -67,3 +67,22 @@ export function splitCreditsByPhase(breakdown, semesterOf, phases) {
   }
   return { completed, planned }
 }
+
+/**
+ * The hours of computePlanCredits' breakdown that sit in one phase: 'current' is the hours under way this semester, which
+ * splitCreditsByPhase counts inside `planned`. Prior credit is never in a phase (it is earned).
+ *
+ * @param {Array} breakdown  computePlanCredits(...).breakdown
+ * @param {(item: object) => number|null|undefined} semesterOf  the semester number of a 'slot' or 'free_add' item
+ * @param {Object} phases  semesterPhases(...)
+ * @param {'past'|'current'|'future'} phase
+ * @returns {number}
+ */
+export function creditsInPhase(breakdown, semesterOf, phases, phase) {
+  let hours = 0
+  for (const item of breakdown ?? []) {
+    if (item.source === 'transfer') continue
+    if (phaseOfSemester(phases, semesterOf(item)) === phase) hours += item.credits
+  }
+  return hours
+}

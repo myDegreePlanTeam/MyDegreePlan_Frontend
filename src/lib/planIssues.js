@@ -65,6 +65,8 @@ export function buildPlanIssues({
         const dependents = incomplete.dependents ?? []
         push({
           id: `incomplete:${item.key}`, key: item.key,
+          // `kind`, `label` and `dependents` are for lib/planCheck.js, which groups the picks still to make
+          kind: 'pick', label: incomplete.label, dependents,
           severity: dependents.length > 0 ? 'warning' : 'info',
           title: `Incomplete selection: ${incomplete.label}`,
           body:  (sem.completed

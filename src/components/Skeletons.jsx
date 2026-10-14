@@ -70,17 +70,24 @@ export function DegreeplanSkeleton() {
 
           <div className="ds-plan-header">
             <div className="ds-plan-heading">
-              <div className="sk-pulse sk-dp-eyebrow" />
               <div className="sk-pulse sk-dp-title"   />
               <div className="sk-pulse sk-dp-meta"    />
-            </div>
-            <div className="ds-progress">
-              <div className="sk-pulse sk-dp-credit-bar" />
-              <div className="sk-pulse sk-dp-legend"     />
             </div>
             <div className="ds-header-actions">
               <div className="sk-pulse sk-dp-btn" />
               <div className="sk-pulse sk-dp-btn sk-dp-btn-wide" />
+            </div>
+          </div>
+
+          <div className="ds-summary">
+            <div>
+              <div className="sk-pulse sk-dp-finish" />
+              <div className="sk-pulse sk-dp-meta"   />
+            </div>
+            <div>
+              <div className="sk-pulse sk-dp-head"       />
+              <div className="sk-pulse sk-dp-credit-bar" />
+              <div className="sk-pulse sk-dp-legend"     />
             </div>
           </div>
 
