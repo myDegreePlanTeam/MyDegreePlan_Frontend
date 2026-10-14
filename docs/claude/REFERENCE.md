@@ -645,6 +645,20 @@ as "in picks to make": `totalHours` minus what is placed), then `shell/PlanCheck
 the one filled button, "Start picking", which opens the pick to start with through `openIssue`). Nothing shows when there is nothing to review. "Prior coursework" is now "Credits you already have" (hours, not "cr"); it is
 still the drop target that records a dragged course as transfer credit. The page background is `--c-page`. `src/tests/planCheck.test.js` and `planHeader.test.jsx` pin the above.
 
+### Semester cards and rows (`PLAN_redesign.md`, Phase 3b)
+
+**`components/Semester.jsx`** draws a semester as one card on `--c-surface`. The header (`.ds-sem-head`, 64 px, one button) holds the chevron, the term, a **Now** marker for the current term, a `shell/StatusChip.jsx` for where
+the semester stands (Done, In progress, or Planned, shown only on an open card; a past semester that is not Done shows no chip), a **Graduation** marker, then the flags from `flagsBySemester` (a Blocked or Needs attention
+chip, and "N picks to make", with ", needed for CSC 3040" when a later course leans on one), a note dot and the hours ("15 hours", never "cr"). A row says nothing about status unless it is an exception: `describeRow` gives
+a **Blocked** chip for an unmet prerequisite or corequisite, **Needs attention** for a science or pool-limit conflict, and a **Pick a course** button look for an empty pick (the whole row is the button; a pick a later course
+depends on adds "CSC 3040 needs this first", from the `pickNeeds` prop). A problem always outranks an open pick. A course code is set in the code face through `formatCourseCode` ("CSC 1300").
+The footer is "Add course" and "Add a note" / "Edit note" as plain links.
+
+**`lib/semesterDefaults.js`** `defaultOpenSemesters(semNums, phases)`: the first semester that is not over and the one after it start open; every other semester is one line. The student's own toggles (`semesterExpanded`) win, and
+the old effect that collapsed past semesters is gone. **`lib/planCheck.js`** `flagsBySemester(issues)` returns `{ [semNum]: { picks, needed, blocked, advice } }` for the header. `.ds-grid` is one column; `StatusChip` names its five
+tones in `shell/statusTones.js` (a component file exports only components). `semesterRender.test.jsx`, `semesterDefaults.test.js` and `planCheck.test.js` pin the above, and the stylesheet (no text under 13 px, 44 px targets).
+The parity scenario reads the plan through `.ds-sem`; a collapsed semester has no rows, so its plan facts list the courses of the open semesters (the same on every platform).
+
 ### `src/lib/genEdPanel.js`
 
 

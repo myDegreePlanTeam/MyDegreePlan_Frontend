@@ -3,6 +3,9 @@ import { useDroppable, useDraggable } from '@dnd-kit/core'
 import { useDragEnabled } from '../lib/dragEnabled'
 import { POOL_LABELS, formatMissingForDisplay } from '../lib/poolResolver'
 import { calculateCredits } from '../lib/semesterCredits'
+import { formatCourseCode } from '../lib/courseCodeFormat'
+import { codesText } from '../lib/planCheck'
+import StatusChip from './shell/StatusChip'
 
 // Maps prior_credit.credit_type to a short label shown on transfer-filled slots
 const CREDIT_TYPE_LABELS = {
@@ -15,16 +18,20 @@ const CREDIT_TYPE_LABELS = {
   cambridge:       'Cambridge',
 }
 
-// One semester card on the plan grid. Clicking a row selects it (the course
-// panel opens); rows drag between cards. Per-course status is changed from
-// the course panel — the row dot shows it.
+const hoursText = n => (typeof n === 'number' ? `${n} ${n === 1 ? 'hour' : 'hours'}` : '— hours')
+
+// One semester card on the plan (redesign Phase 3b). The header says where the semester stands (Now, In progress, Planned, Done) and how many
+// hours it holds; a row says nothing about status unless it is an exception (blocked, needs attention) or an open pick. Clicking a row selects
+// it (the course panel opens); rows drag between cards. A semester that is not open is one line.
+//
+// `flags` is lib/planCheck.js flagsBySemester for this semester: the picks still to make, whether a later course depends on one, and how many
+// real problems it has. `pickNeeds` is { [slotId]: courseCodes } for an open pick a later course depends on.
 export default function Semester({
   semesterNumber,
   slots,
   freeAddSlots       = [],
   courseMap,
   planSlots          = {},
-  planStatuses       = {},
   allFreeAddSlots    = freeAddSlots,
   // { [slotId]: hours } — Free Elective hours no course covers yet; each becomes
   // a "choose a course" row under its slot (see poolRemainder.js)
@@ -44,6 +51,8 @@ export default function Semester({
   // { [slotId]: string[] } the programs a course serves (when the plan follows several); { [slotId]: true } courses a program filter dims
   programTags        = {},
   dimmed             = {},
+  pickNeeds          = {},
+  flags              = null,
   note               = '',
   onNoteSave,
   isExpanded         = true,
@@ -71,19 +80,23 @@ export default function Semester({
     onNoteSave(semesterNumber, noteText)
   }
 
-  const name = [termLabel ?? `Semester ${semesterNumber}`, isCurrent && 'Now', isGraduation && 'Graduate']
-    .filter(Boolean).join(' · ')
+  const name = termLabel ?? `Semester ${semesterNumber}`
 
   // A past semester is done when nothing in it is flagged (an unchosen pool course or a broken requisite is not "passed")
   const isDone = isPast && issueCount === 0 && !hasUnfilledPool
+  const status = isDone ? 'done' : isCurrent ? 'progress' : isPast ? null : 'planned'
+  // Planned is the default for a later semester, so it is said only on an open card; an open or finished one always names its state
+  const showStatus = status && (status !== 'planned' || isExpanded)
 
   const cardClass = [
     'ds-sem',
     isExpanded && 'ds-sem-open',
     isCurrent && 'ds-sem-current',
-    isDone ? 'ds-sem-done' : issueCount > 0 && 'ds-sem-warn',
+    isDone && 'ds-sem-done',
     isOver && 'ds-sem-over',
   ].filter(Boolean).join(' ')
+
+  const picks = flags?.picks ?? 0
 
   return (
     <div className={cardClass} ref={setDropRef}>
@@ -93,15 +106,23 @@ export default function Semester({
         aria-expanded={isExpanded}
         aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${name}`}
       >
+        <svg className="ds-sem-chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d={isExpanded ? 'M5 8l5 5 5-5' : 'M8 5l5 5-5 5'} />
+        </svg>
         <span className="ds-sem-name">{name}</span>
-        {isDone ? (
-          <span className="ds-sem-flag ds-sem-flag-done">Done ✓</span>
-        ) : issueCount > 0 ? (
-          <span className="ds-sem-flag ds-sem-flag-warn">⚠ {issueCount}</span>
-        ) : null}
-        {note && <span className="ds-sem-note-dot" title="This semester has a note">✎</span>}
-        <span className="ds-sem-cr">{totalCr} cr</span>
-        <span className="ds-sem-caret">{isExpanded ? '▲' : '▼'}</span>
+        {isCurrent && <span className="ds-sem-mark ds-sem-now">Now</span>}
+        {showStatus && <StatusChip tone={status} />}
+        {isGraduation && <span className="ds-sem-mark ds-sem-grad">Graduation</span>}
+        {flags?.blocked > 0 && <StatusChip tone="blocked" />}
+        {flags?.blocked === 0 && flags?.advice > 0 && <StatusChip tone="attention" />}
+        {picks > 0 && (
+          <span className={`ds-sem-picks${flags.needed ? ' ds-sem-picks-needed' : ''}`}>
+            {picks} {picks === 1 ? 'pick' : 'picks'} to make{flags.needed ? `, needed for ${codesText(flags.needed)}` : ''}
+          </span>
+        )}
+        <span className="ds-sem-spacer" />
+        {note && <span className="ds-sem-note-dot" title="This semester has a note" aria-label="This semester has a note">✎</span>}
+        <span className="ds-sem-cr">{hoursText(totalCr)}</span>
       </button>
 
       {isExpanded && (
@@ -113,6 +134,7 @@ export default function Semester({
                 onChange={e => setNoteText(e.target.value)}
                 onBlur={handleNoteBlur}
                 placeholder="Add a note for this semester..."
+                aria-label={`Note for ${name}`}
                 rows={2}
                 autoFocus
               />
@@ -130,7 +152,6 @@ export default function Semester({
                 course={courseMap[slot.class_code]}
                 selectedCode={planSlots[slot.id]}
                 selectedCourse={planSlots[slot.id] ? courseMap[planSlots[slot.id]] : null}
-                status={planStatuses[slot.id]}
                 openCredits={slot.is_pool && !planSlots[slot.id] ? remainders[slot.id] : undefined}
                 isSelected={selectedKey === slot.id}
                 onSelect={() => onSelectSlot(slot)}
@@ -142,6 +163,7 @@ export default function Semester({
                 isTransferFilled={!!transferFilled[slot.id]}
                 programTags={programTags[slot.id]}
                 isDimmed={!!dimmed[slot.id]}
+                needs={pickNeeds[slot.id]}
                 transferLabel={
                   CREDIT_TYPE_LABELS[transferDetails[slot.id]?.creditType] ?? 'Transfer'
                 }
@@ -170,14 +192,13 @@ export default function Semester({
           ))}
 
           <div className="ds-sem-foot">
-            <button onClick={onAddCourse}>+ Add course</button>
+            <button onClick={onAddCourse}>Add course</button>
             <button
-              className="ds-sem-foot-icon"
+              className="ds-sem-foot-note"
               onClick={() => setNoteOpen(o => !o)}
-              title={note ? 'Edit semester note' : 'Add semester note'}
-              aria-label={note ? 'Edit semester note' : 'Add semester note'}
+              aria-expanded={noteOpen}
             >
-              ✎
+              {note ? 'Edit note' : 'Add a note'}
             </button>
             {isEmpty && onDelete && <button onClick={onDelete}>Remove semester</button>}
           </div>
@@ -188,18 +209,20 @@ export default function Semester({
 }
 
 // ── Row presentation ──────────────────────────────────────────────────────────
-// Picks the dot, note text, and note tone for a row. Warnings outrank status
-// so a problem is never hidden behind a "planned" dot.
-function describeRow({ status, prereqMissing, coreqMissing, scienceWarning, poolLimitWarning, standingWarning, fallbackNote, isEmptyPool }) {
+// What a row says beyond its course: nothing for an ordinary course; for an exception a chip and the reason; for an open pick a "Pick a course"
+// look. Prerequisite and corequisite problems are Blocked; science, hours-limit and standing problems need attention. Problems outrank an
+// empty pick so one is never hidden behind it.
+//   -> { chip: 'blocked' | 'attention' | null, tone: 'blocked' | 'attention' | 'info' | null, note: string | null, pick: boolean }
+function describeRow({ prereqMissing, coreqMissing, scienceWarning, poolLimitWarning, standingWarning, fallbackNote, isEmptyPool, needs }) {
   if (prereqMissing?.length > 0) {
-    return { dot: 'blocked', tone: 'blocked', note: `Needs ${formatMissingForDisplay(prereqMissing)} in an earlier term` }
+    return { chip: 'blocked', tone: 'blocked', note: `Needs ${formatMissingForDisplay(prereqMissing)} in an earlier term`, pick: false }
   }
   if (coreqMissing?.length > 0) {
-    return { dot: 'blocked', tone: 'blocked', note: `Take with ${formatMissingForDisplay(coreqMissing)}` }
+    return { chip: 'blocked', tone: 'blocked', note: `Take with ${formatMissingForDisplay(coreqMissing)}`, pick: false }
   }
   if (scienceWarning) {
     return {
-      dot: 'blocked', tone: 'blocked',
+      chip: 'attention', tone: 'attention', pick: false,
       note: scienceWarning.type === 'incomplete'
         ? `Complete your ${scienceWarning.sequenceName} sequence`
         : 'Science sequence conflict',
@@ -207,13 +230,15 @@ function describeRow({ status, prereqMissing, coreqMissing, scienceWarning, pool
   }
   if (poolLimitWarning?.length > 0) {
     const w = poolLimitWarning[0]
-    return { dot: 'blocked', tone: 'blocked', note: `${w.hours} hrs: ${w.label.toLowerCase()}; at most ${w.maxHours} count` }
+    return { chip: 'attention', tone: 'attention', note: `${w.hours} hours of ${w.label.toLowerCase()}; at most ${w.maxHours} count`, pick: false }
   }
   if (standingWarning) {
-    return { dot: 'info', tone: 'info', note: `${standingWarning === 'senior' ? 'Senior' : 'Junior'} standing required` }
+    return { chip: null, tone: 'info', note: `${standingWarning === 'senior' ? 'Senior' : 'Junior'} standing required`, pick: false }
   }
-  if (isEmptyPool) return { dot: 'empty', tone: 'empty', note: fallbackNote }
-  return { dot: status ?? 'planned', tone: null, note: fallbackNote }
+  if (isEmptyPool) {
+    return { chip: null, tone: needs?.length ? 'attention' : null, note: needs?.length ? `${codesText(needs)} ${needs.length === 1 ? 'needs' : 'need'} this first` : fallbackNote, pick: true }
+  }
+  return { chip: null, tone: null, note: null, pick: false }
 }
 
 function useRowDrag(id, type) {
@@ -227,7 +252,8 @@ function useRowDrag(id, type) {
   return { dragProps: enabled ? { ref: setNodeRef, ...listeners, ...attributes } : { ref: setNodeRef }, isDragging }
 }
 
-function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPool, tag, credits, programTags, isDimmed }) {
+// `code` is a course code (shown in the code face) or, for an open pick, the requirement's name; `name` is the course's title.
+function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPick, name, tag, hours, programTags, isDimmed }) {
   return (
     <div
       {...dragProps}
@@ -242,10 +268,12 @@ function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPo
       onClick={onSelect}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
     >
-      <span className={`ds-dot ds-dot-${view.dot}`} aria-hidden="true" />
       <span className="ds-row-text">
-        <span className={`ds-row-code${codeIsPool ? ' ds-row-code-pool' : ''}`}>{code}</span>
-        <span className={`ds-row-note${view.tone ? ` ds-row-note-${view.tone}` : ''}`}>{view.note}</span>
+        <span className="ds-row-main">
+          <span className={`ds-row-code${codeIsPick ? ' ds-row-code-pool' : ''}`}>{codeIsPick ? code : formatCourseCode(code)}</span>
+          {name && <span className="ds-row-name">{name}</span>}
+        </span>
+        {view.note && <span className={`ds-row-note${view.tone ? ` ds-row-note-${view.tone}` : ''}`}>{view.note}</span>}
       </span>
       {tag && <span className="ds-row-tag">{tag}</span>}
       {programTags?.length > 0 && (
@@ -253,37 +281,36 @@ function Row({ dragProps, isDragging, isSelected, onSelect, view, code, codeIsPo
           {programTags.map(label => <span key={label} className="ds-row-prog">{label}</span>)}
         </span>
       )}
-      <span className="ds-row-cr">{credits}</span>
+      {view.chip && <StatusChip tone={view.chip} />}
+      {view.pick && <span className="ds-row-pick">Pick a course</span>}
+      <span className="ds-row-cr">{hours}</span>
     </div>
   )
 }
 
 function SlotRow({
-  slot, course, selectedCode, selectedCourse, status, openCredits,
+  slot, course, selectedCode, selectedCourse, openCredits,
   isSelected, onSelect,
   scienceWarning, poolLimitWarning, prereqMissing, coreqMissing, standingWarning,
-  isTransferFilled, transferLabel, programTags, isDimmed,
+  isTransferFilled, transferLabel, programTags, isDimmed, needs,
 }) {
   const { dragProps, isDragging } = useRowDrag(slot.id, 'requirement_slot')
 
   if (slot.is_pool) {
     const filled = !!selectedCode
-    const fallbackNote = isTransferFilled && !filled
-      ? `Satisfied by ${transferLabel} credit`
-      : filled
-        ? (selectedCourse?.name ?? 'Selected')
-        : 'Choose a course'
     const view = describeRow({
-      status, prereqMissing, coreqMissing, scienceWarning, poolLimitWarning, standingWarning,
-      fallbackNote, isEmptyPool: !filled && !isTransferFilled,
+      prereqMissing, coreqMissing, scienceWarning, poolLimitWarning, standingWarning,
+      fallbackNote: isTransferFilled && !filled ? `Satisfied by ${transferLabel} credit` : null,
+      isEmptyPool: !filled && !isTransferFilled, needs,
     })
     return (
       <Row
         dragProps={dragProps} isDragging={isDragging}
         isSelected={isSelected} onSelect={onSelect} view={view}
         code={filled ? selectedCode : (POOL_LABELS[slot.class_code] ?? slot.class_code)}
-        codeIsPool={!filled}
-        credits={`${selectedCourse?.credits ?? openCredits ?? slot.flex_credits ?? 3} cr`}
+        codeIsPick={!filled}
+        name={filled ? (selectedCourse?.name ?? 'Selected') : null}
+        hours={hoursText(selectedCourse?.credits ?? openCredits ?? slot.flex_credits ?? 3)}
         programTags={programTags} isDimmed={isDimmed}
       />
     )
@@ -292,27 +319,23 @@ function SlotRow({
   if (!course) {
     return (
       <div className="ds-row" aria-disabled="true">
-        <span className="ds-dot ds-dot-empty" aria-hidden="true" />
         <span className="ds-row-text">
-          <span className="ds-row-code">{slot.class_code}</span>
+          <span className="ds-row-main"><span className="ds-row-code">{formatCourseCode(slot.class_code)}</span></span>
           <span className="ds-row-note">Course not found in catalog</span>
         </span>
-        <span className="ds-row-cr">— cr</span>
+        <span className="ds-row-cr">{hoursText(null)}</span>
       </div>
     )
   }
 
-  const view = describeRow({
-    status, prereqMissing, coreqMissing, scienceWarning, standingWarning,
-    fallbackNote: course.name,
-  })
+  const view = describeRow({ prereqMissing, coreqMissing, scienceWarning, standingWarning })
   return (
     <Row
       dragProps={dragProps} isDragging={isDragging}
       isSelected={isSelected} onSelect={onSelect} view={view}
-      code={course.code}
+      code={course.code} name={course.name}
       tag={isTransferFilled ? transferLabel : null}
-      credits={`${course.credits} cr`}
+      hours={hoursText(course.credits)}
       programTags={programTags} isDimmed={isDimmed}
     />
   )
@@ -321,34 +344,28 @@ function SlotRow({
 // The hours a Free Elective's chosen courses leave open, as another choice. It
 // is derived from the slot (not stored), so it has nothing to drag.
 function RemainderRow({ slot, hours, isSelected, onSelect }) {
-  const view = describeRow({
-    fallbackNote: `${hours} cr left to fill. Choose a course`,
-    isEmptyPool: true,
-  })
+  const view = { chip: null, tone: null, note: `${hours} ${hours === 1 ? 'hour' : 'hours'} left to fill`, pick: true }
   return (
     <Row
       dragProps={{}} isDragging={false}
       isSelected={isSelected} onSelect={onSelect} view={view}
       code={POOL_LABELS[slot.class_code] ?? slot.class_code}
-      codeIsPool
-      credits={`${hours} cr`}
+      codeIsPick
+      hours={hoursText(hours)}
     />
   )
 }
 
 function FreeAddRow({ freeAdd, course, isSelected, onSelect, prereqMissing, coreqMissing }) {
   const { dragProps, isDragging } = useRowDrag(freeAdd.id, 'free_add')
-  const view = describeRow({
-    status: freeAdd.status, prereqMissing, coreqMissing,
-    fallbackNote: course?.name ?? freeAdd.course_code,
-  })
+  const view = describeRow({ prereqMissing, coreqMissing })
   return (
     <Row
       dragProps={dragProps} isDragging={isDragging}
       isSelected={isSelected} onSelect={onSelect} view={view}
-      code={freeAdd.course_code}
+      code={freeAdd.course_code} name={course?.name ?? null}
       tag={freeAdd.fills_slot_id != null ? 'Elective' : 'Added'}
-      credits={`${course?.credits ?? '—'} cr`}
+      hours={hoursText(course?.credits ?? null)}
     />
   )
 }
