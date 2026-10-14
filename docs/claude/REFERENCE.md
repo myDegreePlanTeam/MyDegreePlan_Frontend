@@ -668,6 +668,13 @@ the course cannot go to is disabled and says why), and a button that reads "Choo
 dialog. Escape goes back a step, then closes; focus returns to the panel whenever its view changes. `lib/hoursText.js` words hours ("4 hours") for the card, the panel and the move notes ("12 → 16 hours"). The plan calls for a row "more"
 menu as well; the whole row already opens these details, and a nested button inside the row's button would not be valid, so there is no second menu. `coursePanelRender.test.jsx` pins the markup and the stylesheet.
 
+### The Undo toast and the phone layout (`PLAN_redesign.md`, Phase 3d)
+
+Undo is a sentence and a button that appear after a change: **`shell/UndoToast.jsx`** ("Moved CSC 1310 to Fall 2027. Undo", `role="status"`, a Dismiss button). `pushUndo` in `DegreePlan.jsx` shows it for `UNDO_TOAST_MS` (8 s) and
+`handleUndo` hides it; a move's label now names where the course went. The header no longer carries a disabled "Nothing to undo" button: **Undo last change** shows there only while there is something to undo (the stack survives a
+reload, and the toast does not). `lib/undoStore.js` is untouched. On a phone the semesters are one column, the details are a bottom sheet and the toast sits above the tab bar; the plan's own buttons (Expand all, Undo last change) are
+44 px in the interface font. `undoToast.test.jsx` pins the above.
+
 ### `src/lib/genEdPanel.js`
 
 
