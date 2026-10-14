@@ -27,6 +27,7 @@ import { previousStep } from '../lib/wizardSteps'
 import { scoreLabels } from '../lib/scoreLabels'
 import { optionKeysOf, awardsForOption, chooseOption, appliesAtScore } from '../lib/examOptions'
 import './Dashboard.css'
+import Dialog, { DialogHead } from './Dialog'
 
 // Credit type options presented in Step 1.
 //
@@ -394,23 +395,13 @@ export default function PriorCreditWizard({
     return slots.find(s => s.class_code === code && !planArchived[s.id])
   }
 
-  // ── Backdrop click ────────────────────────────────────────────────
-  function handleBackdropClick(e) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-card wizard-card">
-
-        {/* Header */}
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Prior Credits — Step {step} of {maxStep(creditType, typeConfig)}</p>
-            <h3 className="modal-title">{stepTitle(step, creditType)}</h3>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
+    <Dialog labelledBy="prior-credit-title" onClose={onClose} busy={saving} className="ds-modal-picker ds-modal-wizard">
+        <DialogHead
+          id="prior-credit-title" onClose={onClose}
+          kicker={`Credits you already have · Step ${step} of ${maxStep(creditType, typeConfig)}`}
+          title={stepTitle(step, creditType)}
+        />
 
         {/* Body */}
         <div className="wizard-body">
@@ -486,7 +477,7 @@ export default function PriorCreditWizard({
                     >
                       <span className="add-credit-result-code">{c.code}</span>
                       <span className="add-credit-result-name">{c.name}</span>
-                      <span className="add-credit-result-cr">{formatCredits(c)} cr</span>
+                      <span className="add-credit-result-cr">{formatCredits(c)} hours</span>
                     </button>
                   ))}
                 </div>
@@ -550,7 +541,7 @@ export default function PriorCreditWizard({
                           onChange={() => setChosenOption(key)}
                         />
                         <span className="wizard-option-body">
-                          <span className="wizard-option-codes">{mine.map(a => a.awarded_course_code).join(' & ')} · {hours} cr</span>
+                          <span className="wizard-option-codes">{mine.map(a => a.awarded_course_code).join(' & ')} · {hours} hours</span>
                           <span className="wizard-option-names">{mine.map(a => a.course_name).join('; ')}</span>
                         </span>
                       </label>
@@ -588,7 +579,7 @@ export default function PriorCreditWizard({
                       {isPlacementOnly ? (
                         <span className="wizard-award-cr wizard-award-cr-placement">No credit hours</span>
                       ) : (
-                        <span className="wizard-award-cr">{award.credits_awarded} cr</span>
+                        <span className="wizard-award-cr">{award.credits_awarded} hours</span>
                       )}
                     </div>
                     {coveredBy ? (
@@ -652,7 +643,7 @@ export default function PriorCreditWizard({
               onClick={goBack}
               disabled={saving}
             >
-              {step === 1 ? 'Cancel' : '← Back'}
+              {step === 1 ? 'Cancel' : 'Back'}
             </button>
 
             {step === 4 && (
@@ -668,8 +659,7 @@ export default function PriorCreditWizard({
           </div>
         </div>
 
-      </div>
-    </div>
+    </Dialog>
   )
 }
 

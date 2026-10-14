@@ -5,6 +5,8 @@ import { searchCourses, rowsOfKind } from '../lib/courseSearch'
 import { creditRange, formatCredits, isVariableCredit, validateHours } from '../lib/creditHours'
 import CourseKindTabs from './CourseKindTabs'
 import CreditHoursField from './CreditHoursField'
+import Dialog, { DialogHead } from './Dialog'
+import { formatCourseCode } from '../lib/courseCodeFormat'
 import './Dashboard.css'
 
 // ── AddCourseModal ─────────────────────────────────────────────────────────────
@@ -92,22 +94,11 @@ export default function AddCourseModal({
     onAdd(selected, variable ? Number(hours) : undefined)
   }
 
-  function handleBackdropClick(e) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal-card">
-
-        <div className="modal-header">
-          <div>
-            <p className="modal-eyebrow">Add course</p>
-            <h3 className="modal-title">Semester {semesterNumber}</h3>
-            <p className="modal-sub">Search the full course catalog</p>
-          </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
+    <Dialog labelledBy="add-course-title" onClose={onClose} className="ds-modal-picker">
+        <DialogHead id="add-course-title" kicker={`Semester ${semesterNumber}`} title="Add a course" onClose={onClose}>
+          Search the full course catalog.
+        </DialogHead>
 
         <div className="modal-search-wrap">
           <input
@@ -123,7 +114,7 @@ export default function AddCourseModal({
 
         <div className="modal-course-list">
           {error && (
-            <p className="modal-empty" style={{ color: 'var(--danger)' }}>{error}</p>
+            <p className="modal-empty modal-error-text" role="alert">{error}</p>
           )}
 
           {!error && search.trim() === '' && (
@@ -158,7 +149,7 @@ export default function AddCourseModal({
               >
                 <div className="modal-course-info">
                   <div className="modal-course-top">
-                    <span className="modal-course-code">{course.code}</span>
+                    <span className="modal-course-code">{formatCourseCode(course.code)}</span>
                     <span className="add-course-subject">{course.subject_code}</span>
                     {isTaken && (
                       <span className="modal-status-badge taken">Already in plan</span>
@@ -169,7 +160,7 @@ export default function AddCourseModal({
                   </div>
                   <span className="modal-course-name">{course.name}</span>
                 </div>
-                <span className="modal-course-credits">{formatCredits(course)} cr</span>
+                <span className="modal-course-credits">{formatCredits(course)} hours</span>
               </button>
             )
           })}
@@ -193,7 +184,6 @@ export default function AddCourseModal({
           </div>
         </div>
 
-      </div>
-    </div>
+    </Dialog>
   )
 }

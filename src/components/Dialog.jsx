@@ -43,13 +43,21 @@ export default function Dialog({ labelledBy, onClose, busy = false, role = 'dial
   )
 }
 
-/** The top of a dialog: an optional line saying what it belongs to, the title the dialog is labelled by, and an optional sentence. */
-export function DialogHead({ id, kicker, title, children }) {
+/** The top of a dialog: an optional line saying what it belongs to, the title the dialog is labelled by, an optional sentence, and (for a picker) a Close button. */
+export function DialogHead({ id, kicker, title, onClose, children }) {
   return (
-    <div className="ds-modal-head">
-      {kicker && <p className="ds-modal-kicker">{kicker}</p>}
-      <h3 className="ds-modal-title" id={id}>{title}</h3>
-      {children && <p className="ds-modal-lede">{children}</p>}
+    <div className={`ds-modal-head${onClose ? ' ds-modal-head-close' : ''}`}>
+      <div className="ds-modal-head-text">
+        {kicker && <p className="ds-modal-kicker">{kicker}</p>}
+        <h3 className="ds-modal-title" id={id}>{title}</h3>
+        {children && <p className="ds-modal-lede">{children}</p>}
+      </div>
+      {onClose && (
+        <button type="button" className="ds-modal-close" onClick={onClose}>
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" /></svg>
+          Close
+        </button>
+      )}
     </div>
   )
 }

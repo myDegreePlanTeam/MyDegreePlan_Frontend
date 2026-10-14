@@ -37,7 +37,7 @@ export async function runScenario(target, { log = () => {} } = {}) {
     screens[name] = {
       sidebar: hasShell ? await readLines('.ds-sidebar') : [],
       main: hasShell ? await readLines('.ds-main') : [],
-      modal: await readLines('.ds-modal, .modal-backdrop'),   // Settings dialogs are .ds-modal; the prior-credit wizard is .modal-backdrop
+      modal: await readLines('.ds-modal'),   // every dialog is components/Dialog.jsx (.ds-modal), the prior-credit wizard included
       page: hasShell ? [] : await readLines('body'),
       ...extra,
     }
@@ -195,7 +195,7 @@ export async function runScenario(target, { log = () => {} } = {}) {
   await page.locator('.ds-prior-add').waitFor({ timeout: STEP_TIMEOUT })
   await grab('prior-coursework-panel')
   await page.locator('.ds-prior-add').click()
-  await page.locator('.modal-backdrop').waitFor({ timeout: STEP_TIMEOUT })
+  await page.locator('.ds-modal').waitFor({ timeout: STEP_TIMEOUT })
   await page.waitForTimeout(800)
   await grab('prior-credit-wizard')
 
