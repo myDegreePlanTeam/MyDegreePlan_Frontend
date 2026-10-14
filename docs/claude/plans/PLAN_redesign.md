@@ -1,7 +1,7 @@
 # PLAN — Redesign: design system and screens
 
 Status (2026-10-13): **Built.** Phases 1 to 8 are merged (Frontend PRs 104 to 115); Phase 9, the cleanup, is the PR that carries this note. The owner accepted the recommended answers to the five open questions on 2026-10-13 and asked for every phase to be built and merged the same day.
-What was built differs from the phases below in the ways listed under "What differs from this plan" at the end. Still open: the landing site (its own repo), the app icon, the board images, and the department's word on
+What was built differs from the phases below in the ways listed under "What differs from this plan" at the end. Still open: the board images, how the sign-in and update screens look on a real install, and the department's word on
 "Advising", "Plan check" and "semester". Source: the owner's request of 2026-10-13 for a full redesign.
 Design source (private, ask the owner for access): the Claude Design canvas "MyDegreePlan Redesign", <https://claude.ai/artifact/K9ud856hidymk75QEE2Vrb>.
 Related: [`ROADMAP.md`](../ROADMAP.md) ("Grid redesign: what is left", "App icon"), [`PLAN_double-major-minor.md`](./PLAN_double-major-minor.md),
@@ -226,4 +226,5 @@ All five questions this plan first asked are answered in Phase 0. What remains: 
 - **Docker parity leg**: the definition of done asks for it from the branch whenever `parity/` changes. It was not run for any phase (web ran locally, web and the Windows app in CI). It was run on `main` after Phase 9 merged: Docker walked the four-screen first run with no difference and failed on every Settings screen, because Docker's erase label and button were the same words and the comparison could not tell them apart. Fixed in `fix/docker-erase-words`, whose Docker leg passes on all three platforms.
 - **The Plan check list kept the old words until a follow-up PR** (`fix/plan-check-wording`): `lib/planIssues.js` now says "pick", "hours" and "semester", writes codes with a space (`spaceCourseCodes`), and each message ends with what to do next; `planIssues.test.js` builds every kind of message and fails on "slot", "credit", "term" or an unspaced code. The same pass changed "term" to "semester" in the course details, the row notes, Requirements, the move list, the undo label and two dialogs. The printed plan and audit still say "term" (the PDF documents are out of this plan's scope).
 - **Board images**: the approved boards were not exported to `docs/claude/design/`; only the canvas can export them.
-- **Not started**: the landing site's tokens and fonts (`MyDegreePlan_Site`, its own PR), and the app icon (`public/favicon.svg` is still the Vite default).
+- **The landing site** takes the app's tokens, fonts and icon in `MyDegreePlan_Site` PR #11 (its README's branding rule changes with it: no university names or logos, colors as the app's).
+- **The app icon was already there**: this plan and the roadmap said `public/favicon.svg` was the Vite default, but it has been the MyDegreePlan icon since Frontend PR #65 (2026-10-09). Nothing was redrawn.
