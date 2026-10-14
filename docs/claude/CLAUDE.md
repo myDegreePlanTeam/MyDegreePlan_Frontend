@@ -317,11 +317,18 @@ that section before changing the module. Rules that must hold even if you do not
   real `/^\s*none<BS>/` in `catalog/prereqParser.mjs`. A dropped backslash is not a control character, so check the
   written line (`sed -n Np file | cat -A`) after editing a regex. To change text that contains a backslash or an escaped
   newline, use the Edit tool, not `sed`, `node -e` or a nested heredoc (they re-escape it, and a heredoc inside a heredoc
-  hangs the shell until the timeout). A long edit or a setup script (backticks, apostrophes, several heredocs in one call)
-  goes through the Write or Edit tool, never a Bash heredoc: a `multi_replace` heredoc full of quotes failed to parse on
-  2026-10-03 and again on 2026-10-05. An empty heredoc fed to `python3 -` is the worst case here: Python 3.13 starts its
+  hangs the shell until the timeout). **A Bash command of about 7,500 characters or more does not reach the shell whole**: it
+  fails with "unexpected EOF while looking for matching" a quote. It is the length, not the quoting: of the 4,953 commands in
+  the transcripts up to 2026-10-13, all 15 of 7,572 characters or more failed and none of the shorter ones did for that reason,
+  while 227 heredocs of 40 lines or more with apostrophes ran fine (this line used to blame backticks and apostrophes, and four
+  retros repeated it). So a long edit, a long setup script or a new file goes through the Write or Edit tool, never a Bash
+  heredoc; a short heredoc with quotes in it is fine. `guard_bash.mjs` blocks a command of 7,000 bytes or more
+  (`# guard_bash: allow` does not lift that one; `# guard: long-command` does), and a doubled backslash in a heredoc that writes
+  a `.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`, `.tsx` or `.py` file (a test appended with `cat` lost the escapes of a `new RegExp`
+  template on 2026-10-13 and checked nothing). **Do not put `# guard_bash: allow` in a command as a habit**: it switches off every
+  other check for that command. An empty heredoc fed to `python3 -` is the worst case here: Python 3.13 starts its
   interactive prompt and loops (20 MB of output). A PreToolUse hook (`local-deploy/tools/guard_bash.mjs`, wired in
-  `MDP/.claude/settings.json`) now refuses that, an unclosed heredoc and a bare `python`/`node` before they run; put
+  `MDP/.claude/settings.json`) refuses that, an unclosed heredoc and a bare `python`/`node` before they run; put
   `# guard_bash: allow` in a command to run one deliberately.
 - **Before archiving, moving or deleting work, look in every place it can live:** `git stash list` (`mdp_status.sh` prints the
   count; `git stash show STASH` the files), local branches, untracked files and the remote. Concluding "never added" or "exists
@@ -461,10 +468,10 @@ See [`ROADMAP.md`](./ROADMAP.md). Do not implement roadmap items without explici
 7. For exact-text edits across several files, or in CRLF files, run `local-deploy/tools/multi_replace.py` from the `MDP/` folder
    (`python local-deploy/tools/multi_replace.py - <<'EOF'`; `--dry-run` previews). Format: one `@@@ file PATH` line per file, then
    any number of `@@@ old` / `@@@ new` pairs for it (a second `@@@ file` for the same path is merged in the order written, with a
-   note; a trailing `@@@ old` with no `@@@ new` makes the whole call write nothing). **A spec that is long, or has apostrophes,
-   backticks or backslashes, goes in a file written with the Write tool and run as `multi_replace.py PATH`, not in a heredoc**
+   note; a trailing `@@@ old` with no `@@@ new` makes the whole call write nothing). **A spec that is long (the whole command near 7,000
+   characters), or has backslashes, goes in a file written with the Write tool and run as `multi_replace.py PATH`, not in a heredoc**
    (a heredoc spec failed to parse on 2026-10-03, 10-05 and 10-08, and each time cost seven or more turns of throwaway Python
-   scripts). To delete a long stretch without retyping it, use `@@@ cut` (the text where it starts) and `@@@ until` (the text where it
+   scripts; the cause was the command's length, as the gotcha on edit input and backslashes explains, not its apostrophes or backticks). To delete a long stretch without retyping it, use `@@@ cut` (the text where it starts) and `@@@ until` (the text where it
    stops, kept): both must match once. Use it instead of writing a throwaway script: it writes nothing unless every edit matches, keeps CRLF and refuses control
    characters. The tools live in `local-deploy/tools/` (its README lists them) and are tracked in the Deploy repo.
    For a **structural** JSON edit (a catalog override, a manifest decision, a vocabulary entry) run
