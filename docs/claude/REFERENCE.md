@@ -692,6 +692,14 @@ Your data (`DeviceDataCard.jsx`) is "Export a backup" and "Import a backup". **S
 danger button: it deletes the plan, credits and scores, and asks once more). The erase row's label and button are platform words (`eraseLabel`, `eraseButton`: "Erase everything", or "Erase my plan" on Docker). The styles are scoped to
 `.ds-settings`, so the dialogs that still use `.ds-card` and `.ds-setting` keep their look until Phase 6. The parity scenario still finds Change through `.ds-setting` and Reset plan through `.ds-danger-card`. `settingsRender.test.jsx` pins the above.
 
+### The one dialog (`PLAN_redesign.md`, Phase 6)
+
+**`components/Dialog.jsx`** is the app's dialog: `<Dialog labelledBy onClose busy role>` draws the scrim (`.ds-modal-backdrop`) and the `.ds-modal` (`role="dialog"` or `"alertdialog"`, `aria-modal`, labelled by its title). Focus moves
+into it when it opens and back to what had it when it closes; Tab stays inside (`lib/focusTrap.js` `trapTarget`, pure and tested); Escape and a click on the scrim close it, unless `busy` (a save under way). `DialogHead` is the top: an
+optional line saying what it belongs to, the title, an optional sentence. Centred on a desktop (560 px); at 760 px or less the CSS makes it a bottom sheet with the actions stacked, the main one on top. The shell's dialogs use it:
+change major, add a major or minor, remove, reset (`SettingsView.jsx`, `AddProgramModal.jsx`) and the requisite conflict (`DegreePlan.jsx`). A choice in a list is a `.ds-option` with `aria-pressed` and a radio drawn by `.ds-option-mark`.
+No component draws its own `.ds-modal` (`dialog.test.jsx`). The parity scenario still finds a dialog by `.ds-modal`.
+
 ### `src/lib/genEdPanel.js`
 
 

@@ -32,6 +32,7 @@ import { getPoolRemainder } from '../lib/poolRemainder'
 import SlotModal from './SlotModal'
 import CoursePanel from './CoursePanel'
 import UndoToast from './shell/UndoToast'
+import Dialog, { DialogHead } from './Dialog'
 import { hoursText } from '../lib/hoursText'
 import { formatCourseCode } from '../lib/courseCodeFormat'
 import AddCourseModal from './AddCourseModal'
@@ -2195,17 +2196,12 @@ export default function DegreePlan({ profile, onProfileChange }) {
       )}
 
       {conflictModal && (
-        <div className="ds-modal-backdrop" onClick={() => setConflictModal(null)}>
-          <div className="ds-modal" role="alertdialog" aria-modal="true" onClick={e => e.stopPropagation()}>
-            <div className="ds-modal-head">
-              <p className="ds-eyebrow">Requisite conflict</p>
-              <h3 className="ds-modal-title">{conflictModal.title}</h3>
-              <p className="ds-sub" style={{ fontSize: 11 }}>
-                Nothing has moved yet. You can move it anyway (a plan sometimes has to pass through a state like this);
-                Plan check will keep flagging the requisite until it is met.
-              </p>
-            </div>
-            <ul className="ds-panel-list" style={{ margin: 0, padding: '16px 22px 16px 38px' }}>
+        <Dialog labelledBy="conflict-title" role="alertdialog" onClose={() => setConflictModal(null)}>
+            <DialogHead id="conflict-title" kicker="Requisite conflict" title={conflictModal.title}>
+              Nothing has moved yet. You can move it anyway (a plan sometimes has to pass through a state like this);
+              Plan check will keep flagging the requisite until it is met.
+            </DialogHead>
+            <ul className="ds-modal-list">
               {conflictModal.reasons.map((reason, i) => <li key={i}>{reason}</li>)}
             </ul>
             <div className="ds-modal-foot">
@@ -2223,8 +2219,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
                 </button>
               )}
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
     </div>
   )

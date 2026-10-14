@@ -683,44 +683,95 @@ button.ds-setting:hover { background: var(--ds-hover); }
 }
 .ds-picker .modal-footer-btns > .onboarding-btn { order: -1; }
 
-/* ── Modal (concentration picker) ────────────────────────────────────── */
+/* -- Dialog (redesign Phase 6) ----------------------------------------------------------------------------------------------------
+   One dialog (components/Dialog.jsx): centred on a desktop, a bottom sheet at 760 px or less. A scrim behind it; a title it is labelled
+   by; a scrolling body; the actions at the bottom, the main one last. --c-* tokens, the interface font, nothing under 13 px, 44 px controls. */
 .ds-modal-backdrop {
-  position: fixed; inset: 0; z-index: 40;
+  position: fixed; inset: 0; z-index: 200;
   display: flex; align-items: center; justify-content: center;
-  padding: 32px; background: var(--ds-overlay);
+  padding: var(--sp-6); background: rgba(8, 5, 18, .62);
 }
 .ds-modal {
-  width: 100%; max-width: 480px;
-  background: var(--bg-mid); border: 1px solid var(--bg-light);
-  border-radius: 14px; overflow: hidden; box-shadow: 0 24px 64px rgba(0, 0, 0, .5);
+  width: 100%; max-width: 560px; max-height: calc(100vh - 2 * var(--sp-6));
+  display: flex; flex-direction: column;
+  background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-card); overflow: hidden; box-shadow: 0 24px 64px rgba(0, 0, 0, .5);
+  font-family: var(--font-ui);
 }
-.ds-modal-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--bg-light); }
-.ds-modal-title { margin: 0 0 5px; font-family: var(--font-display); font-size: 22px; font-weight: 400; }
+.ds-modal:focus { outline: none; }
+.ds-app .ds-modal button, .ds-app .ds-modal select, .ds-app .ds-modal input, .ds-modal button, .ds-modal select, .ds-modal input { font-family: var(--font-ui); }
+.ds-modal-head { flex-shrink: 0; padding: var(--sp-5) var(--sp-5) var(--sp-4); border-bottom: 1px solid var(--c-hairline); }
+.ds-modal-kicker { margin: 0 0 var(--sp-1); font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-modal-title { margin: 0; font-family: var(--font-display); font-size: 28px; line-height: 34px; font-weight: 400; }
+.ds-modal-lede { margin: var(--sp-2) 0 0; font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
 .ds-modal-body {
-  padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;
-  max-height: 340px; overflow: auto;
+  flex: 1; min-height: 0; padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-1);
+  max-height: none; overflow: auto;
 }
-.ds-modal-text { padding: 6px 10px; font-size: 11.5px; color: var(--text-muted); line-height: 1.7; }
+.ds-modal-text { margin: 0; padding: var(--sp-2) 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--c-text-2); }
+.ds-modal-para { padding: var(--sp-4) var(--sp-5); }
+.ds-modal-error { color: var(--c-blocked); font-weight: 700; }
+.ds-modal-list { margin: 0; padding: var(--sp-4) var(--sp-5) var(--sp-4) calc(var(--sp-5) + var(--sp-5)); font-size: var(--fs-body); line-height: var(--lh-body); }
+.ds-modal-group { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-ui); line-height: var(--lh-ui); font-weight: 700; color: var(--c-text); }
+.ds-modal-group:first-child { margin-top: 0; }
+.ds-modal-subgroup { margin: var(--sp-2) 0 var(--sp-1); font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--c-text-2); }
+.ds-modal-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.ds-modal-search {
+  width: 100%; min-height: var(--target); margin: 0 0 var(--sp-2); padding: 0 var(--sp-3);
+  background: var(--c-surface); color: var(--c-text); border: 2px solid var(--c-border-strong); border-radius: var(--r-control);
+  font-size: var(--fs-body);
+}
+.ds-modal .ds-select { min-height: var(--target); }
+
+/* a choice in a list: a radio drawn by the mark, the name, and a note */
 .ds-option {
-  display: flex; align-items: center; gap: 13px; width: 100%;
-  padding: 13px 12px; border: none; border-radius: 9px;
-  background: transparent; cursor: pointer; color: var(--text); text-align: left;
+  display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: var(--target);
+  padding: var(--sp-2) var(--sp-3); border: 1px solid transparent; border-radius: var(--r-control);
+  background: transparent; cursor: pointer; color: var(--c-text); text-align: left;
 }
-.ds-option:hover { background: var(--bg-light); }
-.ds-option:disabled { opacity: .45; cursor: not-allowed; background: none; }
-.ds-option-selected { background: rgba(var(--gold-rgb), .1); }
-.ds-option-mark { font-size: 12px; flex-shrink: 0; color: var(--text-muted); }
-.ds-option-selected .ds-option-mark { color: var(--gold); }
+.ds-option:hover:not(:disabled) { background: var(--c-surface-2); }
+.ds-option:disabled { cursor: not-allowed; background: none; color: var(--c-text-2); }
+.ds-option-selected, .ds-option-selected:hover:not(:disabled) { background: var(--c-tint); border-color: var(--c-link); }
+.ds-option-mark {
+  width: 18px; height: 18px; flex-shrink: 0; border-radius: 50%;
+  border: 2px solid var(--c-border-strong); background: var(--c-surface);
+}
+.ds-option-selected .ds-option-mark { border-color: var(--c-primary); box-shadow: inset 0 0 0 3px var(--c-surface); background: var(--c-primary); }
 .ds-option-text { flex: 1; min-width: 0; }
-.ds-option-meta { font-size: 10px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.ds-modal .ds-setting-label { margin: 0; font-size: var(--fs-body); line-height: var(--lh-ui); }
+.ds-option:disabled .ds-setting-label { color: var(--c-text-2); }
+.ds-option-meta { font-size: var(--fs-ui); color: var(--c-text-2); white-space: nowrap; flex-shrink: 0; }
 .ds-modal-warn {
-  margin: 6px 10px 4px; padding: 10px 12px; border-radius: 8px;
-  font-size: 11px; line-height: 1.6;
-  color: var(--status-warn); background: rgba(var(--status-warn-rgb), .1);
+  margin: var(--sp-2) 0 0; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-control);
+  font-size: var(--fs-ui); line-height: var(--lh-ui);
+  color: var(--c-text); background: var(--c-attention-bg); box-shadow: inset 0 0 0 1px var(--c-attention);
 }
 .ds-modal-foot {
-  display: flex; gap: 10px; justify-content: flex-end;
-  padding: 14px 22px 18px; border-top: 1px solid var(--bg-light);
+  flex-shrink: 0; display: flex; flex-wrap: wrap; gap: var(--sp-3); justify-content: flex-end;
+  padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--c-hairline);
+}
+.ds-modal .ds-btn-primary, .ds-modal .ds-btn-ghost, .ds-modal .ds-btn-danger {
+  min-height: var(--target); padding: 0 var(--sp-5); border-radius: var(--r-control);
+  font-size: var(--fs-body); font-weight: 700; letter-spacing: 0;
+}
+.ds-modal .ds-btn-primary { background: var(--c-primary); color: var(--c-on-primary); }
+.ds-modal .ds-btn-primary:hover:not(:disabled) { background: var(--c-primary); filter: brightness(1.08); }
+.ds-modal .ds-btn-primary:disabled { background: var(--c-surface-2); color: var(--c-text-2); box-shadow: inset 0 0 0 1px var(--c-hairline); }
+.ds-modal .ds-btn-ghost { background: transparent; color: var(--c-link); border: 2px solid var(--c-border-strong); }
+.ds-modal .ds-btn-ghost:hover:not(:disabled) { color: var(--c-link); border-color: var(--c-link); background: var(--c-tint); }
+.ds-modal .ds-btn-danger { background: transparent; color: var(--c-blocked); border: 2px solid var(--c-blocked); }
+.ds-modal .ds-btn-danger:hover:not(:disabled) { background: var(--c-blocked-bg); }
+
+/* a bottom sheet on a phone: it rises from the bottom edge, full width, with the actions stacked */
+@media (max-width: 760px) {
+  .ds-modal-backdrop { align-items: flex-end; padding: 0; }
+  .ds-modal { max-width: none; max-height: 92vh; border-radius: var(--r-card) var(--r-card) 0 0; border-bottom: none; }
+  .ds-modal-head { padding: var(--sp-4); }
+  .ds-modal-title { font-size: 24px; line-height: 30px; }
+  .ds-modal-body { padding: var(--sp-3) var(--sp-4); }
+  .ds-modal-para { padding: var(--sp-4); }
+  .ds-modal-foot { flex-direction: column-reverse; padding: var(--sp-3) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom)); }
+  .ds-modal-foot > button { width: 100%; }
 }
 
 /* ── Loading skeleton (DegreeplanSkeleton in Skeletons.jsx) ──────────────
