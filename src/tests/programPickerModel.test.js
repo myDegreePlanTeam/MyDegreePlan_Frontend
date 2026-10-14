@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickerModel, onboardingSteps, stepBefore, stepAfter } from '../lib/programPicker'
+import { pickerModel, majorListModel, onboardingSteps, stepBefore, stepAfter } from '../lib/programPicker'
 import catalog from '../data/catalog.json'
 
 const T = catalog.tables
@@ -7,26 +7,66 @@ const programs = T.concentrations
 const plans = T.degree_plans
 
 describe('onboardingSteps', () => {
-  it('has the college step only with more than one college, and the concentration step only for a major with more than one program', () => {
-    expect(onboardingSteps({ hasCollegeStep: true, hasConcentrationStep: true })).toEqual(['college', 'major', 'concentration', 'term', 'scores', 'credits'])
-    expect(onboardingSteps({ hasCollegeStep: true, hasConcentrationStep: false })).toEqual(['college', 'major', 'term', 'scores', 'credits'])
-    expect(onboardingSteps({ hasCollegeStep: false, hasConcentrationStep: false })).toEqual(['major', 'term', 'scores', 'credits'])
+  it('is four screens: the major, the first semester, scores and credits, then the plan to look over', () => {
+    expect(onboardingSteps()).toEqual(['major', 'term', 'scores-and-credits', 'ready'])
   })
 
-  it('has no math sequence step: that screen was a display of the placement, and it is gone', () => {
-    const all = onboardingSteps({ hasCollegeStep: true, hasConcentrationStep: true })
-    expect(all).not.toContain('math')
-    expect(all).toHaveLength(6)
+  it('has no college, concentration or math step: they are part of the major screen, or worked out', () => {
+    const all = onboardingSteps()
+    for (const gone of ['college', 'concentration', 'math', 'scores', 'credits']) expect(all).not.toContain(gone)
   })
 
   it('goes forward and back along the steps, stopping at the ends', () => {
-    const steps = onboardingSteps({ hasCollegeStep: true, hasConcentrationStep: true })
-    expect(stepAfter(steps, 'college')).toBe('major')
-    expect(stepAfter(steps, 'major')).toBe('concentration')
-    expect(stepAfter(steps, 'credits')).toBe('credits')
-    expect(stepBefore(steps, 'term')).toBe('concentration')
-    expect(stepBefore(steps, 'college')).toBe('college')
-    expect(stepBefore(onboardingSteps({ hasCollegeStep: false, hasConcentrationStep: false }), 'term')).toBe('major')
+    const steps = onboardingSteps()
+    expect(stepAfter(steps, 'major')).toBe('term')
+    expect(stepAfter(steps, 'scores-and-credits')).toBe('ready')
+    expect(stepAfter(steps, 'ready')).toBe('ready')
+    expect(stepBefore(steps, 'ready')).toBe('scores-and-credits')
+    expect(stepBefore(steps, 'term')).toBe('major')
+    expect(stepBefore(steps, 'major')).toBe('major')
+  })
+})
+
+describe('majorListModel, with the real catalog', () => {
+  it('lists only the majors the planner supports, by college, and counts the rest', () => {
+    const m = majorListModel({ programs, plans })
+    const majors = m.groups.flatMap(g => g.majors)
+    expect(majors.length).toBeGreaterThan(0)
+    expect(majors.every(major => major.ready)).toBe(true)
+    expect(majors.map(major => major.majorName)).toEqual(expect.arrayContaining(['Computer Science', 'Mechanical Engineering', 'Biology', 'Chemistry']))
+    expect(m.hiddenCount).toBeGreaterThan(0)
+    expect(m.colleges.map(c => c.code)).toEqual(m.groups.map(g => g.college.code))
+  })
+
+  it('shows the rest when asked, still marked not ready', () => {
+    const some = majorListModel({ programs, plans })
+    const all = majorListModel({ programs, plans, showAll: true })
+    const count = model => model.groups.flatMap(g => g.majors).length
+    expect(count(all)).toBe(count(some) + some.hiddenCount)
+    expect(all.groups.flatMap(g => g.majors).filter(major => !major.ready)).toHaveLength(some.hiddenCount)
+    expect(all.colleges.length).toBeGreaterThanOrEqual(some.colleges.length)
+  })
+
+  it('filters by the college chip, and ignores a college that is not listed', () => {
+    const one = majorListModel({ programs, plans, college: 'engineering' })
+    expect(one.groups.map(g => g.college.code)).toEqual(['engineering'])
+    expect(one.colleges.length).toBeGreaterThan(1)          // the chips stay
+    expect(majorListModel({ programs, plans, college: 'nowhere' }).groups.length).toBe(one.colleges.length)
+  })
+
+  it('opens the major chosen, and the major of a chosen program', () => {
+    const cs = majorListModel({ programs, plans }).groups.flatMap(g => g.majors).find(major => major.majorName === 'Computer Science')
+    expect(majorListModel({ programs, plans, majorKey: cs.key }).openMajor.key).toBe(cs.key)
+    const chosen = majorListModel({ programs, plans, value: 'cybersecurity' })
+    expect(chosen.selected.code).toBe('cybersecurity')
+    expect(chosen.openMajor.key).toBe(cs.key)
+    expect(majorListModel({ programs, plans }).openMajor).toBeNull()
+  })
+
+  it('searches, and keeps closed programs out until asked', () => {
+    expect(majorListModel({ programs, plans, query: 'cyber' }).results.map(p => p.code)).toContain('cybersecurity')
+    expect(majorListModel({ programs, plans }).results).toBeNull()
+    expect(majorListModel({ programs, plans, query: 'data science' }).results.map(p => p.code)).not.toContain('dsai')
   })
 })
 
@@ -48,7 +88,6 @@ describe('pickerModel, with the real catalog', () => {
     const withMajor = pickerModel({ programs, plans, collegeCode: 'engineering', majorKey: cs.key })
     expect(withMajor.major.key).toBe(cs.key)
     expect(withMajor.hasConcentrationStep).toBe(true)
-    expect(onboardingSteps(withMajor)).toEqual(['college', 'major', 'concentration', 'term', 'scores', 'credits'])
   })
 
   it('has no concentration step for a major that is its own program', () => {

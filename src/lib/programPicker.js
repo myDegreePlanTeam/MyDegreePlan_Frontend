@@ -1,10 +1,8 @@
 // programPicker.js
 //
-// What the onboarding picker shows at each of its steps (college, major, concentration), from the programs and their plans. Pure: the
-// component only draws it. The steps are separate screens, like the rest of onboarding; this decides which of them a student sees:
-//   - the college step only when there is more than one college to choose from,
-//   - the concentration step only when the chosen major has more than one program (a base program and concentrations, or several concentrations).
-// A search on the first step skips the rest: its result is a whole program.
+// What the first-run picker shows, from the programs and their plans. Pure: the component only draws it. `majorListModel` is the screen
+// (search, college chips, majors grouped by college, the chosen major's concentrations in place); `pickerModel` is the grouping and the
+// closed-program rule under it. `onboardingSteps` is the order of first run's four screens.
 
 import { splitByOffering } from './catalogYears.js'
 import { closedDisclosure, groupByCollege, isProgramReady, searchPrograms } from './programBrowser.js'
@@ -36,12 +34,37 @@ export function pickerModel({ programs, plans, value = null, showClosed = false,
 }
 
 /**
- * The steps of onboarding in order, for what the student has chosen so far. The concentration step appears once a major with
- * more than one program is chosen; until then it is not counted.
- * @returns {string[]}  of 'college' | 'major' | 'concentration' | 'term' | 'scores' | 'credits'
+ * The first screen of first run: the majors a student can choose, grouped by college (redesign Phase 7). Search comes first; the colleges
+ * are filter chips, not a step; a major with more than one program shows its concentrations in place when it is chosen. The planner does
+ * not model every major yet, so the list starts with the ones it does and "Show the rest" adds the others (they stay marked Coming soon).
+ *
+ * @param {{ programs: Array, plans: Array, value?: string|null, majorKey?: string|null, showClosed?: boolean, college?: string|null, showAll?: boolean, query?: string }} input
+ *   value     the selected program's code;  majorKey  the major opened to choose a concentration (before a program is chosen)
+ *   college   the chip chosen, or null for all;  showAll  also list the majors the planner does not support yet
+ * @returns {{ colleges, groups, hiddenCount, results, selected, openMajor, disclosure, selectedIsClosed }}
  */
-export function onboardingSteps({ hasCollegeStep, hasConcentrationStep }) {
-  return [...(hasCollegeStep ? ['college'] : []), 'major', ...(hasConcentrationStep ? ['concentration'] : []), 'term', 'scores', 'credits']
+export function majorListModel({ programs, plans, value = null, majorKey = null, showClosed = false, college = null, showAll = false, query = '' }) {
+  const m = pickerModel({ programs, plans, value, showClosed, query })
+  const all = m.tree.map(c => ({ college: c.college, majors: c.majors.map(major => ({ ...major, ready: major.programs.some(isProgramReady) })) }))
+  const everyMajor = all.flatMap(c => c.majors)
+  const hiddenCount = everyMajor.filter(major => !major.ready).length
+  const shown = all
+    .map(c => ({ college: c.college, majors: showAll ? c.majors : c.majors.filter(major => major.ready) }))
+    .filter(c => c.majors.length > 0)
+  const colleges = shown.map(c => c.college)
+  const groups = college && colleges.some(c => c.code === college) ? shown.filter(c => c.college.code === college) : shown
+  const selectedMajor = m.selected ? everyMajor.find(major => major.programs.includes(m.selected)) ?? null : null
+  const openMajor = everyMajor.find(major => major.key === majorKey) ?? selectedMajor
+  return { colleges, groups, hiddenCount, results: m.results, selected: m.selected, openMajor, disclosure: m.disclosure, selectedIsClosed: m.selectedIsClosed }
+}
+
+/**
+ * The steps of first run, in order: the major (and its concentration, on the same screen), the first semester, test scores and credits
+ * already earned, and the plan to look over before it is saved.
+ */
+export const ONBOARDING_STEPS = ['major', 'term', 'scores-and-credits', 'ready']
+export function onboardingSteps() {
+  return ONBOARDING_STEPS
 }
 
 /** The step before `step` in `steps`, or the first. */

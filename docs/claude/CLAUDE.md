@@ -91,9 +91,9 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
 - **Which programs a student may choose is data**: open to their entry year (`last_catalog_year`) and with a plan for it
   (`availablePrograms`). Data Science & AI closed after `2025-2026`; a new major needs a `programs.json` entry and a
   spec, no frontend change.
-- **The picker is college → major → concentration, and onboarding asks for the program first.** `lib/programBrowser.js`
+- **Programs are grouped college → major → concentration, and first run asks for the major first.** `lib/programBrowser.js`
   (`groupByCollege`, `searchPrograms`, `programPath`, `termUnavailableNote`) and `components/ProgramPicker.jsx` do it; Settings'
-  change-program modal groups the same way. `src/data/colleges.json` is generated from the Prototype's `degree-specs/colleges.json`
+  change-major dialog groups the same way. `src/data/colleges.json` is generated from the Prototype's `degree-specs/colleges.json`
   by `npm run build:catalog` (programs carry only the college code). A database that lacks the new columns still works: programs
   group by `major_name` under "Other programs". The start-term step asks one thing, the student's first semester at Tennessee Tech
   (year, then semester), and offers only the terms the chosen program has a plan for (`termChoices` in `catalogYears.js`; a program
@@ -101,9 +101,11 @@ older year). Each plan's slots are `requirement_slots` rows with the same `catal
   being a freshman, transfer or returning student: `curriculumTypeForTerm` derives `student_type` from the term (before Fall 2026 is
   `'returning'`, which the math chain reads; later is `'incoming_freshman'`, which only means the new curriculum, because the column's CHECK
   allows no other value). A closed program (DSAI) is behind "Show closed programs", which turns into "Hide closed programs" (hiding
-  also drops a closed selection), and the step offers its replacement. Prior credit types, transfer credit included, are shown to everyone. **Onboarding is
-  one screen per step** (`lib/programPicker.js` `onboardingSteps`): college (only when there is more than one), major, concentration (only when the major has more than one
-  program), start term, test scores, prior credits; a search on the first screen finds a whole program and skips to the start term. There is **no math sequence step**
+  also drops a closed selection), and the step offers its replacement. Prior credit types, transfer credit included, are shown to everyone. **First run is
+  four screens** (`lib/programPicker.js` `onboardingSteps`): `major` (search first, the colleges as filter chips, the majors the planner supports listed by college with "Show the rest"
+  for the others, and the chosen major's concentrations as radios in place), `term`, `scores-and-credits`, and `ready` ("Your plan is ready": the finish, this semester's hours, where math
+  starts, the picks still to make). **Nothing is saved until "Open my plan"**: `lib/firstPlan.js` builds the plan from the choices (pure) and `Onboarding.jsx` writes it only then, so Back from the
+  last screen changes nothing. There is **no math sequence step**
   (it only displayed the placement): the placement is worked out from the scores when the plan is built, and the degree builder applies the math placement chain only to a plan
   that includes Calculus I (`planHasMathChain`; Business's MATH 1710 / 1530 are ordinary requirements). A program's first plan covers earlier entrants (`covers_earlier`); when that
   plan is Flight Foundations the fit is **approximate** (`isApproximateFit`): onboarding says so before they continue and the plan view
@@ -334,7 +336,8 @@ that section before changing the module. Rules that must hold even if you do not
   plans that are not Claude's to erase (do not add and remove a temporary launch.json entry each time). React ignores a plain `el.value = x`; use the native setter
   and dispatch an event. Pick the **year before the season**: changing the year clears the season. **Pass the `tabId` that
   `preview_start` returns to every browser call** (and `tabs_select` it): without it a call runs in whichever tab is fronted, which
-  can be another site (two calls ran on claude.ai on 2026-10-08). Verified 2026-10-08; paste this once per page load, then call it:
+  can be another site (two calls ran on claude.ai on 2026-10-08). `mdpOnboard` was rewritten on 2026-10-13 for the four-screen first run: the same steps pass
+  in Playwright (`parity/lib/scenario.mjs`), but the snippet itself has not been run in the pane since. Paste this once per page load, then call it:
 
   ```js
   const sleep = ms => new Promise(r => setTimeout(r, ms))
@@ -346,21 +349,23 @@ that section before changing the module. Rules that must hold even if you do not
   const btn = t => [...document.querySelectorAll('button')].find(b => b.textContent.trim().includes(t))
   const until = async (f, tries = 40) => { for (let i = 0; i < tries && !f(); i++) await sleep(300); return f() }
 
-  // Onboarding to a built plan. search finds the program, program is the result to click (a result is a .concentration-card button;
-  // the search box is the first input on the first screen, and a result skips the college, major and concentration screens). Then the
-  // start term: year, then semester (limited to what the program has a plan for). Then the scores: 6 input.onboarding-input in the
-  // order ACT Math, English, Science, Reading, Composite, SAT Math. Then the prior credits. To walk the screens instead of searching,
-  // click a .program-college, then a .program-major, then (if shown) a .concentration-card, with Continue after each.
+  // First run to a built plan, four screens. 1: search finds the program, program is the result to click (a result is a .fr-major
+  // button; the search box is the first input on the screen, and a result chooses the major and its concentration at once), then
+  // Continue. 2: the start term: year, then semester (select.fr-select, limited to what the program has a plan for). 3: the scores,
+  // 6 input.fr-input[type=number] in the order ACT Math, English, Science, Reading, Composite, SAT Math, then "Build my plan".
+  // 4: "Your plan is ready"; nothing is saved until "Open my plan". To choose without searching, click a .fr-major, then (if it
+  // shows radios) a .fr-conc.
   async function mdpOnboard({ search = 'Cybersecurity', program = 'CSC Cybersecurity', year = '2026', season = 'Fall', actMath = '29' } = {}) {
     await until(() => document.querySelector('input[type=search]'))
     setVal(document.querySelector('input[type=search]'), search); await sleep(300)
     btn(program).click(); await sleep(200); btn('Continue').click(); await sleep(300)
-    setVal(document.querySelectorAll('select.onboarding-select')[0], String(year)); await sleep(150)
-    setVal(document.querySelectorAll('select.onboarding-select')[1], season); await sleep(200)
+    setVal(document.querySelectorAll('select.fr-select')[0], String(year)); await sleep(150)
+    setVal(document.querySelectorAll('select.fr-select')[1], season); await sleep(200)
     btn('Continue').click(); await sleep(400)
-    setVal(document.querySelectorAll('input.onboarding-input')[0], String(actMath)); await sleep(100)
-    btn('Continue').click(); await sleep(400)
-    ;(btn('Build my degree plan') ?? btn('later')).click()
+    setVal(document.querySelectorAll('input.fr-input[type=number]')[0], String(actMath)); await sleep(100)
+    btn('Build my plan').click()
+    await until(() => btn('Open my plan'))
+    btn('Open my plan').click()
     return until(() => document.querySelector('.ds-sem'))   // the plan grid has rendered
   }
 
