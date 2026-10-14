@@ -10,6 +10,7 @@ import { selectWithOptional } from '../../lib/dbErrors'
 import { COMING_SOON, groupByCollege, isProgramReady, programPath, searchPrograms } from '../../lib/programBrowser'
 import { majorsHeading } from '../../lib/majors'
 import DeviceDataCard, { EraseCard } from './DeviceDataCard'
+import Dialog, { DialogHead } from '../Dialog'
 
 export default function SettingsView({
   profile,
@@ -337,27 +338,21 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
   const isDifferent = selected && selected.id !== currentId
 
   return (
-    <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !switching) onClose() }}>
-      <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="conc-title">
-        <div className="ds-modal-head">
-          <p className="ds-eyebrow">{currentGroup ? degreeTitle(currentGroup) : 'Your major'}</p>
-          <h3 className="ds-modal-title" id="conc-title">Change your major</h3>
-          <p className="ds-sub" style={{ fontSize: 11, lineHeight: 1.6 }}>
-            Prior credits and placement scores carry over. The plan is rebuilt for the new requirements.
-          </p>
-        </div>
+    <Dialog labelledBy="conc-title" onClose={onClose} busy={switching}>
+        <DialogHead id="conc-title" kicker={currentGroup ? degreeTitle(currentGroup) : 'Your major'} title="Change your major">
+          Prior credits and placement scores carry over. The plan is rebuilt for the new requirements.
+        </DialogHead>
         <div className="ds-modal-body">
           {loading ? (
             <p className="ds-modal-text">Loading programs…</p>
           ) : fetchError ? (
-            <p className="ds-modal-text" style={{ color: 'var(--danger)' }}>{fetchError}</p>
+            <p className="ds-modal-text ds-modal-error" role="alert">{fetchError}</p>
           ) : (
             <>
               {options.length > 10 && (
                 <input
                   type="search"
-                  className="ds-act-input"
-                  style={{ width: '100%', margin: '0 0 6px', textAlign: 'left' }}
+                  className="ds-modal-search"
                   placeholder="Search majors and concentrations"
                   aria-label="Search majors and concentrations"
                   value={query}
@@ -367,23 +362,24 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
               {tree.length === 0 && <p className="ds-modal-text">No program matches “{query.trim()}”.</p>}
               {tree.map(({ college, majors }) => (
                 <div key={college.code}>
-                  {tree.length > 1 && <p className="ds-eyebrow" style={{ margin: '14px 0 2px' }}>{college.short}</p>}
+                  {tree.length > 1 && <p className="ds-modal-group">{college.short}</p>}
                   {majors.map(major => (
                     <div key={major.key}>
-                      {(tree.length > 1 || majors.length > 1) && <p className="ds-eyebrow" style={{ margin: '10px 0 4px' }}>{degreeTitle(major)}</p>}
+                      {(tree.length > 1 || majors.length > 1) && <p className="ds-modal-subgroup">{degreeTitle(major)}</p>}
                       {major.programs.map(c => (
                         <button
                           key={c.id}
                           className={`ds-option${selected?.id === c.id ? ' ds-option-selected' : ''}`}
                           disabled={!isProgramReady(c) && c.id !== currentId}
+                          aria-pressed={selected?.id === c.id}
                           onClick={() => setSelected(c)}
                         >
-                          <span className="ds-option-mark" aria-hidden="true">{selected?.id === c.id ? '●' : '○'}</span>
+                          <span className="ds-option-mark" aria-hidden="true" />
                           <span className="ds-option-text">
                             <span className="ds-setting-label">{c.name}</span>
                           </span>
                           <span className="ds-option-meta">
-                            {c.id === currentId ? 'current' : isProgramReady(c) ? `${c.total_hours} hrs` : COMING_SOON}
+                            {c.id === currentId ? 'current' : isProgramReady(c) ? `${c.total_hours} hours` : COMING_SOON}
                           </span>
                         </button>
                       ))}
@@ -409,8 +405,7 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
             {switching ? 'Switching…' : isDifferent ? `Switch to ${selected.name}` : 'Choose a major'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -418,24 +413,19 @@ export function ConcentrationModal({ profile, onSwitch, onClose, switching }) {
 
 export function RemoveProgramModal({ name, role = 'major', onConfirm, onClose, removing }) {
   return (
-    <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !removing) onClose() }}>
-      <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="remove-program-title">
-        <div className="ds-modal-head">
-          <p className="ds-eyebrow">{role === 'minor' ? 'Your minors' : 'Your majors'}</p>
-          <h3 className="ds-modal-title" id="remove-program-title">Remove {name}?</h3>
-        </div>
-        <p className="ds-modal-text" style={{ padding: '16px 22px' }}>
+    <Dialog labelledBy="remove-program-title" onClose={onClose} busy={removing}>
+        <DialogHead id="remove-program-title" kicker={role === 'minor' ? 'Your minors' : 'Your majors'} title={`Remove ${name}?`} />
+        <p className="ds-modal-text ds-modal-para">
           This takes the courses only {name} needs out of your plan, along with the selections you made for them. Courses your
           {role === 'minor' ? ' majors' : ' other majors'} need stay where they are. Prior credits and your other selections are kept.
         </p>
         <div className="ds-modal-foot">
           <button className="ds-btn-ghost" onClick={onClose} disabled={removing}>Cancel</button>
-          <button className="ds-btn-danger" style={{ minHeight: 38 }} onClick={onConfirm} disabled={removing}>
+          <button className="ds-btn-danger" onClick={onConfirm} disabled={removing}>
             {removing ? 'Removing…' : 'Remove'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -443,23 +433,18 @@ export function RemoveProgramModal({ name, role = 'major', onConfirm, onClose, r
 
 export function ResetModal({ onConfirm, onClose, resetting }) {
   return (
-    <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !resetting) onClose() }}>
-      <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="reset-title">
-        <div className="ds-modal-head">
-          <p className="ds-eyebrow">Plan settings</p>
-          <h3 className="ds-modal-title" id="reset-title">Reset this plan?</h3>
-        </div>
-        <p className="ds-modal-text" style={{ padding: '16px 22px' }}>
+    <Dialog labelledBy="reset-title" onClose={onClose} busy={resetting}>
+        <DialogHead id="reset-title" kicker="Start over" title="Reset this plan?" />
+        <p className="ds-modal-text ds-modal-para">
           This clears all your course selections, added courses, and semester notes for your
           primary major, then rebuilds the default sequence. Prior credits and placement scores are kept.
         </p>
         <div className="ds-modal-foot">
           <button className="ds-btn-ghost" onClick={onClose} disabled={resetting}>Cancel</button>
-          <button className="ds-btn-danger" style={{ minHeight: 38 }} onClick={onConfirm} disabled={resetting}>
+          <button className="ds-btn-danger" onClick={onConfirm} disabled={resetting}>
             {resetting ? 'Resetting…' : 'Reset plan'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

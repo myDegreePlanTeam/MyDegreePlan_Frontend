@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import Dialog, { DialogHead } from '../Dialog'
 import { db } from '../../lib/dataClient'
 import { academicYearOf, degreeTitle, planForYear } from '../../lib/catalogYears'
 import { describeDelay } from '../../lib/whatIf'
@@ -92,36 +93,30 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
   const delay = effectKey && effect.key === effectKey && effect.result ? describeDelay(effect.result) : null
 
   return (
-    <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !adding) onClose() }}>
-      <div className="ds-modal" role="dialog" aria-modal="true" aria-labelledby="add-program-title">
-        <div className="ds-modal-head">
-          <p className="ds-eyebrow">{isMinor ? 'Your minors' : 'Your majors'}</p>
-          <h3 className="ds-modal-title" id="add-program-title">{isMinor ? 'Add a minor' : 'Add a major'}</h3>
-          <p className="ds-sub" style={{ fontSize: 11, lineHeight: 1.6 }}>
-            Your plan keeps its primary major and adds the courses {isMinor ? 'this minor' : 'this secondary major'} needs.
-          </p>
-        </div>
+    <Dialog labelledBy="add-program-title" onClose={onClose} busy={adding}>
+        <DialogHead id="add-program-title" kicker={isMinor ? 'Your minors' : 'Your majors'} title={isMinor ? 'Add a minor' : 'Add a major'}>
+          Your plan keeps its primary major and adds the courses {isMinor ? 'this minor' : 'this secondary major'} needs.
+        </DialogHead>
         <div className="ds-modal-body">
-          <p className="ds-eyebrow" style={{ margin: '0 0 6px' }}>Starting</p>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            <select className="ds-act-input" style={{ textAlign: 'left' }} aria-label={`Year you start the ${noun}`} value={year} onChange={e => { setYear(Number(e.target.value)); setSelected(null) }} disabled={adding}>
+          <p className="ds-modal-group">Starting</p>
+          <div className="ds-modal-row">
+            <select className="ds-select" aria-label={`Year you start the ${noun}`} value={year} onChange={e => { setYear(Number(e.target.value)); setSelected(null) }} disabled={adding}>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
-            <select className="ds-act-input" style={{ textAlign: 'left' }} aria-label={`Semester you start the ${noun}`} value={season} onChange={e => { setSeason(e.target.value); setSelected(null) }} disabled={adding}>
+            <select className="ds-select" aria-label={`Semester you start the ${noun}`} value={season} onChange={e => { setSeason(e.target.value); setSelected(null) }} disabled={adding}>
               {ENTRY_SEASONS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           {loading ? (
             <p className="ds-modal-text">Loading programs…</p>
           ) : fetchError ? (
-            <p className="ds-modal-text" style={{ color: 'var(--danger)' }}>{fetchError}</p>
+            <p className="ds-modal-text ds-modal-error" role="alert">{fetchError}</p>
           ) : (
             <>
               {options.length > 10 && (
                 <input
                   type="search"
-                  className="ds-act-input"
-                  style={{ width: '100%', margin: '0 0 6px', textAlign: 'left' }}
+                  className="ds-modal-search"
                   placeholder={isMinor ? 'Search minors' : 'Search majors'}
                   aria-label={isMinor ? 'Search minors' : 'Search majors'}
                   value={query}
@@ -132,23 +127,23 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
                 <p className="ds-modal-text">{query.trim() ? `No program matches “${query.trim()}”.` : `No other ${noun} can be added for that term yet.`}</p>
               )}
               {isMinor && minorList.map(c => (
-                <button key={c.id} className={`ds-option${chosen?.id === c.id ? ' ds-option-selected' : ''}`} onClick={() => setSelected(c)} disabled={adding}>
-                  <span className="ds-option-mark" aria-hidden="true">{chosen?.id === c.id ? '●' : '○'}</span>
+                <button key={c.id} className={`ds-option${chosen?.id === c.id ? ' ds-option-selected' : ''}`} aria-pressed={chosen?.id === c.id} onClick={() => setSelected(c)} disabled={adding}>
+                  <span className="ds-option-mark" aria-hidden="true" />
                   <span className="ds-option-text"><span className="ds-setting-label">{c.name}</span></span>
-                  <span className="ds-option-meta">{c.total_hours} hrs</span>
+                  <span className="ds-option-meta">{c.total_hours} hours</span>
                 </button>
               ))}
               {tree.map(({ college, majors }) => (
                 <div key={college.code}>
-                  {tree.length > 1 && <p className="ds-eyebrow" style={{ margin: '14px 0 2px' }}>{college.short}</p>}
+                  {tree.length > 1 && <p className="ds-modal-group">{college.short}</p>}
                   {majors.map(major => (
                     <div key={major.key}>
-                      {(tree.length > 1 || majors.length > 1) && <p className="ds-eyebrow" style={{ margin: '10px 0 4px' }}>{degreeTitle(major)}</p>}
+                      {(tree.length > 1 || majors.length > 1) && <p className="ds-modal-subgroup">{degreeTitle(major)}</p>}
                       {major.programs.map(c => (
-                        <button key={c.id} className={`ds-option${chosen?.id === c.id ? ' ds-option-selected' : ''}`} onClick={() => setSelected(c)} disabled={adding}>
-                          <span className="ds-option-mark" aria-hidden="true">{chosen?.id === c.id ? '●' : '○'}</span>
+                        <button key={c.id} className={`ds-option${chosen?.id === c.id ? ' ds-option-selected' : ''}`} aria-pressed={chosen?.id === c.id} onClick={() => setSelected(c)} disabled={adding}>
+                          <span className="ds-option-mark" aria-hidden="true" />
                           <span className="ds-option-text"><span className="ds-setting-label">{c.name}</span></span>
-                          <span className="ds-option-meta">{c.total_hours} hrs</span>
+                          <span className="ds-option-meta">{c.total_hours} hours</span>
                         </button>
                       ))}
                     </div>
@@ -172,7 +167,7 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
               {delay.detail && <><br />{delay.detail}</>}
             </p>
           )}
-          {error && <p className="ds-modal-text" role="alert" style={{ color: 'var(--danger)' }}>{error}</p>}
+          {error && <p className="ds-modal-text ds-modal-error" role="alert">{error}</p>}
         </div>
         <div className="ds-modal-foot">
           <button className="ds-btn-ghost" onClick={onClose} disabled={adding}>Cancel</button>
@@ -180,7 +175,6 @@ export default function AddProgramModal({ profile, role = 'major', addedPrograms
             {adding ? 'Adding…' : chosen ? `Add ${chosen.name}` : `Choose a ${noun}`}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
