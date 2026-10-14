@@ -659,6 +659,15 @@ the old effect that collapsed past semesters is gone. **`lib/planCheck.js`** `fl
 tones in `shell/statusTones.js` (a component file exports only components). `semesterRender.test.jsx`, `semesterDefaults.test.js` and `planCheck.test.js` pin the above, and the stylesheet (no text under 13 px, 44 px targets).
 The parity scenario reads the plan through `.ds-sem`; a collapsed semester has no rows, so its plan facts list the courses of the open semesters (the same on every platform).
 
+### Course details and Move to… (`PLAN_redesign.md`, Phase 3c)
+
+**`components/CoursePanel.jsx`** is the details for the selected row: beside the plan on a desktop (360 px, it pushes the plan over), a bottom sheet above the tab bar on a phone. **Move to…** is the one filled button and comes
+first; then any warning (Blocked colour for an unmet prerequisite or corequisite, Needs attention for science, plain for standing), the facts as a `<dl>` (status as a `StatusChip`, "N hours", term, offered), the requisites,
+"Counts toward" and the description; Change course and Clear selection / Remove from plan follow. Choosing Move to… swaps the body for **`components/MoveList.jsx`**, a radio list of every term (the term it is in is checked, a term
+the course cannot go to is disabled and says why), and a button that reads "Choose a term" until one is picked, then "Move to Spring 2027"; it calls `moveToSemester` as before, so a prerequisite conflict still opens the confirm
+dialog. Escape goes back a step, then closes; focus returns to the panel whenever its view changes. `lib/hoursText.js` words hours ("4 hours") for the card, the panel and the move notes ("12 → 16 hours"). The plan calls for a row "more"
+menu as well; the whole row already opens these details, and a nested button inside the row's button would not be valid, so there is no second menu. `coursePanelRender.test.jsx` pins the markup and the stylesheet.
+
 ### `src/lib/genEdPanel.js`
 
 
