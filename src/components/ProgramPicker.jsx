@@ -104,7 +104,7 @@ export default function ProgramPicker({
 
           {hiddenCount > 0 && (
             <p className="fr-scope">
-              {showAll ? 'Showing every major. The ones marked Coming soon are not in the planner yet.' : 'Showing majors the planner supports today.'}{' '}
+              {showAll ? 'Showing every major. The ones not in the planner yet cannot be chosen.' : 'Showing majors the planner supports today.'}{' '}
               <button type="button" className="fr-link" onClick={() => setShowAll(v => !v)}>{showAll ? 'Show only supported majors' : 'Show the rest'}</button>
             </p>
           )}

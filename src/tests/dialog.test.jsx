@@ -146,13 +146,34 @@ describe('the pickers use the same dialog (Phase 6b)', () => {
     }
   })
 
-  it('inside a dialog the old colour names mean the redesign colours, in both themes', () => {
+  it('sets the type and control sizes of the rows once, with no colour mapping left (the rows read the tokens themselves)', () => {
     const css = read('../components/shell/AppShell.css')
     const block = css.slice(css.indexOf('/* -- The pickers inside a dialog (redesign Phase 6b)'), css.indexOf('/* -- Loading skeleton'))
-    expect(block).toMatch(/:is\(\.ds-modal, \.ds-picker\) \{[^}]*--gold: var\(--c-link\);[^}]*--danger: var\(--c-blocked\);/)
-    expect(block).toMatch(/:root\[data-theme="light"\] :is\(\.ds-modal, \.ds-picker\) \{[^}]*--gold-rgb: 75, 50, 148;/)
+    expect(block).not.toMatch(/--(gold|navy|danger|bg|muted|white)(-[a-z]+)?:/)
     expect(block).toMatch(/font-family: var\(--font-ui\); font-size: var\(--fs-ui\); line-height: var\(--lh-ui\); letter-spacing: 0; text-transform: none;/)
     expect(block).toMatch(/:is\(\.onboarding-btn, \.onboarding-btn-secondary, \.modal-remove-btn\) \{\s*min-height: var\(--target\)/)
     expect(block).toMatch(/\.ds-modal-close \{[^}]*min-height: var\(--target\)/)
+  })
+})
+
+describe('the dialog hears its keys wherever focus is', () => {
+  // A step that swaps its content (the prior-credit wizard) removes the button that had focus; focus falls to the page. Escape and Tab
+  // must still reach the dialog, so it listens on the document, and stops listening when it closes.
+  const src = read('../components/Dialog.jsx')
+
+  it('listens on the document while it is open, and removes the listener when it closes', () => {
+    expect(src).toContain("document.addEventListener('keydown', onKeyDown, true)")
+    expect(src).toContain("return () => document.removeEventListener('keydown', onKeyDown, true)")
+    expect(src).not.toMatch(/<div[^>]*onKeyDown=/)
+  })
+
+  it('reads the latest onClose and busy, and does not close while a save is under way', () => {
+    expect(src).toContain('closeRef.current = onClose; busyRef.current = busy')
+    expect(src).toContain('if (!busyRef.current) closeRef.current()')
+  })
+
+  it('brings focus back into the dialog when Tab is pressed from outside it', () => {
+    expect(trapTarget(4, -1, false)).toBe(0)
+    expect(trapTarget(4, -1, true)).toBe(3)
   })
 })

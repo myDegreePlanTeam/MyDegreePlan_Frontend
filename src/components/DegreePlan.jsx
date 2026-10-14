@@ -2244,8 +2244,8 @@ function PriorCreditRow({ pc, countedAs, onRemove }) {
       className={`ds-prior-row${isDragging ? ' ds-prior-row-dragging' : ''}${countedAs ? ' ds-prior-row-dup' : ''}`}
       {...(dragEnabled ? { ...listeners, ...attributes } : {})}
     >
-      <span className="ds-prior-code">{pc.satisfies_course_code ?? '—'}</span>
-      <span className="ds-prior-cr">{isPlacement ? 'placement' : `${pc.credits_awarded} cr`}</span>
+      <span className="ds-prior-code">{pc.satisfies_course_code ? formatCourseCode(pc.satisfies_course_code) : '—'}</span>
+      <span className="ds-prior-cr">{isPlacement ? 'placement' : hoursText(pc.credits_awarded)}</span>
       <span className="ds-prior-note" title={pc.note ?? ''}>{pc.note ?? CREDIT_TYPE_LABELS[pc.credit_type] ?? pc.credit_type}</span>
       {countedAs
         ? <span className="ds-prior-dup" title={`${pc.satisfies_course_code} is also covered by ${countedAs}. Its hours count once.`}>already counted</span>
@@ -2254,10 +2254,9 @@ function PriorCreditRow({ pc, countedAs, onRemove }) {
         className="ds-prior-remove"
         onPointerDown={e => e.stopPropagation()}
         onClick={() => onRemove(pc.id)}
-        title="Remove this credit"
-        aria-label={`Remove ${pc.satisfies_course_code ?? 'credit'}`}
+        aria-label={`Remove ${pc.satisfies_course_code ? formatCourseCode(pc.satisfies_course_code) : 'credit'}`}
       >
-        ✕
+        Remove
       </button>
     </div>
   )

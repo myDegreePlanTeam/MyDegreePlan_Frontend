@@ -16,26 +16,39 @@ export default function Dialog({ labelledBy, onClose, busy = false, role = 'dial
     return () => { if (previous?.focus && document.contains(previous)) previous.focus({ preventScroll: true }) }
   }, [])
 
-  function onKeyDown(e) {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      if (!busy) onClose()
-      return
+  // The keys are heard on the document, not on the dialog: a step that swaps its content removes the control that had focus, focus
+  // then falls to the page, and a listener on the dialog would no longer hear Escape or Tab. The latest props are read through refs.
+  const closeRef = useRef(onClose)
+  const busyRef = useRef(busy)
+  useEffect(() => { closeRef.current = onClose; busyRef.current = busy })
+  useEffect(() => {
+    function onKeyDown(e) {
+      const dialog = ref.current
+      if (!dialog) return
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        if (!busyRef.current) closeRef.current()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const items = [...dialog.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length > 0)
+      // -1 when focus is on the dialog itself or has fallen outside it: Tab then goes to the first control (Shift+Tab to the last)
+      const target = trapTarget(items.length, items.indexOf(document.activeElement), e.shiftKey)
+      if (target === null) return
+      e.preventDefault()
+      if (target >= 0) items[target].focus()
+      else dialog.focus({ preventScroll: true })
     }
-    if (e.key !== 'Tab') return
-    const items = [...ref.current.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length > 0)
-    const target = trapTarget(items.length, items.indexOf(document.activeElement), e.shiftKey)
-    if (target === null) return
-    e.preventDefault()
-    if (target >= 0) items[target].focus()
-  }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, [])
 
   return (
     <div className="ds-modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !busy) onClose() }}>
       <div
         className={`ds-modal${className ? ` ${className}` : ''}`}
         role={role} aria-modal="true" aria-labelledby={labelledBy}
-        tabIndex={-1} ref={ref} onKeyDown={onKeyDown}
+        tabIndex={-1} ref={ref}
       >
         {children}
       </div>

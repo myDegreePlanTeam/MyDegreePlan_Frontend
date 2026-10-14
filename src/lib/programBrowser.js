@@ -25,7 +25,7 @@ export const READY_DEPARTMENTS = ['CSC']
 // (College of Arts and Sciences) are opened with their concentrations; their departments also hold Wildlife and Fisheries Science
 // (BIOL) and Biochemistry (CHEM), which are not.
 export const READY_MAJORS = ['mechanical_engineering', 'biology', 'chemistry']
-export const COMING_SOON = 'Coming soon'
+export const COMING_SOON = 'Not in the planner yet'
 
 /**
  * Whether a student may choose this degree program yet (see READY_DEPARTMENTS and READY_MAJORS). A minor is never chosen as the program

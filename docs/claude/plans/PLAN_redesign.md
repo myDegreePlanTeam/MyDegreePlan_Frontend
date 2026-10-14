@@ -1,7 +1,8 @@
 # PLAN — Redesign: design system and screens
 
-Status (2026-10-13): **Decisions taken (Phase 0 below), nothing built.** The owner accepted the recommended answers to the five open questions on 2026-10-13. Written to be
-executed in separate sessions; each phase below is one to four PRs and needs a go-ahead (`ROADMAP.md` rule: nothing here is implemented without an explicit instruction). Source: the owner's request of 2026-10-13 for a full redesign.
+Status (2026-10-13): **Built.** Phases 1 to 8 are merged (Frontend PRs 104 to 115); Phase 9, the cleanup, is the PR that carries this note. The owner accepted the recommended answers to the five open questions on 2026-10-13 and asked for every phase to be built and merged the same day.
+What was built differs from the phases below in the ways listed under "What differs from this plan" at the end. Still open: the landing site (its own repo), the app icon, the board images, and the department's word on
+"Advising", "Plan check" and "semester". Source: the owner's request of 2026-10-13 for a full redesign.
 Design source (private, ask the owner for access): the Claude Design canvas "MyDegreePlan Redesign", <https://claude.ai/artifact/K9ud856hidymk75QEE2Vrb>.
 Related: [`ROADMAP.md`](../ROADMAP.md) ("Grid redesign: what is left", "App icon"), [`PLAN_double-major-minor.md`](./PLAN_double-major-minor.md),
 [`parity/README.md`](../../../parity/README.md).
@@ -212,3 +213,16 @@ tokens and fonts. Not decided here: dual credit and dual enrollment (still disab
 
 All five questions this plan first asked are answered in Phase 0. What remains: the department's confirmation of "semester" and "Advising", and the export of the approved boards
 (Phase 0, "Still open"). Phase 1 can start on the owner's go-ahead.
+
+## What differs from this plan (written when Phase 9 merged)
+
+- **Phase 3c, the row "more" menu**: not built. The whole row already opens the details, where Move to… is the first button; a second button inside the row's button would not be valid markup.
+- **Phase 7 was one PR, not two**: 7a and 7b rewrite the same file and the same half of the parity scenario.
+- **"Your plan is ready" does not name the first pick that matters**: that needs the plan view's dependency check, which is not in a lib. The screen gives the count and points at Plan check; the plan says which pick once it is open.
+- **"Saved as you go" is not shown in first run**: nothing is saved until "Open my plan", so it would be untrue.
+- **The theme script is a file** (`public/theme-init.js`), not an inline script: the Windows app and the Docker web container refuse inline scripts.
+- **"Coming soon" has two meanings and kept one**: a major the planner does not have reads "Not in the planner yet"; a feature held back by `lib/features.js` still reads "Coming soon".
+- **Phase 8 was not looked at on a real install**: the sign-in pages (Docker) and the update banner and card (Docker, the Windows app) are covered by tests and by reading the diff only.
+- **Docker parity leg**: the definition of done asks for it from the branch whenever `parity/` changes. It was not run for any phase (web ran locally, web and the Windows app in CI). The first nightly run after these merges is the first time Docker walks the new first run.
+- **Board images**: the approved boards were not exported to `docs/claude/design/`; only the canvas can export them.
+- **Not started**: the landing site's tokens and fonts (`MyDegreePlan_Site`, its own PR), and the app icon (`public/favicon.svg` is still the Vite default).
