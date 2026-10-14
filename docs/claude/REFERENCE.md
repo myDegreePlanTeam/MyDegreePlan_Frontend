@@ -364,7 +364,9 @@ Phase 0 of [`PLAN_double-major-minor.md`](./plans/PLAN_double-major-minor.md); `
 returns the one slot list the plan view, `buildDegreePlan` and `buildDegreeAudit` already take, plus `programsOf` (every program a card serves), `shadows` / `shadowOf` (the added program's slots that are
 not on the grid, and the visible slot each stands behind), `freeElective` and `totalHours`. A fixed course two programs name is one card; a pool is never collapsed; general education comes from the primary
 (a pool of the added program with no counterpart left on the primary stays, and one that follows a different gen-ed program is dropped; a pool with a list of courses that another program's fixed course
-satisfies stands behind that course, `reason: 'satisfied'`); the added programs' own hours are spent from the primary's open Free
+satisfies stands behind that course, `reason: 'satisfied'`, in either direction: a primary pool with no other pick that a later program's
+required course satisfies leaves the grid too, as Biology's directed electives do for Chemistry's BIOL 4150; two different courses listed in
+`src/data/sharedCredit.json`, hand-maintained, count as one, `reason: 'duplicate'`); the added programs' own hours are spent from the primary's open Free
 Elective hours first (a bucket used up leaves the grid; the stored row is never changed). `expandToShadows(byTarget, shadowOf)` gives a hidden row the state of the card it stands behind (archived, picked
 course). `genEdKey(slot)` is the category a pool fills. Tests: `programMerge.test.js` (small cases, then Computer Science Core with Mathematics B.S., Business Analytics and Mechanical Engineering against the real catalog).
 

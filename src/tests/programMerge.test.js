@@ -339,3 +339,64 @@ describe('a minor\'s "M hours from this list" buckets, against the real catalog'
     expect(merged.programsOf[9001]).toEqual([1, 2])
   })
 })
+
+// ── A Biology and Chemistry double major (2026-10-14 reports) ────────────────────────────────────────────────────────────────────────
+describe('a Biology and Chemistry double major, from the real catalog', () => {
+  const pair = (first, second, planSlots = {}) => mergePrograms(
+    { programId: prog(first).id, slots: slotsOf(first), totalHours: planOf(first).total_hours },
+    [{ programId: prog(second).id, role: 'major', slots: slotsOf(second), totalHours: planOf(second).total_hours }],
+    { courses, planSlots },
+  )
+  const visibleCodes = merged => merged.slots.map(s => s.class_code)
+  const slotOf = (code, key) => slotsOf(code).find(s => s.class_code === key)
+
+  describe.each([['biol_bihs', 'chem_achf'], ['chem_achf', 'biol_bihs']])('%s with %s', (first, second) => {
+    const merged = pair(first, second)
+
+    it('keeps one of BIOL 3920 and CHEM 4920, which count for the same credit, and it counts toward both majors', () => {
+      const seminars = merged.slots.filter(s => ['BIOL3920', 'CHEM4920'].includes(s.class_code))
+      expect(seminars).toHaveLength(1)
+      expect(merged.programsOf[seminars[0].id]).toEqual([prog(first).id, prog(second).id])
+    })
+
+    it('asks for PHYS 2010 and PHYS 2020 once: Biology\'s required course satisfies Chemistry\'s "PHYS 2010 or PHYS 2110"', () => {
+      expect(visibleCodes(merged).filter(c => /PHYS20[12]0/.test(c))).toEqual(['PHYS2010', 'PHYS2020'])
+      expect(merged.shadows.filter(s => s.reason === 'satisfied').map(s => slotsOf('chem_achf').find(x => x.id === s.slotId)?.class_code))
+        .toEqual(expect.arrayContaining(['OR_PHYS2010_PHYS2110', 'OR_PHYS2020_PHYS2120']))
+    })
+
+    it('counts Chemistry\'s required BIOL 4150 Molecular Genetics (and CHEM 3020, CHEM 4610) toward Biology\'s directed electives', () => {
+      // Biology Health Sciences has four directed electives; the list names BIOL 4150, CHEM 3020 and CHEM 4610, which Forensic Chemistry requires
+      const directed = 'SET_BIOL_HEALTH_SCIENCE_BIOLOGY_DIRECTED_EL_C5B1'
+      expect(slotsOf('biol_bihs').filter(s => s.class_code === directed)).toHaveLength(4)
+      expect(visibleCodes(merged).filter(c => c === directed)).toHaveLength(1)
+      for (const code of ['BIOL4150', 'CHEM3020', 'CHEM4610']) {
+        const course = merged.slots.find(s => s.class_code === code)
+        expect(merged.programsOf[course.id], code).toEqual(expect.arrayContaining([prog('biol_bihs').id, prog('chem_achf').id]))
+      }
+    })
+
+    it('puts every slot of both programs on the grid or behind a shadow, once, and adds no hours for what is shared', () => {
+      const ids = [...merged.slots.map(s => s.id), ...merged.shadows.map(s => s.slotId)]
+      expect(new Set(ids).size).toBe(ids.length)
+      expect(new Set(ids)).toEqual(new Set([...slotsOf(first), ...slotsOf(second)].map(s => s.id)))
+      expect(merged.totalHours).toBeLessThan(planOf(first).total_hours + planOf(second).total_hours - 60)
+    })
+  })
+
+  it('leaves a Chemistry physics choice with another course picked for it alone (the student\'s pick stands)', () => {
+    const choice = slotOf('chem_achf', 'OR_PHYS2010_PHYS2110')
+    const merged = pair('chem_achf', 'biol_bihs', { [choice.id]: 'PHYS2110' })
+    expect(merged.slots.map(s => s.id)).toContain(choice.id)
+  })
+
+  it('PHYS 2010 dragged to prior coursework stays there: no copy of it comes back on the grid', () => {
+    // Chemistry primary, PHYS 2010 picked for its physics choice and dragged to Prior Coursework, then Biology added
+    const choice = slotOf('chem_achf', 'OR_PHYS2010_PHYS2110')
+    const merged = pair('chem_achf', 'biol_bihs', { [choice.id]: 'PHYS2010' })
+    const credit = [{ id: 'drag', credit_type: 'transfer_credit', satisfies_course_code: 'PHYS2010', satisfies_pool: 'OR_PHYS2010_PHYS2110', credits_awarded: 4 }]
+    const archived = resolveTransferCredits(credit, { [choice.id]: 'PHYS2010' }, merged.slots)
+    const onGrid = merged.slots.filter(s => !archived[s.id] && (s.class_code === 'PHYS2010' || s.class_code === 'OR_PHYS2010_PHYS2110'))
+    expect(onGrid).toEqual([])
+  })
+})
