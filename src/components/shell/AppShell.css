@@ -173,9 +173,39 @@
 .ds-progress-legend .ds-sep { color: var(--bg-light); }
 .ds-legend-done    { color: var(--status-done); }
 .ds-legend-planned { color: var(--gold); }
-.ds-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.ds-undo { max-width: 300px; overflow: hidden; }
-.ds-undo-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-header-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); flex-shrink: 0; }
+/* the plan's own buttons (Expand all, Undo last change): quiet outlines in the interface font, 44 px */
+.ds-app .ds-header-actions .ds-btn-ghost {
+  min-height: var(--target); padding: 0 var(--sp-4); border-radius: var(--r-control);
+  font-family: var(--font-ui); font-size: var(--fs-body); font-weight: 700;
+  color: var(--c-link); background: transparent; border: 2px solid var(--c-border-strong);
+}
+.ds-app .ds-header-actions .ds-btn-ghost:hover:not(:disabled) { color: var(--c-link); border-color: var(--c-link); background: var(--c-tint); }
+
+/* -- Undo toast (redesign Phase 3d): what just changed, and the one way back ------------------------------------------------------- */
+.ds-undo-toast {
+  position: fixed; left: 50%; bottom: 88px; transform: translateX(-50%); z-index: 190;
+  display: flex; align-items: center; gap: var(--sp-2);
+  max-width: min(560px, calc(100vw - 32px)); padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);
+  background: var(--c-surface-2); color: var(--c-text);
+  border: 1px solid var(--c-border-strong); border-radius: var(--r-card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+  font-family: var(--font-ui); font-size: var(--fs-body); line-height: var(--lh-ui);
+}
+.ds-undo-toast-text { min-width: 0; flex: 1; }
+.ds-app .ds-undo-toast button { font-family: var(--font-ui); }
+.ds-undo-toast-undo {
+  flex-shrink: 0; min-height: var(--target); padding: 0 var(--sp-5); cursor: pointer;
+  background: var(--c-primary); color: var(--c-on-primary); border: none; border-radius: var(--r-control);
+  font-size: var(--fs-body); font-weight: 700;
+}
+.ds-undo-toast-undo:hover { filter: brightness(1.08); }
+.ds-undo-toast-close {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: var(--target); height: var(--target); cursor: pointer;
+  background: transparent; color: var(--c-text-2); border: none; border-radius: var(--r-control);
+}
+.ds-undo-toast-close:hover { background: var(--c-tint); color: var(--c-text); }
 
 .ds-plan-body { flex: 1; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 16px; }
 .ds-plan-body .completion-banner { margin: 0; }
@@ -756,6 +786,8 @@ button.ds-setting:hover { background: var(--ds-hover); }
   .ds-account { display: none; }
   .ds-main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .ds-plan-header, .ds-plan-body, .ds-view { padding-left: 16px; padding-right: 16px; }
+  .ds-undo-toast { left: 16px; right: 16px; transform: none; max-width: none; bottom: calc(56px + env(safe-area-inset-bottom) + 12px); z-index: 40; }
+  .ds-header-actions { width: 100%; }
   /* the details are a bottom sheet on a phone: it rises over the plan and leaves the tab bar visible */
   .ds-panel {
     top: auto; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); width: 100%; height: auto; max-height: 82vh;

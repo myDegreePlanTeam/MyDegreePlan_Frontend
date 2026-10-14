@@ -31,6 +31,7 @@ import { calculateCredits } from '../lib/semesterCredits'
 import { getPoolRemainder } from '../lib/poolRemainder'
 import SlotModal from './SlotModal'
 import CoursePanel from './CoursePanel'
+import UndoToast from './shell/UndoToast'
 import { hoursText } from '../lib/hoursText'
 import { formatCourseCode } from '../lib/courseCodeFormat'
 import AddCourseModal from './AddCourseModal'
@@ -66,6 +67,8 @@ import './shell/AppShell.css'
 
 // Credit-hour thresholds for academic standing
 const STANDING_THRESHOLDS = { junior: 60, senior: 90 }
+// how long the Undo toast stays after a change (long enough to read a sentence and reach the button)
+const UNDO_TOAST_MS = 8000
 
 // student_free_add_slots columns every database has. fills_slot_id links a
 // follow-up pick to the Free Elective slot it spends hours from. It is in the
@@ -226,10 +229,19 @@ export default function DegreePlan({ profile, onProfileChange }) {
     saveErrorTimerRef.current = setTimeout(() => setSaveError(null), 5000)
   }
 
-  // Every record carries a `label` — the Undo button reads "Undo — <label>".
+  // Every record carries a `label` ("Moved CSC 1310 to Fall 2027"): the toast says it, with Undo beside it, for a few seconds.
   // The stack is kept in the browser between visits (lib/undoStore.js), so a record carries the time it was made.
+  const [undoToast, setUndoToast]                   = useState(null)
+  const undoToastTimerRef                           = useRef(null)
+  function hideUndoToast() {
+    if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current)
+    setUndoToast(null)
+  }
   function pushUndo(record) {
     setUndoStack(prev => [...prev.slice(-(UNDO_LIMIT - 1)), stampUndo(record)])
+    if (undoToastTimerRef.current) clearTimeout(undoToastTimerRef.current)
+    setUndoToast(record.label ?? 'Changed your plan')
+    undoToastTimerRef.current = setTimeout(() => setUndoToast(null), UNDO_TOAST_MS)
   }
 
   function markSaved() {
@@ -858,7 +870,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     const prevSelectedCredits  = planSelectedCredits
 
     pushUndo({
-      type: 'pool_select', slotId: slot.id, label: `Chose ${course.code}`,
+      type: 'pool_select', slotId: slot.id, label: `Chose ${formatCourseCode(course.code)}`,
       prevCourseCode: planSlots[slot.id] ?? null,
       prevCreditsRemaining: planCreditsRemaining[slot.id] ?? 0,
       prevSelectedCredits: planSelectedCredits[slot.id] ?? null,
@@ -912,6 +924,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
 
   // ── Undo the most recent action ───────────────────────────────────
   async function handleUndo() {
+    hideUndoToast()
     if (!undoStack.length) return
     const record = undoStack[undoStack.length - 1]
     setUndoStack(prev => prev.slice(0, -1))
@@ -1021,7 +1034,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
     }
 
     setFreeAddSlots(prev => [...prev, data])
-    if (data) pushUndo({ type: 'free_add', freeAddId: data.id, label: `Added ${course.code}` })
+    if (data) pushUndo({ type: 'free_add', freeAddId: data.id, label: `Added ${formatCourseCode(course.code)}` })
     markSaved()
     return data
   }
@@ -1191,7 +1204,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         return
       }
 
-      pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester, label: `Moved ${courseCode ?? slotCode(slot)}` })
+      pushUndo({ type: 'drag_slot', slotId, prevSemester: currentSemester, label: `Moved ${formatCourseCode(courseCode ?? slotCode(slot))} to ${semLabels[newSemester] ?? 'another term'}` })
       const prevOverrides = planSemesterOverrides
       setPlanSemesterOverrides(prev => ({ ...prev, [slotId]: newSemester }))
 
@@ -1224,7 +1237,7 @@ export default function DegreePlan({ profile, onProfileChange }) {
         return
       }
 
-      pushUndo({ type: 'drag_free', freeAddId: slotId, prevSemester: fa.semester_number, label: `Moved ${fa.course_code}` })
+      pushUndo({ type: 'drag_free', freeAddId: slotId, prevSemester: fa.semester_number, label: `Moved ${formatCourseCode(fa.course_code)} to ${semLabels[newSemester] ?? 'another term'}` })
       const prevFreeAdds = freeAddSlots
       setFreeAddSlots(list =>
         list.map(f => f.id === slotId ? { ...f, semester_number: newSemester } : f)
@@ -1896,17 +1909,15 @@ export default function DegreePlan({ profile, onProfileChange }) {
                 <button className="ds-btn-ghost" onClick={toggleAll}>
                   {anyExpanded ? 'Collapse all' : 'Expand all'}
                 </button>
-                <button
-                  className="ds-btn-primary ds-undo"
-                  onClick={handleUndo}
-                  disabled={!lastUndo}
-                  title={lastUndo ? `${undoStack.length} action(s) can be undone` : 'Nothing to undo'}
-                >
-                  <span style={{ fontSize: 13, flexShrink: 0 }} aria-hidden="true">↺</span>
-                  <span className="ds-undo-label">
-                    {lastUndo ? `Undo — ${lastUndo.label ?? 'last change'}` : 'Nothing to undo'}
-                  </span>
-                </button>
+                {lastUndo && (
+                  <button
+                    className="ds-btn-ghost ds-undo"
+                    onClick={handleUndo}
+                    title={`${lastUndo.label ?? 'Last change'}. ${undoStack.length === 1 ? '1 change' : `${undoStack.length} changes`} can be undone.`}
+                  >
+                    Undo last change
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2166,6 +2177,8 @@ export default function DegreePlan({ profile, onProfileChange }) {
           switching={switching}
         />
       )}
+
+      <UndoToast label={undoToast} onUndo={handleUndo} onDismiss={hideUndoToast} />
 
       {saveError && (
         <div className="save-error-toast" role="alert">
